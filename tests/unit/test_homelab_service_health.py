@@ -6,6 +6,7 @@ from nabla.api.cloudflare_tunnels import CloudflareTunnelIngress, CloudflareTunn
 from nabla.api.homelab_declared import RuntimeBinding
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
+from nabla.api.homelab_runtime_models import ObservedContainer
 from nabla.api.homelab_service_health import build_reconciled_service_health, reconcile_service_state
 
 
@@ -377,3 +378,75 @@ def test_access_evidence_is_exported_and_never_proves_origin_health(
     assert row["internal_state"] == lan_state
     # An Access redirect is edge evidence only: never "ok", even with a healthy LAN origin.
     assert row["state"] == "warn"
+
+
+def test_true_nas_app_running_does_not_hide_exited_primary_prometheus() -> None:
+    service = HomelabService(id="prometheus", name="Prometheus", external=False)
+    app = ObservedApp(
+        app_id="prometheus",
+        name="prometheus",
+        state="RUNNING",
+        containers=[
+            ObservedContainer(service_name="prometheus", state="exited"),
+            ObservedContainer(service_name="node-exporter", state="running"),
+            ObservedContainer(service_name="alertmanager", state="running"),
+        ],
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(app), tunnels=[],
+    )[0]
+    assert row["runtime_state"] == "RUNNING"
+    assert row["runtime_primary_container_state"] == "EXITED"
+    assert row["runtime_primary_container_issue"] is True
+    assert row["state"] == "warn"
+
+
+def test_exited_init_sidecar_does_not_degrade_running_primary() -> None:
+    service = HomelabService(id="gatus", name="Gatus", external=False)
+    app = ObservedApp(
+        app_id="gatus", name="gatus", state="RUNNING",
+        containers=[
+            ObservedContainer(service_name="gatus", state="running"),
+            ObservedContainer(service_name="migration", state="exited"),
+        ],
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(app), tunnels=[],
+    )[0]
+    assert row["runtime_primary_container_state"] == "RUNNING"
+    assert row["runtime_primary_container_issue"] is False
+    assert row["state"] == "ok"
+
+
+def test_ambiguous_primary_is_unknown_not_synthetic_success() -> None:
+    service = HomelabService(id="prometheus", name="Prometheus", external=False)
+    app = ObservedApp(
+        app_id="prometheus", name="prometheus", state="RUNNING",
+        containers=[
+            ObservedContainer(service_name="prometheus", state="running"),
+            ObservedContainer(service_name="prometheus", state="exited"),
+        ],
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(app), tunnels=[],
+    )[0]
+    assert row["runtime_primary_container_state"] is None
+    assert row["runtime_primary_container_issue"] is False
+
+
+def test_stale_runtime_container_issue_does_not_claim_current_failure() -> None:
+    service = HomelabService(id="prometheus", name="Prometheus", external=False)
+    app = ObservedApp(
+        app_id="prometheus", name="prometheus", state="RUNNING",
+        containers=[ObservedContainer(service_name="prometheus", state="exited")],
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(app, stale=True), tunnels=[],
+    )[0]
+    assert row["runtime_primary_container_state"] == "EXITED"
+    assert row["runtime_primary_container_issue"] is False
+    assert row["state"] == "unknown"
