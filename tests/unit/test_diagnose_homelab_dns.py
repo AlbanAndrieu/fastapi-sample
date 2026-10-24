@@ -130,7 +130,9 @@ def test_slow_but_correct_system_answer_is_not_reported_fast(monkeypatch, capsys
     assert "WARNING: host resolver returned" in output
 
 
-def test_system_timeout_preserves_unverified_and_recommends_host_checks(monkeypatch, capsys):
+def test_system_timeout_preserves_unverified_and_recommends_host_checks(
+    monkeypatch, capsys
+):
     monkeypatch.setattr(mod.shutil, "which", lambda _binary: "/usr/bin/mock")
 
     def fake_run(command, **_kwargs):

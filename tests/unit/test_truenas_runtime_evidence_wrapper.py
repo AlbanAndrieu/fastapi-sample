@@ -88,10 +88,10 @@ def test_dns_only_uses_host_vantage_without_runtime_or_docker() -> None:
     assert 'diagnose-homelab-dns.py' in source
     assert '--vantage "$vantage" --resolver-context --strict' in source
     assert source.index('if ((dns_only)); then') < source.index(
-        'if [[ ! -f "$script" ]]'
+        'if [[ ! -f "$script" ]]',
     )
     assert source.index('if ((dns_only)); then') < source.index(
-        'python3 "$script" --url "$runtime_url"'
+        'python3 "$script" --url "$runtime_url"',
     )
 
 
