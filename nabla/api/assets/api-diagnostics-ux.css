@@ -222,3 +222,32 @@
     opacity: 1;
   }
 }
+
+/* Visa responsive filters: keyboard-accessible disclosure and reset. */
+#service-filter-advanced[hidden],
+#service-filter-reset-all[hidden] { display: none !important; }
+.service-filter-visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.service-filter-advanced { min-width: 0; }
+.service-filter--global .service-filter-reset-all {
+  min-height: 44px; padding-inline: .6rem; white-space: nowrap;
+}
+.service-filter--global .service-filter-reset-all:focus-visible,
+.service-filter--global .service-filter-density-toggle:focus-visible {
+  outline: 2px solid #93c5fd; outline-offset: 2px;
+}
+@media (max-width: 720px) {
+  .service-filter--global .service-filter-advanced:not([hidden]) {
+    display: grid; gap: .35rem; min-height: 0;
+    max-height: min(58dvh, 32rem); overflow: auto;
+    overscroll-behavior: contain; padding-top: .4rem;
+  }
+  .service-filter--global .service-filter-active:not([hidden]) {
+    display: flex; flex-flow: row nowrap; overflow-x: auto;
+    overscroll-behavior-inline: contain; gap: .25rem;
+  }
+  .service-filter--global .service-filter-active-chip { flex: 0 0 auto; }
+}
