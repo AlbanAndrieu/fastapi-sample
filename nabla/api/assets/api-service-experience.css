@@ -72,6 +72,12 @@
   border-right: 1px solid #384252;
 }
 .service-probe-path-phase:last-child { border-right: none; }
+.service-probe-path-phase + .service-probe-path-phase::before {
+  content: "→";
+  padding-right: 0.25rem;
+  color: #a5b5ca;
+  font-weight: 700;
+}
 .service-probe-path-phase-label {
   padding-right: 0.2rem;
   color: #aab7c8;
@@ -223,6 +229,9 @@
     border-right: 0;
     border-bottom: 1px solid #293545;
     padding: 0.25rem 0;
+  }
+  .service-probe-path-phase + .service-probe-path-phase::before {
+    content: none;
   }
   .truenas-stage {
     width: 138px;
