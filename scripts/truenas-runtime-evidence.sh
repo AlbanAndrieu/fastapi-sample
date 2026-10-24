@@ -5,16 +5,18 @@ set -euo pipefail
 runtime_url="${FASTAPI_RUNTIME_URL:-http://172.17.0.24:8091}"
 mode=basic
 vantage=auto
+dns_only=0
 while (($#)); do
   case "$1" in
     --strict) mode=strict ;;
     --detail) mode=report ;;
+    --dns-only) dns_only=1 ;;
     --vantage)
       [[ $# -ge 2 ]] || { echo '❌ --vantage requires a value' >&2; exit 2; }
       vantage="$2"
       shift ;;
     --help|-h)
-      printf 'Usage: %s [--strict|--detail] [--vantage auto|truenas|workstation]\n' "$0"
+      printf 'Usage: %s [--strict|--detail|--dns-only] [--vantage auto|truenas|workstation]\n' "$0"
       exit 0 ;;
     *) printf '❌ Unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -38,6 +40,11 @@ script="$root/scripts/diagnose-local-runtime-dependencies.py"
 if [[ ! -f "$script" ]]; then
   echo '❌ FastAPI diagnostic script not found in this checkout.' >&2
   exit 2
+fi
+
+# DNS-only is bounded and read-only; it does not call a FastAPI API or Docker.
+if ((dns_only)); then
+  exec python3 "$root/scripts/diagnose-homelab-dns.py" --vantage "$vantage" --strict
 fi
 
 printf '📍 Observer=%s; target=TrueNAS (172.17.0.24)\n' "$vantage"
