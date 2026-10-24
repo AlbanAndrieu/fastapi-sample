@@ -267,6 +267,7 @@ async def fetch_platform_metrics(
     query_client = client or httpx.AsyncClient(
         base_url=effective.base_url,
         timeout=timeout,
+        headers=effective.access_headers,
         follow_redirects=False,
         trust_env=False,
     )
