@@ -217,6 +217,10 @@ function decorateRow(row, presentation, check, node) {
   const riskState = normalize(check?.risk_state || check?.exposure?.risk_state);
   const environments = resolvedEnvironments(node);
 
+  // Public topology node identity enables navigation between canonical cards.
+  // Never link by a display name or untrusted URL.
+  if (node?.id) row.dataset.topologyId = String(node.id);
+  else delete row.dataset.topologyId;
   row.dataset.presentationRole = presentation.role;
   row.dataset.criticality = presentation.criticality;
   row.dataset.presentationGroup = presentation.group;
