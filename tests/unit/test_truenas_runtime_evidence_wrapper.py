@@ -117,7 +117,7 @@ def test_dns_only_executes_without_api_helper(tmp_path: Path) -> None:
         timeout=5,
     )
     assert result.returncode == 0, result.stderr
-    assert "DNS_ONLY_STUB --vantage workstation --strict" in result.stdout
+    assert "DNS_ONLY_STUB --vantage workstation --resolver-context --strict" in result.stdout
 
     # Normal mode must still fail closed when its API helper is missing.
     normal = subprocess.run(

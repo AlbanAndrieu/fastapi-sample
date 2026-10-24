@@ -184,7 +184,8 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 "DIAGNOSIS: direct pfSense DNS works, but host NSS/getent "
                 "could not resolve the internal name. "
-                "Check NSS and per-link resolver routing on THIS host."
+                "Check /etc/nsswitch.conf hosts, /etc/resolv.conf, "
+                "and per-link resolver routing on THIS host."
             )
         else:
             print("DIAGNOSIS: direct pfSense or system DNS evidence is missing.")
