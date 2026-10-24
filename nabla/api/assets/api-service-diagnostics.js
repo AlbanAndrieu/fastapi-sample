@@ -533,7 +533,13 @@ function decorateRow(row, snapshot) {
   const health =
     findCheck(healthChecks, row) || findCheck(homelabChecks, row) || null;
   const observedExposure = findCheck(sickzChecks, row);
-  const declared = findCheck(snapshot?.homelab?.services, row);
+  // Use a canonical ID for catalogue declarations: shared TrueNAS IP
+  // addresses cannot be used to infer another service's privacy intent.
+  const rowId = String(row.dataset.topologyId ||
+    row.dataset.serviceKey || "").replace(/^albandrieu_/, "").replaceAll("_", "-");
+  const declared = (Array.isArray(snapshot?.homelab?.services)
+    ? snapshot.homelab.services
+    : []).find((entry) => entry?.id === rowId);
   // A catalog declaration may explain intent but never certify security.
   const exposure = observedExposure || (
     typeof declared?.external === "boolean"
