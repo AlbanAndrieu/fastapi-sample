@@ -5,7 +5,7 @@ export function resetOwnerSessionStatus() {
   statusPromise = null;
 }
 
-export async function ownerSessionAvailable() {
+async function sessionCapabilities() {
   if (!statusPromise) {
     statusPromise = fetch("/api/ui/session", {
       credentials: "same-origin",
@@ -13,15 +13,27 @@ export async function ownerSessionAvailable() {
       headers: { Accept: "application/json" },
     })
       .then(async (response) => {
-        if (!response.ok) return false;
+        if (!response.ok) return { authenticated: false, readOnly: false };
         const status = await response.json();
-        // In temporary rollback mode, all GET diagnostics are read-only public.
-        // No login cookie is issued, and mutations remain protected.
-        return status.authenticated === true || status.readOnlyDiagnostics === true;
+        return {
+          authenticated: status.authenticated === true,
+          readOnly: status.readOnlyDiagnostics === true,
+        };
       })
-      .catch(() => false);
+      .catch(() => ({ authenticated: false, readOnly: false }));
   }
   return statusPromise;
+}
+
+// Authentication and the temporary public read capability are distinct.
+// Mutation controls MUST depend on ownerSessionAvailable alone.
+export async function ownerSessionAvailable() {
+  return (await sessionCapabilities()).authenticated;
+}
+
+export async function diagnosticsReadAvailable() {
+  const status = await sessionCapabilities();
+  return status.authenticated || status.readOnly;
 }
 
 export function installOwnerSessionControls(onAuthenticated) {
