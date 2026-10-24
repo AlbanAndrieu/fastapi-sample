@@ -127,7 +127,11 @@ function mapTrueNasStatus() {
   // Filter by visible measured protocol stages, not the declared capabilities.
   const allowed = new Set(["dns", "tcp", "tls", "http", "api", "websocket"]);
   const protocols = new Set(
-    [...panel.querySelectorAll(".truenas-stage:not(.truenas-stage--blocked) .truenas-stage-protocol")]
+    [
+      ...panel.querySelectorAll(
+        ".truenas-stage:not(.truenas-stage--blocked) .truenas-stage-protocol",
+      ),
+    ]
       .map((node) => String(node.textContent || "").trim().toLowerCase())
       .filter((name) => allowed.has(name)),
   );
