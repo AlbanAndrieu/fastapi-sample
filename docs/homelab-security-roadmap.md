@@ -1,3 +1,13 @@
+## 24 octobre 2026 — Preuve explicite d'exécution des sondes LAN
+
+- [x] Dans le DTO OWNER schéma 6, ajouter `services[].internal_probe_execution` : `disabled`, `not-configured`, `not-executed`, `stale`, `failed`, `observed`. La santé applicative conserve ses champs et sa logique propres.
+- [x] Projeter `internal_probes_enabled` depuis le snapshot de chaque collecte dans `build_reconciled_service_health`. L'absence de sonde n'est pas un échec ; une panne n'est confirmée que par une observation datée.
+- [x] Ajouter six tests unitaires sur Docker RUNNING avec LAN désactivé/non exécuté/configuré/échoué/réussi/périmé.
+- [ ] Déployer uniquement dans le collecteur TrueNAS autorisé les changements du backend quand le contrôle qualité local est validé.
+- [ ] Vérifier l'état effectif du conteneur TrueNAS avec `nabla-compose/scripts/truenas/verify-fastapi-lan-probes.sh`. Le `compose.yml` TrueNAS a déjà l'option LAN activée ; le snapshot FastAPI Cloud du 24/10 renvoie `false`, ce qui ne constitue pas une contradiction de configuration.
+- [ ] Mettre en place un canal OWNER vers le collecteur local, avec contrôle des JWT/service tokens, validation de la source, liste de cibles autorisées et rate limits. N'activer aucune sonde LAN côté FastAPI Cloud.
+- [ ] Tester le chemin Gatus et les exporters Prometheus avec une provenance explicite et une date de dernière observation. Ne pas fusionner « absence de scrape » et « scrape en échec ».
+
 ## Vérification OWNER / sondes du 24 octobre 2026 (P0)
 
 - [x] Vérifier les données utilisateur du snapshot `/api/homelab-health` schéma 6 (13:08:36 UTC) : TrueNAS 95 apps (81 RUNNING, 13 STOPPED, 1 DEPLOYING) ; services 88 (27 OK, 24 WARN, 14 FAIL, 23 UNKNOWN).
