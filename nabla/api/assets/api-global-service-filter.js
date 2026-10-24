@@ -328,12 +328,12 @@ function syncCompactState(host) {
   host.dataset.expanded = String(!compact);
   const advanced = document.getElementById("service-filter-advanced");
   if (advanced) advanced.hidden = compact;
+  const state = currentFilterState();
+  const activeCount = Object.entries(state).filter(
+    ([key, value]) => key === "query" ? Boolean(value.trim()) : value !== "all",
+  ).length;
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
-    const state = currentFilterState();
-    const activeCount = Object.entries(state).filter(
-      ([key, value]) => key === "query" ? Boolean(value.trim()) : value !== "all",
-    ).length;
     button.textContent = mobile
       ? compact
         ? "Filters"
