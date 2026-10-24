@@ -6,6 +6,14 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Contrat SERVICE Backstage v2 partagé avec Site Alban (2026-10-24)
+
+- [x] `nabla-compose/catalog/generated/entities.json` reste la source des identités déclarées. Audit actuel : 154 entités (128 Component, 23 Resource, 1 Domain, 1 Group, 1 System) ; les 151 Component/Resource/API ont une correspondance d'icône dans les 176 `webAssets` de Compose. Le site génère ses chemins d'icônes localement et ne doit pas les recopier dans le DTO FastAPI.
+- [x] Projeter la santé par `entityRef` sans réutiliser une seule observation identifiée par `metadata.name` lorsque ce nom désigne plusieurs entités Backstage : toutes les correspondances ambiguës retournent `unknown`, jamais un état `ok` supposé. Correction et test dans la PR #373.
+- [ ] Exécuter les tests existants de `tests/unit/test_site_health_v2.py`, les tests des vues publiques et la quality gate locale au HEAD exact, sans GitHub Actions. La reproduction ciblée de la correction a passé 3/3 tests en environnement isolé ; la suite complète reste NON EXÉCUTÉE.
+- [ ] Vérifier la parité `catalogRevision` et `entityRef` avec la PR site #254 en Preview exact-SHA, pour les 151 entités canoniques. Si une observation est inconnue, l'afficher `unknown`, sans inventer de sonde ou de relation.
+- [ ] Retirer les accès temporaires `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY` après validation MFA/VPN. Conserver le SERVICE public expurgé indépendant des diagnostics OWNER.
+
 ## P0 — Incident FastAPI Cloud : UI vide et faux besoin de connexion OWNER (2026-10-23)
 
 - [x] Diagnostiquer les deux causes indépendantes : le bootstrap du navigateur bloquait le health board sur `ownerSessionAvailable()`, et `/api/ui/services` échouait sans repli lorsque `catalog/generated/entities.json` (Backstage v2) était indisponible.
