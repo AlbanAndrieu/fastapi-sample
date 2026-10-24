@@ -5,7 +5,7 @@ min_version = "2024.9.5"
 # .tool-versions). CI reads `node` from here. uv remains the project
 # package/runtime manager and the repository targets maintained Python 3.13 for the existing lock.
 python = "3.13.17"
-node = "24.22.1"
+node = "24"
 go = "1.25.5"
 ruby = "3.4.7"
 kube-score = "1.20.0"

@@ -2075,7 +2075,7 @@ wheels = [
 
 [[package]]
 name = "fastapi-sample"
-version = "1.24.7"
+version = "1.25.0"
 source = { editable = "." }
 default-groups = ["ai", "api", "api-cli", "base", "cpu", "db", "deployment", "dev", "encryption", "open-telemetry", "panda", "utils"]
 dependencies = [
