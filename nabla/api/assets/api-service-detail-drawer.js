@@ -296,7 +296,9 @@ function linkedCatalogueItem(entry, { status = "", type = "" } = {}) {
     });
     link.setAttribute("aria-label", `View ${entry.name} service diagnostics`);
   }
-  link.textContent = entry.name;
+  link.textContent = target && entry.name === entry.id
+    ? displayName(target)
+    : entry.name;
   wrap.appendChild(link);
   const detail = document.createElement("small");
   const cardState = target ? `card: ${normalizedStatus(target)}` : "card not shown";
