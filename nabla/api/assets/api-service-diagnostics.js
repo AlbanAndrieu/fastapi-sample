@@ -580,10 +580,10 @@ function decorateRow(row, snapshot) {
     const name = document.createElement("strong");
     name.textContent = "Diagnostic path";
     const count = document.createElement("span");
-    const observed = [...strip.children].filter(
+    const enabled = [...strip.children].filter(
       (badge) => badge.dataset.probeDisabled !== "true",
     ).length;
-    count.textContent = `${observed} observed / ${strip.children.length} checks`;
+    count.textContent = `${enabled} enabled / ${strip.children.length} signals`;
     heading.append(name, count);
     strip.prepend(heading);
   }
