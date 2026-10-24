@@ -71,6 +71,31 @@ possède Next.js/Vercel, icônes et cache du navigateur.
 **Référence** : [modèle des diagnostics](platform-service-diagnostics-model.md)
 et [règles de sécurité](homelab-security-roadmap.md).
 
+## P0 — Cartes de service et sondes Gatus
+
+- [x] Enrichir le tiroir `Details` existant : verdict explicite
+  `UP/FAILED/WARNING/UNVERIFIED/NOT RUN`, détails DNS/HTTP/TLS/Access,
+  token et Prometheus issus des **preuves déjà rendues**, sans sondes
+  supplémentaires par carte.
+- [x] Lier les références upstream/downstream aux cartes du catalogue
+  **par identifiant de nœud publié** ; ne pas inventer d'URL réseau pour
+  des dépendances non exposées. Le lien navigue dans le tiroir.
+- [x] Gatus : calculer depuis le snapshot Prometheus borné les checks
+  `UP/DOWN/unknown`, afficher le compte de sondes rouges sur la carte
+  Gatus et la liste cliquable dans le tiroir. Jamais de verdict « toutes
+  vertes » sans parité avec le catalogue Gatus.
+- [ ] Accepter sur une Preview au **SHA exact** les états token 401/403,
+  erreurs DNS/TCP, métriques absentes et dépendances multiples.
+  L'URL production n'était pas accessible depuis l'agent ; résultat
+  live **NOT_RUN**.
+- [ ] Après diagnostic Gatus LAN (owner Compose), rapprocher
+  son nombre de sondes déclarées, les dernières mesures et les
+  `nabla_service_id` observés ; isoler les sondes volontairement
+  arrêtées des véritables pannes, sans falsifier les critères.
+- [ ] Proposer un filtre `failed evidence only`, une URL partageable
+  `?service=<id>`, navigation retour entre services, et historique
+  de latence/availability 5m uniquement si les mesures sont fraîches.
+
 ## P1 — Refactoring orienté domaine
 
 - [ ] **`nabla/api/platform_metrics.py`** : séparer contrat des métriques

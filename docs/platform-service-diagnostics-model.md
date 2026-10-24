@@ -107,3 +107,28 @@ This prevents the visual reordering/flicker that previously occurred when option
 - the **Legend / how to read** summary remains discoverable even in compact mode.
 
 The legend states the ownership rule directly: **Cards = canonical operational state; Flow = path/dependency context.**
+
+## UI 2026-10-25 — Evidence drawer, relation navigation and Gatus
+
+The service detail drawer owns human-readable DNS/TCP/TLS/HTTP,
+Cloudflare Access/Service Token and Prometheus probe evidence. It sorts
+failures before warnings and shows explicit text alongside color.
+Its header reports local versus dependency status; **a green Docker
+status is not a green HTTP or Gatus check**.
+
+Published public topology relations are navigable only when their
+canonical IDs map to an existing service row. Do not synthesize URLs,
+open private hosts automatically, or link an ambiguous ID by guessed
+service name. The linked card's status is contextual and independent
+from the relation's health.
+
+Gatus is the **scheduler**, not a guarantee that all monitors succeed.
+`up{job="gatus"}` verifies scraping; `synthetic_probes.services`
+contains bounded labelled endpoint metrics. The dashboard reports only
+observed successes/failures, tracks unverified/stale/truncated data and
+does not claim full catalogue coverage. For true monitor parity and
+current failures, run the private `nabla-compose`
+`scripts/truenas/diagnose-gatus-monitors.py --check`. No browser-side
+polling of Gatus/Prometheus is permitted. An HTTP 401/403 from an
+Access-protected service is an authorization result, not evidence that
+the underlying service is offline.
