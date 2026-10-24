@@ -33,9 +33,24 @@ function signal(label, value, source, detail) {
   };
 }
 
+function serviceIds(row) {
+  const key = String(row?.dataset?.serviceKey || "").toLowerCase().trim();
+  const clean = key.replace(/^albandrieu_/, "").replaceAll("_", "-");
+  const topology = String(row?.dataset?.topologyId || "")
+    .toLowerCase().trim().split("/").at(-1);
+  // Legacy health-check keys and Backstage entityRefs may differ from the
+  // nabla_service_id in Gatus. Never join merely by a display label.
+  return [...new Set(
+    [clean, topology, key, ID_ALIASES[clean], ID_ALIASES[key]]
+      .filter(Boolean),
+  )];
+}
+
 function serviceId(row) {
-  const key = String(row?.dataset?.serviceKey || "").toLowerCase();
-  return ID_ALIASES[key] || key;
+  const ids = serviceIds(row);
+  return ids.find((id) => Object.hasOwn(EXPORTERS, id)) ||
+    ids.find((id) => ID_ALIASES[id]) ||
+    ids[0] || "";
 }
 
 export function serviceTelemetry(snapshot, row) {
@@ -49,7 +64,11 @@ export function serviceTelemetry(snapshot, row) {
     "Prometheus recording rule",
     sourceState,
   );
-  const perService = gatusServiceEvidence(snapshot, id);
+  const observations = serviceIds(row).map((key) =>
+    gatusServiceEvidence(snapshot, key)
+  );
+  const perService = observations.find((item) => item.probes.length > 0) ||
+    observations[0] || { status: "unverified", probes: [] };
   const monitored = perService.status !== "unverified";
   const probes = perService.probes;
   const gatus = {
