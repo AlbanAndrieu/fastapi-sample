@@ -89,3 +89,136 @@
 @media (prefers-reduced-motion: reduce) {
   .service-probe, .service-filter-health-chip { transition: none; }
 }
+
+
+/* Mobile-first filter rail: icon + observed count, with explicit on/off state. */
+.service-filter--global .service-filter-health-chip {
+  position: relative;
+  isolation: isolate;
+}
+.service-filter--global .service-filter-health-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.service-filter--global .service-filter-health-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.service-filter--global .service-filter-health-count {
+  font-variant-numeric: tabular-nums;
+}
+.service-filter--global .service-filter-health-chip[aria-pressed="true"] {
+  background: #19344c;
+  border-color: #93c5fd;
+  color: #eef7ff;
+}
+@media (max-width: 720px) {
+  .service-filter--global {
+    padding: .4rem .5rem;
+  }
+  .service-filter--global .service-filter-global-heading {
+    margin-bottom: .25rem;
+  }
+  .service-filter--global .service-filter-global-heading h2 {
+    font-size: .8rem;
+    line-height: 1.25;
+  }
+  .service-filter--global .service-filter-health-summary,
+  .service-filter--compact .service-filter-health-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(44px, 1fr));
+    gap: .2rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: none;
+    padding: .18rem 0 .3rem;
+    margin: 0;
+  }
+  .service-filter--global .service-filter-health-chip,
+  .service-filter--compact .service-filter-health-chip {
+    display: flex;
+    position: relative;
+    flex: initial;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+    min-width: 44px;
+    min-height: 48px;
+    padding: .3rem .12rem;
+    border-radius: .6rem;
+    scroll-snap-align: none;
+  }
+  .service-filter--global .service-filter-health-name {
+    display: none;
+  }
+  .service-filter--global .service-filter-health-icon svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+  .service-filter--global .service-filter-health-count {
+    position: absolute;
+    top: .05rem;
+    right: .12rem;
+    margin: 0;
+    border-radius: .3rem;
+    background: #25364c;
+    color: #f1f5f9;
+    padding: .04rem .17rem;
+    font-size: .64rem;
+    line-height: 1.2;
+  }
+  .service-filter--global .service-filter-health-chip::before {
+    content: "";
+    position: absolute;
+    bottom: .24rem;
+    left: calc(50% - .18rem);
+    width: .36rem;
+    height: .36rem;
+    border-radius: 50%;
+    background: #667588;
+  }
+  .service-filter--global .service-filter-health-chip[aria-pressed="true"]::before {
+    background: #86efac;
+  }
+  /* Reveal the label on hover, keyboard focus, or while the finger presses. */
+  .service-filter--global .service-filter-health-chip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    inset: 1px;
+    display: grid;
+    place-items: center;
+    border-radius: .55rem;
+    background: #19344c;
+    color: #eff6ff;
+    font-size: .61rem;
+    font-weight: 650;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .service-filter--global .service-filter-health-chip:focus-visible::after,
+  .service-filter--global .service-filter-health-chip:active::after {
+    opacity: 1;
+  }
+  .service-filter--compact .service-filter-control,
+  .service-filter--compact #service-protocol-shortcuts {
+    display: none;
+  }
+  .service-filter--global:not(.service-filter--compact) .service-filter-control {
+    display: grid;
+  }
+  .service-filter--global:not(.service-filter--compact) #service-protocol-shortcuts {
+    display: flex;
+  }
+  .service-filter--global .service-filter-active {
+    margin-top: .2rem;
+  }
+}
+@media (max-width: 720px) and (hover: hover) and (pointer: fine) {
+  .service-filter--global .service-filter-health-chip:hover::after {
+    opacity: 1;
+  }
+}
