@@ -15,6 +15,13 @@ _SERVICE_ID_RE = re.compile(r"[^a-z0-9]+")
 _HOMELAB_DOMAIN_SUFFIX = ".albandrieu.com"
 _DIRECT_EXTERNAL_DOMAIN_SUFFIX = ".int.albandrieu.com"
 
+# Backstage/TrueNAS canonical app IDs differ from historical public DNS slugs.
+# Do not strip hyphens from unrelated service IDs, container names or hostnames.
+_CANONICAL_APP_ID_ALIASES = {
+    "home-assistant": "homeassistant",
+    "open-webui": "openwebui",
+}
+
 
 def _slugify_service_id(value: str) -> str:
     """Return a stable lowercase service identifier suitable for JSON keys."""
@@ -185,12 +192,22 @@ class HomelabService(BaseModel):
         """Backfill a stable ID for legacy catalog entries that predate the field."""
         if not isinstance(data, dict):
             return data
-        if any(data.get(key) for key in ("id", "serviceId", "service_id")):
-            return data
+        payload = dict(data)
+        explicit_id = next(
+            (str(payload[key]) for key in ("id", "serviceId", "service_id") if payload.get(key)),
+            None,
+        )
+        if explicit_id:
+            # Explicit historical service IDs are aliases, not new entities.
+            canonical = _CANONICAL_APP_ID_ALIASES.get(explicit_id, explicit_id)
+            if canonical == explicit_id:
+                return data
+            payload["id"] = canonical
+            return payload
         name = str(data.get("name") or "service")
         tunnel_url = data.get("tunnelUrl") or data.get("tunnel_url")
-        payload = dict(data)
-        payload["id"] = _derive_service_id(name, str(tunnel_url) if tunnel_url else None)
+        derived = _derive_service_id(name, str(tunnel_url) if tunnel_url else None)
+        payload["id"] = _CANONICAL_APP_ID_ALIASES.get(derived, derived)
         return payload
 
     @model_validator(mode="before")
