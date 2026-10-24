@@ -83,6 +83,11 @@ function metadataEntries(row) {
     ["Exposure", row.dataset.exposureScope],
     ["Ingress", row.dataset.exposureMode],
     ["Policy", row.dataset.exposurePolicy],
+    ["Local health", row.dataset.localState],
+    ["Dependency health", row.dataset.dependencyState],
+    ["Risk", row.dataset.riskState],
+    ["Downstream impact", Number(row.dataset.downstreamCount) > 0
+      ? row.dataset.downstreamCount : ""],
     ["Change", row.dataset.healthChange],
   ];
   return entries.filter(([, value]) => String(value || "").trim());
@@ -511,6 +516,11 @@ function observeRows() {
         "data-exposure-policy",
         "data-exposure-scope",
         "data-exposure-mode",
+        "data-topology-id",
+        "data-local-state",
+        "data-dependency-state",
+        "data-risk-state",
+        "data-downstream-count",
       ],
     });
   }
