@@ -224,7 +224,11 @@ function renderExposurePolicy(drawer, row) {
     "even when it returns HTTP 401 or 403. Cloudflare Tunnel is routing; " +
     "Access is the authorization layer.";
   const sickzLink = document.createElement("a");
-  sickzLink.href = "#sickz-checks";
+  // Prefer the matching /sickz row when it exists; otherwise use the
+  // section anchor. No external URL or guess from a shared host is needed.
+  const key = String(row.dataset.topologyId || "");
+  const exposureRow = key && document.getElementById(`service-exposure-${key}`);
+  sickzLink.href = exposureRow ? `#${exposureRow.id}` : "#sickz-checks";
   sickzLink.textContent = "Review /sickz outside-in evidence";
   sickzLink.addEventListener("click", () => closeDrawer({ restoreFocus: false }));
   host.append(status, description, sickzLink);
