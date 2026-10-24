@@ -450,3 +450,38 @@ def test_stale_runtime_container_issue_does_not_claim_current_failure() -> None:
     assert row["runtime_primary_container_state"] == "EXITED"
     assert row["runtime_primary_container_issue"] is False
     assert row["state"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("enabled", "host", "port", "results", "expected"),
+    [
+        (False, "172.17.0.24", 8085, [], "disabled"),
+        (True, "172.17.0.24", 8085, [], "not-executed"),
+        (True, None, None, [], "not-configured"),
+        (True, "172.17.0.24", 8085, [
+            {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "state": "fail", "reachable": False}
+        ], "failed"),
+        (True, "172.17.0.24", 8085, [
+            {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "state": "ok", "reachable": True}
+        ], "observed"),
+        (True, "172.17.0.24", 8085, [
+            {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "probe_stale": True, "state": "fail", "reachable": False}
+        ], "stale"),
+    ],
+)
+def test_lan_probe_execution_is_not_docker_app_health(
+    enabled: bool, host: str | None, port: int | None,
+    results: list[dict], expected: str,
+) -> None:
+    service = HomelabService(
+        id="gatus", name="Gatus", external=False,
+        internalHost=host, internalPort=port,
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=results,
+        runtime=_runtime(ObservedApp(app_id="gatus", name="Gatus", state="RUNNING")),
+        tunnels=[], internal_probes_enabled=enabled,
+    )[0]
+    assert row["runtime_state"] == "RUNNING"
+    assert row["internal_probe_execution"] == expected
+    assert row["internal_state"] is None or expected in {"observed", "failed", "stale"}
