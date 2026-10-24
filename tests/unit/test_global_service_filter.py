@@ -138,3 +138,23 @@ def test_section_navigation_stays_horizontal_on_mobile() -> None:
     assert "flex-direction: row;" in stylesheet
     assert "overflow-x: auto;" in stylesheet
     assert "scroll-snap-type: x proximity;" in stylesheet
+
+
+def test_mobile_status_filters_are_compact_accessible_toggles() -> None:
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    css = (ASSETS / "api-diagnostics-ux.css").read_text(encoding="utf-8")
+    entry = (ASSETS / "api.css").read_text(encoding="utf-8")
+
+    assert '["all", "All"]' in shell
+    assert "counts.all = rows.length;" in shell
+    assert "STATUS_ICON_PATHS" in shell
+    assert 'button.setAttribute("aria-pressed", String(enabled));' in shell
+    assert 'button.dataset.tooltip' in shell
+    assert 'button.setAttribute("aria-label"' in shell
+    assert 'select.dispatchEvent(new Event("change", { bubbles: true }));' in shell
+    assert "service-filter-health-count" in css
+    assert "repeat(6, minmax(44px, 1fr))" in css
+    assert 'service-filter-health-chip:focus-visible::after' in css
+    assert 'service-filter-health-chip:active::after' in css
+    assert 'service-filter--compact #service-protocol-shortcuts' in css
+    assert 'api-diagnostics-ux.css' in entry
