@@ -6,6 +6,17 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Réconcilier les états TrueNAS/Docker et la couverture réelle (24 octobre 2026)
+
+- [x] Diagnostic documenté depuis l'observation OWNER du 24 octobre : 95 applications (81 RUNNING, 13 STOPPED, 1 DEPLOYING), 88 services, 0 résultat `internal_services` lorsque `internal_probes_enabled=false`. Les champs `exposure.declared.internal_host/internal_port` restent disponibles pour 85 services, sans être des résultats de sonde.
+- [x] Détecter le cas Prometheus : application TrueNAS `RUNNING`, mais conteneur principal `prometheus` à `exited`. Exporter `runtime_primary_container_state` et `runtime_primary_container_issue` par service et rétrograder la santé `ok` en `warn` si la preuve principale récente contredit l'application. Ignorer les conteneurs init/migration terminés normalement ; ne pas conclure lorsque la correspondance est ambiguë.
+- [x] Ajouter des tests Python sur conteneur principal arrêté, sidecar init, ambiguïté et instantané runtime périmé.
+- [ ] Valider le vrai provider TrueNAS et les résultats depuis le LAN sur au moins trois relevés distincts. Ne pas modifier les conteneurs ni démarrer de sondes dangereuses depuis FastAPI Cloud.
+- [ ] Vérifier les 28 services éligibles aux sondes publiques, les 16 preuves connues (57,1 %), la rotation 12/cycle, les 3 preuves mémoire et le niveau de fraîcheur. Distinguer HTTP 302 de Cloudflare Access (edge atteinte) et preuve d'origine réellement joignable.
+- [ ] Ajouter un contrat de métriques par `entityRef` pour Prometheus/Gatus/exporters : état de scrape, âge, dernière valeur, provenance et erreurs. Aucun green sur simple présence d'un processus exporter.
+- [ ] Étudier l'activation de sondes LAN **depuis un agent LAN autorisé**, sans rendre accessibles des IP privées depuis FastAPI Cloud ; séparer la collecte et sa publication OWNER.
+- [ ] Exécuter `pytest tests/unit/test_homelab_service_health.py`, `just offline-l1`, `just p0`, `just quality` sur le HEAD exact. Tester la Preview site #254 et le backend déployé seulement après validation ; aucune CI payante ni déploiement automatique.
+
 ## P0 — Contrat SERVICE Backstage v2 partagé avec Site Alban (2026-10-24)
 
 - [x] `nabla-compose/catalog/generated/entities.json` reste la source des identités déclarées. Audit actuel : 154 entités (128 Component, 23 Resource, 1 Domain, 1 Group, 1 System) ; les 151 Component/Resource/API ont une correspondance d'icône dans les 176 `webAssets` de Compose. Le site génère ses chemins d'icônes localement et ne doit pas les recopier dans le DTO FastAPI.
