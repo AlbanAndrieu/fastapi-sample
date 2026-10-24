@@ -577,6 +577,8 @@ function observeRows() {
         "data-exposure-policy",
         "data-exposure-scope",
         "data-exposure-mode",
+        "data-exposure-verdict",
+        "data-exposure-summary",
         "data-topology-id",
         "data-local-state",
         "data-dependency-state",

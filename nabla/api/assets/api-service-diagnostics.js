@@ -113,13 +113,6 @@ function reachabilityTone(check) {
   return "warn";
 }
 
-function policyTone(policy) {
-  if (policy === "ok") return "ok";
-  if (policy === "warn") return "warn";
-  if (policy === "fail") return "fail";
-  return "unknown";
-}
-
 function evidenceMetadata(check) {
   if (!check) return "";
   const parts = [];
