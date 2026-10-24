@@ -72,7 +72,7 @@
       "external": false
     },
     {
-      "name": "Bichon UI",
+      "name": "Bichon",
       "icons": ["fas fa-paw"],
       "description": "Bichon browser UI on the observed LAN listener :15630.",
       "internalHost": "172.17.0.24",
@@ -280,7 +280,7 @@
       "cloudflareAccessRequired": false
     },
     {
-      "name": "Gatus UI",
+      "name": "Gatus",
       "icons": ["fas fa-signal"],
       "description": "Gatus status dashboard on the observed LAN listener :8085.",
       "internalHost": "172.17.0.24",
@@ -366,7 +366,7 @@
     },
     {
       "id": "homeassistant",
-      "name": "Home Assistant UI",
+      "name": "Home Assistant",
       "description": "Home automation control plane exposed through the dedicated IoT network.",
       "external": false,
       "endpointEnabled": false,
