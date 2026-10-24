@@ -198,7 +198,10 @@ function renderEvidence(drawer, row) {
   const host = drawer.querySelector("#service-detail-evidence");
   host?.replaceChildren();
   if (!host) return;
-  const probes = probeEntries(row);
+  const rank = { fail: 0, warn: 1, unknown: 2, neutral: 3, ok: 4 };
+  const probes = probeEntries(row).sort(
+    (left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)
+  );
   if (probes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
@@ -231,6 +234,18 @@ function renderEvidence(drawer, row) {
     labelWrap.className = "service-detail-probe-name";
     labelWrap.append(icon, label);
     heading.appendChild(labelWrap);
+    const state = document.createElement("span");
+    state.className = "service-detail-probe-state";
+    state.textContent = probe.disabled
+      ? "NOT RUN"
+      : probe.tone === "ok"
+        ? "UP"
+        : probe.tone === "fail"
+          ? "FAILED"
+          : probe.tone === "warn"
+            ? "WARNING"
+            : "UNVERIFIED";
+    heading.appendChild(state);
     const normalizedLabel = probe.label.trim().toLowerCase();
     const normalizedKind = probe.kind.trim().toLowerCase();
     if (normalizedKind && normalizedKind !== normalizedLabel) {
@@ -253,7 +268,13 @@ function matchingCatalogueRow(id) {
       row.dataset.serviceKey?.replace(/^albandrieu_/, "").replaceAll("_", "-") === id,
   );
   // Never choose an arbitrary destination when multiple cards share an ID.
-  return candidates.length === 1 ? candidates[0] : null;
+  if (candidates.length === 1) return candidates[0];
+  // The health and external views may contain the same canonical identity.
+  // Prefer the canonical grouped health service without guessing by name.
+  const primary = candidates.filter((row) =>
+    row.closest("#health-services-groups")
+  );
+  return primary.length === 1 ? primary[0] : null;
 }
 
 function linkedCatalogueItem(entry, { status = "", type = "" } = {}) {
@@ -364,8 +385,9 @@ function renderDrawer(row, { force = false } = {}) {
   const drawer = ensureDrawer();
   const signature = JSON.stringify({
     row: drawerSignature(row),
-    topology: latestTopology,
-    synthetic: latestSnapshot?.platform_metrics?.synthetic_probes,
+    topologySource: latestTopology?.source,
+    topologyNodes: latestTopology?.nodes?.length,
+    telemetryCheckedAt: latestSnapshot?.platform_metrics?.generated_at,
   });
   const serviceKey = String(
     row.dataset.serviceKey || row.dataset.serviceName || "",
