@@ -106,13 +106,20 @@ if command -v curl >/dev/null 2>&1; then
   for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
     service="${item%%|*}"
     url="${item#*|}"
-    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    curl_exit=0
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || curl_exit=$?
     if [[ "$status" == 2* ]]; then
       symbol='✅'
       result='available'
     elif [[ "$status" == 000 ]]; then
       symbol='❌'
       result='unreachable'
+      case "$curl_exit" in
+        7) result='connection failed (curl 7; listener or route)' ;;
+        28) result='timeout (curl 28; origin did not respond)' ;;
+        6) result='DNS lookup failed (curl 6)' ;;
+        *) result="transport error (curl $curl_exit)" ;;
+      esac
     else
       symbol='⚠️'
       result='HTTP responded; readiness not confirmed'
