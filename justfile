@@ -191,3 +191,7 @@ prometheus-cloud-evidence:
 
 prometheus-projection-contracts:
     bash scripts/run-pytest-compact.sh tests/unit/test_verify_prometheus_cloud_projection.py
+
+# Pure JS contracts: no browser, Cloud access, or CI needed.
+service-catalog-ux-contracts:
+    node --test tests/js/service-catalog-ux.mjs
