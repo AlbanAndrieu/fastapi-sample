@@ -298,8 +298,11 @@ function linkedCatalogueItem(entry, { status = "", type = "" } = {}) {
   link.textContent = entry.name;
   wrap.appendChild(link);
   const detail = document.createElement("small");
-  detail.textContent = [type || entry.type, status, entry.required ? "required" : ""]
-    .filter(Boolean).join(" · ");
+  const cardState = target ? `card: ${normalizedStatus(target)}` : "card not shown";
+  detail.textContent = [
+    type || entry.type, status, entry.required ? "required" : "",
+    cardState,
+  ].filter(Boolean).join(" · ");
   wrap.appendChild(detail);
   return wrap;
 }
