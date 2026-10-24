@@ -1,15 +1,16 @@
 export const PROBE_COLUMNS = [
+  // Follow the request path. Columns report evidence, not assumptions.
   ["dns", "🧭", "DNS"],
-  ["http", "🌐", "HTTP"],
+  ["tcp", "🔌", "TCP"],
   ["tls", "🔒", "TLS"],
+  ["http", "🌐", "HTTP"],
   ["cloudflare", "☁️", "Tunnel"],
   ["access", "🛡️", "Access"],
   ["service-token", "🔑", "Token"],
   ["api", "⚙️", "API"],
-  ["policy", "🛡️", "Policy"],
-  ["tcp", "🔌", "TCP"],
   ["websocket", "↔", "WebSocket"],
-  ["metrics", "📈", "Prometheus"],
+  ["metrics", "📈", "Metrics"],
+  ["policy", "🛡️", "Policy"],
 ];
 
 const ROW_SELECTOR = "[data-service-filter-target]";
@@ -95,6 +96,7 @@ function makeCardCell(kind, icon, label, source, columnIndex) {
   cell.dataset.probeKind = kind;
   cell.dataset.probeGridCopy = "true";
   cell.title = probeDetail(source, label);
+  cell.dataset.probeAvailable = String(Boolean(source && source.dataset.probePlaceholder !== "true"));
   cell.setAttribute("aria-label", cell.title);
   pinColumn(cell, columnIndex);
 
@@ -107,8 +109,80 @@ function makeCardCell(kind, icon, label, source, columnIndex) {
   labelNode.className = "service-probe-table-label";
   labelNode.textContent = label;
 
-  cell.append(iconNode, labelNode);
+  const state = document.createElement("span");
+  state.className = "service-probe-table-state";
+  state.textContent = !source || source.dataset.probePlaceholder === "true"
+    ? "Not sampled"
+    : source.dataset.probeDisabled === "true"
+      ? "Disabled"
+      : ({ ok: "Pass", warn: "Warn", fail: "Fail", unknown: "Unknown", neutral: "Unconfirmed" })[tone];
+  cell.append(iconNode, labelNode, state);
   return cell;
+}
+
+const PROBE_PHASES = [
+  ["Network", ["dns", "tcp", "tls"]],
+  ["Edge", ["http", "cloudflare", "access", "service-token"]],
+  ["Service", ["api", "websocket", "metrics", "policy"]],
+];
+
+function observedProbes(byKind) {
+  return PROBE_PHASES.map(([name, kinds]) => [
+    name,
+    kinds
+      .map((kind) => [kind, byKind.get(kind)])
+      .filter(([, probe]) => probe && probe.dataset.probePlaceholder !== "true"),
+  ]);
+}
+
+function renderProbePath(primary, sources, signature) {
+  let path = primary.querySelector(":scope > .service-probe-path");
+  if (!path) {
+    path = document.createElement("div");
+    path.className = "service-probe-path";
+    path.setAttribute("role", "group");
+    path.setAttribute("aria-label", "Observed diagnostic protocol path");
+    const grid = primary.querySelector(":scope > .service-probe-table");
+    if (grid) grid.insertAdjacentElement("beforebegin", path);
+    else primary.appendChild(path);
+  }
+  if (path.dataset.signature === signature) return;
+  const groups = observedProbes(sources);
+  const fragment = document.createDocumentFragment();
+  const heading = document.createElement("strong");
+  heading.className = "service-probe-path-heading";
+  heading.textContent = "Observed protocol path";
+  fragment.appendChild(heading);
+  let count = 0;
+  for (const [phase, entries] of groups) {
+    if (!entries.length) continue;
+    const section = document.createElement("div");
+    section.className = "service-probe-path-phase";
+    const label = document.createElement("span");
+    label.className = "service-probe-path-phase-label";
+    label.textContent = phase;
+    section.appendChild(label);
+    for (const [kind, probe] of entries) {
+      const column = PROBE_COLUMNS.find(([id]) => id === kind);
+      const chip = document.createElement("span");
+      const tone = probeTone(probe);
+      chip.className = "service-probe-path-step service-probe-path-step--" + tone;
+      chip.textContent = column?.[2] || kind;
+      chip.title = probeDetail(probe, chip.textContent);
+      chip.setAttribute("aria-label", chip.textContent + ": " + chip.title);
+      section.appendChild(chip);
+      count += 1;
+    }
+    fragment.appendChild(section);
+  }
+  if (!count) {
+    const empty = document.createElement("span");
+    empty.className = "service-probe-path-empty";
+    empty.textContent = "No probe evidence in this snapshot";
+    fragment.appendChild(empty);
+  }
+  path.replaceChildren(fragment);
+  path.dataset.signature = signature;
 }
 
 function renderCardGrid(row) {
@@ -126,6 +200,12 @@ function renderCardGrid(row) {
     grid.setAttribute("aria-colcount", String(PROBE_COLUMNS.length));
     primary.appendChild(grid);
   }
+  renderProbePath(primary, sources, signature);
+  // Do not index placeholders as supported protocols for the filter.
+  const kinds = [...sources.entries()]
+    .filter(([, probe]) => probe.dataset.probePlaceholder !== "true")
+    .map(([kind]) => kind);
+  row.dataset.probeKinds = kinds.join(" ");
   if (grid.dataset.signature === signature) {
     row.dataset.probeGridReady = "true";
     return;
