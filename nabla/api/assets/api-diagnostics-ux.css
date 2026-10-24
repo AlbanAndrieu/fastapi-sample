@@ -251,3 +251,43 @@
   }
   .service-filter--global .service-filter-active-chip { flex: 0 0 auto; }
 }
+
+
+/* Vercel Web Interface Guidelines: tactile and focus states for the filter rail. */
+.service-filter--global .service-filter-health-chip,
+.service-filter--global .service-filter-density-toggle,
+.service-filter--global .service-filter-reset-all,
+.service-filter--global .service-filter-active-chip {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(147, 197, 253, .18);
+}
+.service-filter--global .service-filter-health-chip:hover,
+.service-filter--global .service-filter-density-toggle:hover,
+.service-filter--global .service-filter-reset-all:hover {
+  border-color: #93c5fd;
+  color: #eff6ff;
+}
+.service-filter--global .service-filter-global-heading h2 {
+  text-wrap: balance;
+}
+@media (max-width: 720px) {
+  .service-filter--global {
+    scroll-margin-top: calc(env(safe-area-inset-top, 0px) + .75rem);
+    padding-inline: max(.4rem, env(safe-area-inset-left, 0px))
+                    max(.4rem, env(safe-area-inset-right, 0px));
+  }
+  /* Reduce control height without shrinking the keyboard/touch targets. */
+  .service-filter--global .service-filter-global-heading {
+    gap: .3rem;
+  }
+  .service-filter--global .service-filter-density-toggle {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .service-filter--global .service-filter-health-summary {
+    scrollbar-width: none;
+  }
+  .service-filter--global .service-filter-health-summary::-webkit-scrollbar {
+    display: none;
+  }
+}
