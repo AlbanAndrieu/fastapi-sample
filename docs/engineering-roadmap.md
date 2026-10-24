@@ -6,6 +6,18 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Collecteur LAN et provenance par service (24 octobre 2026)
+
+**Statut : code ajouté à la PR #373, exécution et déploiement non vérifiés.** Le snapshot cloud du 24/10 indiquait `internal_probes_enabled=false` (0/86) ; la configuration Compose de **TrueNAS** annonce `true`. Ces deux environnements sont distincts.
+
+- [ ] Tester localement le champ OWNER `services[].internal_probe_execution` : `disabled`, `not-configured`, `not-executed`, `stale`, `failed` et `observed`. Le calcul n'utilise jamais `Docker RUNNING` comme preuve TCP.
+- [ ] Distinguer les dates `runtime_observed_at`, `direct_probe_observed_at`, `internal_probe_observed_at` et `tunnel_observed_at` dans le DTO OWNER versionné ; ne pas en fabriquer lorsque le collecteur ne les fournit pas.
+- [ ] Valider l'instance TrueNAS **sans mutation**. Le script `nabla-compose/scripts/truenas/verify-fastapi-lan-probes.sh` n'est pas sur `master` car ajouté après la fusion de Compose #272. Son intégration revue précède toute invocation comme procédure officielle.
+- [ ] Exposer les mesures LAN au Site #254 seulement derrière un relais OWNER authentifié et audité. Aucun accès direct de Vercel ou de FastAPI Cloud à `172.17.0.0/24`.
+- [ ] Exécuter pytest, Ruff, quality gate locale et trois relevés runtime distincts ; marquer `NOT_RUN` tout contrôle sans sortie effective.
+
+**Critère Done :** les six états de sondes sont observables avec provenance et fraîcheur sur TrueNAS, et les réponses SERVICE ne contiennent ni cible LAN ni preuve OWNER.
+
 ## P0 — Contrat de convergence Compose / FastAPI / Site (24 octobre 2026)
 
 - [x] Indexer l'[analyse commune du site](https://github.com/AlbanAndrieu/nabla-site-alban/blob/feat/catalog-icon-source-convergence-20261024/docs/homelab-catalog-convergence-2026-10-24.md) dans la PR #373 ; ne pas recopier les 151 identités Backstage, les 176 noms de fichiers d'icônes ou les relations dans le backend.
