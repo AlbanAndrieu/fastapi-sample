@@ -11,7 +11,11 @@ def test_health_entrypoint_installs_one_global_filter_shell() -> None:
     shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
 
     assert 'from "./api-global-service-filter.js"' in entrypoint
-    assert entrypoint.count("installGlobalServiceFilter();") == 1
+    # One call in the public branch; one after controls exist in the detailed branch.
+    assert entrypoint.count("installGlobalServiceFilter();") == 2
+    assert entrypoint.index("installServiceDiagnostics();") < entrypoint.rindex(
+        "installGlobalServiceFilter();"
+    )
     assert 'document.querySelector(".service-filter")' in shell
     assert 'board.insertAdjacentElement("beforebegin", host);' in shell
     assert 'host.classList.add("service-filter--global")' in shell
@@ -166,3 +170,17 @@ def test_accessible_disclosure_contract() -> None:
     assert 'button.setAttribute("aria-label", label);' in script
     assert 'button.setAttribute("aria-describedby"' in script
     assert "advanced.hidden = compact;" in script
+
+
+def test_mobile_disclosure_respects_touch_and_keyboard() -> None:
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    entry = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+    assert 'host.dataset.mobileExpanded = "true";' in shell
+    assert 'host.dataset.userCompact = "false";' in shell
+    assert 'document.getElementById("service-filter")?.focus();' in shell
+    assert "const compact = mobile" in shell
+    assert 'button.setAttribute("aria-expanded", String(!compact));' in shell
+    assert 'aria-controls="service-filter-advanced"' in shell
+    assert entry.index("installServiceDiagnostics();") < entry.rindex(
+        "installGlobalServiceFilter();"
+    )
