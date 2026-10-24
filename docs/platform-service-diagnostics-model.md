@@ -142,6 +142,14 @@ diagnostic. `/sickz` conserve ses sondes indépendantes **outside-in**
 `policy_status`. La UI ne déclenche aucune deuxième sonde ni requête
 par service pour afficher l'indicateur.
 
+Le DTO enrichi conserve `policy_status` et `policy_detail` pour le
+rendu existant de `/sickz`. Il fournit désormais
+`security_policy_status` et `security_policy_detail` pour la politique
+**Ingress/Access seule** avant l'overlay d'échec runtime TrueNAS.
+Ainsi, une application en état `CRASHED` ne devient pas artificiellement
+une violation d'exposition. Le code UI reste compatible avec les anciens
+snapshots en utilisant `policy_status` quand le nouveau champ n'existe pas.
+
 La carte principale affiche un seul badge **Exposure**, de type
 `data-probe-kind="policy"` afin de préserver les filtres historiques.
 L'intention provient du catalogue (`external`, `tunnel_secure`) mais
