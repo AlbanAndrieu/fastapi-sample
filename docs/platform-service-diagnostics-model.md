@@ -132,3 +132,52 @@ current failures, run the private `nabla-compose`
 polling of Gatus/Prometheus is permitted. An HTTP 401/403 from an
 Access-protected service is an authorization result, not evidence that
 the underlying service is offline.
+
+
+## Exposure security policy — cartes principales et /sickz
+
+Le **service principal** est la carte canonique de disponibilité et de
+diagnostic. `/sickz` conserve ses sondes indépendantes **outside-in**
+(DNS/TLS/HTTP, Cloudflare Tunnel/Access, pfSense) et le calcul existant
+`policy_status`. La UI ne déclenche aucune deuxième sonde ni requête
+par service pour afficher l'indicateur.
+
+La carte principale affiche un seul badge **Exposure**, de type
+`data-probe-kind="policy"` afin de préserver les filtres historiques.
+L'intention provient du catalogue (`external`, `tunnel_secure`) mais
+**seules les preuves observées et la décision /sickz autorisent un état OK**.
+Les services qui partagent `172.17.0.24` ne doivent jamais être associés
+à la mauvaise politique : le fallback déclaratif utilise l'ID canonique.
+
+| Signal | Texte | Sémantique |
+| --- | --- | --- |
+| `external=false` + `policy_status=ok` + observation extérieure inaccessible | `Private OK` | Le point testé n'a pas répondu depuis l'extérieur ; aucune affirmation sur les autres chemins non testés |
+| `external=false` + endpoint extérieur joignable, **même HTTP 401/403**, ou ingress Cloudflare observé | `Exposure !` | Non-conformité de politique : endpoint public interdit |
+| `external=true`, `tunnel_secure=true`, policy OK et plan Cloudflare vérifié | `Protected` | Politique Tunnel/Access confirmée, **pas** succès HTTP applicatif |
+| `external=true`, `tunnel_secure=false` avec exception déclarée | `Direct · Risk` | Exposition directe tolérée mais dette de sécurité visible |
+| Politique explicitement en échec | `Exposure !` | Échec reporté par /sickz ; diagnostiquer séparément la cause (runtime, TLS, Access, ingress) |
+| Pas de sonde, observation `skipped`/`stale`, absence de confirmation | `Exposure ?` | Résultat **inconnu**, jamais vert par inférence |
+
+Le drawer affiche la justification, la portée du contrôle et un lien
+**Review /sickz outside-in evidence** qui mène à la section de sondes.
+Il conserve aussi les relations upstream/downstream, les métriques, les
+protocoles et les erreurs classées, sans afficher de credentials.
+
+**Deux axes restent indépendants :**
+- Disponibilité : un `HTTP 401/403` sur un service public protégé
+  indique souvent que le point d'entrée répond, **pas** que l'origine est
+  fonctionnelle.
+- Sécurité : un `HTTP 403` depuis Internet sur un service
+  `external=false` montre qu'une entrée publique existe ; cela suffit à
+  justifier une investigation de conformité, sans affirmer que la
+  demande a atteint l'origine.
+
+Un mode Cloud interdit d'accès (HTTP 403 sur `/api/health-board`)
+ne doit ni supprimer la politique du catalogue, ni inventer une preuve :
+l'indicateur de conformité reste inconnu jusqu'à lecture autorisée.
+Ne jamais ouvrir les API privées ou désactiver Access pour rendre un
+badge vert.
+
+Tests offline : `just service-exposure-policy-contracts`. Validation
+visuelle de la version déployée et tests de non-régression API restent
+distincts des tests du code source.
