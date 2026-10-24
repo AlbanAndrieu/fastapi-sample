@@ -80,13 +80,26 @@ def project_site_health_v2(
 ) -> SiteHealthV2:
     """Ambiguous, stale or absent observations yield UNKNOWN, never FAIL."""
     board_state, states = verified_health_by_service_id(board)
+    # Health-board rows use service IDs, not unique Backstage entity references.
+    # Do not assign one observation to multiple entities with the same name.
+    relevant_entities = [
+        entity for entity in catalog.entities
+        if entity.kind in ("Component", "Resource", "API")
+    ]
+    name_counts: dict[str, int] = {}
+    for entity in relevant_entities:
+        name = entity.metadata.name
+        name_counts[name] = name_counts.get(name, 0) + 1
     entries = [
         SiteHealthServiceV2(
             entityRef=entity.entityRef,
-            state=states.get(entity.metadata.name, "unknown"),
+            state=(
+                states.get(entity.metadata.name, "unknown")
+                if name_counts[entity.metadata.name] == 1
+                else "unknown"
+            ),
         )
-        for entity in catalog.entities
-        if entity.kind in ("Component", "Resource", "API")
+        for entity in relevant_entities
     ]
     return SiteHealthV2(
         catalogRevision=catalog.catalogRevision,
