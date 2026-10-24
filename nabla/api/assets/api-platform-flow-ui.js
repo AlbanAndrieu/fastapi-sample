@@ -186,6 +186,11 @@ function createPfSenseDnsStage(dns) {
   stage.dataset.platformSynthetic = "pfsense-dns";
   stage.title = detailText;
 
+  const protocol = document.createElement("span");
+  protocol.className = "truenas-stage-protocol";
+  protocol.textContent = "DNS";
+  stage.appendChild(protocol);
+
   const icon = document.createElement("span");
   icon.className = "truenas-stage-icon";
   icon.setAttribute("aria-hidden", "true");
@@ -208,7 +213,11 @@ function createPfSenseDnsStage(dns) {
   const detail = document.createElement("span");
   detail.className = "truenas-stage-detail";
   detail.textContent = detailText;
-  stage.append(icon, label, time, detail);
+  const outcome = document.createElement("span");
+  outcome.className = "truenas-stage-outcome";
+  outcome.textContent =
+    state === "ok" ? "Pass" : state === "warn" ? "Warning" : state === "fail" ? "Failed" : "Unconfirmed";
+  stage.append(icon, label, outcome, time, detail);
   return stage;
 }
 
@@ -218,6 +227,11 @@ function updatePfSenseDnsStage(stage, connector, dns) {
   const className = `truenas-stage truenas-stage--${state}`;
   if (stage.className !== className) stage.className = className;
   if (stage.title !== detailText) stage.title = detailText;
+  const outcome = stage.querySelector(".truenas-stage-outcome");
+  if (outcome) {
+    outcome.textContent =
+      state === "ok" ? "Pass" : state === "warn" ? "Warning" : state === "fail" ? "Failed" : "Unconfirmed";
+  }
   const detail = stage.querySelector(".truenas-stage-detail");
   if (detail && detail.textContent !== detailText)
     detail.textContent = detailText;
