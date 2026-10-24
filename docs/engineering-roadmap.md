@@ -68,6 +68,38 @@ interdites selon politique approuvée, traçabilité vérifiée, aucun élargiss
 involontaire des permissions, preuve négative et rollback du plan de migration.
 
 
+## P0 — UX des cartes et couverture Gatus (25 octobre 2026)
+
+- [x] Réutiliser le panneau `Details` déjà installé sur les cartes
+  et la navigation entre dépendances/dépendants via les références
+  uniques du catalogue. Le lien vers une autre carte doit ouvrir
+  ses diagnostics, **pas** une URL extérieure supposée.
+- [x] Grouper les vérifications Gatus en échec, réussies et sans
+  échantillon utilisable dans le panneau Gatus. Les listes sont
+  bornées ; un check absent reste **inconnu**.
+- [ ] Afficher un résumé repliable par famille :
+  transport DNS/TCP/HTTP/TLS, autorisation et token Cloudflare Access,
+  Prometheus/scrape, Gatus et état fonctionnel. Mettre les échecs
+  et données périmées en tête, avec heure/âge et source.
+- [ ] Associer à chaque échec une explication stable et expurgée
+  (ex. HTTP 401 token absent, HTTP 403 Access, timeout DNS,
+  exporter UP mais `pg_up=0`) et un contrôle opérateur associé.
+- [ ] Contrôler la **couverture complète** Gatus ↔ catalogue sur les IDs
+  canoniques : `declared / observed / no_sample / missing_monitor /
+  intentionally_unmonitored`. Gatus UP ne rend pas ses 85+ probes UP.
+  Il faut comparer la définition des checks, les cibles, l'authentification,
+  le point d'observation LAN, les états transitoires et les règles
+  de mapping ; ne jamais forcer les voyants au vert.
+- [ ] Tester l'accessibilité clavier et mobile du drawer (focalisation,
+  taille tactile, listes scrollables, navigation entre cartes,
+  statut accessible sans couleur) et la régénération des cartes
+  après actualisation du snapshot.
+
+**Limite de preuve :** l'accès direct à
+`https://fastapi-sample.fastapicloud.dev/api` a été refusé dans
+l'environnement de l'agent. Les nouveaux affichages ont été
+committés mais **pas validés visuellement en production**.
+
 ## P0 — Authentification et collecte des métriques
 
 - [x] Prometheus Inlet/Outlet Akvorado, Gatus et autres exporters
