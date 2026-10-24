@@ -299,6 +299,13 @@ function installKeyboardShortcuts() {
       target?.isContentEditable;
     if (event.key === "/" && !editing) {
       event.preventDefault();
+      const host = document.querySelector(".service-filter--global");
+      if (host?.classList.contains("service-filter--compact")) {
+        if (mobileFilterViewport()) host.dataset.mobileExpanded = "true";
+        else host.dataset.userCompact = "false";
+        host.dataset.stuckExpanded = "true";
+        syncCompactState(host);
+      }
       document.getElementById("service-filter")?.focus();
       return;
     }
@@ -322,8 +329,10 @@ function syncCompactState(host) {
   const mobile = mobileFilterViewport();
   const mobileCompact =
     mobile && host.dataset.mobileExpanded !== "true";
-  const compact =
-    userCompact || mobileCompact || (stuck && !stuckExpanded);
+  // Respect an operator-opened panel on touch devices after it sticks.
+  const compact = mobile
+    ? userCompact || mobileCompact
+    : userCompact || (stuck && !stuckExpanded);
   host.classList.toggle("service-filter--compact", compact);
   host.dataset.expanded = String(!compact);
   const advanced = document.getElementById("service-filter-advanced");
@@ -343,6 +352,10 @@ function syncCompactState(host) {
         : "Collapse";
     if (activeCount) button.textContent += ` (${activeCount})`;
     button.setAttribute("aria-expanded", String(!compact));
+    button.setAttribute(
+      "aria-label",
+      `${compact ? "Show" : "Hide"} advanced filters${activeCount ? `, ${activeCount} active` : ""}`,
+    );
   }
   const resetAll = document.getElementById("service-filter-reset-all");
   if (resetAll) resetAll.hidden = activeCount === 0;
