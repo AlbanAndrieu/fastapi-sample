@@ -236,9 +236,14 @@ def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
     assert protected_app.post("/api/health-board/cache/reset").status_code == 503
     assert protected_app.get("/admin").status_code == 503
     assert protected_app.get("/metrics").status_code == 503
-    # A future addition under /api/homelab must not be public by accident.
-    # The matched /api/homelab prefix still requires a diagnostics key.
-    assert protected_app.get("/api/homelab/future-secret").status_code == 503
+    # The temporary list must not expose future routes or mutation paths.
+    for path in (
+        "/api/homelab/future-secret",
+        "/api/health-board/cache/reset",
+        "/api/health-board/refresh-event",
+        "/api/topology-telemetry/private",
+    ):
+        assert protected_app.get(path).status_code == 503, path
 
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
     assert protected_app.get("/api/homelab/probes").status_code == 503
