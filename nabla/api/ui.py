@@ -141,7 +141,7 @@ def render_api_root_page(
                     <div class="service-filter">
                         <label for="service-filter">Filter services</label>
                         <div class="service-filter-control">
-                            <input id="service-filter" type="search" autocomplete="off" placeholder="Name, role, criticality or status">
+                            <input id="service-filter" name="service-filter" type="search" autocomplete="off" placeholder="Name, role, status…" enterkeyhint="search">
                             <button type="button" id="service-filter-clear">Clear</button>
                             <button type="button" id="service-expand-issues">Issues</button>
                             <button type="button" id="service-collapse-all">Collapse</button>

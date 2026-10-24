@@ -1,10 +1,25 @@
 const STATUS_CHIPS = [
+  ["all", "All"],
   ["operational", "Operational"],
   ["at-risk", "At risk"],
   ["degraded", "Degraded"],
   ["down", "Down"],
   ["unknown", "Unknown"],
 ];
+
+// Fixed SVG paths. Filter values and icon markup are local constants, not service data.
+const STATUS_ICON_PATHS = {
+  all: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  operational: '<path d="M4 12.5l5 5L20 6"/>',
+  "at-risk": '<path d="M12 3L2.5 20h19L12 3z"/><path d="M12 9v5m0 3h.01"/>',
+  degraded: '<path d="M2 13h5l3-6 4 10 3-4h5"/>',
+  down: '<circle cx="12" cy="12" r="9"/><path d="M8 8l8 8m0-8l-8 8"/>',
+  unknown: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4m0 3h.01"/>',
+};
+
+function statusIcon(status) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STATUS_ICON_PATHS[status]}</svg>`;
+}
 
 const ACTIVE_FILTERS = [
   ["status", "Health", "service-status-filter"],
@@ -44,9 +59,16 @@ function statusCounts() {
   const counts = Object.fromEntries(
     STATUS_CHIPS.map(([status]) => [status, 0]),
   );
-  for (const row of healthRows()) {
+  const rows = healthRows();
+  counts.all = rows.length;
+  for (const row of rows) {
     const status = normalizedStatus(row);
-    if (Object.hasOwn(counts, status)) counts[status] += 1;
+    if (status !== "all" && Object.hasOwn(counts, status)) {
+      counts[status] += 1;
+    } else if (!Object.hasOwn(counts, status)) {
+      // A new server status must never silently count as operational.
+      counts.unknown += 1;
+    }
   }
   return counts;
 }
@@ -72,10 +94,18 @@ function renderStatusChips(host) {
       button.addEventListener("click", () => setStatusFilter(status));
       host.appendChild(button);
     }
-    button.setAttribute("aria-pressed", String(selected === status));
-    button.setAttribute("aria-label", `${label}: ${counts[status]} services`);
-    button.title = `Show ${label.toLowerCase()} services`;
-    button.innerHTML = `<strong>${counts[status]}</strong><span>${label}</span>`;
+    const enabled = selected === status;
+    button.setAttribute("aria-pressed", String(enabled));
+    // Accessible toggle names do not change when selected.
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-describedby", `service-filter-count-${status}`);
+    button.dataset.tooltip = label;
+    button.removeAttribute("title");
+    button.innerHTML =
+      `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
+      `<strong class="service-filter-health-count" aria-hidden="true">${counts[status]}</strong>` +
+      `<span class="service-filter-health-name" aria-hidden="true">${label}</span>` +
+      `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} services</span>`;
   }
 }
 
@@ -87,7 +117,8 @@ function ensureHeader(host) {
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
     "<p>Choose a status, then refine the services. Select a service to view its probes.</p></div>" +
     '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
-    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true">Collapse</button></div>';
+    '<button type="button" id="service-filter-reset-all" class="service-filter-reset-all" aria-label="Reset all active filters" hidden>Reset</button>' +
+    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true" aria-controls="service-filter-advanced">Collapse</button></div>';
   host.prepend(header);
 }
 
@@ -117,6 +148,26 @@ function compactProbeLegend(host) {
   summary.textContent = "Legend / how to read";
   details.append(summary, legend);
   host.appendChild(details);
+}
+
+function ensureAdvancedFilters(host) {
+  if (document.getElementById("service-filter-advanced")) return;
+  const advanced = document.createElement("div");
+  advanced.id = "service-filter-advanced";
+  advanced.className = "service-filter-advanced";
+  for (const selector of [
+    'label[for="service-filter"]',
+    ".service-filter-control",
+    "#service-protocol-shortcuts",
+    "#service-filter-facets",
+    ".service-filter-legend-details",
+  ]) {
+    const control = host.querySelector(selector);
+    if (control) advanced.appendChild(control);
+  }
+  const result = document.getElementById("service-filter-result");
+  if (result) host.insertBefore(advanced, result);
+  else host.appendChild(advanced);
 }
 
 function mapTrueNasStatus() {
@@ -248,6 +299,13 @@ function installKeyboardShortcuts() {
       target?.isContentEditable;
     if (event.key === "/" && !editing) {
       event.preventDefault();
+      const host = document.querySelector(".service-filter--global");
+      if (host?.classList.contains("service-filter--compact")) {
+        if (mobileFilterViewport()) host.dataset.mobileExpanded = "true";
+        else host.dataset.userCompact = "false";
+        host.dataset.stuckExpanded = "true";
+        syncCompactState(host);
+      }
       document.getElementById("service-filter")?.focus();
       return;
     }
@@ -271,10 +329,18 @@ function syncCompactState(host) {
   const mobile = mobileFilterViewport();
   const mobileCompact =
     mobile && host.dataset.mobileExpanded !== "true";
-  const compact =
-    userCompact || mobileCompact || (stuck && !stuckExpanded);
+  // Respect an operator-opened panel on touch devices after it sticks.
+  const compact = mobile
+    ? userCompact || mobileCompact
+    : userCompact || (stuck && !stuckExpanded);
   host.classList.toggle("service-filter--compact", compact);
   host.dataset.expanded = String(!compact);
+  const advanced = document.getElementById("service-filter-advanced");
+  if (advanced) advanced.hidden = compact;
+  const state = currentFilterState();
+  const activeCount = Object.entries(state).filter(
+    ([key, value]) => key === "query" ? Boolean(value.trim()) : value !== "all",
+  ).length;
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
     button.textContent = mobile
@@ -284,8 +350,15 @@ function syncCompactState(host) {
       : compact
         ? "Expand"
         : "Collapse";
+    if (activeCount) button.textContent += ` (${activeCount})`;
     button.setAttribute("aria-expanded", String(!compact));
+    button.setAttribute(
+      "aria-label",
+      `${compact ? "Show" : "Hide"} advanced filters${activeCount ? `, ${activeCount} active` : ""}`,
+    );
   }
+  const resetAll = document.getElementById("service-filter-reset-all");
+  if (resetAll) resetAll.hidden = activeCount === 0;
 }
 
 function refreshStickyState(host, sentinel) {
@@ -370,10 +443,16 @@ export function installGlobalServiceFilter() {
   ensureStatusSummary(host);
   ensureActiveFilters(host);
   compactProbeLegend(host);
+  ensureAdvancedFilters(host);
+  document.getElementById("service-filter-reset-all")?.addEventListener(
+    "click",
+    () => document.getElementById("service-filter-clear")?.click(),
+  );
   installCompactStickyMode(host);
 
   document.addEventListener("service-filter-changed", (event) => {
     refreshGlobalFilter(event.detail);
+    syncCompactState(host);
   });
 
   const status = document.getElementById("service-status-filter");

@@ -1,0 +1,293 @@
+/* Compact, accessible diagnostics cards and protocol flow. */
+#health-checks .health-row,
+#health-services-groups .health-row {
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: 14px;
+  padding: .85rem 1rem;
+  margin-block: .45rem;
+  min-width: 0;
+}
+#health-checks .health-row:focus-within,
+#health-services-groups .health-row:focus-within {
+  outline: 2px solid #78baff;
+  outline-offset: 2px;
+}
+.service-probe-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  padding-top: .65rem;
+  border-top: 1px solid rgba(148,163,184,.18);
+  margin-top: .7rem;
+}
+.service-probe-heading {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .78rem;
+  color: #b7c5d9;
+}
+.service-probe-heading strong { color: #f1f5f9; font-weight: 650; }
+.service-probe {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  min-height: 1.85rem;
+  padding: .26rem .55rem;
+  border-radius: 999px;
+  white-space: normal;
+  line-height: 1.2;
+}
+.service-probe:focus-visible,
+.service-filter-health-chip:focus-visible {
+  outline: 2px solid #78baff;
+  outline-offset: 3px;
+}
+.service-filter-health-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+.service-filter-health-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  white-space: nowrap;
+  min-height: 2.5rem;
+}
+.service-filter-health-chip[aria-pressed="true"] {
+  outline: 2px solid #78baff;
+  outline-offset: 1px;
+}
+.truenas-protocol-guide {
+  display: grid;
+  gap: .35rem;
+  margin: .75rem 0;
+  border: 1px solid rgba(125,174,224,.35);
+  background: rgba(70,112,158,.1);
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.truenas-protocol-guide strong { color: #eaf2ff; }
+.truenas-protocol-guide small { color: #b7c5d9; }
+@media (max-width: 640px) {
+  #health-checks .health-row,
+  #health-services-groups .health-row { padding: .7rem; }
+  .service-filter-health-summary { flex-wrap: nowrap; overflow-x: auto; padding-block: .35rem; scrollbar-width: thin; }
+  .service-filter-health-chip { flex: 0 0 auto; }
+  .service-probe { font-size: .76rem; }
+  .service-probe-heading { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-probe, .service-filter-health-chip { transition: none; }
+}
+
+
+/* Mobile-first filter rail: icon + observed count, with explicit on/off state. */
+.service-filter--global .service-filter-health-chip {
+  position: relative;
+  isolation: isolate;
+}
+.service-filter--global .service-filter-health-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.service-filter--global .service-filter-health-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.service-filter--global .service-filter-health-count {
+  font-variant-numeric: tabular-nums;
+}
+.service-filter--global .service-filter-health-chip[aria-pressed="true"] {
+  background: #19344c;
+  border-color: #93c5fd;
+  color: #eef7ff;
+}
+@media (max-width: 720px) {
+  .service-filter--global {
+    padding: .4rem .5rem;
+  }
+  .service-filter--global .service-filter-global-heading {
+    margin-bottom: .25rem;
+  }
+  .service-filter--global .service-filter-global-heading h2 {
+    font-size: .8rem;
+    line-height: 1.25;
+  }
+  .service-filter--global .service-filter-health-summary,
+  .service-filter--compact .service-filter-health-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(44px, 1fr));
+    gap: .2rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: none;
+    padding: .18rem 0 .3rem;
+    margin: 0;
+  }
+  .service-filter--global .service-filter-health-chip,
+  .service-filter--compact .service-filter-health-chip {
+    display: flex;
+    position: relative;
+    flex: initial;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+    min-width: 44px;
+    min-height: 48px;
+    padding: .3rem .12rem;
+    border-radius: .6rem;
+    scroll-snap-align: none;
+  }
+  .service-filter--global .service-filter-health-name {
+    display: none;
+  }
+  .service-filter--global .service-filter-health-icon svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+  .service-filter--global .service-filter-health-count {
+    position: absolute;
+    top: .05rem;
+    right: .12rem;
+    margin: 0;
+    border-radius: .3rem;
+    background: #25364c;
+    color: #f1f5f9;
+    padding: .04rem .17rem;
+    font-size: .64rem;
+    line-height: 1.2;
+  }
+  .service-filter--global .service-filter-health-chip::before {
+    content: "";
+    position: absolute;
+    bottom: .24rem;
+    left: calc(50% - .18rem);
+    width: .36rem;
+    height: .36rem;
+    border-radius: 50%;
+    background: #667588;
+  }
+  .service-filter--global .service-filter-health-chip[aria-pressed="true"]::before {
+    background: #86efac;
+  }
+  /* Reveal the label on hover, keyboard focus, or while the finger presses. */
+  .service-filter--global .service-filter-health-chip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    inset: 1px;
+    display: grid;
+    place-items: center;
+    border-radius: .55rem;
+    background: #19344c;
+    color: #eff6ff;
+    font-size: .61rem;
+    font-weight: 650;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .service-filter--global .service-filter-health-chip:focus-visible::after,
+  .service-filter--global .service-filter-health-chip:active::after {
+    opacity: 1;
+  }
+  .service-filter--compact .service-filter-control,
+  .service-filter--compact #service-protocol-shortcuts {
+    display: none;
+  }
+  .service-filter--global:not(.service-filter--compact) .service-filter-control {
+    display: grid;
+  }
+  .service-filter--global:not(.service-filter--compact) #service-protocol-shortcuts {
+    display: flex;
+  }
+  .service-filter--global .service-filter-active {
+    margin-top: .2rem;
+  }
+}
+@media (max-width: 720px) and (hover: hover) and (pointer: fine) {
+  .service-filter--global .service-filter-health-chip:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Visa responsive filters: keyboard-accessible disclosure and reset. */
+#service-filter-advanced[hidden],
+#service-filter-reset-all[hidden] { display: none !important; }
+.service-filter-visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.service-filter-advanced { min-width: 0; }
+.service-filter--global .service-filter-reset-all {
+  min-height: 44px; padding-inline: .6rem; white-space: nowrap;
+}
+.service-filter--global .service-filter-reset-all:focus-visible,
+.service-filter--global .service-filter-density-toggle:focus-visible {
+  outline: 2px solid #93c5fd; outline-offset: 2px;
+}
+@media (max-width: 720px) {
+  .service-filter--global .service-filter-advanced:not([hidden]) {
+    display: grid; gap: .35rem; min-height: 0;
+    max-height: min(58dvh, 32rem); overflow: auto;
+    overscroll-behavior: contain; padding-top: .4rem;
+  }
+  .service-filter--global .service-filter-active:not([hidden]) {
+    display: flex; flex-flow: row nowrap; overflow-x: auto;
+    overscroll-behavior-inline: contain; gap: .25rem;
+  }
+  .service-filter--global .service-filter-active-chip { flex: 0 0 auto; }
+}
+
+
+/* Vercel Web Interface Guidelines: tactile and focus states for the filter rail. */
+.service-filter--global .service-filter-health-chip,
+.service-filter--global .service-filter-density-toggle,
+.service-filter--global .service-filter-reset-all,
+.service-filter--global .service-filter-active-chip {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(147, 197, 253, .18);
+}
+.service-filter--global .service-filter-health-chip:hover,
+.service-filter--global .service-filter-density-toggle:hover,
+.service-filter--global .service-filter-reset-all:hover {
+  border-color: #93c5fd;
+  color: #eff6ff;
+}
+.service-filter--global .service-filter-global-heading h2 {
+  text-wrap: balance;
+}
+@media (max-width: 720px) {
+  .service-filter--global {
+    scroll-margin-top: calc(env(safe-area-inset-top, 0px) + .75rem);
+    padding-inline: max(.4rem, env(safe-area-inset-left, 0px))
+                    max(.4rem, env(safe-area-inset-right, 0px));
+  }
+  /* Reduce control height without shrinking the keyboard/touch targets. */
+  .service-filter--global .service-filter-global-heading {
+    gap: .3rem;
+  }
+  .service-filter--global .service-filter-density-toggle {
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .service-filter--global .service-filter-health-summary {
+    scrollbar-width: none;
+  }
+  .service-filter--global .service-filter-health-summary::-webkit-scrollbar {
+    display: none;
+  }
+}

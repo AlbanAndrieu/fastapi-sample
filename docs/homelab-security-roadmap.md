@@ -1,9 +1,10 @@
 # Homelab security guardrails
 
-This document contains **stable security and resilience rules**, not a second
-roadmap. Priorities and open implementation work live only in
-[engineering-roadmap.md](engineering-roadmap.md). Dated failures live in
-[incidents.md](incidents.md).
+**Règles stables de sécurité.** Les tâches ouvertes, validations et dépendances inter-dépôts résident exclusivement dans [engineering-roadmap.md](engineering-roadmap.md). Les faits datés sont conservés dans [incidents.md](incidents.md). Ne pas ajouter de seconde checklist P0 ici.
+
+
+
+
 
 ## Exposure
 

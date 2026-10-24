@@ -380,7 +380,9 @@ function updateFilterResult(rows) {
   if (filters.probe !== "all") active.push(`probe=${filters.probe}`);
   if (filters.query) active.push(`search=“${filters.query}”`);
   const details = active.length ? ` · ${active.join(" · ")}` : "";
-  result.textContent = `${visible}/${rows.length} diagnostic views visible${details}`;
+  result.textContent = visible === 0 && isFiltering()
+    ? `0/${rows.length} diagnostic views visible. No services match these filters. Remove a filter or select Reset.`
+    : `${visible}/${rows.length} diagnostic views visible${details}`;
 }
 
 function updateCollapseButton() {
@@ -473,7 +475,9 @@ function installFilterEvents() {
 
   clear?.addEventListener("click", () => {
     clearFilters();
-    input?.focus();
+    // The header Reset action also triggers this handler. Do not focus an
+    // input inside a closed disclosure: it is hidden from the tab order.
+    if (input && !input.closest("[hidden]")) input.focus();
   });
   issues?.addEventListener("click", () => {
     filters.status = filters.status === "issues" ? "all" : "issues";

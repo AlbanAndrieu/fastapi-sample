@@ -11,7 +11,11 @@ def test_health_entrypoint_installs_one_global_filter_shell() -> None:
     shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
 
     assert 'from "./api-global-service-filter.js"' in entrypoint
-    assert entrypoint.count("installGlobalServiceFilter();") == 1
+    # One call in the public branch; one after controls exist in the detailed branch.
+    assert entrypoint.count("installGlobalServiceFilter();") == 2
+    assert entrypoint.index("installServiceDiagnostics();") < entrypoint.rindex(
+        "installGlobalServiceFilter();"
+    )
     assert 'document.querySelector(".service-filter")' in shell
     assert 'board.insertAdjacentElement("beforebegin", host);' in shell
     assert 'host.classList.add("service-filter--global")' in shell
@@ -138,3 +142,63 @@ def test_section_navigation_stays_horizontal_on_mobile() -> None:
     assert "flex-direction: row;" in stylesheet
     assert "overflow-x: auto;" in stylesheet
     assert "scroll-snap-type: x proximity;" in stylesheet
+
+
+def test_mobile_status_filters_are_compact_accessible_toggles() -> None:
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    css = (ASSETS / "api-diagnostics-ux.css").read_text(encoding="utf-8")
+    entry = (ASSETS / "api.css").read_text(encoding="utf-8")
+
+    assert '["all", "All"]' in shell
+    assert "counts.all = rows.length;" in shell
+    assert "STATUS_ICON_PATHS" in shell
+    assert 'button.setAttribute("aria-pressed", String(enabled));' in shell
+    assert 'button.dataset.tooltip' in shell
+    assert 'button.setAttribute("aria-label"' in shell
+    assert 'select.dispatchEvent(new Event("change", { bubbles: true }));' in shell
+    assert "service-filter-health-count" in css
+    assert "repeat(6, minmax(44px, 1fr))" in css
+    assert 'service-filter-health-chip:focus-visible::after' in css
+    assert 'service-filter-health-chip:active::after' in css
+    assert 'service-filter--compact #service-protocol-shortcuts' in css
+    assert 'api-diagnostics-ux.css' in entry
+
+
+def test_accessible_disclosure_contract() -> None:
+    script = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    assert 'aria-controls="service-filter-advanced"' in script
+    assert 'button.setAttribute("aria-label", label);' in script
+    assert 'button.setAttribute("aria-describedby"' in script
+    assert "advanced.hidden = compact;" in script
+
+
+def test_mobile_disclosure_respects_touch_and_keyboard() -> None:
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    entry = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+    assert 'host.dataset.mobileExpanded = "true";' in shell
+    assert 'host.dataset.userCompact = "false";' in shell
+    assert 'document.getElementById("service-filter")?.focus();' in shell
+    assert "const compact = mobile" in shell
+    assert 'button.setAttribute("aria-expanded", String(!compact));' in shell
+    assert 'aria-controls="service-filter-advanced"' in shell
+    assert entry.index("installServiceDiagnostics();") < entry.rindex(
+        "installGlobalServiceFilter();"
+    )
+
+
+def test_web_design_guidelines_search_and_disclosure() -> None:
+    """Search is named; mobile disclosure keeps focus and touch support."""
+    ui = (ROOT / "nabla" / "api" / "ui.py").read_text(encoding="utf-8")
+    css = (ASSETS / "api-diagnostics-ux.css").read_text(encoding="utf-8")
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    engine = (ASSETS / "api-service-filter.js").read_text(encoding="utf-8")
+
+    assert 'id="service-filter" name="service-filter"' in ui
+    assert 'enterkeyhint="search"' in ui
+    assert "touch-action: manipulation;" in css
+    assert "safe-area-inset-left" in css
+    assert "text-wrap: balance;" in css
+    assert 'button.setAttribute("aria-label",' in shell
+    assert 'host.dataset.mobileExpanded = "true";' in shell
+    assert "const compact = mobile" in shell
+    assert 'input.closest("[hidden]")' in engine
