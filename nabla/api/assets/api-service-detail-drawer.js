@@ -95,7 +95,9 @@ function metadataEntries(row) {
 }
 
 function probeEntries(row) {
-  return [...row.querySelectorAll(".service-probe")].map((probe) => ({
+  return [...row.querySelectorAll(".service-probe")]
+    .filter((probe) => probe.dataset.probeKind !== "issues")
+    .map((probe) => ({
     kind: probe.dataset.probeKind || "probe",
     label:
       probe.querySelector(".service-probe-label")?.textContent?.trim() ||
