@@ -423,3 +423,44 @@ def test_public_hello_canary_requires_no_cloudflare_access() -> None:
     )
     assert service.public_https_probe_url == "https://hello.int.albandrieu.com/"
     assert service.effective_cloudflare_access_required is False
+
+
+@pytest.mark.parametrize(
+    ("legacy_id", "canonical", "title"),
+    [
+        ("home-assistant", "homeassistant", "Home Assistant UI"),
+        ("open-webui", "openwebui", "Open WebUI"),
+        ("gatus", "gatus", "Gatus UI"),
+        ("bichon", "bichon", "Bichon UI"),
+        ("garage", "garage", "Garage S3 API"),
+        ("garage-admin", "garage-admin", "Garage Admin API"),
+    ],
+)
+def test_verified_service_roles_keep_canonical_ids(
+    legacy_id: str, canonical: str, title: str,
+) -> None:
+    service = HomelabService.model_validate(
+        {"id": legacy_id, "name": legacy_id, "external": False},
+    )
+    assert service.service_id == canonical
+    assert service.name == title
+
+
+def test_unrelated_hyphens_are_preserved_in_service_ids() -> None:
+    service = HomelabService.model_validate(
+        {"id": "garage-webui", "name": "Garage UI", "external": False},
+    )
+    assert service.service_id == "garage-webui"
+    assert service.name == "Garage Web UI"
+
+
+def test_bootstrap_snapshot_matches_observed_gatus_and_bichon_ports() -> None:
+    services = homelab_catalog._load_bootstrap_catalog().services
+    by_id = {service.service_id: service for service in services}
+    assert by_id["gatus"].internal_port == 8085
+    assert by_id["bichon"].internal_port == 15630
+    assert by_id["garage"].internal_port == 3900
+    assert by_id["garage-admin"].internal_port == 3903
+    assert by_id["garage-webui"].internal_port == 3909
+    assert by_id["homeassistant"].service_id == "homeassistant"
+    assert by_id["openwebui"].service_id == "openwebui"
