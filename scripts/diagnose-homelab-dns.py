@@ -34,7 +34,9 @@ def lookup(command: list[str], timeout: float) -> tuple[list[str] | None, str]:
     if not shutil.which(command[0]):
         return None, f"{command[0]} unavailable"
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=timeout, check=False
+        )
     except subprocess.TimeoutExpired:
         return None, "timeout"
     except OSError:
@@ -44,7 +46,9 @@ def lookup(command: list[str], timeout: float) -> tuple[list[str] | None, str]:
     return ipv4_answers(result.stdout), "queried"
 
 
-def classify_internal(direct: list[str] | None, system: list[str] | None, expected: str) -> str:
+def classify_internal(
+    direct: list[str] | None, system: list[str] | None, expected: str
+) -> str:
     if direct is None or system is None:
         return "unverified"
     if expected not in direct:
@@ -71,27 +75,40 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("resolver and expected internal IP must be IPv4")
     if not 0 < args.timeout <= 10:
         parser.error("timeout must be in (0, 10] seconds")
-    print(f"Observer={args.vantage}; DNS server={args.resolver}; expected internal A={args.expected_internal_ip} (declared)")
+    print(
+        f"Observer={args.vantage}; DNS server={args.resolver}; "
+        f"expected internal A={args.expected_internal_ip} (declared)"
+    )
     results: dict[str, tuple[list[str] | None, list[str] | None]] = {}
     for label, host in (("internal", args.internal_name), ("public", args.public_name)):
         # `+short` prints A answers only; an empty result is not proof of a
         # specific DNS failure mode (NXDOMAIN/SERVFAIL require a separate dig).
         direct, direct_reason = lookup(
-            ["dig", f"@{args.resolver}", host, "A", "+short", "+tries=1", "+time=2"], args.timeout
+            ["dig", f"@{args.resolver}", host, "A", "+short", "+tries=1", "+time=2"],
+            args.timeout,
         )
         system, system_reason = lookup(["getent", "ahostsv4", host], args.timeout)
         results[label] = direct, system
-        print(f"{label}: pfSense={direct if direct is not None else 'NOT_RUN'} ({direct_reason}); "
-              f"system={system if system is not None else 'NOT_RUN'} ({system_reason})")
+        print(
+            f"{label}: pfSense={direct if direct is not None else 'NOT_RUN'} "
+            f"({direct_reason}); system={system if system is not None else 'NOT_RUN'} "
+            f"({system_reason})"
+        )
     direct_internal, system_internal = results["internal"]
     outcome = classify_internal(direct_internal, system_internal, args.expected_internal_ip)
     print(f"Internal DNS comparison={outcome}")
-    print("Public DNS A values can change behind Cloudflare; no fixed public IP is required.")
+    print(
+        "Public DNS A values can change behind Cloudflare; "
+        "no fixed public IP is required."
+    )
     print("DNS answers do not prove TCP, TLS, HTTP/API, WebSocket or origin health.")
-    if args.strict and (outcome != "matched" or any(
-        direct is None or not direct or system is None or not system
-        for direct, system in results.values()
-    )):
+    if args.strict and (
+        outcome != "matched"
+        or any(
+            direct is None or not direct or system is None or not system
+            for direct, system in results.values()
+        )
+    ):
         return 1
     return 0
 
