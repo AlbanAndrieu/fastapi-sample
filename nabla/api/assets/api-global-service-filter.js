@@ -1,10 +1,25 @@
 const STATUS_CHIPS = [
+  ["all", "All"],
   ["operational", "Operational"],
   ["at-risk", "At risk"],
   ["degraded", "Degraded"],
   ["down", "Down"],
   ["unknown", "Unknown"],
 ];
+
+// Fixed SVG paths. Filter values and icon markup are local constants, not service data.
+const STATUS_ICON_PATHS = {
+  all: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  operational: '<path d="M4 12.5l5 5L20 6"/>',
+  "at-risk": '<path d="M12 3L2.5 20h19L12 3z"/><path d="M12 9v5m0 3h.01"/>',
+  degraded: '<path d="M2 13h5l3-6 4 10 3-4h5"/>',
+  down: '<circle cx="12" cy="12" r="9"/><path d="M8 8l8 8m0-8l-8 8"/>',
+  unknown: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4m0 3h.01"/>',
+};
+
+function statusIcon(status) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STATUS_ICON_PATHS[status]}</svg>`;
+}
 
 const ACTIVE_FILTERS = [
   ["status", "Health", "service-status-filter"],
@@ -44,9 +59,16 @@ function statusCounts() {
   const counts = Object.fromEntries(
     STATUS_CHIPS.map(([status]) => [status, 0]),
   );
-  for (const row of healthRows()) {
+  const rows = healthRows();
+  counts.all = rows.length;
+  for (const row of rows) {
     const status = normalizedStatus(row);
-    if (Object.hasOwn(counts, status)) counts[status] += 1;
+    if (status !== "all" && Object.hasOwn(counts, status)) {
+      counts[status] += 1;
+    } else if (!Object.hasOwn(counts, status)) {
+      // A new server status must never silently count as operational.
+      counts.unknown += 1;
+    }
   }
   return counts;
 }
@@ -72,10 +94,15 @@ function renderStatusChips(host) {
       button.addEventListener("click", () => setStatusFilter(status));
       host.appendChild(button);
     }
-    button.setAttribute("aria-pressed", String(selected === status));
+    const enabled = selected === status;
+    button.setAttribute("aria-pressed", String(enabled));
     button.setAttribute("aria-label", `${label}: ${counts[status]} services`);
-    button.title = `Show ${label.toLowerCase()} services`;
-    button.innerHTML = `<strong>${counts[status]}</strong><span>${label}</span>`;
+    button.dataset.tooltip = `${label} · ${enabled ? "On" : "Off"}`;
+    button.removeAttribute("title");
+    button.innerHTML =
+      `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
+      `<strong class="service-filter-health-count">${counts[status]}</strong>` +
+      `<span class="service-filter-health-name">${label}</span>`;
   }
 }
 
@@ -277,6 +304,10 @@ function syncCompactState(host) {
   host.dataset.expanded = String(!compact);
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
+    const state = currentFilterState();
+    const activeCount = Object.entries(state).filter(
+      ([key, value]) => key === "query" ? Boolean(value.trim()) : value !== "all",
+    ).length;
     button.textContent = mobile
       ? compact
         ? "Filters"
@@ -284,6 +315,7 @@ function syncCompactState(host) {
       : compact
         ? "Expand"
         : "Collapse";
+    if (activeCount) button.textContent += ` (${activeCount})`;
     button.setAttribute("aria-expanded", String(!compact));
   }
 }
@@ -374,6 +406,7 @@ export function installGlobalServiceFilter() {
 
   document.addEventListener("service-filter-changed", (event) => {
     refreshGlobalFilter(event.detail);
+    syncCompactState(host);
   });
 
   const status = document.getElementById("service-status-filter");
