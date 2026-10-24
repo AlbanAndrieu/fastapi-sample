@@ -17,6 +17,7 @@ let activeIdentity = null;
 let refreshScheduled = false;
 let latestTopology = null;
 let latestSnapshot = null;
+let nextTopologyRetryAt = 0;
 
 function normalizedStatus(row) {
   const explicit = String(row?.dataset?.semanticStatus || "").trim();
@@ -547,6 +548,16 @@ export function installServiceDetailDrawer() {
     scheduleActiveRefresh();
   }).catch(() => {});
   document.addEventListener("health-board-refreshed", () => {
+    // Public-topology may initially return 401/403 before an owner session.
+    // Retry only on board refresh and at most every two minutes, not per card.
+    if ((!latestTopology || !latestTopology.nodes?.length) &&
+        Date.now() >= nextTopologyRetryAt) {
+      nextTopologyRetryAt = Date.now() + 120000;
+      fetchTopology({ force: true }).then((topology) => {
+        latestTopology = topology;
+        scheduleActiveRefresh();
+      }).catch(() => {});
+    }
     fetchHealthBoard().then((snapshot) => {
       latestSnapshot = snapshot;
       scheduleActiveRefresh();
