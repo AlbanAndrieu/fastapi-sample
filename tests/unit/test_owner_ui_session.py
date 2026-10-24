@@ -242,3 +242,20 @@ def test_operator_unconfigured_is_503_and_never_discloses_config(monkeypatch) ->
         "code": "unconfigured",
     }
     assert response.headers["cache-control"] == "private, no-store, max-age=0"
+
+
+def test_temporary_readonly_mode_does_not_authenticate_remote_viewer(monkeypatch) -> None:
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
+    remote = _client(monkeypatch, "203.0.113.42")
+    assert remote.get("/api/ui/session").json() == {
+        "authenticated": False, "readOnlyDiagnostics": True,
+    }
+    assert remote.get("/api/health-board").status_code == 200
+    assert remote.get("/api/site/catalog/v2").status_code == 200
+    # Read-only access never authorizes cache mutations or telemetry internals.
+    assert remote.post("/api/health-board/cache/reset").status_code == 401
+    assert remote.get("/metrics").status_code == 401
+
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
+    assert remote.get("/api/ui/session").json() == {"authenticated": False}
+    assert remote.get("/api/health-board").status_code == 401
