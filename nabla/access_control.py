@@ -7,7 +7,6 @@ mounts; those transports need independent gates before exposing ops.
 
 from __future__ import annotations
 
-import os
 from secrets import compare_digest
 from typing import TYPE_CHECKING
 
@@ -22,6 +21,7 @@ from nabla.cloudflare_ops_access import (
     verify_owner_token,
 )
 from nabla.config_settings import APIDeploymentSettings, get_settings
+from nabla.diagnostics_readonly_mode import public_diagnostics_readonly_enabled
 from nabla.homelab_trusted_ip import owner_source_permitted
 from nabla.route_policy import Credential, Visibility, route_policy_for
 
@@ -114,8 +114,7 @@ async def operations_access_middleware(
     if (
         request.method.upper() in {"GET", "HEAD"}
         and request.url.path in _TEMPORARY_READ_ROUTES
-        and os.getenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true").lower()
-        in {"1", "true", "yes", "on"}
+        and public_diagnostics_readonly_enabled()
     ):
         response = await call_next(request)
         response.headers["Cache-Control"] = "private, no-store"
