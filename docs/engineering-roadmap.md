@@ -19,6 +19,20 @@
 
 **Done :** workstation et TrueNAS observées indépendamment ; le cache DNS, le trafic IPv6 et les accès Cloudflare ne sont pas confondus avec la santé de l'origine FastAPI.
 
+### Relevé après activation du diagnostic — 20:31 CEST (2 hôtes)
+
+**Relevés utilisateur, sans exécution par l'agent sur les hôtes :**
+- Workstation (`verify/fastapi-dns-374` au HEAD `f453c5ee`) : DNS interne direct **334,7 ms**, DNS public direct **128,3 ms**, DNS public NSS **1,5 ms**, DNS interne NSS **timeout à 3 s** ; `unverified`.
+- TrueNAS (même HEAD) : DNS interne direct **74,6 ms**, DNS public direct **44,6 ms**, DNS public NSS **44,4 ms**, DNS interne NSS **timeout à 3 s** ; `unverified`.
+- Il s'agit d'un déficit de **résolution système du nom privé**, et non d'une absence d'enregistrement A sur pfSense. La configuration NSS, le routage `systemd-resolved` et un éventuel DoT opportuniste restent **hypothèses à distinguer**.
+- Relevé extérieur au navigateur : Gatus HTTP 200 ; Prometheus port 9090 connexion refusée (`curl 7`), Pyroscope port 4040 dépasse 5 s (`curl 28`). Ces résultats sont attachés au **point d'observation déclaré par l'opérateur** ; ils ne prouvent pas le même état depuis TrueNAS.
+
+**Corrections de collecte dans #374 :** timeout `getent` indépendant par défaut à 10 s, statut `matched_slow` si résolution correcte mais plus de 2 s, sortie `unverified` avec diagnostic NSS si aucune preuve, et détails `curl 7/28/6` distincts pour les endpoints de readiness.
+
+- [ ] Réexécuter `just dns-evidence-workstation` et `just dns-evidence-truenas` sur le nouveau HEAD ; mesurer au moins trois requêtes après une lecture de `hosts:` dans `/etc/nsswitch.conf` et de la configuration active DNS.
+- [ ] Sur TrueNAS, vérifier séparément l'état des conteneurs et bindings Prometheus/Pyroscope avant toute mutation : l'application `RUNNING` n'atteste pas la readiness du conteneur principal.
+- [ ] Valider les huit tests ciblés du DNS plus les contrats du wrapper, la syntaxe Bash et la gate complète au HEAD exact. **L1 isolé : 8/8 PASS** sur une reconstruction locale ; suite entière `NOT_RUN`.
+
 ## P0 — Contrat de sondes HTTP/TCP/TLS et fraîcheur par service
 
 - [ ] Valider localement l'implémentation `internal_probe_execution` (schéma OWNER v6) : `disabled`, `not-configured`, `not-executed`, `stale`, `failed`, `observed`. La valeur `RUNNING` de Docker n'est pas un succès TCP.
