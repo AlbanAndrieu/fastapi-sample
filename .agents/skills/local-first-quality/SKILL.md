@@ -19,6 +19,37 @@ agent efficiency, missing DNS or GitHub snapshot validation.
 Never describe L0–L2 as full CI/L3. Missing dependencies/tools,
 remote runtime or DAST = **NOT_RUN**.
 
+## Shell interactif et isolation Python des worktrees
+
+**P0 : ne jamais utiliser set -euo pipefail directement dans le
+terminal interactif de l'opérateur (Bash ou zsh).** Un échec peut
+fermer ce terminal. Exécuter toute séquence multi-commandes dans un
+processus enfant : un script versionné exécuté avec bash, ou un
+heredoc cité transmis à bash. Refuser toute exécution avec source
+avant d'activer set -Eeuo pipefail. Tester qu'un échec arrête la suite
+sans fermer le shell parent. Fournir un bloc opérateur indépendant
+du répertoire courant, seulement pour les étapes inaccessibles à l'agent.
+
+**Python FastAPI : 3.13** (mise.toml : 3.13.17).
+- La source de vérité est pyproject.toml + uv.lock.
+- Chaque agent possède **une .venv dans son propre worktree** :
+  aucun partage de .venv ou de VIRTUAL_ENV entre agents.
+- **Seul le cache de téléchargement uv est partagé**, par défaut
+  $HOME/.cache/uv ; ne pas mutualiser des paquets installés.
+- Choisir le Python du worktree explicitement, pas python3 du PATH.
+  Un Python 3.14 global ou des dépendances absentes donnent BLOCKED,
+  jamais un PASS ni une dérive de test.
+- Ne pas lancer pip install global, mise install global, direnv allow
+  ou source .envrc pendant un contrôle automatique ; la configuration
+  de shell peut charger des secrets et provoquer des installations.
+- scripts/agent-worktree-python.sh --check est **sans mutation**
+  et son comportement par défaut. --sync déclenche volontairement
+  uv sync --locked --python 3.13.17 dans la .venv locale.
+  Cette synchronisation peut télécharger des dépendances ; elle
+  n'écrit pas uv.lock ni n'installe le Python manquant.
+- L1 ciblé précède L2 puis la gate L3 complète. Déclarer NOT_RUN
+  pour les validations impossibles dans l'agent.
+
 ## Minimal loop
 1. Resolve current branch, PR HEAD and base once. Inspect changed files,
     immediate tests, failing CI job/step only; avoid giant GitHub diffs,
