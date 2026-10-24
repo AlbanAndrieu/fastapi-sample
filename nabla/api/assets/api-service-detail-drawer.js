@@ -1,3 +1,8 @@
+import { fetchHealthBoard } from "./api-health-board.js";
+import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
+import { serviceRelations } from "./api-service-relations.js";
+import { fetchTopology } from "./api-topology-data.js";
+
 const ROW_SELECTOR = "[data-service-filter-target]";
 const OBSERVED_CONTAINERS = [
   "health-checks",
@@ -10,6 +15,8 @@ let activeRow = null;
 let activeTrigger = null;
 let activeIdentity = null;
 let refreshScheduled = false;
+let latestTopology = null;
+let latestSnapshot = null;
 
 function normalizedStatus(row) {
   const explicit = String(row?.dataset?.semanticStatus || "").trim();
@@ -133,6 +140,15 @@ function ensureDrawer() {
     <div class="service-detail-body">
       <div id="service-detail-meta" class="service-detail-meta"></div>
       <div id="service-detail-link" class="service-detail-link"></div>
+      <div id="service-detail-summary" class="service-detail-summary" aria-live="polite"></div>
+      <section aria-labelledby="service-detail-relations-title">
+        <h3 id="service-detail-relations-title">Related catalogue services</h3>
+        <div id="service-detail-relations" class="service-detail-relations"></div>
+      </section>
+      <section id="service-detail-gatus-section" aria-labelledby="service-detail-gatus-title" hidden>
+        <h3 id="service-detail-gatus-title">Gatus monitored services</h3>
+        <div id="service-detail-gatus" class="service-detail-relations"></div>
+      </section>
       <section aria-labelledby="service-detail-evidence-title">
         <h3 id="service-detail-evidence-title">Probe evidence</h3>
         <div id="service-detail-evidence" class="service-detail-evidence"></div>
@@ -229,9 +245,128 @@ function renderEvidence(drawer, row) {
   }
 }
 
+function matchingCatalogueRow(id) {
+  const candidates = [...document.querySelectorAll(ROW_SELECTOR)].filter(
+    (row) =>
+      row.dataset.topologyId === id ||
+      row.dataset.serviceKey === id ||
+      row.dataset.serviceKey?.replace(/^albandrieu_/, "").replaceAll("_", "-") === id,
+  );
+  // Never choose an arbitrary destination when multiple cards share an ID.
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function linkedCatalogueItem(entry, { status = "", type = "" } = {}) {
+  const target = matchingCatalogueRow(entry.id);
+  const wrap = document.createElement("div");
+  wrap.className = "service-detail-relation";
+  const link = document.createElement(target ? "button" : "span");
+  if (target) {
+    link.type = "button";
+    link.className = "service-detail-relation-link";
+    link.addEventListener("click", () => {
+      openDrawer(target, target.querySelector(":scope > .service-detail-trigger"));
+    });
+    link.setAttribute("aria-label", `View ${entry.name} service diagnostics`);
+  }
+  link.textContent = entry.name;
+  wrap.appendChild(link);
+  const detail = document.createElement("small");
+  detail.textContent = [type || entry.type, status, entry.required ? "required" : ""]
+    .filter(Boolean).join(" · ");
+  wrap.appendChild(detail);
+  return wrap;
+}
+
+function renderRelations(drawer, row) {
+  const host = drawer.querySelector("#service-detail-relations");
+  host?.replaceChildren();
+  if (!host) return;
+  const id = row.dataset.topologyId;
+  const relations = serviceRelations(latestTopology, id);
+  const groups = [
+    ["Upstream / dependencies", relations.dependencies],
+    ["Downstream / dependents", relations.dependents],
+  ];
+  let found = false;
+  for (const [label, items] of groups) {
+    if (!items.length) continue;
+    found = true;
+    const title = document.createElement("strong");
+    title.className = "service-detail-relation-group";
+    title.textContent = label;
+    host.appendChild(title);
+    items.forEach((item) => host.appendChild(linkedCatalogueItem(item)));
+  }
+  if (!found) {
+    const empty = document.createElement("p");
+    empty.className = "service-detail-empty";
+    empty.textContent = latestTopology?.nodes?.length
+      ? "No published dependencies for this catalogue identity."
+      : "Public topology unavailable; relations not verified.";
+    host.appendChild(empty);
+  }
+}
+
+function renderProbeSummary(drawer, row) {
+  const host = drawer.querySelector("#service-detail-summary");
+  if (!host) return;
+  const probes = probeEntries(row).filter((probe) => !probe.disabled);
+  const failed = probes.filter((probe) => probe.tone === "fail").length;
+  const warnings = probes.filter((probe) => probe.tone === "warn").length;
+  const unknown = probes.filter((probe) =>
+    !["ok", "fail", "warn"].includes(probe.tone)
+  ).length;
+  host.textContent = probes.length
+    ? `Probe evidence · ${failed} failing · ${warnings} warning · ${unknown} unverified · ${probes.length} observed badges`
+    : "No direct probe evidence; this is not proof of service health.";
+  host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
+}
+
+function renderGatusFleet(drawer, row) {
+  const section = drawer.querySelector("#service-detail-gatus-section");
+  const host = drawer.querySelector("#service-detail-gatus");
+  if (!host || !section) return;
+  host.replaceChildren();
+  const isGatus = row.dataset.serviceKey === "gatus" ||
+    row.dataset.topologyId === "gatus";
+  section.hidden = !isGatus;
+  if (!isGatus) return;
+  const fleet = gatusCoverage(latestSnapshot);
+  const totals = document.createElement("p");
+  totals.className = "service-detail-empty";
+  totals.textContent = fleet.state !== "observed"
+    ? `Gatus coverage unavailable: ${fleet.reason}. No probes declared healthy.`
+    : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
+  host.appendChild(totals);
+  if (fleet.state !== "observed") return;
+  if (fleet.failures.length === 0) {
+    const note = document.createElement("p");
+    note.className = "service-detail-empty";
+    note.textContent = "No failed labelled probes observed in this snapshot. Missing or stale checks remain unverified.";
+    host.appendChild(note);
+  }
+  fleet.failures.slice(0, 20).forEach((failure) => {
+    host.appendChild(linkedCatalogueItem(
+      { id: failure.id, name: failure.id },
+      { type: failure.type, status: "observed DOWN" },
+    ));
+  });
+  if (fleet.failures.length > 20) {
+    const more = document.createElement("p");
+    more.className = "service-detail-empty";
+    more.textContent = `${fleet.failures.length - 20} more failed probes; see the private Gatus console.`;
+    host.appendChild(more);
+  }
+}
+
 function renderDrawer(row, { force = false } = {}) {
   const drawer = ensureDrawer();
-  const signature = drawerSignature(row);
+  const signature = JSON.stringify({
+    row: drawerSignature(row),
+    topology: latestTopology,
+    synthetic: latestSnapshot?.platform_metrics?.synthetic_probes,
+  });
   const serviceKey = String(
     row.dataset.serviceKey || row.dataset.serviceName || "",
   );
@@ -247,6 +382,9 @@ function renderDrawer(row, { force = false } = {}) {
   renderMetadata(drawer, row);
   renderLink(drawer, row);
   renderEvidence(drawer, row);
+  renderProbeSummary(drawer, row);
+  renderRelations(drawer, row);
+  renderGatusFleet(drawer, row);
   drawer.dataset.serviceKey = serviceKey;
   drawer.dataset.renderSignature = signature;
 }
@@ -366,6 +504,21 @@ function installKeyboardClose() {
 }
 
 export function installServiceDetailDrawer() {
+  // Reuse the same cached public topology and health snapshot as the board.
+  // Do not request one provider endpoint per card or probe.
+  fetchTopology().then((topology) => {
+    latestTopology = topology;
+    scheduleActiveRefresh();
+  }).catch(() => {});
+  document.addEventListener("health-board-refreshed", () => {
+    fetchHealthBoard().then((snapshot) => {
+      latestSnapshot = snapshot;
+      scheduleActiveRefresh();
+    }).catch(() => {
+      latestSnapshot = null;
+      scheduleActiveRefresh();
+    });
+  });
   ensureDrawer();
   decorateRows();
   observeRows();
