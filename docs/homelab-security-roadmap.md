@@ -1,3 +1,14 @@
+## Vérification OWNER / sondes du 24 octobre 2026 (P0)
+
+- [x] Vérifier les données utilisateur du snapshot `/api/homelab-health` schéma 6 (13:08:36 UTC) : TrueNAS 95 apps (81 RUNNING, 13 STOPPED, 1 DEPLOYING) ; services 88 (27 OK, 24 WARN, 14 FAIL, 23 UNKNOWN).
+- [x] Confirmer que la raison de l'absence de sondes LAN est `internal_probes_enabled=false` : 0/86, contre 16/28 éligibles publics connus (57,1 %) et 12/28 échantillonnés à ce cycle.
+- [x] Détecter Prometheus app RUNNING avec conteneur principal exited ; la PR comporte déjà `runtime_primary_container_issue` et sa matrice de tests. Ne pas interpréter le seul `app.state` comme état Docker.
+- [ ] Émettre dans le DTO OWNER l'origine indépendante de chaque observation : `runtime_observed_at`, `public_probe_observed_at`, `internal_probe_observed_at`, `tunnel_observed_at` ; `observed_at` global ne prouve pas l'exécution de toutes les sondes.
+- [ ] Examiner les incohérences déclaratif/Cloudflare : Gatus (8085/30287), Bichon (15630/30313), Garage Web UI (3900/3909), Garage Admin (3909/3903), et les qualifier comme drift sans modifier automatiquement les routes.
+- [ ] Prévoir une sonde LAN depuis TrueNAS avec contrôle CIDR/SSRF, budget et timeout ; conserver le cloud en lecture seule sans accès réseau interne. Exposer des états `disabled` distincts de `failed`.
+- [ ] Corréler Gatus, Prometheus et exporters par identifiant Backstage stable ; indiquer `not-configured` ou `not-observed` si aucun scrape n'existe.
+- [ ] Vérifier en local pytest/ruff/typecheck et Preview exacte avant fusion ; ne pas déclencher de CI payante automatiquement.
+
 # Homelab security guardrails
 
 This document contains **stable security and resilience rules**, not a second
