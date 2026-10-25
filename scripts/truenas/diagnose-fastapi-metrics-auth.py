@@ -20,6 +20,18 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 
 METRICS_URL = "http://127.0.0.1:8091/metrics"
 MAX_TOKEN_BYTES = 512
+
+# Fixed remediation identifiers; never embed URLs, token values or log text.
+_METRICS_NEXT_CHECK = {
+    "unexpected_anonymous_metrics_access": "verify_metrics_route_policy",
+    "metrics_key_unconfigured_or_gate_unavailable": "verify_fastapi_metrics_key_configuration",
+    "key_configured_scraper_credentials_unverified": "verify_prometheus_bearer_credentials_file",
+    "scrape_auth_accepted": "verify_prometheus_job_up_without_exposing_token",
+    "scrape_credential_rejected": "reconcile_fastapi_and_prometheus_scrape_credentials_privately",
+    "authenticated_gate_unavailable": "verify_fastapi_operational_access_runtime",
+    "authenticated_probe_unverified": "verify_local_metrics_endpoint_response",
+    "metrics_origin_unverified": "verify_fastapi_local_metrics_listener",
+}
 # SSH is pinned to the approved TrueNAS LAN address. Never accept arbitrary
 # hosts or shell fragments from CLI arguments.
 TRUENAS_SSH_TARGET = re.compile(r"^[a-z_][a-z0-9_-]{0,31}@172[.]17[.]0[.]24$")
@@ -103,6 +115,7 @@ def assess(anonymous: int | None, authorized: int | None, token_supplied: bool) 
         "authenticated_http": authorized if token_supplied else None,
         "credentials_tested": token_supplied,
         "state": state,
+        "next_check": _METRICS_NEXT_CHECK[state],
         "scrape_authorized": anonymous == 401 and token_supplied and authorized == 200,
     }
 
@@ -265,6 +278,7 @@ def ssh_status(target: str, token_file: Path | None = None, port: int | None = N
             "credentials_tested": payload["credentials_tested"],
             "scrape_authorized": approved,
             "state": payload["state"],
+            "next_check": _METRICS_NEXT_CHECK[payload["state"]],
         }
         return report, 0 if approved else (
             1 if completed.returncode == 1 else 2
