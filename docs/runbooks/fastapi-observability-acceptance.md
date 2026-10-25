@@ -186,4 +186,40 @@ L'outil imprime **uniquement** les statuts HTTP et des catégories prédéfinies
 
 La correction éventuelle du fichier `authorization.credentials_file`, des montages Prometheus ou des secrets TrueNAS appartient à `nabla-compose`. **Ne pas désactiver** `METRICS_SCRAPE_KEY`, `OPS_ROUTE_POLICY_STRICT` ou la politique d'accès pour forcer `up=1`.
 
+### Diagnostic distant depuis la workstation via SSH
+
+Cette option envoie **uniquement le code du diagnostic** sur l'entrée
+standard de Python à TrueNAS. Aucun secret local n'est transmis.
+L'hôte est fixé à `172.17.0.24`. SSH exige une clé d'hôte déjà connue
+(`StrictHostKeyChecking=yes`) et refuse l'authentification interactive.
+
+Depuis un poste disposant d'un accès SSH autorisé à TrueNAS :
+
+```bash
+python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check \
+  --ssh-target albandrieu@172.17.0.24
+```
+
+Remplacer `albandrieu` par le compte SSH **déjà autorisé** si nécessaire.
+L'outil ne crée aucun compte, n'installe aucun service et ne publie pas
+le port 8091.
+
+Pour tester avec un secret existant sur TrueNAS, indiquer son **chemin
+distant absolu**, sans transmettre la valeur depuis la workstation :
+
+```bash
+python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check \
+  --ssh-target albandrieu@172.17.0.24 \
+  --token-file /chemin/prive/metrics-scrape-token
+```
+
+Le fichier distant doit être un fichier régulier non symbolique,
+lisible par le compte SSH et non lisible par tout le monde (`0600` ou
+`0640`). Le résultat `scrape_auth_accepted` prouve l'accès local
+à `/metrics`, mais **pas** que le processus Prometheus utilise ce
+même secret dans `authorization.credentials_file`. Une erreur SSH
+reste `ssh_unavailable_or_report_invalid`, jamais une panne FastAPI.
+Ce mode exige un accès réseau LAN/VPN déjà existant ; aucun tunnel
+Cloudflare ou ouverture WAN n'est créé.
+
 Les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` exigent toujours une clé diagnostics valide même lorsque `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=true`. L'accusé de trace n'est jamais fourni aux requêtes refusées.
