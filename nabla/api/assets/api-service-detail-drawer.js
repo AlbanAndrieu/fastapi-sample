@@ -707,6 +707,11 @@ function observeRows() {
       mutation.addedNodes.forEach((node) => {
         if (node instanceof HTMLElement) decorateRows(node);
       });
+      // Probe badges may arrive after initial row creation. Update the
+      // existing trigger without changing its identity or losing focus.
+      const owner = mutation.target instanceof HTMLElement
+        ? mutation.target.closest(ROW_SELECTOR) : null;
+      if (owner) ensureDetailTrigger(owner);
     }
     scheduleActiveRefresh();
   });
