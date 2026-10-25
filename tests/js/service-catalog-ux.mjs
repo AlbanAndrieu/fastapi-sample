@@ -186,3 +186,20 @@ test("only valid canonical service IDs may be used for deep links", () => {
   assert.equal(requestedServiceId("?service=../../admin"), null);
   assert.equal(requestedServiceId("?service="), null);
 });
+
+test("Gatus exposes only valid bounded monitor duration and 5m availability", () => {
+  const s = snapshot({
+    gatus: { HTTP: { success: 1, duration_seconds: 0.125, availability_ratio_5m: 0.95 } },
+    redis: { TCP: { success: 0, duration_seconds: -12, availability_ratio_5m: 2 } },
+  });
+  const fleet = gatusCoverage(s, now);
+  assert.equal(fleet.successes[0].durationMs, 125);
+  assert.equal(fleet.successes[0].availability, 0.95);
+  assert.equal("durationMs" in fleet.failures[0], false);
+  assert.equal("availability" in fleet.failures[0], false);
+  const details = gatusServiceEvidence(s, "gatus", now);
+  assert.equal(details.probes[0].durationMs, 125);
+  const row = { dataset: { serviceKey: "gatus", topologyId: "gatus" } };
+  const telemetry = serviceTelemetry(s, row);
+  assert.match(telemetry.gatus.detail, /125 ms/);
+});
