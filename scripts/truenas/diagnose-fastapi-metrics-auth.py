@@ -37,7 +37,7 @@ def read_token_file(path: Path) -> str | None:
         if metadata.st_mode & (S_IRGRP | S_IROTH):
             return None
         value = path.read_text(encoding="utf-8").strip()
-        if not value or len(value) > MAX_TOKEN_BYTES or any(char.isspace() for char in value):
+        if not value or not value.isascii() or len(value) > MAX_TOKEN_BYTES or any(char.isspace() for char in value):
             return None
         return value
     except (OSError, UnicodeError, ValueError):
@@ -106,7 +106,7 @@ def main() -> int:
     else:
         # An exported secret is optional. Never print or compare a secret to a value in git.
         candidate = os.getenv("METRICS_SCRAPE_KEY", "")
-        if candidate and len(candidate) <= MAX_TOKEN_BYTES and not any(c.isspace() for c in candidate):
+        if candidate and candidate.isascii() and len(candidate) <= MAX_TOKEN_BYTES and not any(c.isspace() for c in candidate):
             token = candidate
 
     anonymous = http_status(None)
