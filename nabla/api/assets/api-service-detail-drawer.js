@@ -257,6 +257,14 @@ function renderExposurePolicy(drawer, row) {
 function renderEvidence(drawer, row) {
   const host = drawer.querySelector("#service-detail-evidence");
   if (!host) return;
+  const selectedId = catalogueRouteId(row) || String(row.dataset.serviceKey || "");
+  const preserving = host.dataset.selectedService === selectedId;
+  const existing = [...host.querySelectorAll(".service-detail-evidence-group")];
+  const openCategories = new Set(
+    preserving ? existing.filter((group) => group.open).map((group) => group.dataset.group) : [],
+  );
+  const hadGroups = preserving && existing.length > 0;
+  host.dataset.selectedService = selectedId;
   host.replaceChildren();
   const probes = probeEntries(row);
   const counts = evidenceCounts(probes);
@@ -268,6 +276,7 @@ function renderEvidence(drawer, row) {
   checkbox.addEventListener("change", () => {
     evidenceIssuesOnly = checkbox.checked;
     renderEvidence(drawer, row);
+    host.querySelector(".service-detail-issues-filter input")?.focus({ preventScroll: true });
   });
   filter.append(checkbox, document.createTextNode(" Show failed and warning signals only"));
   const count = document.createElement("small");
@@ -297,7 +306,9 @@ function renderEvidence(drawer, row) {
     if (!grouped.length) continue;
     const section = document.createElement("details");
     section.className = "service-detail-evidence-group";
-    section.open = evidenceIssuesOnly || grouped.some((probe) => ["fail", "warn"].includes(probe.tone));
+    section.dataset.group = category;
+    section.open = evidenceIssuesOnly || openCategories.has(category) ||
+      (!hadGroups && grouped.some((probe) => ["fail", "warn"].includes(probe.tone)));
     const summary = document.createElement("summary");
     const failures = grouped.filter((probe) => probe.tone === "fail" && !probe.disabled).length;
     summary.textContent = category + " · " + grouped.length + " signals" +
