@@ -111,6 +111,13 @@ def reconcile(
         raise ValueError("invalid Gatus config")
     checks, warnings = declared_checks(config)
     state, services = snapshot_state(snapshot, now or datetime.now(UTC))
+    pair_counts: dict[tuple[str, str], int] = {}
+    for check in checks:
+        key = (check["service_id"], check["protocol"])
+        pair_counts[key] = pair_counts.get(key, 0) + 1
+    ambiguous = {key for key, count in pair_counts.items() if count > 1}
+    for service_id, protocol in sorted(ambiguous):
+        warnings.append(f"ambiguous_series:{service_id}:{protocol}")
     groups: dict[str, list[dict[str, str]]] = {
         "up": [], "down": [], "no_sample": [], "unverified": []
     }
@@ -118,7 +125,7 @@ def reconcile(
         service = services.get(check["service_id"], {})
         probe = service.get(check["protocol"], {}) if isinstance(service, dict) else {}
         success = probe.get("success") if isinstance(probe, dict) else None
-        if state != "observed":
+        if state != "observed" or (check["service_id"], check["protocol"]) in ambiguous:
             outcome = "unverified"
         elif (isinstance(success, bool) or not isinstance(success, (int, float))
               or not math.isfinite(success) or success not in (0, 1)):
@@ -163,7 +170,8 @@ def main() -> int:
         parser.exit(2, f"Invalid local evidence: {type(exc).__name__}\n")
     print(json.dumps(result, indent=2, sort_keys=True))
     complete = (result["state"] == "observed" and not result["checks"]["down"]
-                and not result["checks"]["no_sample"] and not result["warnings"])
+                and not result["checks"]["no_sample"] and not result["warnings"]
+                and not result["unmatched_observed"])
     return 0 if complete else 1
 
 
