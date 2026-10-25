@@ -199,6 +199,9 @@ test("Gatus exposes only valid bounded monitor duration and 5m availability", ()
   assert.equal("availability" in fleet.failures[0], false);
   const details = gatusServiceEvidence(s, "gatus", now);
   assert.equal(details.probes[0].durationMs, 125);
+  // serviceTelemetry evaluates freshness against the real clock.
+  // Preserve the fixed clock for gatusCoverage fixture assertions above.
+  s.platform_metrics.generated_at = new Date().toISOString();
   const row = { dataset: { serviceKey: "gatus", topologyId: "gatus" } };
   const telemetry = serviceTelemetry(s, row);
   assert.match(telemetry.gatus.detail, /125 ms/);
