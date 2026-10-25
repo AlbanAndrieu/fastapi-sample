@@ -134,3 +134,33 @@ l'ancien HEAD, (b) les nouveaux tests du dernier HEAD FastAPI,
 Les tests passés sur un ancien SHA ne sont pas réutilisés comme preuve.
 Le diagnostic doit rester lecture seule ; ne pas générer
 une relance forcée de sondes.
+
+## Réponses d'authentification attendues : Garage et LiteLLM
+
+Le HTTP 403 anonyme sur `http://172.17.0.24:3900/` (Garage S3) et le
+HTTP 401 sur `http://172.17.0.24:4000/health` (LiteLLM) ont été
+fournis par l'opérateur. Ils prouvent que la couche HTTP a répondu et
+appliqué un contrôle d'authentification. Ils ne prouvent ni une opération
+S3 signée, ni une inférence LLM, ni une API accessible depuis Internet.
+
+L'interface peut afficher **bleu / Authentification requise (attendu)**,
+uniquement pour ces surfaces explicitement reconnues et une observation
+anonyme fraîche, sans credentials présentés. Si une clé transmise est
+refusée, si le code est inattendu, ou si le TCP/TLS échoue, conserver
+l'anomalie. Le vert exige une autre preuve de santé du service.
+Le vrai `GET /health/liveliness` de LiteLLM est également interrogé
+par son healthcheck Docker Compose. Gatus utilise déjà des vérifications
+TCP pour LiteLLM et Garage ; elles n'attestent que la connectivité.
+
+Le verdict **Policy Failed** est distinct : `external=false` ne
+signifie pas automatiquement une violation. Une exposition WAN non
+autorisée est une violation même lorsqu'elle exige une authentification.
+Inversement, une réponse HTTP LAN 403 ne prouve pas un ingress WAN.
+L'UI conserve le verdict `/sickz` et ne le convertit jamais en bleu
+parce que la route HTTP a refusé un visiteur anonyme.
+
+Script opérateur sans clé : `nabla-compose/scripts/truenas/diagnose-protected-service-http.py`
+([Compose #281](https://github.com/AlbanAndrieu/nabla-compose/pull/281)).
+Les mesures Docker et Gatus doivent venir du collecteur LAN autorisé,
+et non d'un navigateur cloud. Les détails et logs sensibles restent privés.
+
