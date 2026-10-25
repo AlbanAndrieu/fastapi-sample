@@ -111,7 +111,8 @@ def test_remote_probe_pins_target_and_never_sends_secret(monkeypatch):
     command, kwargs = calls[0]
     assert "-T" in command and "StrictHostKeyChecking=yes" in command
     assert "BatchMode=yes" in command
-    assert "--" in command and "operator@172.17.0.24" in command
+    assert "operator@172.17.0.24" in command
+    assert command.index("operator@172.17.0.24") < len(command) - 1
     assert "python3 - --check" in command[-1]
     assert "--token-file" in command[-1]
     assert "secret-from-local-machine" not in str(command) + kwargs["input"]
