@@ -335,7 +335,7 @@ function renderEvidence(drawer, row) {
   filter.append(checkbox, document.createTextNode(" Show failed and warning signals only"));
   const count = document.createElement("small");
   count.textContent = counts.failed + " failed · " + counts.warning + " warning · " +
-    counts.unknown + " unknown · " + counts.notRun + " not run";
+    counts.info + " protected · " + counts.unknown + " unknown · " + counts.notRun + " not run";
   host.append(filter, count);
   if (probes.length === 0) {
     const empty = document.createElement("p");
@@ -344,7 +344,7 @@ function renderEvidence(drawer, row) {
     host.appendChild(empty);
     return;
   }
-  const rank = { fail: 0, warn: 1, unknown: 2, neutral: 3, ok: 4 };
+  const rank = { fail: 0, warn: 1, info: 2, unknown: 3, neutral: 4, ok: 5 };
   const visible = probes.filter((probe) => !evidenceIssuesOnly ||
     (!probe.disabled && ["fail", "warn"].includes(probe.tone)));
   if (visible.length === 0) {
@@ -405,7 +405,8 @@ function renderEvidence(drawer, row) {
       state.textContent = probe.disabled ? "NOT RUN" :
         probe.tone === "ok" ? "UP" :
         probe.tone === "fail" ? "FAILED" :
-        probe.tone === "warn" ? "WARNING" : "UNVERIFIED";
+        probe.tone === "warn" ? "WARNING" :
+        probe.tone === "info" ? "AUTH REQUIRED · EXPECTED" : "UNVERIFIED";
       heading.appendChild(state);
       const detail = document.createElement("p");
       detail.textContent = sanitizedEvidence(probe.detail);
@@ -508,14 +509,15 @@ function renderProbeSummary(drawer, row) {
   const probes = probeEntries(row).filter((probe) => !probe.disabled);
   const failed = probes.filter((probe) => probe.tone === "fail").length;
   const warnings = probes.filter((probe) => probe.tone === "warn").length;
+  const protectedCount = probes.filter((probe) => probe.tone === "info").length;
   const unknown = probes.filter((probe) =>
-    !["ok", "fail", "warn"].includes(probe.tone)
+    !["ok", "fail", "warn", "info"].includes(probe.tone)
   ).length;
   const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
   const timestamp = latestSnapshot?.platform_metrics?.generated_at;
   const observationTime = Number.isFinite(Date.parse(timestamp)) ? " · Metrics snapshot: " + new Date(timestamp).toLocaleString() : " · Metrics snapshot: unverified";
   host.textContent = probes.length
-    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` + observationTime
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${protectedCount} auth expected · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` + observationTime
     : "No direct probe evidence; this is not proof of service health." + observationTime;
   host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
 }
@@ -725,7 +727,7 @@ function updateDetailTrigger(row, trigger) {
   if (trigger.dataset.issues !== tone) trigger.dataset.issues = tone;
   const title = "Open diagnostics for " + displayName(row) +
     ": " + counts.failed + " failed, " + counts.warning + " warnings, " +
-    counts.unknown + " unknown, " + counts.notRun + " not run";
+    counts.info + " expected auth, " + counts.unknown + " unknown, " + counts.notRun + " not run";
   if (trigger.getAttribute("aria-label") !== title) {
     trigger.setAttribute("aria-label", title);
   }
