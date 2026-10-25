@@ -178,14 +178,17 @@ def classify_ssh_error(stderr: str, returncode: int) -> str:
     return "ssh_unavailable_or_report_invalid" if returncode == 255 else "remote_report_invalid"
 
 
-def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> tuple[dict, int]:
+def ssh_status(target: str, token_file: Path | None = None, port: int | None = None) -> tuple[dict, int]:
     """Execute the same read-only probe on TrueNAS over authenticated SSH.
 
     No secrets are sent by this process. A token file, when specified, is
     opened only on TrueNAS by the remote Python process. Never echo SSH
     stderr, remote output beyond allowlisted fields, or the SSH target.
+    Unless a port is explicitly provided, honour the local OpenSSH
+    configuration (including Port, ProxyJump and IdentityFile).
     """
-    if not TRUENAS_SSH_TARGET.fullmatch(target) or not 1 <= port <= 65535:
+    if (not TRUENAS_SSH_TARGET.fullmatch(target)
+            or (port is not None and not 1 <= port <= 65535)):
         return {"state": "ssh_target_invalid", "scrape_authorized": False}, 2
     if token_file is not None and (
         not token_file.is_absolute() or "\x00" in str(token_file)
@@ -202,10 +205,13 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
         "-o", "ConnectTimeout=7",
         "-o", "ServerAliveInterval=5",
         "-o", "ServerAliveCountMax=1",
-        # Destination cannot begin with '-' thanks to the strict target regex.
-        # Avoid relying on a '--' flag supported inconsistently by SSH clients.
-        "-p", str(port), target, remote_command,
     ]
+    # Do not override Port from the user's existing OpenSSH config.
+    # An explicit --ssh-port intentionally takes precedence.
+    if port is not None:
+        command.extend(("-p", str(port)))
+    # The target is validated and cannot start with a dash.
+    command.extend((target, remote_command))
     try:
         source = Path(__file__).read_text(encoding="utf-8")
         completed = subprocess.run(
@@ -278,7 +284,10 @@ def main() -> int:
     parser.add_argument(
         "--ssh-target", help="Run remotely as user@172.17.0.24 over verified SSH",
     )
-    parser.add_argument("--ssh-port", type=int, default=22)
+    parser.add_argument(
+        "--ssh-port", type=int, default=None,
+        help="Optional SSH port override; default uses local ~/.ssh/config",
+    )
     args = parser.parse_args()
     if not args.check:
         parser.error("only --check is supported")
@@ -288,7 +297,7 @@ def main() -> int:
         result, exit_code = ssh_status(args.ssh_target, args.token_file, args.ssh_port)
         print(json.dumps(result, sort_keys=True))
         return exit_code
-    if args.ssh_port != 22:
+    if args.ssh_port is not None:
         parser.error("--ssh-port requires --ssh-target")
     token = None
     if args.token_file:
