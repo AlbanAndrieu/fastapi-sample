@@ -106,3 +106,14 @@ def test_fail_closed_on_oversized_input_and_unbounded_endpoints(tmp_path):
         pass
     else:
         raise AssertionError("Expected size rejection")
+
+
+def test_multiple_monitors_collapsed_into_one_prometheus_label_are_unverified():
+    conf = config()
+    conf["endpoints"].append({"url": "tcp://other:8085", "extra-labels": {
+        "nabla_monitor_id": "gatus-secondary", "nabla_service_id": "gatus",
+    }})
+    result = module.reconcile(conf, snapshot({"gatus": {"TCP": {"success": 1}}}), now=NOW)
+    assert "ambiguous_series:gatus:TCP" in result["warnings"]
+    assert result["counts"]["unverified"] == 2
+    assert result["counts"]["up"] == 0
