@@ -82,7 +82,9 @@ export function evidenceCounts(probes = []) {
 
 export function validServiceId(value) {
   return typeof value === "string" &&
-    /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/.test(value);
+    /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/.test(value) &&
+    !value.includes("://") && !value.includes("//") &&
+    !/(^|\/)\.\.?(\/|$)/.test(value);
 }
 
 export function requestedServiceId(search) {
