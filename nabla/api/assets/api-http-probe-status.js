@@ -1,3 +1,5 @@
+import { expectedAnonymousAuth, httpObservationTone } from "./api-service-http-auth.js";
+
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
 
 let latestSnapshot = null;
@@ -84,17 +86,8 @@ function ageSeconds(check) {
   return null;
 }
 
-function toneFor(check) {
-  const status = Number(check?.http_status);
-  if (Number.isFinite(status)) {
-    if (status >= 200 && status < 400) return "ok";
-    if (status >= 500) return "fail";
-    if (status >= 400) return "warn";
-  }
-  if (check?.skipped === true) return "neutral";
-  if (check?.reachable === true) return "ok";
-  if (check?.reachable === false) return "fail";
-  return "unknown";
+function toneFor(check, serviceId) {
+  return httpObservationTone(check, serviceId);
 }
 
 function pending(check, snapshot) {
@@ -106,8 +99,10 @@ function pending(check, snapshot) {
   return age >= Math.max(0, interval - 2);
 }
 
-function hoverFor(check, snapshot) {
+function hoverFor(check, snapshot, serviceId) {
   const parts = [];
+  const expected = expectedAnonymousAuth(serviceId, check);
+  if (expected) parts.push(expected.detail);
   const status = Number(check?.http_status);
   if (Number.isFinite(status)) parts.push(`HTTP ${status}`);
   else parts.push("HTTP status unconfirmed");
@@ -149,11 +144,17 @@ function apply() {
       findCheck(latestSnapshot?.sickz?.checks, row);
     if (!check) continue;
 
-    for (const candidate of ["ok", "warn", "fail", "unknown", "neutral"]) {
+    const serviceId = String(row.dataset.topologyId || row.dataset.serviceKey || "");
+  for (const candidate of ["ok", "warn", "fail", "unknown", "neutral", "info"]) {
       badge.classList.remove(`service-probe--${candidate}`);
     }
-    badge.classList.add(`service-probe--${toneFor(check)}`);
-    const hover = hoverFor(check, latestSnapshot);
+    badge.classList.add(`service-probe--${toneFor(check, serviceId)}`);
+    const expected = expectedAnonymousAuth(serviceId, check);
+    if (expected) {
+      const label = badge.querySelector(".service-probe-label");
+      if (label) label.textContent = expected.label;
+    }
+    const hover = hoverFor(check, latestSnapshot, serviceId);
     badge.title = hover;
     badge.setAttribute("aria-label", hover);
   }
