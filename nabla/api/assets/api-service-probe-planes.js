@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 import { serviceTelemetry } from "./api-service-telemetry.js";
 
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
@@ -205,7 +206,8 @@ function ensurePlaneLabel(primary, strip, plane, label, href, detail) {
   }
 }
 
-function publicTone(check) {
+function publicTone(check, serviceId) {
+  if (expectedAnonymousAuth(serviceId, check)) return "info";
   const status = Number(check?.http_status);
   if (Number.isFinite(status) && status >= 200 && status < 400) return "ok";
   if (check?.reachable === false || status >= 500) return "fail";
@@ -213,22 +215,25 @@ function publicTone(check) {
   return "unknown";
 }
 
-function decoratePublicEvidence(strip, check, url, { privateS3 = false } = {}) {
+function decoratePublicEvidence(strip, check, url, { privateS3 = false, serviceId = "" } = {}) {
   if (!check) return;
   const status = Number(check.http_status);
+  const expected = expectedAnonymousAuth(serviceId, check);
   const http = ensureProbe(
     strip,
     "http",
     "🌐",
-    Number.isFinite(status) && status > 0 ? `HTTP ${status}` : "HTTP",
+    expected?.label || (Number.isFinite(status) && status > 0 ? `HTTP ${status}` : "HTTP"),
   );
-  toneClass(http, privateS3 ? "unknown" : publicTone(check));
+  toneClass(http, expected ? "info" : privateS3 ? "unknown" : publicTone(check, serviceId));
   if (privateS3) {
     badgeLabel(http, "Private S3 · HTTP ≠ health");
   }
   const detail = [
-    privateS3
-      ? "Private S3 API. Anonymous HTTP GET is not a signed S3 health check; outside-in failures do not prove origin downtime."
+    expected
+      ? expected.detail
+      : privateS3
+        ? "Private S3 API. Anonymous HTTP GET is not a signed S3 health check; outside-in failures do not prove origin downtime."
       : `Public probe: ${url || check.url || "target unavailable"}`,
     Number.isFinite(status) && status > 0
       ? `HTTP ${status}`
@@ -467,6 +472,7 @@ function decorateRow(row, snapshot) {
     row.dataset.topologyId || row.dataset.serviceKey || "",
   ).replace(/^albandrieu_/, "").replaceAll("_", "-");
   decoratePublicEvidence(publicStrip, publicCheck, url, {
+    serviceId: String(row.dataset.topologyId || row.dataset.serviceKey || "").replace(/^albandrieu_/, "").replaceAll("_", "-"),
     privateS3: canonicalId === "garage",
   });
   decorateCloudflare(
