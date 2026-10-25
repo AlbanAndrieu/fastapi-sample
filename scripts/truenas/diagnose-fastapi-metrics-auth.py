@@ -249,7 +249,7 @@ def ssh_status(target: str, token_file: Path | None = None, port: int | None = N
             return ssh_failure("remote_token_file_invalid_or_unreadable")
         if (
             not isinstance(payload, dict)
-            or payload.get("state") not in _REMOTE_STATES
+            or payload.get("state") not in _METRICS_NEXT_CHECK
             or payload.get("origin") != "truenas_loopback"
             or payload.get("path") != "/metrics"
             or type(payload.get("credentials_tested")) is not bool
