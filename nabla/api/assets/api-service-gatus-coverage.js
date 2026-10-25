@@ -72,7 +72,9 @@ export function gatusCoverage(snapshot, now = Date.now()) {
       hasEvidence = true;
       summary.observedProbes += 1;
       const entry = { id, type, status: sample.success === 0 ? "down" : "up" };
-      Object.assign(entry, gatusProbe(type, sample));
+      const observation = gatusProbe(type, sample);
+      if (observation.availability !== undefined) entry.availability = observation.availability;
+      if (observation.durationMs !== undefined) entry.durationMs = observation.durationMs;
       if (sample.success === 0) {
         summary.down += 1;
         summary.failures.push(entry);
