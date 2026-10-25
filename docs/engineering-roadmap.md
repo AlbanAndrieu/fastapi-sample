@@ -93,15 +93,17 @@ involontaire des permissions, preuve négative et rollback du plan de migration.
 ### Validation rapide sans CI — Node 22/npm 10
 
 - [x] Ajouter `just node22-quick` : contrats JavaScript autonomes, sans installation npm et sans GitHub Actions.
-- [ ] Exécuter les deux suites sur un checkout complet au SHA de la PR et corriger les régressions observées. Le runner agent possède Node 22.16.0/npm 10.9.2, mais le checkout Git n'est pas accessible depuis cet environnement (DNS GitHub indisponible). **NOT_RUN**, jamais PASS implicite.
+- [ ] Exécuter les deux suites avec **Node 22** sur un checkout complet au SHA de la PR. Le checkout Git n'est pas accessible depuis cet environnement (DNS GitHub indisponible). **NOT_RUN**, jamais PASS implicite.
+- [x] Compiler sept modules et exécuter neuf contrats métier JavaScript via V8 isolé dans l'outil GitHub : **9/9 PASS** (ne remplace ni `node --test`, ni pytest, ni un navigateur).
 - [ ] Conserver le contrôle complet séparé avec Node >=24.22.1, requis par `package.json`; ne pas abaisser cette contrainte pour permettre un test isolé.
 
 ### UX et convergence Gatus — critères d'acceptation
 
-- [ ] Dans chaque drawer, regrouper les éléments par DNS, TCP, TLS, HTTP, Cloudflare Access/token, Prometheus/exporter et Gatus ; afficher verdict, code d'erreur expurgé, timestamp, âge, provenance et remédiation.
-- [ ] Ajouter URL partageable `?service=<id>`, filtre `failed evidence only`, focus clavier, historique de navigation entre dépendances et affichage mobile compact.
+- [x] Dans chaque drawer, regrouper les éléments par DNS, TCP/TLS, HTTP, Cloudflare Access/token, Prometheus/exporter et Gatus ; afficher verdict, diagnostic expurgé et remédiation. La date de snapshot est affichée quand disponible. Les horodatages par sonde et leur origine exacte restent à enrichir côté DTO.
+- [x] Ajouter URL partageable `?service=<id>`, filtre des échecs, focus clavier, retour entre dépendances et affichage mobile compact.
 - [ ] Afficher les relations amont/aval avec lien uniquement si l'ID canonique existe dans le snapshot autorisé ; signaler les dépendances absentes sans URL réseau privée.
-- [ ] Réconcilier la couverture Gatus : déclarées / observées / sans échantillon / absentes / volontairement désactivées, par ID canonique et point d'observation. Ne jamais déduire que toutes les sondes sont vertes de `up{job="gatus"} == 1`.
+- [x] Réconcilier les échantillons Gatus avec les services visibles du catalogue (avec/sans métriques) sans faux statut vert.
+- [ ] Ajouter la parité réelle déclarées / observées / absentes / volontairement désactivées depuis la configuration Gatus chez Compose ; vérifier les identifiants et la provenance du point d'observation LAN. Ne jamais déduire que toutes les sondes sont vertes de `up{job="gatus"} == 1`.
 - [ ] Sur Gatus non sain, distinguer HTTP 401/403/token, erreurs DNS, timeout TCP, attente TLS, nom d'endpoint incohérent, absence de recording rules et manque de scrape Prometheus ; valider avec les preuves LAN de Compose, sans afficher de secrets.
 
 ## P0 — UX des cartes et couverture Gatus (25 octobre 2026)
