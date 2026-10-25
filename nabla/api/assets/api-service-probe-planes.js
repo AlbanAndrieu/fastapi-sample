@@ -126,7 +126,7 @@ function accessApplication(summary, hostname) {
 }
 
 function toneClass(node, tone) {
-  for (const candidate of ["ok", "warn", "fail", "unknown", "neutral"]) {
+  for (const candidate of ["ok", "warn", "fail", "unknown", "neutral", "info"]) {
     node.classList.remove(`service-probe--${candidate}`);
   }
   node.classList.add(`service-probe--${tone}`);
