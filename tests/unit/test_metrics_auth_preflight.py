@@ -178,6 +178,7 @@ def test_remote_missing_token_file_yields_a_safe_category(monkeypatch):
         "origin": "truenas_ssh",
         "state": "remote_token_file_invalid_or_unreadable",
         "scrape_authorized": False,
+        "next_check": "verify_remote_token_file_exists_and_permissions",
     }
 
 
@@ -203,3 +204,94 @@ def test_remote_probe_denial_does_not_become_up(monkeypatch):
     result, code = module.ssh_status("operator@172.17.0.24")
     assert code == 1 and result["scrape_authorized"] is False
     assert result["state"] == "scrape_credential_rejected"
+
+
+
+@pytest.mark.parametrize(
+    ("stderr", "expected"),
+    [
+        ("Host key verification failed. TOKEN=should-not-print", "ssh_host_key_untrusted"),
+        ("WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", "ssh_host_key_untrusted"),
+        ("No ED25519 host key is known for 172.17.0.24", "ssh_host_key_untrusted"),
+        ("Permission denied (publickey,password).", "ssh_authentication_denied"),
+        ("Too many authentication failures", "ssh_authentication_denied"),
+        ("ssh: connect to host: Connection refused", "ssh_connection_refused"),
+        ("ssh: connect to host: Connection timed out", "ssh_connection_timeout"),
+        ("ssh: connect to host: No route to host", "ssh_network_unreachable"),
+        ("ssh: Could not resolve hostname", "ssh_name_resolution_failed"),
+        ("kex_exchange_identification: Connection closed by remote host", "ssh_session_rejected"),
+        ("sh: python3: command not found", "remote_python_unavailable"),
+        ("unclassified raw secret TOKEN=not-for-stdout", "ssh_unavailable_or_report_invalid"),
+    ],
+)
+def test_ssh_failure_categorization_is_bounded(monkeypatch, stderr, expected):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=255, stdout="", stderr=stderr,
+        ),
+    )
+    result, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2
+    assert result["state"] == expected
+    assert result["scrape_authorized"] is False
+    assert result["next_check"] in module._SSH_REMEDIATION.values()
+    assert "TOKEN" not in str(result)
+    assert "172.17.0.24" not in str(result)
+
+
+def test_missing_local_ssh_binary_is_separate_from_remote_failure(monkeypatch):
+    def not_installed(*args, **kwargs):
+        raise FileNotFoundError("ssh executable missing, with untrusted path")
+
+    monkeypatch.setattr(module.subprocess, "run", not_installed)
+    result, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2
+    assert result["state"] == "ssh_client_missing"
+    assert "untrusted" not in str(result)
+
+
+def test_remote_python_command_not_found_without_shell_leak(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=127,
+            stdout="", stderr="sh: python3: not found; secret=HIDDEN",
+        ),
+    )
+    result, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2
+    assert result["state"] == "remote_python_unavailable"
+    assert "HIDDEN" not in str(result)
+
+
+def test_untrusted_remote_banner_is_not_a_success(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0,
+            stdout='MOTD containing private URL\\n{"state":"scrape_auth_accepted"}',
+            stderr="",
+        ),
+    )
+    result, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2
+    assert result["state"] == "remote_report_invalid"
+    assert "private" not in str(result)
+
+
+def test_ssh_timeout_does_not_claim_metrics_failure(monkeypatch):
+    def timeout(*args, **kwargs):
+        raise module.subprocess.TimeoutExpired(cmd=["ssh"], timeout=20)
+
+    monkeypatch.setattr(module.subprocess, "run", timeout)
+    result, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2
+    assert result["state"] == "ssh_timeout"
+    assert result["scrape_authorized"] is False
