@@ -113,12 +113,73 @@ def test_remote_probe_pins_target_and_never_sends_secret(monkeypatch):
     assert "BatchMode=yes" in command
     assert "operator@172.17.0.24" in command
     assert command.index("operator@172.17.0.24") < len(command) - 1
+    # By default OpenSSH must retain Port/ProxyJump/IdentityFile config.
+    assert "-p" not in command
     assert "python3 - --check" in command[-1]
     assert "--token-file" in command[-1]
     assert "secret-from-local-machine" not in str(command) + kwargs["input"]
     assert "never-copy-remote-output" not in str(result)
     assert "secret-header-do-not-print" not in str(result)
     assert kwargs["timeout"] <= 20
+
+
+
+def test_ssh_explicit_port_overrides_local_config_only_on_request(monkeypatch):
+    from types import SimpleNamespace
+
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=255, stdout="", stderr="Connection refused")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    first, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2 and first["state"] == "ssh_connection_refused"
+    assert "-p" not in calls[-1]
+    second, code = module.ssh_status("albandrieu@172.17.0.24", port=22022)
+    assert code == 2 and second["state"] == "ssh_connection_refused"
+    assert calls[-1][calls[-1].index("-p") + 1] == "22022"
+    assert calls[-1].index("-p") < calls[-1].index("albandrieu@172.17.0.24")
+
+
+def test_ssh_port_cli_defaults_to_ssh_config(monkeypatch, capsys):
+    captured = []
+
+    def fake_ssh_status(target, token_file, port):
+        captured.append((target, token_file, port))
+        return {"state": "ssh_unavailable_or_report_invalid",
+                "scrape_authorized": False}, 2
+
+    monkeypatch.setattr(module, "ssh_status", fake_ssh_status)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["diagnose-fastapi-metrics-auth.py", "--check",
+         "--ssh-target", "albandrieu@172.17.0.24"],
+    )
+    assert module.main() == 2
+    assert captured[-1] == ("albandrieu@172.17.0.24", None, None)
+    assert '"scrape_authorized": false' in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["diagnose-fastapi-metrics-auth.py", "--check",
+         "--ssh-target", "albandrieu@172.17.0.24",
+         "--ssh-port", "22022"],
+    )
+    assert module.main() == 2
+    assert captured[-1] == ("albandrieu@172.17.0.24", None, 22022)
+    capsys.readouterr()
+
+
+def test_explicit_ssh_port_without_target_is_rejected(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["diagnose-fastapi-metrics-auth.py", "--check", "--ssh-port", "22022"],
+    )
+    with pytest.raises(SystemExit) as rejected:
+        module.main()
+    assert rejected.value.code == 2
 
 
 def test_remote_probe_refuses_unapproved_ssh_endpoints(monkeypatch):
