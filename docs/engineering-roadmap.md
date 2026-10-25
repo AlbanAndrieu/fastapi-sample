@@ -14,6 +14,19 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — Garage S3 : clarifier l'HTTP et la politique réseau
+
+- [x] Rendre consultables les URL de catalogue internes et DNS via la
+  fiche par ID stable, sans confondre S3, Admin et WebUI.
+- [x] Déplacer le bouton Details sous la carte et afficher la cause
+  `/sickz` du verdict Policy failed, même en cas de HTTP anonyme
+  non pertinent.
+- [ ] Vérifier sur TrueNAS un accès S3 **signé**, un bucket de test
+  autorisé et les règles Traefik/Cloudflare de `s3.int.albandrieu.com`.
+  Ne pas changer `external=false` sans validation réseau.
+
+[Runbook Garage](runbooks/garage-s3-api-diagnostics.md).
+
 ## P0 — Provenance des erreurs et accès par route
 
 [Contrat de diagnostic canonique](diagnostic-provenance-contract.md).
