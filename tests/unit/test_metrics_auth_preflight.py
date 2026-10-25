@@ -210,6 +210,7 @@ def test_remote_probe_denial_does_not_become_up(monkeypatch):
 @pytest.mark.parametrize(
     ("stderr", "expected"),
     [
+        ("ssh: invalid option -- -", "ssh_client_options_invalid"),
         ("Host key verification failed. TOKEN=should-not-print", "ssh_host_key_untrusted"),
         ("WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", "ssh_host_key_untrusted"),
         ("No ED25519 host key is known for 172.17.0.24", "ssh_host_key_untrusted"),
