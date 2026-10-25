@@ -29,6 +29,7 @@ from nabla.api.site_architecture_catalog import (
     fetch_site_catalog_v2,
 )
 from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
+from nabla.api.site_trace_context import extract_site_trace_id
 from nabla.api.ui_public_services import (
     PublicUiServices,
     get_public_ui_services,
@@ -164,13 +165,19 @@ def _register_site_projection_routes(app: FastAPI) -> None:
     )
     async def get_site_health_v2(request: Request, response: Response) -> SiteHealthV2:
         response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        # The site machine key is checked by access middleware before this handler.
+        # A receipt confirms parsing of the exact W3C ID; never echo arbitrary input.
+        trace_id = extract_site_trace_id(request.headers.get("traceparent"))
+        if trace_id:
+            response.headers["X-Nabla-Trace-ID"] = trace_id
+            logger.info("site_health_v2 trace_id=%s", trace_id)
         try:
             return await fetch_site_health_v2(request)
         except SiteCatalogV2Unavailable:
             raise HTTPException(
                 status_code=503,
                 detail="Authoritative Backstage v2 unavailable",
-                headers=_NO_STORE_HEADERS,
+                headers={**_NO_STORE_HEADERS, **({"X-Nabla-Trace-ID": trace_id} if trace_id else {})},
             ) from None
 
     @app.get(
