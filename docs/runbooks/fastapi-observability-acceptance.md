@@ -204,6 +204,38 @@ Remplacer `albandrieu` par le compte SSH **déjà autorisé** si nécessaire.
 L'outil ne crée aucun compte, n'installe aucun service et ne publie pas
 le port 8091.
 
+Si la commande renvoie `ssh_unavailable_or_report_invalid`,
+mettre à jour le worktree avec la dernière version de #378.
+Le diagnostic signale désormais des causes **bornées** :
+`ssh_host_key_untrusted`, `ssh_authentication_denied`,
+`ssh_connection_refused`, `ssh_connection_timeout`,
+`ssh_network_unreachable`, `ssh_session_rejected`,
+`remote_python_unavailable`, `remote_report_invalid` ou
+`ssh_client_options_invalid`. La sortie `next_check` contient
+une procédure statique ; aucun message SSH libre n'est publié.
+
+Pour confirmer la connexion SSH et la présence de Python avant
+de tester `/metrics`, lancer séparément sur la workstation :
+
+```bash
+ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes \
+  -o ConnectTimeout=7 -p 22 albandrieu@172.17.0.24 \
+  'command -v python3 >/dev/null' >/dev/null 2>/dev/null \
+  && echo SSH_PYTHON_OK || echo SSH_PYTHON_NOT_VERIFIED
+```
+
+Cette commande ne lit aucune clé de métriques. Ne pas désactiver
+`StrictHostKeyChecking`. Si la clé d'hôte est inconnue ou a changé,
+contrôler son empreinte depuis la console TrueNAS avant de l'approuver.
+En cas de refus d'authentification, vérifier le compte SSH,
+sa clé publique autorisée et son shell. Un compte API TrueNAS n'a
+pas nécessairement accès à SSH. Le script ne modifie aucune configuration.
+
+**Important :** `/chemin/prive/metrics-scrape-token` est un exemple
+de chemin. Ne pas l'utiliser tel quel et ne pas créer de secret
+de remplacement avant de réconcilier le jeton réellement utilisé
+par Prometheus.
+
 Pour tester avec un secret existant sur TrueNAS, indiquer son **chemin
 distant absolu**, sans transmettre la valeur depuis la workstation :
 
@@ -217,8 +249,8 @@ Le fichier distant doit être un fichier régulier non symbolique,
 lisible par le compte SSH et non lisible par tout le monde (`0600` ou
 `0640`). Le résultat `scrape_auth_accepted` prouve l'accès local
 à `/metrics`, mais **pas** que le processus Prometheus utilise ce
-même secret dans `authorization.credentials_file`. Une erreur SSH
-reste `ssh_unavailable_or_report_invalid`, jamais une panne FastAPI.
+même secret dans `authorization.credentials_file`. Une erreur SSH produit une catégorie de transport ou de rapport distant,
+jamais une conclusion de panne FastAPI.
 Ce mode exige un accès réseau LAN/VPN déjà existant ; aucun tunnel
 Cloudflare ou ouverture WAN n'est créé.
 
