@@ -17,6 +17,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     settings = SimpleNamespace(
         admin_access_key=None,
         diagnostics_access_key=None,
+        metrics_scrape_key=None,
         mcp_ops_key=None,
         ops_route_policy_strict=False,
         homelab_trusted_cidrs="",
@@ -31,6 +32,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/admin")
     @app.get("/admin/users/list")
     @app.get("/health")
+    @app.get("/metrics")
     @app.get("/healthz")
     @app.get("/api/topology")
     @app.get("/api/topology-telemetry")
@@ -247,3 +249,62 @@ def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
 
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
     assert protected_app.get("/api/homelab/probes").status_code == 503
+
+
+def test_metrics_token_is_required_and_scoped_to_metrics(
+    protected_app: TestClient,
+) -> None:
+    settings = protected_app.app.state.access_settings
+    settings.metrics_scrape_key = SecretStr("metrics-only-token")
+    settings.diagnostics_access_key = SecretStr("diagnostics-token")
+
+    assert protected_app.get("/metrics").status_code == 401
+    assert protected_app.get(
+        "/metrics", headers={"X-Diagnostics-Key": "diagnostics-token"}
+    ).status_code == 401
+    assert protected_app.get(
+        "/metrics", headers={"Authorization": "Bearer metrics-only-token"}
+    ).status_code == 200
+    assert protected_app.get(
+        "/metrics", headers={"X-Metrics-Key": "metrics-only-token"}
+    ).status_code == 200
+
+    assert protected_app.get(
+        "/metrics", headers={"X-Metrics-Key": "wrong"}
+    ).status_code == 401
+    assert protected_app.get(
+        "/api/homelab/health",
+        headers={"Authorization": "Bearer metrics-only-token"},
+    ).status_code == 401
+    assert protected_app.get(
+        "/admin",
+        headers={"Authorization": "Bearer metrics-only-token"},
+    ).status_code == 503
+
+
+def test_metrics_key_is_fail_closed_when_not_configured(
+    protected_app: TestClient,
+) -> None:
+    assert protected_app.get(
+        "/metrics", headers={"X-Metrics-Key": "invented-token"}
+    ).status_code == 503
+    assert protected_app.get(
+        "/metrics", headers={"Authorization": "Bearer invented-token"}
+    ).status_code == 503
+
+
+def test_metrics_auth_does_not_open_metrics_prefix_or_mutation(
+    protected_app: TestClient,
+) -> None:
+    settings = protected_app.app.state.access_settings
+    settings.metrics_scrape_key = SecretStr("metrics-only-token")
+    assert protected_app.get(
+        "/metrics/private", headers={"X-Metrics-Key": "metrics-only-token"}
+    ).status_code == 503
+    assert protected_app.post(
+        "/metrics", headers={"X-Metrics-Key": "metrics-only-token"}
+    ).status_code == 503
+
+
+def test_metrics_key_declared_in_typed_settings() -> None:
+    assert "metrics_scrape_key" in APIDeploymentSettings.model_fields

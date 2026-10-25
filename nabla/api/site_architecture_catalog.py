@@ -46,7 +46,11 @@ _SPEC_RELATIONS = ("dependsOn", "consumesApis", "providesApis", "children")
 
 
 class SiteCatalogV2Unavailable(RuntimeError):
-    """No valid, fresh authoritative Backstage v2 source is available."""
+    """Safe failure phase; keep secret-bearing HTTP exceptions server-side."""
+
+    def __init__(self, message: str, *, stage: str = "unknown") -> None:
+        super().__init__(message)
+        self.stage = stage
 
 
 class SiteV2Metadata(BaseModel):
@@ -240,6 +244,19 @@ async def _download_site_catalog_v2() -> SiteArchitectureCatalogV2:
         return project_site_catalog_v2(response.json())
 
 
+def site_catalog_failure_stage(exc: Exception) -> str:
+    """Classify origin failure without serializing URLs, tokens or stack traces."""
+    if isinstance(exc, httpx.TimeoutException):
+        return "upstream_timeout"
+    if isinstance(exc, httpx.HTTPStatusError):
+        return "upstream_auth" if exc.response.status_code in {401, 403} else "upstream_http"
+    if isinstance(exc, httpx.RequestError):
+        return "upstream_network"
+    if isinstance(exc, (ValueError, TypeError, ValidationError, json.JSONDecodeError)):
+        return "catalog_validation"
+    return "unknown"
+
+
 async def fetch_site_catalog_v2() -> SiteArchitectureCatalogV2:
     """Singleflight read: 5-minute cache of verified v2 only; never fall back."""
     global _cache
@@ -252,9 +269,17 @@ async def fetch_site_catalog_v2() -> SiteArchitectureCatalogV2:
             return _cache[1]
         try:
             result = await _download_site_catalog_v2()
+        except SiteCatalogV2Unavailable:
+            raise
         except (httpx.HTTPError, ValueError, TypeError, ValidationError, json.JSONDecodeError) as exc:
-            logger.warning("Site Backstage v2 unavailable exception_type=%s", type(exc).__name__)
-            raise SiteCatalogV2Unavailable("Authoritative Backstage v2 catalog unavailable") from None
+            stage = site_catalog_failure_stage(exc)
+            logger.warning(
+                "Site Backstage v2 unavailable stage=%s exception_type=%s",
+                stage, type(exc).__name__,
+            )
+            raise SiteCatalogV2Unavailable(
+                "Authoritative Backstage v2 catalog unavailable", stage=stage,
+            ) from None
         _cache = (time.monotonic() + _CACHE_TTL_SECONDS, result)
         return result
 

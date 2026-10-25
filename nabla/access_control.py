@@ -141,6 +141,7 @@ async def operations_access_middleware(
     key_fields = {
         Credential.ADMIN_KEY: ("admin_access_key", "X-Admin-Key"),
         Credential.DIAGNOSTICS_KEY: ("diagnostics_access_key", "X-Diagnostics-Key"),
+        Credential.METRICS_KEY: ("metrics_scrape_key", "X-Metrics-Key"),
         Credential.MCP_KEY: ("mcp_ops_key", "X-MCP-Key"),
     }
     field, header = key_fields[policy.credential]

@@ -374,6 +374,11 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             access_observer_error=access_observer_error,
         )
 
+        # Preserve the ingress/access policy decision independently of
+        # the runtime-health overlay used by the existing /sickz view.
+        # A stopped TrueNAS App is not itself proof of exposure drift.
+        security_policy_status = policy_status
+        security_policy_detail = policy_detail
         failure_detail = runtime_evidence.get("failure_detail")
         if failure_detail:
             policy_status = "fail"
@@ -389,6 +394,8 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
                 "security_exception": service.security_exception,
                 "policy_status": policy_status,
                 "policy_detail": policy_detail,
+                "security_policy_status": security_policy_status,
+                "security_policy_detail": security_policy_detail,
                 "cloudflare_observer_configured": observer_configured,
                 **http_evidence,
                 **runtime_evidence,

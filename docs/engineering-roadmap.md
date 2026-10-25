@@ -1,105 +1,224 @@
-# Engineering roadmap — fastapi-sample
+# Roadmap d'ingénierie — fastapi-sample
 
-**Réconciliation inter-dépôts : 24 octobre 2026.** Ce document contient uniquement les livrables **FastAPI** et leurs tests d'acceptation. Les migrations et décisions de déploiement TrueNAS/pfSense/Talos sont dans la [roadmap Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md). Le rendu ReactFlow/cartes et Vercel sont dans la [roadmap Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/homelab-roadmap.md). Détail des anciennes 84 tâches ouvertes dans [l'historique du fichier avant réconciliation](https://github.com/AlbanAndrieu/fastapi-sample/blob/38c03139a6ebf7986b31dab1915566dac8935c03/docs/engineering-roadmap.md), qui n'est pas un deuxième backlog actif.
+**État au 25 octobre 2026.** Cette page est l'unique roadmap
+**active** de FastAPI Sample. Le détail avant consolidation est
+[archivé sans perte](archive/2026-10-24/engineering-roadmap.md).
+Les tâches anciennes non revérifiées demeurent dans le
+[backlog historique](engineering-backlog.md) ; elles ne sont pas
+automatiquement considérées ouvertes.
 
-**Statut :** [PR #373](https://github.com/AlbanAndrieu/fastapi-sample/pull/373) fusionnée le 24/10 à 16:28 UTC ; ce merge ne prouve pas la révision déployée sur FastAPI Cloud/TrueNAS. Conserver `NOT_RUN` quand aucune sortie de test n'existe.
+**Autorité** : FastAPI possède les endpoints, DTO, classifications de
+probes, autorisations applicatives, collecte de preuves et UI `/api`.
+[Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md)
+possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
+[Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
+possède Next.js/Vercel, icônes et cache du navigateur.
 
-## P0 — Comparaison DNS workstation/TrueNAS (24 octobre 2026)
+## P0 — Provenance des erreurs et accès par route
 
-**Observation de la workstation fournie le 24/10 à 19:34 CEST, non extrapolable à TrueNAS :**
-- PfSense/Unbound `172.17.0.1` renvoie `sample.int.albandrieu.com A 172.17.0.24` en **25 ms** (TTL 0).
-- Le même résolveur renvoie des adresses IPv4 **publiques Cloudflare** pour `sample.albandrieu.com` en **20 ms** ; leur valeur n'est pas un invariant.
-- Après `nmcli`, `eno1` utilise `172.17.0.1`, et `getent ahostsv4 sample.int.albandrieu.com` renvoie `172.17.0.24`. Première requête `resolvectl` interne : **6,0703 s**, contre **53,9 ms** pour le nom public ; cette durée ne permet pas d'attribuer la cause à Unbound ou DNS-over-TLS.
-- **TrueNAS : NOT_RUN** depuis cet environnement. Le DNS d'un hôte ne prouve pas le DNS de ses conteneurs Docker.
+[Contrat de diagnostic canonique](diagnostic-provenance-contract.md).
+- [x] Classifier les échecs Backstage v2 sans exception ni secret dans la réponse
+  (`upstream_timeout`, `upstream_network`, `upstream_http`,
+  `upstream_auth`, `catalog_validation`).
+- [x] Ajouter le code de phase `X-Nabla-Diagnostic-Stage` aux 503 du
+  catalogue machine et tester les classes de panne.
+- [ ] Contrôler sur la branche complète pytest/Ruff et les refus
+  SERVICE/OWNER avec un JWT expiré, une source IP non autorisée et des
+  en-têtes IP falsifiés.
+- [ ] Propager un identifiant de trace unique depuis l'observateur jusqu'au
+  Site ; ne pas confondre les IDs indépendants générés par Next.js.
+- [ ] Inventorier toutes les routes HTTP/MCP/WebSocket/métriques et retirer
+  progressivement la dérogation de lecture temporaire avec recette négative.
+- [ ] Prévoir OIDC Keycloak / APISIX sans dépendre de leur disponibilité
+  pour le contrôle applicatif immédiat.
 
-- [x] Ajouter `scripts/diagnose-homelab-dns.py` (bibliothèque standard, read-only) : comparer les réponses directes pfSense `dig` aux réponses système `getent` pour les deux noms, avec timeout et statut explicite `matched/unverified/*_mismatch`.
-- [x] Ajouter `--dns-only --vantage workstation|truenas` à `scripts/truenas-runtime-evidence.sh` ; recettes `just dns-evidence-workstation` et `just dns-evidence-truenas`. Le mode strict refuse les preuves absentes ; aucun accès API, Docker ou Cloudflare n'est implicite.
-- [ ] Exécuter sur la workstation, puis sur TrueNAS, les deux recettes depuis le checkout FastAPI ; archiver uniquement date, observateur, latences et résultats expurgés. Contrôler ensuite séparément `just truenas-evidence` et les sondes HTTP/TCP/TLS/API, sans considérer une simple réponse DNS comme un succès applicatif.
-- [ ] Exécuter sur le HEAD complet les tests `tests/unit/test_diagnose_homelab_dns.py`, `test_truenas_runtime_evidence_wrapper.py`, Ruff et `just quality` ; les tests du helper ont passé **5/5 en copie locale isolée**, pas encore la suite sur checkout complet.
+### Dispatch d'architecture : livrables FastAPI de l'ADR-0001
 
-**Done :** workstation et TrueNAS observées indépendamment ; le cache DNS, le trafic IPv6 et les accès Cloudflare ne sont pas confondus avec la santé de l'origine FastAPI.
+**Propriétaire du contrat producteur :** `fastapi-sample`.
+**Décision transverse :** [Compose ADR-0001 (proposed)](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/adr/0001-apisix-api-gateway-poc.md).
+**Runbook :** [diagnostic de provenance](diagnostic-provenance-contract.md).
+ADR-0001 est **accepted pour un POC APISIX staging** dans Compose #278 ; APISIX n'est ni déployé ni requis par FastAPI en production. L'agent peut avancer sans comité d'approbation pour les changements réversibles.
 
-### Relevé de convergence — 24 octobre, 21:41 CEST (poste et TrueNAS)
+- [ ] **P0 Inventaire fail-closed** : comparer `server_all:app.routes`
+  (HTTP, méthodes, mounts, WebSocket, MCP, docs, metrics) à `route_policy_for`.
+  Produire la liste des routes `REVIEW` et décisions explicites par méthode.
+  Ne pas activer `OPS_ROUTE_POLICY_STRICT` tant que ces refus n'ont pas été testés.
+- [ ] **P0 Matrice d'autorisation** : tester `PUBLIC`, `SERVICE`,
+  `OWNER`, `INTERNAL` sous accès LAN autorisé, IP non fiable, Access JWT valide,
+  expiré/mauvaise audience et origine Cloudflare inaccessible. Chaque cas doit
+  fournir statut et absence de données sensibles ; 302 d'edge n'est pas une santé API.
+- [ ] **P0 Contrat erreurs v2** : conserver les codes fermés
+  `catalog_validation`, `upstream_auth`, `upstream_http`,
+  `upstream_timeout`, `upstream_network` ; tester le 503 de l'origine et
+  les clés absentes. Aucun contenu d'exception brut ou URL interne.
+- [ ] **P1 Trace distribuée** : définir source de `traceparent` fiable,
+  propagation vers le site Vercel et les collecteurs, IDs de requête, limites
+  de cardinalité/logging, scrubbing Sentry/OTel et politique de rétention.
+  Tests croisés requis avec [Site #256](https://github.com/AlbanAndrieu/nabla-site-alban/pull/256).
+- [ ] **P1 Contract testing gateway** : en staging seulement, préparer les
+  réponses 200, 401, 403, 429, 502, timeout et `no-store` sous APISIX
+  éventuel ; préserver les mêmes refus en accès direct FastAPI.
+  Déploiement/APISIX/YAML/TLS/DNS/rollback restent **Compose #278**.
+- [ ] **P1 Qualité** : lancer localement pytest/Ruff/quality sur HEAD exact,
+  enregistrer `PASS` ou `NOT_RUN` par commande et ne pas confondre
+  merge, déploiement Cloud et disponibilité de TrueNAS.
 
-**Preuves apportées par l'opérateur :**
-- Workstation : `resolvectl status` indique `eno1` avec `9.9.9.9` et `149.112.112.112`, domaine `int.albandrieu.com`, `DNSOverTLS=opportunistic`. `getent` pour le nom interne retourne le **code 2** en 44,5 ms ; `dig @172.17.0.1` réussit en 63,3 ms. Le routage privé via Quad9 est incohérent avec la zone Unbound.
-- TrueNAS : `getent` interne répond `172.17.0.24` après **5 052,8 ms**, contre **35,9 ms** via `dig` direct. Distinguer latence NSS et disponibilité de l'enregistrement A ; mesurer les répétitions avant toute modification DNS.
-- TrueNAS (observation opérateur) : `ss` montre une écoute sur `172.17.0.24:4040` mais **aucune** sur `:9090`. `docker ps` a échoué faute de permission au socket ; ce n'est pas une preuve d'absence des conteneurs.
-- Les appels HTTP observés donnent `curl 7` pour Prometheus `:9090` et `curl 28` pour Pyroscope `:4040/ready`. Aucun redémarrage ni changement de firewall n'est autorisé par cette observation.
-- Gate FastAPI sur l'ancien checkout : `just test-runtime-evidence` **81 tests PASS**, `just offline-l1` **PASS**, `just p0` **12 tests PASS**, `just quality` bloqué par `QG_BASE_STALE`. Le contrat ShellCheck/Dagger `nabla-compose` appartient à la gate de **Compose**, pas à FastAPI.
+**Done FastAPI :** contrat versionné, routes inconnues explicitement
+interdites selon politique approuvée, traçabilité vérifiée, aucun élargissement
+involontaire des permissions, preuve négative et rollback du plan de migration.
 
-**Améliorations FastAPI :** le diagnostic `--dns-only` capture désormais sur anomalie le DNS du lien, le suffixe privé et le mode DoT avec `resolvectl` et timeout borné ; les tests couvrent `eno1` avec Quad9 et `br0` avec pfSense. Aucun changement DNS automatique.
 
-- [ ] Répéter les mesures sur le nouveau HEAD de la PR après actualisation du checkout ; valider le routage de `int.albandrieu.com` vers pfSense et documenter le retour à une latence stable.
-- [ ] Exécuter `just test-runtime-evidence`, `just offline-l1`, `just p0`, `just quality` sur le HEAD rebasé. La validation complète n'est pas inférée des tests de l'ancien HEAD.
-- [ ] Pour les conteneurs TrueNAS, faire l'inventaire en **lecture seule** avec un opérateur Docker autorisé. Ne pas ajouter l'utilisateur au groupe Docker uniquement pour lire les statuts.
+## P0 — Conformité d'exposition outside-in sur les cartes
 
-### Relevé après activation du diagnostic — 20:31 CEST (2 hôtes)
+- [x] Afficher **Exposure** sur la carte principale sans déplacer ni
+  supprimer `/sickz`. Un seul badge `policy` distingue disponibilité
+  du service et conformité d'exposition.
+- [x] Afficher `Private OK`, `Exposure !`, `Protected`,
+  `Direct · Risk` ou `Exposure ?` avec provenance et fail-closed
+  sur les observations absentes, sautées ou périmées.
+- [x] Ajouter le filtre Exposure security policy et son explication dans
+  le drawer avec lien vers les preuves `/sickz`.
+- [x] Vérifier les ID canoniques du catalogue pour éviter les
+  confusions entre services hébergés sur le même TrueNAS.
+- [ ] Valider le rendu des badges dans la production au SHA réellement
+  déployé avec un compte autorisé, en particulier la visibilité de la
+  section `/sickz` et le rendu mobile.
+- [ ] Comparer les violations indiquées par FastAPI avec le catalogue
+  déclaratif Compose et les ingress/NAT réels sans élargir le périmètre
+  des sondes externes.
 
-**Relevés utilisateur, sans exécution par l'agent sur les hôtes :**
-- Workstation (`verify/fastapi-dns-374` au HEAD `f453c5ee`) : DNS interne direct **334,7 ms**, DNS public direct **128,3 ms**, DNS public NSS **1,5 ms**, DNS interne NSS **timeout à 3 s** ; `unverified`.
-- TrueNAS (même HEAD) : DNS interne direct **74,6 ms**, DNS public direct **44,6 ms**, DNS public NSS **44,4 ms**, DNS interne NSS **timeout à 3 s** ; `unverified`.
-- Il s'agit d'un déficit de **résolution système du nom privé**, et non d'une absence d'enregistrement A sur pfSense. La configuration NSS, le routage `systemd-resolved` et un éventuel DoT opportuniste restent **hypothèses à distinguer**.
-- Relevé extérieur au navigateur : Gatus HTTP 200 ; Prometheus port 9090 connexion refusée (`curl 7`), Pyroscope port 4040 dépasse 5 s (`curl 28`). Ces résultats sont attachés au **point d'observation déclaré par l'opérateur** ; ils ne prouvent pas le même état depuis TrueNAS.
+**Contrat détaillé :**
+[modèle de diagnostic et Exposure](platform-service-diagnostics-model.md).
 
-**Corrections de collecte dans #374 :** timeout `getent` indépendant par défaut à 10 s, statut `matched_slow` si résolution correcte mais plus de 2 s, sortie `unverified` avec diagnostic NSS si aucune preuve, et détails `curl 7/28/6` distincts pour les endpoints de readiness.
+## P0 — UX des cartes et couverture Gatus (25 octobre 2026)
 
-- [ ] Réexécuter `just dns-evidence-workstation` et `just dns-evidence-truenas` sur le nouveau HEAD ; mesurer au moins trois requêtes après une lecture de `hosts:` dans `/etc/nsswitch.conf` et de la configuration active DNS.
-- [ ] Sur TrueNAS, vérifier séparément l'état des conteneurs et bindings Prometheus/Pyroscope avant toute mutation : l'application `RUNNING` n'atteste pas la readiness du conteneur principal.
-- [ ] Valider les huit tests ciblés du DNS plus les contrats du wrapper, la syntaxe Bash et la gate complète au HEAD exact. **L1 isolé : 8/8 PASS** sur une reconstruction locale ; suite entière `NOT_RUN`.
+- [x] Réutiliser le panneau `Details` déjà installé sur les cartes
+  et la navigation entre dépendances/dépendants via les références
+  uniques du catalogue. Le lien vers une autre carte doit ouvrir
+  ses diagnostics, **pas** une URL extérieure supposée.
+- [x] Grouper les vérifications Gatus en échec, réussies et sans
+  échantillon utilisable dans le panneau Gatus. Les listes sont
+  bornées ; un check absent reste **inconnu**.
+- [ ] Afficher un résumé repliable par famille :
+  transport DNS/TCP/HTTP/TLS, autorisation et token Cloudflare Access,
+  Prometheus/scrape, Gatus et état fonctionnel. Mettre les échecs
+  et données périmées en tête, avec heure/âge et source.
+- [ ] Associer à chaque échec une explication stable et expurgée
+  (ex. HTTP 401 token absent, HTTP 403 Access, timeout DNS,
+  exporter UP mais `pg_up=0`) et un contrôle opérateur associé.
+- [ ] Contrôler la **couverture complète** Gatus ↔ catalogue sur les IDs
+  canoniques : `declared / observed / no_sample / missing_monitor /
+  intentionally_unmonitored`. Gatus UP ne rend pas ses 85+ probes UP.
+  Il faut comparer la définition des checks, les cibles, l'authentification,
+  le point d'observation LAN, les états transitoires et les règles
+  de mapping ; ne jamais forcer les voyants au vert.
+- [ ] Tester l'accessibilité clavier et mobile du drawer (focalisation,
+  taille tactile, listes scrollables, navigation entre cartes,
+  statut accessible sans couleur) et la régénération des cartes
+  après actualisation du snapshot.
 
-## P0 — Contrat de sondes HTTP/TCP/TLS et fraîcheur par service
+**Limite de preuve :** l'accès direct à
+`https://fastapi-sample.fastapicloud.dev/api` a été refusé dans
+l'environnement de l'agent. Les nouveaux affichages ont été
+committés mais **pas validés visuellement en production**.
 
-- [ ] Valider localement l'implémentation `internal_probe_execution` (schéma OWNER v6) : `disabled`, `not-configured`, `not-executed`, `stale`, `failed`, `observed`. La valeur `RUNNING` de Docker n'est pas un succès TCP.
-- [ ] Produire une preuve OWNER par `entityRef` et voie de mesure (HTTP/HTTPS, TCP, TLS, DNS, Cloudflare, runtime) avec source, statut, observé à, âge, éventuel timeout et raison bornée. Ne pas substituer le `checked_at` global aux horodatages de sondes.
-- [ ] Comparer une réponse du collecteur TrueNAS **interne** à FastAPI Cloud : Cloud ne doit pas activer `HOMELAB_INTERNAL_PROBES_ENABLED` ni accéder au LAN. Conserver `internal_probes_enabled=false` en cloud si c'est sa configuration effective ; afficher `disabled` et non `fail`.
-- [ ] Vérifier la rotation bornée : 12 sondes publiques par cycle, éligibilité vs couverture récente, sources `origin/memory/deadline`, limites concurrence/timeout et rétention des mesures anciennes. Ne pas provoquer de fan-out additionnel vers pfSense.
-- [ ] Vérifier les cas HTTP 302/403 Cloudflare Access : atteinte de la passerelle ≠ origine saine ; sondes publiques et sondes authentifiées internes restent indépendantes.
+## P0 — Authentification et collecte des métriques
 
-**Done :** trois cycles cohérents avec preuves datées par service, tests pytest/ruff locaux et DTO OWNER explicite, sans état fabriqué.
+- [x] Prometheus Inlet/Outlet Akvorado, Gatus et autres exporters
+  déjà réconciliés par le code FastAPI avec des jobs nommés et une
+  requête bornée ; un scrape ne prouve pas NetFlow → Kafka → ClickHouse.
+- [ ] Valider en local la [PR #376](https://github.com/AlbanAndrieu/fastapi-sample/pull/376) :
+  `METRICS_SCRAPE_KEY` limité à `GET/HEAD /metrics`, refus des autres
+  routes, refus sans clé et tests de transport.
+- [ ] Faire provisionner puis déployer cette clé sur le collecteur
+  FastAPI staging **avant** d'ajouter le fichier d'authentification
+  Prometheus dans Compose. Ne jamais rendre `/metrics` public.
+- [ ] Diagnostiquer le **HTTP 403** de `/api/health-board` depuis la
+  workstation : access denied = **projection cloud inconnue**.
+  Vérifier Cloudflare Access, JWT/session, `DIAGNOSTICS_ACCESS_KEY`,
+  source IP de confiance et SHA déployé ; ne pas désactiver les contrôles.
+- [ ] Comparer après déploiement les scrapes LAN et le DTO
+  `platform_metrics.exporter_jobs` de FastAPI Cloud. Conserver
+  les provenances `lan` et `cloud` distinctes.
 
-## P0 — Reconciler TrueNAS, Cloudflare, Gatus et Prometheus
+**Procédure unique :**
+[acceptation télémétrie et accès Cloud](runbooks/fastapi-observability-acceptance.md).
 
-- [ ] Conserver l'identité canonique `entityRef` issue du catalogue Compose ; refuser les jointures ambiguës par nom lorsque plusieurs ressources partagent un libellé.
-- [ ] Contrôler la santé de l'application TrueNAS **et** du conteneur principal, notamment `prometheus` App RUNNING / conteneur `exited`. Les conteneurs d'initialisation terminés ne doivent pas donner un faux rouge. Marquer `runtime_primary_container_issue` seulement sur une observation récente et non ambiguë.
-- [ ] Ajouter un signal métier borné par `entityRef` pour Gatus, Prometheus et exporters : dernier scrape, âge, `up`, `pg_up`, probe réseau spécifique et raison `not-configured/not-observed/failed`. Un exporter `RUNNING` n'atteste pas des métriques valides.
-- [ ] Publier un indicateur explicite de dérive entre cibles déclarées et observées, sans corriger les routes : Gatus, Bichon, Garage Web UI/Admin. Le catalogue et les routes effectives restent propriété de Compose.
-- [ ] Distinguer `local_state`, `dependency_state`, `effective_state`, `blocked_by`, `degraded_by` et observations non confirmées, sans nouvelle logique parallèle dans le navigateur.
+## P0 — Qualité et sécurité du tableau de bord
 
-**Done :** toutes les mesures produites par l'API sont traçables à leur collecteur et la santé conflictuelle ne devient jamais silencieusement `ok`.
+- [ ] Vérifier les statuts `observed`, `disabled`, `not_configured`,
+  `stale`, `failed` et `unverified`, pour HTTP/TCP/TLS/DNS,
+  sans confondre l'état docker avec la réussite d'une sonde.
+- [ ] Séparer cartes opérationnelles et graphe de dépendances.
+  Rendre l'état Prometheus/Gatus sur les cartes Cloud **sans**
+  inventer de sonde LAN depuis le runtime cloud.
+- [ ] Vérifier le modèle `OWNER/SERVICE` : IP/URI internes,
+  secrets, labels Prometheus et réponses privées ne doivent
+  pas traverser le DTO public.
+- [ ] Valider l'alignement catalogue `entityRef` Compose → FastAPI
+  → Site, la couverture, la fraîcheur et les cas d'absence d'évidence.
 
-## P0 — Frontière OWNER/SERVICE et UI FastAPI Cloud
+**Référence** : [modèle des diagnostics](platform-service-diagnostics-model.md)
+et [règles de sécurité](homelab-security-roadmap.md).
 
-- [ ] Maintenir les read-models SERVICE v2 expurgés (`catalogRevision`, `entityRef`, états publics publiables). Refuser toute fuite d'IP privée, clés, réponses de sondes, payloads de posture ou routage interne vers des consommateurs anonymes.
-- [ ] Conserver la protection OWNER et les sessions signées, HttpOnly, temporaires. Vérifier séparément accès LAN, service token Cloudflare Access, réponse 401/403 et refus de l'origine ; ne pas interpréter un 403 public comme un service indisponible.
-- [ ] Vérifier sur FastAPI Cloud `/api`, `/api/health-board`, `/api/homelab/health`, `/api/homelab/probes`, `/api/site/catalog/v2`, avec scénarios anonymes/propriétaire ; une UI minimale ou refusée peut être une régression de l'autorisation.
-- [ ] Harmoniser les cartes, filtres et explications de protocoles **dans l'UI native FastAPI** ; ne pas réécrire les composants React du site ou son routage Vercel.
-- [ ] Revalider la configuration publique temporaire de diagnostics read-only puis planifier son retrait avec une solution OWNER MFA/LAN éprouvée, sans couper brutalement le catalogue SERVICE.
+## P0 — Cartes de service et sondes Gatus
 
-**Done :** modèles SERVICE et OWNER vérifiés indépendamment, sorties refusées sûres, tests des permissions et de l'UI native au SHA réellement déployé.
+- [x] Enrichir le tiroir `Details` existant : verdict explicite
+  `UP/FAILED/WARNING/UNVERIFIED/NOT RUN`, détails DNS/HTTP/TLS/Access,
+  token et Prometheus issus des **preuves déjà rendues**, sans sondes
+  supplémentaires par carte.
+- [x] Lier les références upstream/downstream aux cartes du catalogue
+  **par identifiant de nœud publié** ; ne pas inventer d'URL réseau pour
+  des dépendances non exposées. Le lien navigue dans le tiroir.
+- [x] Gatus : calculer depuis le snapshot Prometheus borné les checks
+  `UP/DOWN/unknown`, afficher le compte de sondes rouges sur la carte
+  Gatus et la liste cliquable dans le tiroir. Jamais de verdict « toutes
+  vertes » sans parité avec le catalogue Gatus.
+- [ ] Accepter sur une Preview au **SHA exact** les états token 401/403,
+  erreurs DNS/TCP, métriques absentes et dépendances multiples.
+  L'URL production n'était pas accessible depuis l'agent ; résultat
+  live **NOT_RUN**.
+- [ ] Après diagnostic Gatus LAN (owner Compose), rapprocher
+  son nombre de sondes déclarées, les dernières mesures et les
+  `nabla_service_id` observés ; isoler les sondes volontairement
+  arrêtées des véritables pannes, sans falsifier les critères.
+- [ ] Proposer un filtre `failed evidence only`, une URL partageable
+  `?service=<id>`, navigation retour entre services, et historique
+  de latence/availability 5m uniquement si les mesures sont fraîches.
 
-## P0 — Qualité, versions et déploiement FastAPI
+## P1 — Refactoring orienté domaine
 
-- [ ] Exécuter `pytest tests/unit/test_homelab_service_health.py`, le pack API/health et `just offline-l1`, `just p0`, `just quality` sur le HEAD exact, avec Ruff/typecheck/tests de secrets. Corriger les échecs avant release.
-- [ ] Confirmer la compatibilité et les mises à niveau Python, FastAPI, Pydantic et dépendances avec **le runtime réellement disponible** sur FastAPI Cloud et TrueNAS ; ne pas déduire une version installée d'un document upstream.
-- [ ] Vérifier que le déploiement FastAPI Cloud est géré par sa plateforme native et ne recréer aucune pipeline GitHub de publication non nécessaire. Utiliser [skip ci] pour les commits documentaires et ne pas dépenser les quotas Actions.
-- [ ] Garder un tracker unique des échecs master CI qui respecte les modifications manuelles des issues et ferme après deux succès consécutifs ; ne pas générer une issue par run.
-- [ ] Réconcilier les contrats local-first avec Site Alban et Bababou seulement pour les outils communs, sans intégrer leurs contenus ni séparer le code propriétaire.
+- [ ] **`nabla/api/platform_metrics.py`** : séparer contrat des métriques
+  et mapping de séries, agrégation et lecture HTTP. Conserver
+  la requête PromQL fixe, le parsing fini et la cardinalité bornée.
+- [ ] **`nabla/api/health_routes.py`** : extraire groupes de routes
+  en modules versionnés sans modifier les URL/méthodes publiques.
+  Ajouter tests du schéma OpenAPI et politiques OWNER/SERVICE.
+- [ ] **`nabla/api/assets/api-service-*.js`** : partager une projection
+  d'évidence typée vers les cartes, en gardant le graphe comme contexte
+  et pas comme seconde source de statut.
+- [ ] **CLI diagnostics** : une sortie différencie explicitement
+  vérification LAN et projection cloud, conserve les limites de taille,
+  temps et redirection et n'affiche jamais les secrets.
 
-## P1 — Télémetrie, modèles, sécurité et intégrations
+## P1 — Tests, coût et traçabilité
 
-- [ ] Récupérer les métriques de Prometheus/Gatus via les collecteurs autorisés (requêtes fixes, cardinalité bornée) et proposer au site un DTO versionné ; ne pas publier les credentials d'exporters.
-- [ ] En staging **TrueNAS**, vérifier le chaînage FastAPI → LiteLLM TrueNAS → LiteLLM workstation, avec clé dédiée à budget et secrets dans Vaultwarden ; la création du secret et le réseau appartiennent à Compose.
-- [ ] Stabiliser l'intégration Sentry/OTEL/Pyroscope, la disponibilité des backends et la dégradation contrôlée sans impacter liveness/readiness.
-- [ ] Préparer uniquement l'export contrôlé des événements métier PostHog déjà autorisés, désactivé par défaut ; ne pas intégrer de trackers dans des API OWNER.
-- [ ] Livrer les rapports expurgés Trivy/Semgrep/ZAP/Nuclei que collecte DefectDojo côté Compose ; conserver formats, provenance SHA/run et confidentialité, sans importer depuis FastAPI Cloud.
-- [ ] Garder SAST/DAST/SCA, règles secrets, dépendances et contrôle des ressources en complément des preuves de runtime.
+- [ ] Tester hors réseau, puis sur un collector LAN approuvé, puis sur
+  le SHA exact déployé. Un merge ne prouve pas la production.
+- [ ] Conserver les limites de budget, cache, circuit-breaker et
+  single-flight, notamment pour les requêtes pfSense.
+- [ ] Qualifier Sentry/OTEL/Pyroscope, intégration LiteLLM et flux
+  d'événements métier PostHog avec configuration désactivée par défaut.
+- [ ] Faire converger la couverture SAST/SCA/DAST et les importations
+  DefectDojo sans lancer de GitHub Actions payante.
 
-## Dépendances — ne pas implémenter ici
+## Règles d'acceptation
 
-| Dépôt propriétaire | Travail et limite |
-| --- | --- |
-| [Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md) | TrueNAS Apps, Prometheus déploiement, port Gatus/Garage, Cloudflare Tunnel, pfSense/DNS, pflow/Akvorado, Talos/K8s, OpenRAG/Docling, Vaultwarden, collecteur LAN et automatisations DefectDojo |
-| [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/homelab-roadmap.md) | Build Next.js/Vercel, icônes et cartes, ReactFlow, traduction FR/EN, cache SERVICE navigateur, UX et accès OWNER aux pages |
+Un résultat exige source d'observation, horodatage, verdict et
+critère de clôture. `HTTP 403` est **denied**, pas service down ;
+`scrape UP` n'est pas un succès fonctionnel. `NOT_RUN` est distinct
+de `PASS`.
 
-**Règle de clôture :** une PR fusionnée n'est pas un déploiement. Contrôler les contrats, les horodatages des sondes et la protection des données sur le runtime cible. Les incidents datés et historiques de migrations restent dans `docs/incidents.md` et l'historique Git.
+Pour la présente PR, la **quality gate complète est volontairement
+NOT_RUN** sur demande de l'opérateur. Aucun contrôle de sécurité du
+dépôt n'est supprimé ni neutralisé.

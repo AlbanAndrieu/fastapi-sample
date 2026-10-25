@@ -18,6 +18,7 @@ class Credential(StrEnum):
     NONE = "none"
     ADMIN_KEY = "admin_key"
     DIAGNOSTICS_KEY = "diagnostics_key"
+    METRICS_KEY = "metrics_key"
     MCP_KEY = "mcp_key"
     ACCESS_JWT = "access_jwt"
 
@@ -37,6 +38,7 @@ SITE_CATALOG = RoutePolicy(Visibility.SERVICE, Credential.DIAGNOSTICS_KEY)
 OWNER = RoutePolicy(Visibility.OWNER, Credential.ACCESS_JWT)
 ADMIN = RoutePolicy(Visibility.INTERNAL, Credential.ADMIN_KEY)
 INTERNAL = RoutePolicy(Visibility.INTERNAL, Credential.DIAGNOSTICS_KEY)
+METRICS = RoutePolicy(Visibility.INTERNAL, Credential.METRICS_KEY)
 MCP = RoutePolicy(Visibility.INTERNAL, Credential.MCP_KEY)
 WEBSOCKET = RoutePolicy(Visibility.INTERNAL, Credential.ACCESS_JWT)
 
@@ -72,6 +74,8 @@ _PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
 
 
 def _http_route_policy(path: str, method: str) -> RoutePolicy:
+    if path == "/metrics" and method in _READ_METHODS:
+        return METRICS
     if (path == "/api/ui/session" and method in {"GET", "HEAD", "POST"}) or (path == "/api/ui/session/logout" and method == "POST"):
         return PUBLIC
     if path in {"/api/site/catalog/v2", "/api/site/health/v2"} and method in _READ_METHODS:

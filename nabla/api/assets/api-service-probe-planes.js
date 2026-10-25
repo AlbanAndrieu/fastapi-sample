@@ -377,6 +377,7 @@ function decorateTelemetry(strip, snapshot, row) {
   for (const [kind, icon, entry] of [
     ["prometheus", "📈", evidence.prometheus],
     ["gatus", "🩺", evidence.gatus],
+    ["gatus-fleet", "🧪", evidence.gatusFleet],
     ["exporter", "📊", evidence.exporter],
     ["flow", "🌊", evidence.flow],
     ["functional", "🗄️", evidence.functional],
@@ -388,6 +389,35 @@ function decorateTelemetry(strip, snapshot, row) {
     badge.title = entry.detail;
     badge.setAttribute("aria-label", entry.detail);
   }
+}
+
+function decorateIssueSummary(row, strip) {
+  // One visible summary per card, based only on existing read-only badges.
+  const observations = [...row.querySelectorAll(".service-probe")].filter(
+    (probe) =>
+      probe.dataset.probeKind !== "issues" &&
+      probe.dataset.probeDisabled !== "true"
+  );
+  const failures = observations.filter((item) =>
+    item.classList.contains("service-probe--fail")
+  );
+  const warnings = observations.filter((item) =>
+    item.classList.contains("service-probe--warn")
+  );
+  if (!failures.length && !warnings.length) {
+    strip.querySelector('[data-probe-kind="issues"]')?.remove();
+    return;
+  }
+  const label = `${failures.length} failed · ${warnings.length} warning`;
+  const badge = ensureProbe(strip, "issues", "⚠️", label);
+  toneClass(badge, failures.length ? "fail" : "warn");
+  const summary = [...failures, ...warnings].slice(0, 4).map((item) =>
+    item.querySelector(".service-probe-label")?.textContent?.trim() ||
+    item.dataset.probeKind || "probe"
+  );
+  const detail = `Observed diagnostic badge issues: ${summary.join(", ")}. Open Details for HTTP, DNS, TLS, Token and metrics evidence; this is not an overall service-down verdict.`;
+  badge.title = detail;
+  badge.setAttribute("aria-label", detail);
 }
 
 function cleanLegacyText(row, exposure) {
@@ -459,6 +489,7 @@ function decorateRow(row, snapshot) {
       .querySelector(':scope > .service-probe-strip[data-probe-plane="lan"]')
       ?.remove();
   }
+  decorateIssueSummary(row, publicStrip);
 }
 
 function apply() {

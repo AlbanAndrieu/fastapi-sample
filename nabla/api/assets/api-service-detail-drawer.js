@@ -1,3 +1,8 @@
+import { fetchHealthBoard } from "./api-health-board.js";
+import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
+import { serviceRelations } from "./api-service-relations.js";
+import { fetchTopology } from "./api-topology-data.js";
+
 const ROW_SELECTOR = "[data-service-filter-target]";
 const OBSERVED_CONTAINERS = [
   "health-checks",
@@ -10,6 +15,9 @@ let activeRow = null;
 let activeTrigger = null;
 let activeIdentity = null;
 let refreshScheduled = false;
+let latestTopology = null;
+let latestSnapshot = null;
+let nextTopologyRetryAt = 0;
 
 function normalizedStatus(row) {
   const explicit = String(row?.dataset?.semanticStatus || "").trim();
@@ -75,14 +83,22 @@ function metadataEntries(row) {
     ["Environment", row.dataset.environments],
     ["Exposure", row.dataset.exposureScope],
     ["Ingress", row.dataset.exposureMode],
-    ["Policy", row.dataset.exposurePolicy],
+    ["Exposure policy", row.dataset.exposurePolicy],
+    ["Security posture", row.dataset.exposureSummary],
+    ["Local health", row.dataset.localState],
+    ["Dependency health", row.dataset.dependencyState],
+    ["Risk", row.dataset.riskState],
+    ["Downstream impact", Number(row.dataset.downstreamCount) > 0
+      ? row.dataset.downstreamCount : ""],
     ["Change", row.dataset.healthChange],
   ];
   return entries.filter(([, value]) => String(value || "").trim());
 }
 
 function probeEntries(row) {
-  return [...row.querySelectorAll(".service-probe")].map((probe) => ({
+  return [...row.querySelectorAll(".service-probe")]
+    .filter((probe) => probe.dataset.probeKind !== "issues")
+    .map((probe) => ({
     kind: probe.dataset.probeKind || "probe",
     label:
       probe.querySelector(".service-probe-label")?.textContent?.trim() ||
@@ -133,6 +149,19 @@ function ensureDrawer() {
     <div class="service-detail-body">
       <div id="service-detail-meta" class="service-detail-meta"></div>
       <div id="service-detail-link" class="service-detail-link"></div>
+      <div id="service-detail-summary" class="service-detail-summary" aria-live="polite"></div>
+      <section aria-labelledby="service-detail-exposure-title">
+        <h3 id="service-detail-exposure-title">Exposure security policy</h3>
+        <div id="service-detail-exposure" class="service-detail-exposure"></div>
+      </section>
+      <section aria-labelledby="service-detail-relations-title">
+        <h3 id="service-detail-relations-title">Related catalogue services</h3>
+        <div id="service-detail-relations" class="service-detail-relations"></div>
+      </section>
+      <section id="service-detail-gatus-section" aria-labelledby="service-detail-gatus-title" hidden>
+        <h3 id="service-detail-gatus-title">Gatus monitored services</h3>
+        <div id="service-detail-gatus" class="service-detail-relations"></div>
+      </section>
       <section aria-labelledby="service-detail-evidence-title">
         <h3 id="service-detail-evidence-title">Probe evidence</h3>
         <div id="service-detail-evidence" class="service-detail-evidence"></div>
@@ -178,11 +207,41 @@ function renderLink(drawer, row) {
   host.appendChild(link);
 }
 
+function renderExposurePolicy(drawer, row) {
+  const host = drawer.querySelector("#service-detail-exposure");
+  host?.replaceChildren();
+  if (!host) return;
+  const verdict = String(row.dataset.exposureVerdict || "unknown");
+  const summary = String(row.dataset.exposureSummary || "Exposure policy not verified");
+  host.dataset.exposureVerdict = verdict;
+  const status = document.createElement("strong");
+  status.className = "service-detail-exposure-verdict";
+  status.textContent = summary;
+  const description = document.createElement("p");
+  description.textContent =
+    "Security posture is independent of application uptime. " +
+    "An internal-only service must not expose a public HTTP entry point, " +
+    "even when it returns HTTP 401 or 403. Cloudflare Tunnel is routing; " +
+    "Access is the authorization layer.";
+  const sickzLink = document.createElement("a");
+  // Prefer the matching /sickz row when it exists; otherwise use the
+  // section anchor. No external URL or guess from a shared host is needed.
+  const key = String(row.dataset.topologyId || "");
+  const exposureRow = key && document.getElementById(`service-exposure-${key}`);
+  sickzLink.href = exposureRow ? `#${exposureRow.id}` : "#sickz-checks";
+  sickzLink.textContent = "Review /sickz outside-in evidence";
+  sickzLink.addEventListener("click", () => closeDrawer({ restoreFocus: false }));
+  host.append(status, description, sickzLink);
+}
+
 function renderEvidence(drawer, row) {
   const host = drawer.querySelector("#service-detail-evidence");
   host?.replaceChildren();
   if (!host) return;
-  const probes = probeEntries(row);
+  const rank = { fail: 0, warn: 1, unknown: 2, neutral: 3, ok: 4 };
+  const probes = probeEntries(row).sort(
+    (left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)
+  );
   if (probes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
@@ -215,6 +274,18 @@ function renderEvidence(drawer, row) {
     labelWrap.className = "service-detail-probe-name";
     labelWrap.append(icon, label);
     heading.appendChild(labelWrap);
+    const state = document.createElement("span");
+    state.className = "service-detail-probe-state";
+    state.textContent = probe.disabled
+      ? "NOT RUN"
+      : probe.tone === "ok"
+        ? "UP"
+        : probe.tone === "fail"
+          ? "FAILED"
+          : probe.tone === "warn"
+            ? "WARNING"
+            : "UNVERIFIED";
+    heading.appendChild(state);
     const normalizedLabel = probe.label.trim().toLowerCase();
     const normalizedKind = probe.kind.trim().toLowerCase();
     if (normalizedKind && normalizedKind !== normalizedLabel) {
@@ -229,9 +300,164 @@ function renderEvidence(drawer, row) {
   }
 }
 
+function matchingCatalogueRow(id) {
+  const candidates = [...document.querySelectorAll(ROW_SELECTOR)].filter(
+    (row) =>
+      row.dataset.topologyId === id ||
+      row.dataset.serviceKey === id ||
+      row.dataset.serviceKey?.replace(/^albandrieu_/, "").replaceAll("_", "-") === id,
+  );
+  // Never choose an arbitrary destination when multiple cards share an ID.
+  if (candidates.length === 1) return candidates[0];
+  // The health and external views may contain the same canonical identity.
+  // Prefer the canonical grouped health service without guessing by name.
+  const primary = candidates.filter((row) =>
+    row.closest("#health-services-groups")
+  );
+  return primary.length === 1 ? primary[0] : null;
+}
+
+function linkedCatalogueItem(entry, { status = "", type = "" } = {}) {
+  const target = matchingCatalogueRow(entry.id);
+  const wrap = document.createElement("div");
+  wrap.className = "service-detail-relation";
+  const link = document.createElement(target ? "button" : "span");
+  if (target) {
+    link.type = "button";
+    link.className = "service-detail-relation-link";
+    link.addEventListener("click", () => {
+      openDrawer(target, target.querySelector(":scope > .service-detail-trigger"));
+    });
+    link.setAttribute("aria-label", `View ${entry.name} service diagnostics`);
+  }
+  link.textContent = target && entry.name === entry.id
+    ? displayName(target)
+    : entry.name;
+  wrap.appendChild(link);
+  const detail = document.createElement("small");
+  const cardState = target ? `card: ${normalizedStatus(target)}` : "card not shown";
+  detail.textContent = [
+    type || entry.type, status, entry.required ? "required" : "",
+    cardState,
+  ].filter(Boolean).join(" · ");
+  wrap.appendChild(detail);
+  return wrap;
+}
+
+function renderRelations(drawer, row) {
+  const host = drawer.querySelector("#service-detail-relations");
+  host?.replaceChildren();
+  if (!host) return;
+  const id = row.dataset.topologyId;
+  const relations = serviceRelations(latestTopology, id);
+  const groups = [
+    ["Upstream / dependencies", relations.dependencies],
+    ["Downstream / dependents", relations.dependents],
+  ];
+  let found = false;
+  for (const [label, items] of groups) {
+    if (!items.length) continue;
+    found = true;
+    const title = document.createElement("strong");
+    title.className = "service-detail-relation-group";
+    title.textContent = label;
+    host.appendChild(title);
+    items.forEach((item) => host.appendChild(linkedCatalogueItem(item)));
+  }
+  if (!found) {
+    const empty = document.createElement("p");
+    empty.className = "service-detail-empty";
+    empty.textContent = latestTopology?.nodes?.length
+      ? "No published dependencies for this catalogue identity."
+      : "Public topology unavailable; relations not verified.";
+    host.appendChild(empty);
+  }
+}
+
+function renderProbeSummary(drawer, row) {
+  const host = drawer.querySelector("#service-detail-summary");
+  if (!host) return;
+  const probes = probeEntries(row).filter((probe) => !probe.disabled);
+  const failed = probes.filter((probe) => probe.tone === "fail").length;
+  const warnings = probes.filter((probe) => probe.tone === "warn").length;
+  const unknown = probes.filter((probe) =>
+    !["ok", "fail", "warn"].includes(probe.tone)
+  ).length;
+  const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
+  host.textContent = probes.length
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. Select a signal below for its source and reason.`
+    : "No direct probe evidence; this is not proof of service health.";
+  host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
+}
+
+function renderGatusFleet(drawer, row) {
+  const section = drawer.querySelector("#service-detail-gatus-section");
+  const host = drawer.querySelector("#service-detail-gatus");
+  if (!host || !section) return;
+  host.replaceChildren();
+  const isGatus = row.dataset.serviceKey === "gatus" ||
+    row.dataset.topologyId === "gatus" ||
+    row.dataset.serviceKey === "albandrieu_gatus";
+  section.hidden = !isGatus;
+  if (!isGatus) return;
+  const fleet = gatusCoverage(latestSnapshot);
+  const totals = document.createElement("p");
+  totals.className = "service-detail-empty";
+  totals.textContent = fleet.state !== "observed"
+    ? `Gatus coverage unavailable: ${fleet.reason}. No probes declared healthy.`
+    : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
+  host.appendChild(totals);
+  if (fleet.state !== "observed") return;
+  // The catalogue can contain services with no Gatus monitor. Never show
+  // those as green, nor treat a healthy Gatus scheduler as healthy targets.
+  const views = [
+    ["Failing checks", fleet.failures, "observed DOWN"],
+    ["Checks without usable samples", fleet.missing, "NOT OBSERVED"],
+    ["Successful checks", fleet.successes, "observed UP"],
+  ];
+  for (const [title, entries, status] of views) {
+    const heading = document.createElement("strong");
+    heading.className = "service-detail-relation-group";
+    heading.textContent = `${title} (${entries.length})`;
+    host.appendChild(heading);
+    if (entries.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "service-detail-empty";
+      empty.textContent = "None in this bounded snapshot.";
+      host.appendChild(empty);
+      continue;
+    }
+    entries.slice(0, 25).forEach((entry) => {
+      host.appendChild(linkedCatalogueItem(
+        { id: entry.id, name: entry.id },
+        { type: entry.type, status },
+      ));
+    });
+    if (entries.length > 25) {
+      const more = document.createElement("p");
+      more.className = "service-detail-empty";
+      more.textContent = `${entries.length - 25} more; open the private Gatus console.`;
+      host.appendChild(more);
+    }
+  }
+  const caveat = document.createElement("p");
+  caveat.className = "service-detail-empty";
+  caveat.textContent =
+    "Unlisted catalogue services have unknown Gatus coverage. " +
+    "A successful Gatus scrape proves only that its metrics endpoint responds.";
+  host.appendChild(caveat);
+}
+
 function renderDrawer(row, { force = false } = {}) {
   const drawer = ensureDrawer();
-  const signature = drawerSignature(row);
+  const signature = JSON.stringify({
+    row: drawerSignature(row),
+    topologySource: latestTopology?.source,
+    topologyNodes: latestTopology?.nodes?.length,
+    telemetryCheckedAt: latestSnapshot?.platform_metrics?.generated_at,
+    exposure: row.dataset.exposureSummary,
+    exposureVerdict: row.dataset.exposureVerdict,
+  });
   const serviceKey = String(
     row.dataset.serviceKey || row.dataset.serviceName || "",
   );
@@ -246,7 +472,11 @@ function renderDrawer(row, { force = false } = {}) {
   if (title) title.textContent = displayName(row);
   renderMetadata(drawer, row);
   renderLink(drawer, row);
+  renderExposurePolicy(drawer, row);
   renderEvidence(drawer, row);
+  renderProbeSummary(drawer, row);
+  renderRelations(drawer, row);
+  renderGatusFleet(drawer, row);
   drawer.dataset.serviceKey = serviceKey;
   drawer.dataset.renderSignature = signature;
 }
@@ -351,6 +581,13 @@ function observeRows() {
         "data-exposure-policy",
         "data-exposure-scope",
         "data-exposure-mode",
+        "data-exposure-verdict",
+        "data-exposure-summary",
+        "data-topology-id",
+        "data-local-state",
+        "data-dependency-state",
+        "data-risk-state",
+        "data-downstream-count",
       ],
     });
   }
@@ -366,6 +603,31 @@ function installKeyboardClose() {
 }
 
 export function installServiceDetailDrawer() {
+  // Reuse the same cached public topology and health snapshot as the board.
+  // Do not request one provider endpoint per card or probe.
+  fetchTopology().then((topology) => {
+    latestTopology = topology;
+    scheduleActiveRefresh();
+  }).catch(() => {});
+  document.addEventListener("health-board-refreshed", () => {
+    // Public-topology may initially return 401/403 before an owner session.
+    // Retry only on board refresh and at most every two minutes, not per card.
+    if ((!latestTopology || !latestTopology.nodes?.length) &&
+        Date.now() >= nextTopologyRetryAt) {
+      nextTopologyRetryAt = Date.now() + 120000;
+      fetchTopology({ force: true }).then((topology) => {
+        latestTopology = topology;
+        scheduleActiveRefresh();
+      }).catch(() => {});
+    }
+    fetchHealthBoard().then((snapshot) => {
+      latestSnapshot = snapshot;
+      scheduleActiveRefresh();
+    }).catch(() => {
+      latestSnapshot = null;
+      scheduleActiveRefresh();
+    });
+  });
   ensureDrawer();
   decorateRows();
   observeRows();

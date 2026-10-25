@@ -78,3 +78,20 @@ def test_detail_drawer_has_dedicated_responsive_stylesheet() -> None:
     assert ".service-detail-trigger" in drawer_css
     assert '[data-detail-selected="true"]' in drawer_css
     assert "@media (max-width: 720px)" in drawer_css
+
+
+def test_gatus_drawer_distinguishes_down_up_and_missing_observations() -> None:
+    drawer = (ASSETS / "api-service-detail-drawer.js").read_text(
+        encoding="utf-8"
+    )
+    coverage = (ASSETS / "api-service-gatus-coverage.js").read_text(
+        encoding="utf-8"
+    )
+    assert "Failing checks" in drawer
+    assert "Checks without usable samples" in drawer
+    assert "Successful checks" in drawer
+    assert 'summary.missing.push(' in coverage
+    assert 'summary.successes.push(' in coverage
+    assert "linkedCatalogueItem(" in drawer
+    assert "Unlisted catalogue services have unknown Gatus coverage" in drawer
+    assert "not run" in drawer
