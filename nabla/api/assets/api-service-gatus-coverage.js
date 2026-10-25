@@ -8,6 +8,20 @@ function binary(value) {
   return typeof value === "number" && (value === 0 || value === 1);
 }
 
+function bounded(value, min, max) {
+  return typeof value === "number" && Number.isFinite(value) &&
+    value >= min && value <= max ? value : null;
+}
+
+function gatusProbe(type, sample) {
+  const probe = { type, success: sample.success };
+  const availability = bounded(sample.availability_ratio_5m, 0, 1);
+  const duration = bounded(sample.duration_seconds, 0, 300);
+  if (availability !== null) probe.availability = availability;
+  if (duration !== null) probe.durationMs = duration * 1000;
+  return probe;
+}
+
 export function gatusCoverage(snapshot, now = Date.now()) {
   const synthetic = snapshot?.platform_metrics?.synthetic_probes;
   const timestamp = Date.parse(String(snapshot?.platform_metrics?.generated_at || ""));
@@ -57,12 +71,16 @@ export function gatusCoverage(snapshot, now = Date.now()) {
       if (!binary(sample?.success)) continue;
       hasEvidence = true;
       summary.observedProbes += 1;
+      const entry = { id, type, status: sample.success === 0 ? "down" : "up" };
+      const observation = gatusProbe(type, sample);
+      if (observation.availability !== undefined) entry.availability = observation.availability;
+      if (observation.durationMs !== undefined) entry.durationMs = observation.durationMs;
       if (sample.success === 0) {
         summary.down += 1;
-        summary.failures.push({ id, type, status: "down" });
+        summary.failures.push(entry);
       } else {
         summary.up += 1;
-        summary.successes.push({ id, type, status: "up" });
+        summary.successes.push(entry);
       }
     }
     if (!hasEvidence) {
@@ -83,8 +101,7 @@ export function gatusServiceEvidence(snapshot, id, now = Date.now()) {
       : null;
   const probes = PROTOCOLS.flatMap((type) =>
     binary(service?.[type]?.success)
-      ? [{ type, success: service[type].success,
-           availability: service[type].availability_ratio_5m }]
+      ? [gatusProbe(type, service[type])]
       : [],
   );
   return {
@@ -95,4 +112,37 @@ export function gatusServiceEvidence(snapshot, id, now = Date.now()) {
         : "up",
     probes,
   };
+}
+
+/**
+ * Catalogue/metrics reconciliation, not monitor configuration parity.
+ * A card without a metric may be intentionally unmonitored or have a broken
+ * recording rule. Neither state should be reported as a failed check.
+ */
+export function gatusCatalogueCoverage(snapshot, catalogueIds = [], now = Date.now()) {
+  const fleet = gatusCoverage(snapshot, now);
+  const ids = [...new Set((Array.isArray(catalogueIds) ? catalogueIds : [])
+    .filter((id) => typeof id === "string" && ID_PATTERN.test(id)))].slice(0, MAX_SERVICES);
+  const result = {
+    state: fleet.state,
+    reason: fleet.reason,
+    catalogueTotal: ids.length,
+    withSamples: 0,
+    withoutSamples: [],
+    failingServices: 0,
+    status: fleet.state !== "observed" ? "unverified" : "partial",
+    declaredMonitors: null,
+  };
+  if (fleet.state !== "observed") return result;
+  for (const id of ids) {
+    const check = gatusServiceEvidence(snapshot, id, now);
+    if (check.probes.length) {
+      result.withSamples++;
+      if (check.status === "down") result.failingServices++;
+    } else {
+      result.withoutSamples.push(id);
+    }
+  }
+  // Even 100% of visible cards with samples cannot establish Gatus config parity.
+  return result;
 }

@@ -615,3 +615,10 @@
     scroll-snap-align: start;
   }
 }
+
+/* Blue = a protected HTTP responder was observed, NOT full application health. */
+.service-probe--info {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(96, 165, 250, 0.12);
+  color: #a7d2ff;
+}

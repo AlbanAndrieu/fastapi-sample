@@ -189,3 +189,13 @@ badge vert.
 Tests offline : `just service-exposure-policy-contracts`. Validation
 visuelle de la version déployée et tests de non-régression API restent
 distincts des tests du code source.
+
+## Garage S3 API : disponibilité et politique de publication
+
+Garage S3 sur `:3900` n'est pas une UI. Un HTTP 403 sur une
+requête anonyme `GET /` n'est pas un test S3 signé.
+Le panneau HTTP doit rester indéterminé sans preuve fonctionnelle,
+mais la politique `/sickz` continue à signaler toute route publique
+inattendue alors que `external=false`. Ne pas fusionner ces verdicts.
+
+[Diagnostic et URLs Garage S3](runbooks/garage-s3-api-diagnostics.md).

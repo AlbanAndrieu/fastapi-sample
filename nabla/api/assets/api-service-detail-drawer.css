@@ -368,3 +368,156 @@
   outline: 2px solid #9cc7ff;
   outline-offset: 3px;
 }
+
+/* Compact, keyboard-operable protocol groups; preserve existing dark theme. */
+.service-detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.service-detail-header-actions [hidden] { display: none; }
+.service-detail-back {
+  min-height: 40px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #414754;
+  border-radius: 8px;
+  background: #151a21;
+  color: #a8d0ff;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.service-detail-back:focus-visible,
+.service-detail-evidence-group summary:focus-visible,
+.service-detail-issues-filter input:focus-visible {
+  outline: 2px solid #9cc7ff;
+  outline-offset: 3px;
+}
+.service-detail-evidence > small {
+  display: block;
+  color: #a3afbb;
+  font-size: 0.68rem;
+}
+.service-detail-issues-filter {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  gap: 0.5rem;
+  color: #e1e7ee;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.service-detail-issues-filter input {
+  width: 18px;
+  height: 18px;
+  accent-color: #9cc7ff;
+}
+.service-detail-evidence-group {
+  min-width: 0;
+  border: 1px solid #343a45;
+  border-radius: 9px;
+  background: #101216;
+  overflow: hidden;
+}
+.service-detail-evidence-group summary {
+  padding: 0.75rem;
+  color: #e5e7eb;
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.service-detail-evidence-group .service-detail-probe {
+  margin: 0 0.5rem 0.5rem;
+}
+.service-detail-probe-advice {
+  padding-top: 0.4rem;
+  border-top: 1px solid #343a45;
+  color: #cbd5e1 !important;
+}
+.service-detail-coverage {
+  margin: 0.5rem 0;
+  padding: 0.65rem;
+  border: 1px solid #485262;
+  border-radius: 8px;
+  color: #d5dce5;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+.service-detail-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+.service-detail-trigger {
+  min-height: 32px;
+}
+@media (max-width: 720px) {
+  .service-detail-header-actions button { min-height: 44px; }
+  .service-detail-drawer { max-height: calc(100dvh - 0.75rem); }
+  .service-detail-evidence-group summary { min-height: 44px; }
+}
+
+.service-detail-trigger[data-issues="fail"] {
+  border-color: rgba(255, 104, 104, 0.7);
+  color: #ffaaaa;
+}
+.service-detail-trigger[data-issues="warn"] {
+  border-color: rgba(255, 205, 85, 0.65);
+  color: #ffdc88;
+}
+
+/* Keep the diagnostics action below the service title, URL and probe badges. */
+.health-row.health-row--detail-footer {
+  flex-wrap: wrap;
+}
+.health-row > .service-detail-trigger {
+  order: 100;
+  flex: 1 0 100%;
+  width: 100%;
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  text-align: left;
+  position: relative;
+  z-index: 2;
+}
+.service-detail-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+}
+.service-detail-link-heading {
+  font-size: 0.75rem;
+  color: #e5e7eb;
+}
+.service-detail-endpoint {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+.service-detail-endpoint span,
+.service-detail-endpoint small {
+  color: #9aa7b6;
+  font-size: 0.66rem;
+}
+.service-detail-endpoint a {
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 0.12rem;
+}
+.service-detail-permalink {
+  width: fit-content;
+}
+.service-detail-exposure-reason {
+  color: #ffcf93 !important;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 768px) {
+  .health-row > .service-detail-trigger {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    margin-left: 0;
+  }
+}
+
+.service-detail-probe--info { border-color: rgba(96, 165, 250, 0.48); }
+.service-detail-probe--info .service-detail-probe-state { color: #a7d2ff; }

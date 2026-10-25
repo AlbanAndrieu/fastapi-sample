@@ -65,7 +65,9 @@ def test_detail_drawer_refreshes_without_new_health_engine() -> None:
     assert 'document.addEventListener("health-board-refreshed", scheduleActiveRefresh)' in source
     assert "new MutationObserver" in source
     assert "fetch(" not in source
-    assert "fetchHealthBoard" not in source
+    # The drawer reuses the bounded cached board snapshot; no direct per-card fetch.
+    assert 'fetchHealthBoard()' in source
+    assert "window.fetch(" not in source
 
 
 def test_detail_drawer_has_dedicated_responsive_stylesheet() -> None:
@@ -95,3 +97,55 @@ def test_gatus_drawer_distinguishes_down_up_and_missing_observations() -> None:
     assert "linkedCatalogueItem(" in drawer
     assert "Unlisted catalogue services have unknown Gatus coverage" in drawer
     assert "not run" in drawer
+
+
+def test_garage_s3_links_show_configured_and_internal_urls_without_guessing_ids() -> None:
+    source = (ASSETS / "api-service-detail-drawer.js").read_text(
+        encoding="utf-8",
+    )
+    assert '"internal_endpoint_url"' in (
+        ROOT / "nabla/api/homelab_service_health.py"
+    ).read_text(encoding="utf-8")
+    assert "service?.internal_endpoint_url" in source
+    assert "entry?.id === key" in source
+    assert 'heading.textContent = "Service endpoints"' in source
+    assert '"Internal LAN URL"' in source
+    assert "Configured hostname (private / not a public guarantee)" in source
+    assert "Direct link to diagnostics" in source
+    assert "Direct link to diagnostics" in source
+    assert "if (!configured && !internal)" in source
+
+
+def test_exposure_policy_failure_explains_the_actual_evidence() -> None:
+    source = (ASSETS / "api-service-detail-drawer.js").read_text(
+        encoding="utf-8",
+    )
+    assert 'data-probe-kind="policy"' in source
+    assert "host.append(status, explanation, description, sickzLink)" in source
+    assert "external=false but a public Tunnel/Access route" in source
+
+
+def test_detail_button_is_full_width_below_card_contents() -> None:
+    css = (ASSETS / "api-service-detail-drawer.css").read_text(
+        encoding="utf-8",
+    )
+    js = (ASSETS / "api-service-detail-drawer.js").read_text(
+        encoding="utf-8",
+    )
+    assert 'row.classList.add("health-row--detail-footer")' in js
+    assert ".health-row.health-row--detail-footer" in css
+    assert "flex-wrap: wrap;" in css
+    assert "order: 100;" in css
+    assert "flex: 1 0 100%;" in css
+
+
+def test_private_s3_anonymous_http_is_not_a_green_health_claim() -> None:
+    diag = (ASSETS / "api-service-diagnostics.js").read_text(
+        encoding="utf-8",
+    )
+    planes = (ASSETS / "api-service-probe-planes.js").read_text(
+        encoding="utf-8",
+    )
+    assert "privateS3 ? \"unknown\" : reachabilityTone(check)" in diag
+    assert "privateS3 ? \"unknown\" : publicTone(check)" in planes
+    assert "A signed S3 request from the LAN is needed" in diag

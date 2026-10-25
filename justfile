@@ -200,3 +200,21 @@ service-catalog-ux-contracts:
 service-exposure-policy-contracts:
     node --test tests/js/service-exposure-policy.mjs
 
+
+# Fast local JS-only contracts on agent Node 22/npm 10; no npm install and no CI.
+# Production dependency installation still follows package.json (Node >=24).
+node22-quick:
+    @node -e 'if (Number(process.versions.node.split(".")[0]) !== 22) { console.error("Requires Node 22 for this compatibility check"); process.exit(2); }'
+    @npm --version | grep -Eq '^10[.]' || { echo "Requires npm 10" >&2; exit 2; }
+    node --test tests/js/service-catalog-ux.mjs tests/js/service-exposure-policy.mjs
+
+# No live probes; compare local Gatus declarations against saved authorized evidence.
+gatus-inventory config:
+    python3 scripts/reconcile-gatus-coverage.py --config "{{config}}"
+
+gatus-compare config snapshot:
+    python3 scripts/reconcile-gatus-coverage.py --config "{{config}}" --snapshot "{{snapshot}}"
+
+# Python offline reconcilation contracts; do not launch GitHub Actions.
+gatus-contracts:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_gatus_reconcile_contract.py

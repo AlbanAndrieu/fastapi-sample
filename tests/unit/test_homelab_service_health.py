@@ -542,3 +542,31 @@ def test_openwebui_ambiguous_appid_never_becomes_healthy() -> None:
     assert row["runtime_missing"] is True
     assert row["runtime_container_identity_drift"] is False
     assert row["state"] != "ok"
+
+
+def test_private_garage_s3_exposes_two_distinct_declared_navigation_urls() -> None:
+    service = HomelabService(
+        id="garage",
+        name="Garage S3 API",
+        internalHost="172.17.0.24",
+        internalPort=3900,
+        internalSecure=False,
+        tunnelUrl="https://s3.int.albandrieu.com",
+        external=False,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=None,
+        tunnels=[],
+        internal_probes_enabled=False,
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["id"] == "garage"
+    assert row["url"].rstrip("/") == "https://s3.int.albandrieu.com"
+    assert row["internal_endpoint_url"] == "http://172.17.0.24:3900"
+    # These URLs are catalog configuration; not proof of probe execution.
+    assert row["internal_state"] is None
+    assert row["direct_state"] is None

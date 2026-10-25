@@ -369,6 +369,14 @@ def build_reconciled_service_health(
             "name": service.name,
             "url": url or endpoint_url,
             "url_derived": service.tunnel_url is None,
+            # Declared configuration, not a successful probe or public URL.
+            # Used only by the detailed homelab diagnostics projection.
+            "internal_endpoint_url": (
+                f"{'https' if service.internal_secure else 'http'}://"
+                f"{service.internal_host}:{service.internal_port}"
+                if service.internal_host and service.internal_port is not None
+                else None
+            ),
             "reachable": bool(
                 direct_result and not direct_stale and direct_result.get("reachable"),
             ),
