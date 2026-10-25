@@ -463,9 +463,11 @@ function decorateRow(row, snapshot) {
     "service-probe-strip--public",
   );
   publicStrip.dataset.probePlane = "public";
+  const canonicalId = String(
+    row.dataset.topologyId || row.dataset.serviceKey || "",
+  ).replace(/^albandrieu_/, "").replaceAll("_", "-");
   decoratePublicEvidence(publicStrip, publicCheck, url, {
-    privateS3: row.dataset.serviceKey === "garage" ||
-      row.dataset.topologyId === "garage",
+    privateS3: canonicalId === "garage",
   });
   decorateCloudflare(
     publicStrip,

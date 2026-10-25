@@ -112,9 +112,8 @@ def test_garage_s3_links_show_configured_and_internal_urls_without_guessing_ids(
     assert '"Internal LAN URL"' in source
     assert "Configured hostname (private / not a public guarantee)" in source
     assert "Direct link to diagnostics" in source
-    assert "if (!href) return" not in source.split("function renderLink", 1)[1].split(
-        "function renderExposurePolicy", 1
-    )[0]
+    assert "Direct link to diagnostics" in source
+    assert "if (!configured && !internal)" in source
 
 
 def test_exposure_policy_failure_explains_the_actual_evidence() -> None:

@@ -213,8 +213,8 @@ function renderLink(drawer, row) {
   // assign another service's S3/Admin/WebUI URL to this card.
   const service = (latestSnapshot?.homelab?.services || [])
     .find((entry) => entry?.id === key);
-  const configured = safeHttpUrl(row.dataset.serviceUrl) ||
-    safeHttpUrl(service?.url);
+  const configured = safeHttpUrl(service?.url) ||
+    safeHttpUrl(row.dataset.serviceUrl);
   const internal = safeHttpUrl(service?.internal_endpoint_url);
 
   const heading = document.createElement("strong");
