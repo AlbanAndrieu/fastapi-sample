@@ -284,11 +284,18 @@ dépôt n'est supprimé ni neutralisé.
   secrets locaux et sans déploiement sur TrueNAS.
 - [ ] Valider le rendu réel à `https://sample.albandrieu.com/api`
   au SHA déployé, sur desktop/mobile. Commit Git ≠ application déployée.
-- [ ] Diagnostiquer avec le secret **déjà présent sur TrueNAS** l'accès
-  `/metrics` authentifié, puis vérifier le job Prometheus
-  `fastapi_sample`. Observation actuelle : HTTP 401 anonyme attendu,
-  mais authentification du scraper `UNVERIFIED`.
-  Les secrets Prometheus sont gérés par `nabla-compose`.
+- [x] Valider le diagnostic SSH distant sur TrueNAS depuis la workstation :
+  `ssh -G` confirme le port `9922` ; `--ssh-target` retourne un
+  HTTP 401 **anonyme attendu**. Pas de jeton testé.
+- [x] Identifier l'écart de contrat entre FastAPI et Compose :
+  FastAPI exige `METRICS_SCRAPE_KEY` ; le job `fastapi_sample` du
+  catalogue Compose ne déclare pas encore `authorization.credentials_file`.
+  La configuration réellement chargée par Prometheus reste à confirmer.
+- [ ] Provisionner et vérifier le **jeton dédié** FastAPI/Prometheus dans
+  `nabla-compose` (source de vérité des secrets et du collecteur), puis
+  obtenir `up{job="fastapi_sample"} == 1` sans exposer la valeur.
+  `scrape_authorized=false` et `credentials_tested=false` restent
+  `UNVERIFIED` et **ne doivent pas devenir verts** par défaut.
 - [ ] Exécuter localement les tests complets CSS/JS et FastAPI dans un
   checkout intégral. Les contrôles de ce changement n'activent pas de
   GitHub Actions payante.
