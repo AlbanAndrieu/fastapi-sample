@@ -305,7 +305,7 @@ function renderEvidence(drawer, row) {
     section.appendChild(summary);
     for (const probe of grouped) {
       const item = document.createElement("article");
-      item.className = "service-detail-probe service-detail-probe--" + probe.tone;
+      item.className = "service-detail-probe service-detail-probe--" + (probe.disabled ? "unknown" : probe.tone);
       if (probe.disabled) item.dataset.disabled = "true";
       const heading = document.createElement("div");
       heading.className = "service-detail-probe-heading";
