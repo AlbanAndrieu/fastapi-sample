@@ -222,3 +222,9 @@ de `PASS`.
 Pour la présente PR, la **quality gate complète est volontairement
 NOT_RUN** sur demande de l'opérateur. Aucun contrôle de sécurité du
 dépôt n'est supprimé ni neutralisé.
+
+### P0 — Accusé de trace Site v2 (25 octobre 2026)
+- [x] Parser strict du `traceparent` W3C reçu sur `/api/site/health/v2`, IDs non nuls, valeur bornée et rejet des injections.
+- [x] Émettre `X-Nabla-Trace-ID` uniquement après le contrôle machine et enregistrer un événement structuré `site_health_v2_trace`.
+- [ ] Déployer FastAPI Cloud et corréler l'identifiant avec l'en-tête de réponse Site `X-Nabla-Trace-Propagation: confirmed` sur un appel authentifié. **NOT_RUN**.
+- [ ] Exécuter pytest complet, Ruff et tests d'intégration de la politique d'accès. **NOT_RUN** dans cet environnement.
