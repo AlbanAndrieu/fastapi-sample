@@ -32,6 +32,7 @@ def test_metrics_scrape_states(anonymous, authorized, token_supplied, state, app
     result = module.assess(anonymous, authorized, token_supplied)
     assert result["state"] == state
     assert result["scrape_authorized"] is approved
+    assert result["next_check"] == module._METRICS_NEXT_CHECK[state]
     assert "http://" not in str(result)
     assert "secret" not in str(result)
 
@@ -107,6 +108,7 @@ def test_remote_probe_pins_target_and_never_sends_secret(monkeypatch):
     assert code == 0
     assert result["origin"] == "truenas_ssh"
     assert result["scrape_authorized"] is True
+    assert result["next_check"] == "verify_prometheus_job_up_without_exposing_token"
     assert "private_token" not in result
     command, kwargs = calls[0]
     assert "-T" in command and "StrictHostKeyChecking=yes" in command
@@ -242,6 +244,32 @@ def test_remote_missing_token_file_yields_a_safe_category(monkeypatch):
         "scrape_authorized": False,
         "next_check": "verify_remote_token_file_exists_and_permissions",
     }
+
+
+def test_remote_report_cannot_inject_next_step(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=2,
+            stdout=json.dumps({
+                "origin": "truenas_loopback",
+                "path": "/metrics",
+                "anonymous_http": 401,
+                "authenticated_http": None,
+                "credentials_tested": False,
+                "scrape_authorized": False,
+                "state": "key_configured_scraper_credentials_unverified",
+                "next_check": "EXFILTRATE_SECRET_UNTRUSTED",
+            }),
+            stderr="",
+        ),
+    )
+    result, code = module.ssh_status("albandrieu@172.17.0.24")
+    assert code == 2
+    assert result["next_check"] == "verify_prometheus_bearer_credentials_file"
+    assert "EXFILTRATE_SECRET_UNTRUSTED" not in str(result)
 
 
 def test_remote_probe_denial_does_not_become_up(monkeypatch):
