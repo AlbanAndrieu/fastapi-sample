@@ -14,7 +14,7 @@ import re
 import shlex
 import subprocess
 from pathlib import Path
-from stat import S_ISREG, S_IROTH
+from stat import S_ISREG, S_IROTH, S_IWGRP, S_IWOTH
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
@@ -51,7 +51,7 @@ def read_token_file(path: Path) -> str | None:
         metadata = path.stat()
         if not S_ISREG(metadata.st_mode) or metadata.st_size > MAX_TOKEN_BYTES:
             return None
-        if metadata.st_mode & S_IROTH:
+        if metadata.st_mode & (S_IROTH | S_IWGRP | S_IWOTH):
             return None
         value = path.read_text(encoding="utf-8").strip()
         if not value or not value.isascii() or len(value) > MAX_TOKEN_BYTES or any(char.isspace() for char in value):
