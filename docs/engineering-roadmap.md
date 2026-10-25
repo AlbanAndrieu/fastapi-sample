@@ -274,6 +274,25 @@ dépôt n'est supprimé ni neutralisé.
   Runbook : [Compose #281](https://github.com/AlbanAndrieu/nabla-compose/pull/281).
 
 
+## P0 — Mise en page des cartes et diagnostic TrueNAS à distance
+
+- [x] Réserver une zone pour **Details** en bas à droite des cartes de
+  `/api`. Le badge d'âge des sondes reste en haut à droite.
+  Préserver l'accès clavier et une surface tactile d'au moins 44 px.
+- [x] Ajouter `--ssh-target utilisateur@172.17.0.24` au diagnostic
+  `/metrics`. Utiliser SSH strict, sans proxy HTTP, sans transport de
+  secrets locaux et sans déploiement sur TrueNAS.
+- [ ] Valider le rendu réel à `https://sample.albandrieu.com/api`
+  au SHA déployé, sur desktop/mobile. Commit Git ≠ application déployée.
+- [ ] Diagnostiquer avec le secret **déjà présent sur TrueNAS** l'accès
+  `/metrics` authentifié, puis vérifier le job Prometheus
+  `fastapi_sample`. Observation actuelle : HTTP 401 anonyme attendu,
+  mais authentification du scraper `UNVERIFIED`.
+  Les secrets Prometheus sont gérés par `nabla-compose`.
+- [ ] Exécuter localement les tests complets CSS/JS et FastAPI dans un
+  checkout intégral. Les contrôles de ce changement n'activent pas de
+  GitHub Actions payante.
+
 ## P0 — Site v2 et scrape métrique (reprise PR #378)
 
 - [x] Accuser réception du `traceparent` W3C valide via `X-Nabla-Trace-ID` sur `/api/site/health/v2`, sans divulguer d'en-tête arbitraire.
