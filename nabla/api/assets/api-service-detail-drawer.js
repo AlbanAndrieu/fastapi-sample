@@ -636,22 +636,33 @@ function closeDrawer({ restoreFocus = true, syncUrl = true } = {}) {
   }
 }
 
+function updateDetailTrigger(row, trigger) {
+  const counts = evidenceCounts(probeEntries(row));
+  const text = counts.failed ? "Details · " + counts.failed + " failed"
+    : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
+  if (trigger.textContent !== text) trigger.textContent = text;
+  const tone = counts.failed ? "fail" : counts.warning ? "warn" : "neutral";
+  if (trigger.dataset.issues !== tone) trigger.dataset.issues = tone;
+  const title = "Open diagnostics for " + displayName(row) +
+    ": " + counts.failed + " failed, " + counts.warning + " warnings, " +
+    counts.unknown + " unknown, " + counts.notRun + " not run";
+  if (trigger.getAttribute("aria-label") !== title) {
+    trigger.setAttribute("aria-label", title);
+  }
+}
+
 function ensureDetailTrigger(row) {
   if (!(row instanceof HTMLElement)) return;
   const current = row.querySelector(":scope > .service-detail-trigger");
-  if (current) return;
+  if (current) {
+    updateDetailTrigger(row, current);
+    return;
+  }
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.className = "service-detail-trigger";
-  const counts = evidenceCounts(probeEntries(row));
-  trigger.textContent = counts.failed
-    ? "Details · " + counts.failed + " failed"
-    : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
+  updateDetailTrigger(row, trigger);
   trigger.setAttribute("aria-haspopup", "dialog");
-  trigger.setAttribute(
-    "aria-label",
-    `Open diagnostics for ${displayName(row)}`,
-  );
   trigger.addEventListener("click", (event) => {
     event.stopPropagation();
     openDrawer(row, trigger);
@@ -774,10 +785,7 @@ export function installServiceDetailDrawer() {
       document.querySelectorAll(ROW_SELECTOR).forEach((row) => {
         const trigger = row.querySelector(":scope > .service-detail-trigger");
         if (!trigger) return;
-        const counts = evidenceCounts(probeEntries(row));
-        const label = counts.failed ? "Details · " + counts.failed + " failed"
-          : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
-        if (trigger.textContent !== label) trigger.textContent = label;
+        updateDetailTrigger(row, trigger);
       });
       syncDrawerFromUrl();
     });
