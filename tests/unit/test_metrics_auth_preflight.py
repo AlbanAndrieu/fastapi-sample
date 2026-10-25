@@ -153,6 +153,31 @@ def test_remote_probe_fails_closed_on_untrusted_output(monkeypatch):
     assert "untrusted banner" not in str(result)
 
 
+def test_remote_missing_token_file_yields_a_safe_category(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=2,
+            stdout=json.dumps({
+                "state": "token_file_invalid_or_unreadable",
+                "scrape_authorized": False,
+            }),
+            stderr="Private token path and secret must remain hidden",
+        ),
+    )
+    result, code = module.ssh_status(
+        "operator@172.17.0.24", Path("/mnt/cpool/var/nabla/metrics-token"),
+    )
+    assert code == 2
+    assert result == {
+        "origin": "truenas_ssh",
+        "state": "remote_token_file_invalid_or_unreadable",
+        "scrape_authorized": False,
+    }
+
+
 def test_remote_probe_denial_does_not_become_up(monkeypatch):
     from types import SimpleNamespace
 
