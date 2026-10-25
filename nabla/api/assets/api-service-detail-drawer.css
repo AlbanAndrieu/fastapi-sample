@@ -464,3 +464,57 @@
   border-color: rgba(255, 205, 85, 0.65);
   color: #ffdc88;
 }
+
+/* Keep the diagnostics action below the service title, URL and probe badges. */
+.health-row.health-row--detail-footer {
+  flex-wrap: wrap;
+}
+.health-row > .service-detail-trigger {
+  order: 100;
+  flex: 1 0 100%;
+  width: 100%;
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  text-align: left;
+  position: relative;
+  z-index: 2;
+}
+.service-detail-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+}
+.service-detail-link-heading {
+  font-size: 0.75rem;
+  color: #e5e7eb;
+}
+.service-detail-endpoint {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+.service-detail-endpoint span,
+.service-detail-endpoint small {
+  color: #9aa7b6;
+  font-size: 0.66rem;
+}
+.service-detail-endpoint a {
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 0.12rem;
+}
+.service-detail-permalink {
+  width: fit-content;
+}
+.service-detail-exposure-reason {
+  color: #ffcf93 !important;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 768px) {
+  .health-row > .service-detail-trigger {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    margin-left: 0;
+  }
+}

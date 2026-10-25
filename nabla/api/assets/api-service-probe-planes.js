@@ -213,7 +213,7 @@ function publicTone(check) {
   return "unknown";
 }
 
-function decoratePublicEvidence(strip, check, url) {
+function decoratePublicEvidence(strip, check, url, { privateS3 = false } = {}) {
   if (!check) return;
   const status = Number(check.http_status);
   const http = ensureProbe(
@@ -222,9 +222,14 @@ function decoratePublicEvidence(strip, check, url) {
     "🌐",
     Number.isFinite(status) && status > 0 ? `HTTP ${status}` : "HTTP",
   );
-  toneClass(http, publicTone(check));
+  toneClass(http, privateS3 ? "unknown" : publicTone(check));
+  if (privateS3) {
+    badgeLabel(http, "Private S3 · HTTP ≠ health");
+  }
   const detail = [
-    `Public probe: ${url || check.url || "target unavailable"}`,
+    privateS3
+      ? "Private S3 API. Anonymous HTTP GET is not a signed S3 health check; outside-in failures do not prove origin downtime."
+      : `Public probe: ${url || check.url || "target unavailable"}`,
     Number.isFinite(status) && status > 0
       ? `HTTP ${status}`
       : "HTTP status unconfirmed",
@@ -458,7 +463,10 @@ function decorateRow(row, snapshot) {
     "service-probe-strip--public",
   );
   publicStrip.dataset.probePlane = "public";
-  decoratePublicEvidence(publicStrip, publicCheck, url);
+  decoratePublicEvidence(publicStrip, publicCheck, url, {
+    privateS3: row.dataset.serviceKey === "garage" ||
+      row.dataset.topologyId === "garage",
+  });
   decorateCloudflare(
     publicStrip,
     snapshot?.homelab?.cloudflare,

@@ -208,17 +208,61 @@ function renderLink(drawer, row) {
   const host = drawer.querySelector("#service-detail-link");
   host?.replaceChildren();
   if (!host) return;
-  const href = safeHttpUrl(row.dataset.serviceUrl);
-  if (!href) return;
-  const link = document.createElement("a");
-  link.href = href;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = "Open service ↗";
-  host.appendChild(link);
   const key = catalogueRouteId(row);
+  // Match only by stable catalog ID. A shared TrueNAS IP must never
+  // assign another service's S3/Admin/WebUI URL to this card.
+  const service = (latestSnapshot?.homelab?.services || [])
+    .find((entry) => entry?.id === key);
+  const configured = safeHttpUrl(row.dataset.serviceUrl) ||
+    safeHttpUrl(service?.url);
+  const internal = safeHttpUrl(service?.internal_endpoint_url);
+
+  const heading = document.createElement("strong");
+  heading.className = "service-detail-link-heading";
+  heading.textContent = "Service endpoints";
+  host.appendChild(heading);
+
+  function addEndpoint(label, href, note) {
+    if (!href) return;
+    const item = document.createElement("div");
+    item.className = "service-detail-endpoint";
+    const title = document.createElement("span");
+    title.textContent = label;
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = href;
+    const caption = document.createElement("small");
+    caption.textContent = note;
+    item.append(title, link, caption);
+    host.appendChild(item);
+  }
+
+  addEndpoint(
+    service?.exposure_intent === "public"
+      ? "Configured public URL"
+      : "Configured hostname (private / not a public guarantee)",
+    configured,
+    "Navigation only: a S3 API may require signed requests and reject GET /.",
+  );
+  addEndpoint(
+    "Internal LAN URL",
+    internal,
+    "Available only from the permitted LAN/VPN; not probed by this link.",
+  );
+  if (!configured && !internal) {
+    const missing = document.createElement("p");
+    missing.className = "service-detail-empty";
+    missing.textContent =
+      "No endpoint URL in the current authorized snapshot. Open the owner diagnostics or check the service catalog.";
+    host.appendChild(missing);
+  }
+
+  // A direct diagnostics permalink must work even when no service URL exists.
   if (key) {
     const permalink = document.createElement("a");
+    permalink.className = "service-detail-permalink";
     const url = new URL(window.location.href);
     url.searchParams.set("service", key);
     permalink.href = url.href;
@@ -237,12 +281,22 @@ function renderExposurePolicy(drawer, row) {
   const status = document.createElement("strong");
   status.className = "service-detail-exposure-verdict";
   status.textContent = summary;
+  // The /sickz badge already contains the policy rule and its observed
+  // reason. Render that evidence as text instead of hiding it in a tooltip.
+  const reason = row.querySelector(
+    '.service-probe[data-probe-kind="policy"]'
+  )?.getAttribute("aria-label");
+  const explanation = document.createElement("p");
+  explanation.className = "service-detail-exposure-reason";
+  explanation.textContent = reason ||
+    "Policy evidence unavailable. Check /sickz; no network status is inferred.";
   const description = document.createElement("p");
   description.textContent =
-    "Security posture is independent of application uptime. " +
-    "An internal-only service must not expose a public HTTP entry point, " +
-    "even when it returns HTTP 401 or 403. Cloudflare Tunnel is routing; " +
-    "Access is the authorization layer.";
+    "Policy failed means observed ingress conflicts with the catalog " +
+    "(for example external=false but a public Tunnel/Access route or " +
+    "an outside-in response was observed). HTTP reachability and private " +
+    "service functionality are separate checks. A S3 GET / without AWS " +
+    "signature can return HTTP 403 while a signed S3 operation succeeds.";
   const sickzLink = document.createElement("a");
   // Prefer the matching /sickz row when it exists; otherwise use the
   // section anchor. No external URL or guess from a shared host is needed.
@@ -251,7 +305,7 @@ function renderExposurePolicy(drawer, row) {
   sickzLink.href = exposureRow ? `#${exposureRow.id}` : "#sickz-checks";
   sickzLink.textContent = "Review /sickz outside-in evidence";
   sickzLink.addEventListener("click", () => closeDrawer({ restoreFocus: false }));
-  host.append(status, description, sickzLink);
+  host.append(status, explanation, description, sickzLink);
 }
 
 function renderEvidence(drawer, row) {
@@ -681,6 +735,7 @@ function ensureDetailTrigger(row) {
   if (!(row instanceof HTMLElement)) return;
   const current = row.querySelector(":scope > .service-detail-trigger");
   if (current) {
+    row.classList.add("health-row--detail-footer");
     updateDetailTrigger(row, current);
     return;
   }
@@ -693,6 +748,7 @@ function ensureDetailTrigger(row) {
     event.stopPropagation();
     openDrawer(row, trigger);
   });
+  row.classList.add("health-row--detail-footer");
   row.appendChild(trigger);
 }
 
