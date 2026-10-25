@@ -150,10 +150,11 @@ function apply() {
     }
     badge.classList.add(`service-probe--${toneFor(check, serviceId)}`);
     const expected = expectedAnonymousAuth(serviceId, check);
-    if (expected) {
-      const label = badge.querySelector(".service-probe-label");
-      if (label) label.textContent = expected.label;
-    }
+    const label = badge.querySelector(".service-probe-label");
+    const observedHttp = Number(check?.http_status);
+    if (label) label.textContent = expected?.label ||
+      (Number.isFinite(observedHttp) && observedHttp > 0
+        ? `HTTP ${observedHttp}` : "HTTP");
     const hover = hoverFor(check, latestSnapshot, serviceId);
     badge.title = hover;
     badge.setAttribute("aria-label", hover);
