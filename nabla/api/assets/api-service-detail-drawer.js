@@ -517,7 +517,13 @@ function renderGatusFleet(drawer, row) {
     entries.slice(0, 25).forEach((entry) => {
       host.appendChild(linkedCatalogueItem(
         { id: entry.id, name: entry.id },
-        { type: entry.type, status },
+        { type: entry.type, status: [
+          status,
+          typeof entry.availability === "number"
+            ? "5m " + (entry.availability * 100).toFixed(0) + "%" : "",
+          typeof entry.durationMs === "number"
+            ? entry.durationMs.toFixed(0) + " ms" : "",
+        ].filter(Boolean).join(" · ") },
       ));
     });
     if (entries.length > 25) {
