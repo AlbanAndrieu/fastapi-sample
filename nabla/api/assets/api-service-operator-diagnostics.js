@@ -336,12 +336,12 @@ function decorateExposureAndMetrics(row, evidence, node) {
       "external",
       diagnosticBadge(
         "external",
-        external ? "ok" : "fail",
+        external ? "neutral" : "neutral",
         "🌍",
-        `external=${String(external)}`,
+        external ? "External" : "Private",
         external
-          ? "Declared exposure: external=true. The service is expected to have an externally reachable entry point subject to its ingress/security policy."
-          : "Declared exposure: external=false. The service is intended to remain internal-only; red is used here as the requested visual boolean, not as an outage verdict.",
+          ? "Declared exposure: external=true. Availability and security compliance are verified independently."
+          : "Declared exposure: external=false. Private is a declared topology property, not an outage.",
       ),
     );
   }
@@ -868,6 +868,18 @@ function installDrawerEnhancement() {
 
 export function installServiceOperatorDiagnostics() {
   installDrawerEnhancement();
+  // A relation click or deep link can open the drawer without clicking its
+  // original Details button; keep the operator sections in sync.
+  document.addEventListener("service-detail-selected", () => {
+    if (!latestSnapshot || !latestTopology) return;
+    const selected = document.querySelector(
+      ROW_SELECTOR + '[data-detail-selected="true"]'
+    );
+    if (!selected) return;
+    const indexes = nodeIndexes(latestTopology);
+    renderEnhancedDrawer(selected, latestSnapshot, latestTopology, indexes,
+      assignAnchors([...document.querySelectorAll(ROW_SELECTOR)], indexes));
+  });
   document.addEventListener("health-board-refreshed", () => {
     refreshDiagnostics().then(schedulePostRenderPasses);
   });
