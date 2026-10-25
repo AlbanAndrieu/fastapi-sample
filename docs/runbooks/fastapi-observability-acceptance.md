@@ -85,6 +85,47 @@ Déployer le code et le secret avant que Compose puisse utiliser un
 Ne pas rendre `/metrics` public ni partager
 `DIAGNOSTICS_ACCESS_KEY` avec Prometheus.
 
+
+## 6. Gatus — comparer la configuration aux métriques sans réseau
+
+Effectuer ce contrôle sur une workstation autorisée, avec une copie **locale**
+de `nabla-compose/apps/gatus/config/config.yml`. FastAPI n'interroge
+aucun service lors de l'ouverture d'une carte.
+
+1. Afficher les 85 monitors actuellement déclarés dans la configuration
+   (63 TCP, 21 HTTP, 1 HTTPS à la date du 25 octobre 2026). Ce chiffre décrit
+   le fichier Git, pas la disponibilité de l'installation TrueNAS :
+
+   ```sh
+   just gatus-inventory ../nabla-compose/apps/gatus/config/config.yml
+   ```
+
+2. Exporter séparément le JSON autorisé de `/api/health-board` dans un
+   fichier privé hors du dépôt. Ne pas committer les diagnostics, clés ou
+   adresses privées.
+
+3. Rapprocher les déclarations et échantillons :
+
+   ```sh
+   just gatus-compare ../nabla-compose/apps/gatus/config/config.yml /chemin/prive/health-board.json
+   ```
+
+4. Lire les classes `up`, `down`, `no_sample`, `unverified`, les
+   labels ambigus et les séries observées sans déclaration. Le code retour
+   `1` signifie **contrôle incomplet ou anomalie**, jamais nécessairement
+   panne du service. Le script sort `2` si les fichiers sont invalides.
+
+5. Sur les échecs réels, comparer la cible de la définition Gatus, le
+   statut HTTP/TCP/TLS, l'authentification, puis les règles Prometheus.
+   Les mesures enregistrées par `max by (nabla_service_id, type)`
+   peuvent masquer une panne si deux monitors partagent ces labels.
+   Une telle collision est donc classée `unverified`, jamais `up`.
+
+La preuve est périmée après 180 secondes, ou si le snapshot est incomplet.
+Les sondes TCP indiquent seulement une connexion, pas un succès HTTP ni
+une disponibilité métier. L'analyse ne lance aucune requête vers les cibles.
+Pour les contrats hors ligne : `just gatus-contracts`.
+
 ## 5. Validation avant clôture
 
 Vérifier séparément (a) les 89 tests de contrat déjà exécutés sur
