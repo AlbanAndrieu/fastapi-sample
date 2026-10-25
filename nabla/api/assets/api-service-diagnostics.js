@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { expectedAnonymousAuth, httpObservationTone } from "./api-service-http-auth.js";
 import { exposurePolicyPresentation } from "./api-service-exposure-policy.js";
 import {
   installServiceFilter,
@@ -190,7 +191,7 @@ function httpDetail(check, suffix) {
   return `HTTP probe result is not confirmed${warning}`;
 }
 
-function addHttpEvidence(target, check, kinds, { privateS3 = false } = {}) {
+function addHttpEvidence(target, check, kinds, { privateS3 = false, serviceId = "" } = {}) {
   if (!check) return;
   const url = urlOf(check);
   const probe = normalize(check.probe);
@@ -202,14 +203,19 @@ function addHttpEvidence(target, check, kinds, { privateS3 = false } = {}) {
 
   const status = Number(check.http_status);
   const hasStatus = Number.isFinite(status) && status > 0;
+  const expectedAuth = expectedAnonymousAuth(serviceId, check);
   const unsignedS3 = privateS3 && (status === 401 || status === 403);
   const privateBlocked = privateS3 && check.reachable === false;
-  const label = unsignedS3
-    ? `S3 Auth ${status}`
+  const label = expectedAuth
+    ? expectedAuth.label
+    : unsignedS3
+      ? `S3 Auth ${status}`
     : privateBlocked ? "Private S3" : hasStatus ? `HTTP ${status}` : "HTTP";
   const suffix = hasStatus ? ` with status ${status}` : "";
-  const detail = privateS3
-    ? "Private S3 API: anonymous HTTP is not a functional S3 health test. " +
+  const detail = expectedAuth
+    ? expectedAuth.detail
+    : privateS3
+      ? "Private S3 API: anonymous HTTP is not a functional S3 health test. " +
       "A signed S3 request from the LAN is needed. " +
       "This badge does not certify the origin or the public ingress policy."
     : httpDetail(check, suffix);
@@ -581,6 +587,7 @@ function decorateRow(row, snapshot) {
 
   const mainEvidence = health || exposure;
   addHttpEvidence(strip, mainEvidence, kinds, {
+    serviceId: rowId,
     privateS3: rowId === "garage" && effectiveExposure?.external === false,
   });
   addTlsEvidence(strip, exposure || mainEvidence, kinds);
