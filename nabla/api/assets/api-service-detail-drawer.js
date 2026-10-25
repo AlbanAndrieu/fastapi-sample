@@ -2,6 +2,7 @@ import { fetchHealthBoard } from "./api-health-board.js";
 import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
 import { serviceRelations } from "./api-service-relations.js";
 import { fetchTopology } from "./api-topology-data.js";
+import { EVIDENCE_GROUPS, evidenceAdvice, evidenceCounts, evidenceGroup, requestedServiceId, sanitizedEvidence, validServiceId } from "./api-service-evidence-ux.js";
 
 const ROW_SELECTOR = "[data-service-filter-target]";
 const OBSERVED_CONTAINERS = [
@@ -18,6 +19,8 @@ let refreshScheduled = false;
 let latestTopology = null;
 let latestSnapshot = null;
 let nextTopologyRetryAt = 0;
+let evidenceIssuesOnly = false;
+const navigationTrail = [];
 
 function normalizedStatus(row) {
   const explicit = String(row?.dataset?.semanticStatus || "").trim();
@@ -144,7 +147,10 @@ function ensureDrawer() {
         <span class="service-detail-kicker">Service diagnostics</span>
         <h2 id="service-detail-title">Service</h2>
       </div>
-      <button type="button" class="service-detail-close" aria-label="Close service details">×</button>
+      <div class="service-detail-header-actions">
+        <button type="button" id="service-detail-back" class="service-detail-back" hidden>← Back</button>
+        <button type="button" class="service-detail-close" aria-label="Close service details">×</button>
+      </div>
     </header>
     <div class="service-detail-body">
       <div id="service-detail-meta" class="service-detail-meta"></div>
@@ -173,6 +179,11 @@ function ensureDrawer() {
     ?.addEventListener("click", () => {
       closeDrawer();
     });
+  drawer.querySelector("#service-detail-back")?.addEventListener("click", () => {
+    const previous = navigationTrail.pop();
+    const target = previous && matchingCatalogueRow(previous);
+    if (target) openDrawer(target, target.querySelector(":scope > .service-detail-trigger"), { recordTrail: false });
+  });
   document.body.appendChild(drawer);
   return drawer;
 }
@@ -205,6 +216,15 @@ function renderLink(drawer, row) {
   link.rel = "noopener noreferrer";
   link.textContent = "Open service ↗";
   host.appendChild(link);
+  const key = catalogueRouteId(row);
+  if (key) {
+    const permalink = document.createElement("a");
+    const url = new URL(window.location.href);
+    url.searchParams.set("service", key);
+    permalink.href = url.href;
+    permalink.textContent = "Direct link to diagnostics";
+    host.appendChild(permalink);
+  }
 }
 
 function renderExposurePolicy(drawer, row) {
@@ -236,68 +256,102 @@ function renderExposurePolicy(drawer, row) {
 
 function renderEvidence(drawer, row) {
   const host = drawer.querySelector("#service-detail-evidence");
-  host?.replaceChildren();
   if (!host) return;
-  const rank = { fail: 0, warn: 1, unknown: 2, neutral: 3, ok: 4 };
-  const probes = probeEntries(row).sort(
-    (left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)
-  );
+  host.replaceChildren();
+  const probes = probeEntries(row);
+  const counts = evidenceCounts(probes);
+  const filter = document.createElement("label");
+  filter.className = "service-detail-issues-filter";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = evidenceIssuesOnly;
+  checkbox.addEventListener("change", () => {
+    evidenceIssuesOnly = checkbox.checked;
+    renderEvidence(drawer, row);
+  });
+  filter.append(checkbox, document.createTextNode(" Show failed and warning signals only"));
+  const count = document.createElement("small");
+  count.textContent = counts.failed + " failed · " + counts.warning + " warning · " +
+    counts.unknown + " unknown · " + counts.notRun + " not run";
+  host.append(filter, count);
   if (probes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
-    empty.textContent = "No probe evidence is attached to this service row.";
+    empty.textContent = "No probe evidence attached; service health is unverified.";
     host.appendChild(empty);
     return;
   }
-
-  for (const probe of probes) {
-    const item = document.createElement("article");
-    item.className = `service-detail-probe service-detail-probe--${probe.tone}`;
-    if (probe.disabled) item.dataset.disabled = "true";
-    const heading = document.createElement("div");
-    heading.className = "service-detail-probe-heading";
-    const icon = document.createElement("span");
-    icon.className = "service-detail-probe-icon";
-    icon.dataset.tone = probe.disabled ? "neutral" : probe.tone;
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = probe.icon;
-    const label = document.createElement(probe.href ? "a" : "strong");
-    label.className = "service-detail-probe-label";
-    label.textContent = probe.label;
-    if (label instanceof HTMLAnchorElement && probe.href) {
-      label.href = probe.href;
-      label.target = "_blank";
-      label.rel = "noopener noreferrer";
-      label.title = `Open ${probe.label} diagnostics`;
-    }
-    const labelWrap = document.createElement("span");
-    labelWrap.className = "service-detail-probe-name";
-    labelWrap.append(icon, label);
-    heading.appendChild(labelWrap);
-    const state = document.createElement("span");
-    state.className = "service-detail-probe-state";
-    state.textContent = probe.disabled
-      ? "NOT RUN"
-      : probe.tone === "ok"
-        ? "UP"
-        : probe.tone === "fail"
-          ? "FAILED"
-          : probe.tone === "warn"
-            ? "WARNING"
-            : "UNVERIFIED";
-    heading.appendChild(state);
-    const normalizedLabel = probe.label.trim().toLowerCase();
-    const normalizedKind = probe.kind.trim().toLowerCase();
-    if (normalizedKind && normalizedKind !== normalizedLabel) {
-      const kind = document.createElement("span");
-      kind.textContent = probe.kind;
-      heading.appendChild(kind);
-    }
-    const detail = document.createElement("p");
-    detail.textContent = probe.detail;
-    item.append(heading, detail);
-    host.appendChild(item);
+  const rank = { fail: 0, warn: 1, unknown: 2, neutral: 3, ok: 4 };
+  const visible = probes.filter((probe) => !evidenceIssuesOnly ||
+    (!probe.disabled && ["fail", "warn"].includes(probe.tone)));
+  if (visible.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "service-detail-empty";
+    empty.textContent = "No failed or warning probes in the observed snapshot. Unknown or missing checks are not evidence of success.";
+    host.appendChild(empty);
+    return;
   }
+  for (const category of EVIDENCE_GROUPS) {
+    const grouped = visible.filter((probe) => evidenceGroup(probe) === category)
+      .sort((left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2));
+    if (!grouped.length) continue;
+    const section = document.createElement("details");
+    section.className = "service-detail-evidence-group";
+    section.open = evidenceIssuesOnly || grouped.some((probe) => ["fail", "warn"].includes(probe.tone));
+    const summary = document.createElement("summary");
+    const failures = grouped.filter((probe) => probe.tone === "fail" && !probe.disabled).length;
+    summary.textContent = category + " · " + grouped.length + " signals" +
+      (failures ? " · " + failures + " FAILED" : "");
+    section.appendChild(summary);
+    for (const probe of grouped) {
+      const item = document.createElement("article");
+      item.className = "service-detail-probe service-detail-probe--" + probe.tone;
+      if (probe.disabled) item.dataset.disabled = "true";
+      const heading = document.createElement("div");
+      heading.className = "service-detail-probe-heading";
+      const icon = document.createElement("span");
+      icon.className = "service-detail-probe-icon";
+      icon.dataset.tone = probe.disabled ? "neutral" : probe.tone;
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = probe.icon;
+      const label = document.createElement(probe.href ? "a" : "strong");
+      label.className = "service-detail-probe-label";
+      label.textContent = probe.label;
+      if (label instanceof HTMLAnchorElement && probe.href) {
+        label.href = probe.href;
+        label.target = "_blank";
+        label.rel = "noopener noreferrer";
+      }
+      const labelWrap = document.createElement("span");
+      labelWrap.className = "service-detail-probe-name";
+      labelWrap.append(icon, label);
+      heading.appendChild(labelWrap);
+      const state = document.createElement("span");
+      state.className = "service-detail-probe-state";
+      state.textContent = probe.disabled ? "NOT RUN" :
+        probe.tone === "ok" ? "UP" :
+        probe.tone === "fail" ? "FAILED" :
+        probe.tone === "warn" ? "WARNING" : "UNVERIFIED";
+      heading.appendChild(state);
+      const detail = document.createElement("p");
+      detail.textContent = sanitizedEvidence(probe.detail);
+      item.append(heading, detail);
+      if (["fail", "warn"].includes(probe.tone) && !probe.disabled) {
+        const advice = evidenceAdvice(probe);
+        const explanation = document.createElement("p");
+        explanation.className = "service-detail-probe-advice";
+        explanation.textContent = advice.reason + " Action: " + advice.action;
+        item.appendChild(explanation);
+      }
+      section.appendChild(item);
+    }
+    host.appendChild(section);
+  }
+}
+
+function catalogueRouteId(row) {
+  const id = String(row?.dataset?.topologyId || row?.dataset?.serviceKey || "");
+  return validServiceId(id) ? id : null;
 }
 
 function matchingCatalogueRow(id) {
@@ -384,9 +438,11 @@ function renderProbeSummary(drawer, row) {
     !["ok", "fail", "warn"].includes(probe.tone)
   ).length;
   const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
+  const timestamp = latestSnapshot?.platform_metrics?.generated_at;
+  const observationTime = Number.isFinite(Date.parse(timestamp)) ? " · Metrics snapshot: " + new Date(timestamp).toLocaleString() : " · Metrics snapshot: unverified";
   host.textContent = probes.length
-    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. Select a signal below for its source and reason.`
-    : "No direct probe evidence; this is not proof of service health.";
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` + observationTime
+    : "No direct probe evidence; this is not proof of service health." + observationTime;
   host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
 }
 
