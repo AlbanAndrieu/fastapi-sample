@@ -8,6 +8,20 @@ function binary(value) {
   return typeof value === "number" && (value === 0 || value === 1);
 }
 
+function bounded(value, min, max) {
+  return typeof value === "number" && Number.isFinite(value) &&
+    value >= min && value <= max ? value : null;
+}
+
+function gatusProbe(type, sample) {
+  const probe = { type, success: sample.success };
+  const availability = bounded(sample.availability_ratio_5m, 0, 1);
+  const duration = bounded(sample.duration_seconds, 0, 300);
+  if (availability !== null) probe.availability = availability;
+  if (duration !== null) probe.durationMs = duration * 1000;
+  return probe;
+}
+
 export function gatusCoverage(snapshot, now = Date.now()) {
   const synthetic = snapshot?.platform_metrics?.synthetic_probes;
   const timestamp = Date.parse(String(snapshot?.platform_metrics?.generated_at || ""));
@@ -57,12 +71,14 @@ export function gatusCoverage(snapshot, now = Date.now()) {
       if (!binary(sample?.success)) continue;
       hasEvidence = true;
       summary.observedProbes += 1;
+      const entry = { id, type, status: sample.success === 0 ? "down" : "up" };
+      Object.assign(entry, gatusProbe(type, sample));
       if (sample.success === 0) {
         summary.down += 1;
-        summary.failures.push({ id, type, status: "down" });
+        summary.failures.push(entry);
       } else {
         summary.up += 1;
-        summary.successes.push({ id, type, status: "up" });
+        summary.successes.push(entry);
       }
     }
     if (!hasEvidence) {
@@ -83,8 +99,7 @@ export function gatusServiceEvidence(snapshot, id, now = Date.now()) {
       : null;
   const probes = PROTOCOLS.flatMap((type) =>
     binary(service?.[type]?.success)
-      ? [{ type, success: service[type].success,
-           availability: service[type].availability_ratio_5m }]
+      ? [gatusProbe(type, service[type])]
       : [],
   );
   return {
