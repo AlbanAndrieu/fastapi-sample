@@ -72,3 +72,106 @@ def test_without_token_is_unverified_not_a_failure(monkeypatch, capsys):
     record = json.loads(capsys.readouterr().out)
     assert record["state"] == "key_configured_scraper_credentials_unverified"
     assert record["authenticated_http"] is None
+
+
+def test_remote_probe_pins_target_and_never_sends_secret(monkeypatch):
+    from types import SimpleNamespace
+
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({
+                "origin": "truenas_loopback",
+                "path": "/metrics",
+                "anonymous_http": 401,
+                "authenticated_http": 200,
+                "credentials_tested": True,
+                "scrape_authorized": True,
+                "state": "scrape_auth_accepted",
+                "private_token": "never-copy-remote-output",
+            }),
+            stderr="secret-header-do-not-print",
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setenv("METRICS_SCRAPE_KEY", "secret-from-local-machine")
+    result, code = module.ssh_status(
+        "operator@172.17.0.24", Path("/mnt/cpool/var/nabla/metrics.token"),
+    )
+    assert code == 0
+    assert result["origin"] == "truenas_ssh"
+    assert result["scrape_authorized"] is True
+    assert "private_token" not in result
+    command, kwargs = calls[0]
+    assert "-T" in command and "StrictHostKeyChecking=yes" in command
+    assert "BatchMode=yes" in command
+    assert "--" in command and "operator@172.17.0.24" in command
+    assert "python3 - --check" in command[-1]
+    assert "--token-file" in command[-1]
+    assert "secret-from-local-machine" not in str(command) + kwargs["input"]
+    assert "never-copy-remote-output" not in str(result)
+    assert "secret-header-do-not-print" not in str(result)
+    assert kwargs["timeout"] <= 20
+
+
+def test_remote_probe_refuses_unapproved_ssh_endpoints(monkeypatch):
+    def no_ssh(*args, **kwargs):
+        raise AssertionError("SSH must not run")
+
+    monkeypatch.setattr(module.subprocess, "run", no_ssh)
+    for target in (
+        "operator@198.51.100.7",
+        "operator@172.17.0.24;echo-secret",
+        "operator@example.org",
+        "operator@172.17.0.24 -o ProxyCommand=evil",
+        "root@", "", "Operator@172.17.0.24",
+    ):
+        result, code = module.ssh_status(target)
+        assert code == 2 and result["scrape_authorized"] is False
+    result, code = module.ssh_status("operator@172.17.0.24", port=0)
+    assert code == 2 and result["state"] == "ssh_target_invalid"
+    result, code = module.ssh_status("operator@172.17.0.24", Path("relative.key"))
+    assert code == 2 and result["state"] == "remote_token_path_invalid"
+
+
+def test_remote_probe_fails_closed_on_untrusted_output(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0, stdout='{"state":"scrape_auth_accepted","secret":"LEAK"}',
+            stderr="untrusted banner token",
+        ),
+    )
+    result, code = module.ssh_status("operator@172.17.0.24")
+    assert code == 2 and result["scrape_authorized"] is False
+    assert "LEAK" not in str(result)
+    assert "untrusted banner" not in str(result)
+
+
+def test_remote_probe_denial_does_not_become_up(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1,
+            stdout=json.dumps({
+                "origin": "truenas_loopback",
+                "path": "/metrics",
+                "anonymous_http": 401,
+                "authenticated_http": 401,
+                "credentials_tested": True,
+                "scrape_authorized": False,
+                "state": "scrape_credential_rejected",
+            }),
+            stderr="",
+        ),
+    )
+    result, code = module.ssh_status("operator@172.17.0.24")
+    assert code == 1 and result["scrape_authorized"] is False
+    assert result["state"] == "scrape_credential_rejected"
