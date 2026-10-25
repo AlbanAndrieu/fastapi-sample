@@ -85,6 +85,47 @@ Déployer le code et le secret avant que Compose puisse utiliser un
 Ne pas rendre `/metrics` public ni partager
 `DIAGNOSTICS_ACCESS_KEY` avec Prometheus.
 
+
+## 6. Gatus — comparer la configuration aux métriques sans réseau
+
+Effectuer ce contrôle sur une workstation autorisée, avec une copie **locale**
+de `nabla-compose/apps/gatus/config/config.yml`. FastAPI n'interroge
+aucun service lors de l'ouverture d'une carte.
+
+1. Afficher les 85 monitors actuellement déclarés dans la configuration
+   (63 TCP, 21 HTTP, 1 HTTPS à la date du 25 octobre 2026). Ce chiffre décrit
+   le fichier Git, pas la disponibilité de l'installation TrueNAS :
+
+   ```sh
+   just gatus-inventory ../nabla-compose/apps/gatus/config/config.yml
+   ```
+
+2. Exporter séparément le JSON autorisé de `/api/health-board` dans un
+   fichier privé hors du dépôt. Ne pas committer les diagnostics, clés ou
+   adresses privées.
+
+3. Rapprocher les déclarations et échantillons :
+
+   ```sh
+   just gatus-compare ../nabla-compose/apps/gatus/config/config.yml /chemin/prive/health-board.json
+   ```
+
+4. Lire les classes `up`, `down`, `no_sample`, `unverified`, les
+   labels ambigus et les séries observées sans déclaration. Le code retour
+   `1` signifie **contrôle incomplet ou anomalie**, jamais nécessairement
+   panne du service. Le script sort `2` si les fichiers sont invalides.
+
+5. Sur les échecs réels, comparer la cible de la définition Gatus, le
+   statut HTTP/TCP/TLS, l'authentification, puis les règles Prometheus.
+   Les mesures enregistrées par `max by (nabla_service_id, type)`
+   peuvent masquer une panne si deux monitors partagent ces labels.
+   Une telle collision est donc classée `unverified`, jamais `up`.
+
+La preuve est périmée après 180 secondes, ou si le snapshot est incomplet.
+Les sondes TCP indiquent seulement une connexion, pas un succès HTTP ni
+une disponibilité métier. L'analyse ne lance aucune requête vers les cibles.
+Pour les contrats hors ligne : `just gatus-contracts`.
+
 ## 5. Validation avant clôture
 
 Vérifier séparément (a) les 89 tests de contrat déjà exécutés sur
@@ -93,3 +134,56 @@ l'ancien HEAD, (b) les nouveaux tests du dernier HEAD FastAPI,
 Les tests passés sur un ancien SHA ne sont pas réutilisés comme preuve.
 Le diagnostic doit rester lecture seule ; ne pas générer
 une relance forcée de sondes.
+
+## Réponses d'authentification attendues : Garage et LiteLLM
+
+Le HTTP 403 anonyme sur `http://172.17.0.24:3900/` (Garage S3) et le
+HTTP 401 sur `http://172.17.0.24:4000/health` (LiteLLM) ont été
+fournis par l'opérateur. Ils prouvent que la couche HTTP a répondu et
+appliqué un contrôle d'authentification. Ils ne prouvent ni une opération
+S3 signée, ni une inférence LLM, ni une API accessible depuis Internet.
+
+L'interface peut afficher **bleu / Authentification requise (attendu)**,
+uniquement pour ces surfaces explicitement reconnues et une observation
+anonyme fraîche, sans credentials présentés. Si une clé transmise est
+refusée, si le code est inattendu, ou si le TCP/TLS échoue, conserver
+l'anomalie. Le vert exige une autre preuve de santé du service.
+Le vrai `GET /health/liveliness` de LiteLLM est également interrogé
+par son healthcheck Docker Compose. Gatus utilise déjà des vérifications
+TCP pour LiteLLM et Garage ; elles n'attestent que la connectivité.
+
+Le verdict **Policy Failed** est distinct : `external=false` ne
+signifie pas automatiquement une violation. Une exposition WAN non
+autorisée est une violation même lorsqu'elle exige une authentification.
+Inversement, une réponse HTTP LAN 403 ne prouve pas un ingress WAN.
+L'UI conserve le verdict `/sickz` et ne le convertit jamais en bleu
+parce que la route HTTP a refusé un visiteur anonyme.
+
+Script opérateur sans clé : `nabla-compose/scripts/truenas/diagnose-protected-service-http.py`
+([Compose #281](https://github.com/AlbanAndrieu/nabla-compose/pull/281)).
+Les mesures Docker et Gatus doivent venir du collecteur LAN autorisé,
+et non d'un navigateur cloud. Les détails et logs sensibles restent privés.
+
+
+## 7. Préflight FastAPI /metrics (octobre 2026)
+
+Preuve opérateur : `fastapi_sample` retourne **HTTP 401** au scrape Prometheus. Le code `METRICS_SCRAPE_KEY` a été fusionné en #376 ; cela ne prouve pas que la clé est correctement installée dans les deux processus.
+
+Depuis **TrueNAS** en lecture seule :
+
+```bash
+python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check
+```
+
+Un `401` anonyme est un **contrôle d'accès actif**, pas une panne FastAPI. Sans secret local, le résultat `key_configured_scraper_credentials_unverified` est **UNVERIFIED**, non `PASS`. Avec un fichier de clé privée détenu par l'opérateur (chemin hors Git, permission `0600`), contrôler explicitement le même jeton :
+
+```bash
+sudo python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check \\
+  --token-file /chemin/prive/metrics-scrape-token
+```
+
+L'outil imprime **uniquement** les statuts HTTP et des catégories prédéfinies. Un `401` authentifié indique une clé rejetée ; `200` authentifié prouve uniquement l'autorisation de `/metrics`, pas la réussite du scrape Prometheus. `503` anonyme indique une gate ou une configuration de clé indisponible. Ne jamais copier le secret dans une commande `curl -v`, dans Git, ni dans un commentaire PR.
+
+La correction éventuelle du fichier `authorization.credentials_file`, des montages Prometheus ou des secrets TrueNAS appartient à `nabla-compose`. **Ne pas désactiver** `METRICS_SCRAPE_KEY`, `OPS_ROUTE_POLICY_STRICT` ou la politique d'accès pour forcer `up=1`.
+
+Les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` exigent toujours une clé diagnostics valide même lorsque `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=true`. L'accusé de trace n'est jamais fourni aux requêtes refusées.

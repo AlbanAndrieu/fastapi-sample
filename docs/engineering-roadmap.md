@@ -14,6 +14,19 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — Garage S3 : clarifier l'HTTP et la politique réseau
+
+- [x] Rendre consultables les URL de catalogue internes et DNS via la
+  fiche par ID stable, sans confondre S3, Admin et WebUI.
+- [x] Déplacer le bouton Details sous la carte et afficher la cause
+  `/sickz` du verdict Policy failed, même en cas de HTTP anonyme
+  non pertinent.
+- [ ] Vérifier sur TrueNAS un accès S3 **signé**, un bucket de test
+  autorisé et les règles Traefik/Cloudflare de `s3.int.albandrieu.com`.
+  Ne pas changer `external=false` sans validation réseau.
+
+[Runbook Garage](runbooks/garage-s3-api-diagnostics.md).
+
 ## P0 — Provenance des erreurs et accès par route
 
 [Contrat de diagnostic canonique](diagnostic-provenance-contract.md).
@@ -89,6 +102,23 @@ involontaire des permissions, preuve négative et rollback du plan de migration.
 
 **Contrat détaillé :**
 [modèle de diagnostic et Exposure](platform-service-diagnostics-model.md).
+
+### Validation rapide sans CI — Node 22/npm 10
+
+- [x] Ajouter `just node22-quick` : contrats JavaScript autonomes, sans installation npm et sans GitHub Actions.
+- [ ] Exécuter les deux suites avec **Node 22** sur un checkout complet au SHA de la PR. Le checkout Git n'est pas accessible depuis cet environnement (DNS GitHub indisponible). **NOT_RUN**, jamais PASS implicite.
+- [x] Compiler sept modules et exécuter les contrats métier JavaScript via V8 isolé dans l'outil GitHub : **10/10 PASS** (ne remplace ni `node --test`, ni pytest, ni un navigateur).
+- [ ] Conserver le contrôle complet séparé avec Node >=24.22.1, requis par `package.json`; ne pas abaisser cette contrainte pour permettre un test isolé.
+
+### UX et convergence Gatus — critères d'acceptation
+
+- [x] Dans chaque drawer, regrouper les éléments par DNS, TCP/TLS, HTTP, Cloudflare Access/token, Prometheus/exporter et Gatus ; afficher verdict, diagnostic expurgé et remédiation. La date de snapshot est affichée quand disponible. Les horodatages par sonde et leur origine exacte restent à enrichir côté DTO.
+- [x] Ajouter URL partageable `?service=<id>`, filtre des échecs, focus clavier, retour entre dépendances et affichage mobile compact.
+- [ ] Afficher les relations amont/aval avec lien uniquement si l'ID canonique existe dans le snapshot autorisé ; signaler les dépendances absentes sans URL réseau privée.
+- [x] Réconcilier les échantillons Gatus avec les services visibles du catalogue (avec/sans métriques) sans faux statut vert.
+- [x] Ajouter `scripts/reconcile-gatus-coverage.py` : contrôle **hors ligne** des 85 monitors déclarés dans Compose (63 TCP, 21 HTTP, 1 HTTPS), classés UP / DOWN / NO_SAMPLE / UNVERIFIED à partir d'un snapshot FastAPI autorisé ; collision de labels non considérée saine. **9/9 tests Python locaux PASS**.
+- [ ] Vérifier la parité réelle de la configuration Gatus **en cours d'exécution** et des mesures LAN fraîches, avec validation du point d'observation et des endpoints. Les monitors absents du fichier ne peuvent pas être attribués automatiquement à une désactivation volontaire. Ne jamais déduire que toutes les sondes sont vertes de `up{job="gatus"} == 1`.
+- [ ] Sur Gatus non sain, distinguer HTTP 401/403/token, erreurs DNS, timeout TCP, attente TLS, nom d'endpoint incohérent, absence de recording rules et manque de scrape Prometheus ; valider avec les preuves LAN de Compose, sans afficher de secrets.
 
 ## P0 — UX des cartes et couverture Gatus (25 octobre 2026)
 
@@ -178,13 +208,11 @@ et [règles de sécurité](homelab-security-roadmap.md).
   erreurs DNS/TCP, métriques absentes et dépendances multiples.
   L'URL production n'était pas accessible depuis l'agent ; résultat
   live **NOT_RUN**.
-- [ ] Après diagnostic Gatus LAN (owner Compose), rapprocher
-  son nombre de sondes déclarées, les dernières mesures et les
-  `nabla_service_id` observés ; isoler les sondes volontairement
-  arrêtées des véritables pannes, sans falsifier les critères.
-- [ ] Proposer un filtre `failed evidence only`, une URL partageable
-  `?service=<id>`, navigation retour entre services, et historique
-  de latence/availability 5m uniquement si les mesures sont fraîches.
+- [ ] Après export du snapshot LAN (owner Compose), exécuter `just gatus-compare` sur la configuration réellement déployée et les `nabla_service_id` observés ; les définitions du dépôt ne prouvent pas l'état runtime. Procédure : [runbook Gatus](runbooks/fastapi-observability-acceptance.md).
+- [x] Filtre échecs/avertissements, URL partageable
+  `?service=<id>`, navigation retour, durée et disponibilité 5m
+  sur mesures Gatus fraîches et bornées.
+- [ ] Ajouter les historiques temporels Prometheus à plusieurs points, sans conclure à une disponibilité globale si des intervalles sont absents.
 
 ## P1 — Refactoring orienté domaine
 
@@ -223,8 +251,35 @@ Pour la présente PR, la **quality gate complète est volontairement
 NOT_RUN** sur demande de l'opérateur. Aucun contrôle de sécurité du
 dépôt n'est supprimé ni neutralisé.
 
-### P0 — Accusé de trace Site v2 (25 octobre 2026)
-- [x] Parser strict du `traceparent` W3C reçu sur `/api/site/health/v2`, IDs non nuls, valeur bornée et rejet des injections.
-- [x] Émettre `X-Nabla-Trace-ID` uniquement après le contrôle machine et enregistrer un événement structuré `site_health_v2_trace`.
-- [ ] Déployer FastAPI Cloud et corréler l'identifiant avec l'en-tête de réponse Site `X-Nabla-Trace-Propagation: confirmed` sur un appel authentifié. **NOT_RUN**.
-- [ ] Exécuter pytest complet, Ruff et tests d'intégration de la politique d'accès. **NOT_RUN** dans cet environnement.
+## P1 — Statuts HTTP protégés et contrat de santé
+
+- [x] Couleur **bleue** `info` pour 401/403 anonyme attendu sur Garage
+  S3 `GET /` et LiteLLM `GET /health`, avec indication
+  « Authentification requise (attendu) ». Ne jamais assimiler
+  une réponse protégée à un HTTP 200 ou à une disponibilité LLM/S3.
+- [x] Diagnostic Drawer : compter les états d'authentification attendus
+  séparément des `fail`, `warn`, `unknown` et `not_run`, en
+  conservant les verdicts d'exposition `/sickz` indépendants.
+- [ ] Vérifier sur le déploiement au SHA exact que `healthz` et les
+  sondes réseau présentent le code 401/403, l'URL et le contexte
+  d'authentification ; ne pas appliquer l'exception à une requête signée.
+- [ ] Couverture étendue : établir depuis la source de vérité
+  `nabla-compose` les contrats de santé de tous les services :
+  `Docker HEALTHCHECK`, `Gatus TCP/HTTP`, routes de readiness et
+  opérations fonctionnelles distinctes. Une absence de healthcheck
+  reste `unverified` ; aucun sondage authentifié générique.
+- [ ] Auditer Garage S3 `external=false` vs router Traefik
+  `websecure` déclaré dans Compose ; exiger une vraie preuve
+  outside-in avant de conclure à une exposition publique.
+  Runbook : [Compose #281](https://github.com/AlbanAndrieu/nabla-compose/pull/281).
+
+
+## P0 — Site v2 et scrape métrique (reprise PR #378)
+
+- [x] Accuser réception du `traceparent` W3C valide via `X-Nabla-Trace-ID` sur `/api/site/health/v2`, sans divulguer d'en-tête arbitraire.
+- [x] Retirer les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` de la dérogation `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY`. Conserver les refus anonymes même en mode lecture temporaire.
+- [x] Ajouter le préflight local `scripts/truenas/diagnose-fastapi-metrics-auth.py --check`, vérifiant les codes HTTP et jamais les secrets.
+- [x] La PR #376 a été fusionnée : `METRICS_SCRAPE_KEY` reste limitée à `GET/HEAD /metrics`, aucun accès anonyme.
+- [ ] Vérifier le SHA réellement déployé et la correspondance du jeton dédié côté FastAPI avec `authorization.credentials_file` côté Prometheus, sans imprimer la clé ni changer Compose ici. Preuve opérateur : `fastapi_sample` scrape HTTP 401, **non résolu en runtime**.
+- [ ] Vérifier la propagation de la trace Site→FastAPI avec jeton machine en staging, y compris refus 401/503 et absence de reflet sur requête anonyme. `NOT_RUN` live.
+- [ ] Contrats du checkout complet : pytest, Ruff et smoke en runtime autorisé. `NOT_RUN` tant qu'aucune preuve n'existe.

@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 import {
   dependencyHealthClass,
   mergeHomelabEvidence,
@@ -104,6 +105,17 @@ function classify(key, check) {
   )
     return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
+  const protectedHttp = expectedAnonymousAuth(key, check);
+  if (protectedHttp) {
+    // A 401/403 challenge is transport evidence only; never mask confirmed
+    // dependency or runtime outages, and never override exposure policy.
+    if (String(check.runtime_state || "").toUpperCase() === "STOPPED" ||
+        (check.dependency_state === "fail" &&
+         Array.isArray(check.blocked_by) && check.blocked_by.length > 0)) {
+      return "red";
+    }
+    return postureAtRisk(check) ? "yellow" : "blue";
+  }
   const dependencyClass = dependencyHealthClass(check);
   if (dependencyClass) {
     if (dependencyClass === "green" && postureAtRisk(check)) return "yellow";

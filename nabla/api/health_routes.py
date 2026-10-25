@@ -29,7 +29,7 @@ from nabla.api.site_architecture_catalog import (
     fetch_site_catalog_v2,
 )
 from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
-from nabla.api.site_trace_context import extract_site_trace_id
+from nabla.api.site_trace_context import verified_site_trace_id
 from nabla.api.ui_public_services import (
     PublicUiServices,
     get_public_ui_services,
@@ -164,13 +164,11 @@ def _register_site_projection_routes(app: FastAPI) -> None:
         include_in_schema=False,
     )
     async def get_site_health_v2(request: Request, response: Response) -> SiteHealthV2:
+        trace_id = verified_site_trace_id(request.headers.get("traceparent"))
         response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
-        # The site machine key is checked by access middleware before this handler.
-        # A receipt confirms parsing of the exact W3C ID; never echo arbitrary input.
-        trace_id = extract_site_trace_id(request.headers.get("traceparent"))
         if trace_id:
             response.headers["X-Nabla-Trace-ID"] = trace_id
-            logger.info("site_health_v2_trace", trace_id=trace_id)
+            logger.info("site_health_v2 trace_id={}", trace_id)
         try:
             return await fetch_site_health_v2(request)
         except SiteCatalogV2Unavailable:

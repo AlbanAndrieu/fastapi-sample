@@ -3,9 +3,11 @@ import { test } from "node:test";
 
 import {
   gatusCoverage,
+  gatusCatalogueCoverage,
   gatusServiceEvidence,
 } from "../../nabla/api/assets/api-service-gatus-coverage.js";
 import { serviceRelations } from "../../nabla/api/assets/api-service-relations.js";
+import { evidenceAdvice, evidenceCounts, evidenceGroup, requestedServiceId, sanitizedEvidence } from "../../nabla/api/assets/api-service-evidence-ux.js";
 import { serviceTelemetry } from "../../nabla/api/assets/api-service-telemetry.js";
 
 const now = Date.parse("2026-10-25T01:00:00Z");
@@ -136,4 +138,71 @@ test("legacy healthz row identity joins Gatus without confusing scraper status",
   });
   assert.equal(monitor.gatusFleet.tone, "fail");
   assert.equal(monitor.gatusFleet.status, "probes_down");
+});
+
+test("Gatus catalogue parity remains unverified even when labelled samples are UP", () => {
+  const s = snapshot({
+    gatus: { HTTP: { success: 1 } },
+    redis: { TCP: { success: 1 } },
+  });
+  const coverage = gatusCatalogueCoverage(s, ["gatus", "redis", "postgres"], now);
+  assert.equal(coverage.state, "observed");
+  assert.equal(coverage.catalogueTotal, 3);
+  assert.equal(coverage.withSamples, 2);
+  assert.deepEqual(coverage.withoutSamples, ["postgres"]);
+  assert.equal(coverage.declaredMonitors, null);
+  assert.equal(coverage.status, "partial");
+  const missing = gatusCatalogueCoverage(null, ["gatus"], now);
+  assert.equal(missing.withSamples, 0);
+  assert.equal(missing.state, "unverified");
+});
+
+test("categorize actionable protocol evidence and avoid interpreting no metric as success", () => {
+  assert.equal(evidenceGroup({kind: "dns", label: "DNS", detail: "NXDOMAIN"}), "DNS");
+  assert.equal(evidenceGroup({kind: "http", detail: "HTTP 403 Cloudflare Access"}), "Access / tokens");
+  assert.equal(evidenceGroup({kind: "metrics", label: "Postgres exporter"}), "Metrics / exporters");
+  assert.equal(evidenceGroup({kind: "gatus", detail: "Gatus check down"}), "Gatus checks");
+  assert.match(evidenceAdvice({kind: "http", tone: "fail", detail: "HTTP 401"}).reason, /401/);
+  assert.match(evidenceAdvice({kind: "http", tone: "fail", detail: "HTTP 403"}).action, /Access/);
+  assert.deepEqual(evidenceCounts([
+    {tone:"fail"}, {tone:"warn"}, {tone:"unknown"}, {tone:"ok"}, {tone:"fail",disabled:true},
+  ]), {failed:1, warning:1, unknown:1, up:1, notRun:1});
+});
+
+test("do not leak credentials through a probe diagnostic", () => {
+  const raw = "HTTP 403 Authorization: Bearer abcDEF.123 C F CF-Access-Client-Secret=very-secret " +
+    "https://operator:pass@internal.example/path?token=123&password=abc";
+  const safe = sanitizedEvidence(raw);
+  for (const secret of ["abcDEF.123", "very-secret", "operator:pass", "token=123", "password=abc"]) {
+    assert.equal(safe.includes(secret), false, secret);
+  }
+  assert.match(safe, /redacted/);
+});
+
+test("only valid canonical service IDs may be used for deep links", () => {
+  assert.equal(requestedServiceId("?q=test&service=gatus"), "gatus");
+  assert.equal(requestedServiceId("?service=component%3Adefault%2Fpostgres"), "component:default/postgres");
+  assert.equal(requestedServiceId("?service=https%3A%2F%2Fprivate.example"), null);
+  assert.equal(requestedServiceId("?service=../../admin"), null);
+  assert.equal(requestedServiceId("?service="), null);
+});
+
+test("Gatus exposes only valid bounded monitor duration and 5m availability", () => {
+  const s = snapshot({
+    gatus: { HTTP: { success: 1, duration_seconds: 0.125, availability_ratio_5m: 0.95 } },
+    redis: { TCP: { success: 0, duration_seconds: -12, availability_ratio_5m: 2 } },
+  });
+  const fleet = gatusCoverage(s, now);
+  assert.equal(fleet.successes[0].durationMs, 125);
+  assert.equal(fleet.successes[0].availability, 0.95);
+  assert.equal("durationMs" in fleet.failures[0], false);
+  assert.equal("availability" in fleet.failures[0], false);
+  const details = gatusServiceEvidence(s, "gatus", now);
+  assert.equal(details.probes[0].durationMs, 125);
+  // serviceTelemetry evaluates freshness against the real clock.
+  // Preserve the fixed clock for gatusCoverage fixture assertions above.
+  s.platform_metrics.generated_at = new Date().toISOString();
+  const row = { dataset: { serviceKey: "gatus", topologyId: "gatus" } };
+  const telemetry = serviceTelemetry(s, row);
+  assert.match(telemetry.gatus.detail, /125 ms/);
 });

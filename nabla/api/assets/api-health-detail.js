@@ -1,4 +1,5 @@
 import { dependencyDetailText } from "./api-health-dependency.js";
+import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 
 export function isExpectedSentryDebugFailure(key, check) {
   return (
@@ -65,6 +66,8 @@ function cloudflareDetailText(check) {
 }
 
 function baseDetailText(key, check) {
+  const expectedAuth = expectedAnonymousAuth(key, check);
+  if (expectedAuth) return expectedAuth.detail;
   if (check.skipped)
     return check.reason || "Not configured (intentionally disabled).";
   if (key === "cloudflare") return cloudflareDetailText(check);

@@ -90,7 +90,7 @@ export function serviceTelemetry(snapshot, row) {
       ? "Gatus via Prometheus unavailable, truncated or stale; no direct Gatus request"
       : probes.length === 0
         ? `Gatus UP but no labeled per-service metrics for ${id}; inspect nabla_service_id and recording rules`
-        : `Gatus via Prometheus: ${probes.map((p) => `${p.type}=${p.success === 1 ? "up" : "down"}${typeof p.availability === "number" ? ` (5m ${(p.availability * 100).toFixed(0)}%)` : ""}`).join(", ")}`,
+        : `Gatus via Prometheus: ${probes.map((p) => `${p.type}=${p.success === 1 ? "up" : "down"}${typeof p.availability === "number" ? ` (5m ${(p.availability * 100).toFixed(0)}%)` : ""}${typeof p.durationMs === "number" ? ` · ${p.durationMs.toFixed(0)} ms` : ""}`).join(", ")}`,
   };
   // Gatus itself is the scheduler, not the proof that every monitored
   // endpoint is green. Present observed failures and unknown coverage.

@@ -1,7 +1,8 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
+import { gatusCoverage, gatusCatalogueCoverage } from "./api-service-gatus-coverage.js";
 import { serviceRelations } from "./api-service-relations.js";
 import { fetchTopology } from "./api-topology-data.js";
+import { EVIDENCE_GROUPS, evidenceAdvice, evidenceCounts, evidenceGroup, requestedServiceId, sanitizedEvidence, validServiceId } from "./api-service-evidence-ux.js";
 
 const ROW_SELECTOR = "[data-service-filter-target]";
 const OBSERVED_CONTAINERS = [
@@ -18,6 +19,8 @@ let refreshScheduled = false;
 let latestTopology = null;
 let latestSnapshot = null;
 let nextTopologyRetryAt = 0;
+let evidenceIssuesOnly = false;
+const navigationTrail = [];
 
 function normalizedStatus(row) {
   const explicit = String(row?.dataset?.semanticStatus || "").trim();
@@ -144,7 +147,10 @@ function ensureDrawer() {
         <span class="service-detail-kicker">Service diagnostics</span>
         <h2 id="service-detail-title">Service</h2>
       </div>
-      <button type="button" class="service-detail-close" aria-label="Close service details">×</button>
+      <div class="service-detail-header-actions">
+        <button type="button" id="service-detail-back" class="service-detail-back" hidden>← Back</button>
+        <button type="button" class="service-detail-close" aria-label="Close service details">×</button>
+      </div>
     </header>
     <div class="service-detail-body">
       <div id="service-detail-meta" class="service-detail-meta"></div>
@@ -173,6 +179,11 @@ function ensureDrawer() {
     ?.addEventListener("click", () => {
       closeDrawer();
     });
+  drawer.querySelector("#service-detail-back")?.addEventListener("click", () => {
+    const previous = navigationTrail.pop();
+    const target = previous && matchingCatalogueRow(previous);
+    if (target) openDrawer(target, target.querySelector(":scope > .service-detail-trigger"), { recordTrail: false });
+  });
   document.body.appendChild(drawer);
   return drawer;
 }
@@ -197,14 +208,67 @@ function renderLink(drawer, row) {
   const host = drawer.querySelector("#service-detail-link");
   host?.replaceChildren();
   if (!host) return;
-  const href = safeHttpUrl(row.dataset.serviceUrl);
-  if (!href) return;
-  const link = document.createElement("a");
-  link.href = href;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = "Open service ↗";
-  host.appendChild(link);
+  const key = catalogueRouteId(row);
+  // Match only by stable catalog ID. A shared TrueNAS IP must never
+  // assign another service's S3/Admin/WebUI URL to this card.
+  const service = (latestSnapshot?.homelab?.services || [])
+    .find((entry) => entry?.id === key);
+  const configured = safeHttpUrl(service?.url) ||
+    safeHttpUrl(row.dataset.serviceUrl);
+  const internal = safeHttpUrl(service?.internal_endpoint_url);
+
+  const heading = document.createElement("strong");
+  heading.className = "service-detail-link-heading";
+  heading.textContent = "Service endpoints";
+  host.appendChild(heading);
+
+  function addEndpoint(label, href, note) {
+    if (!href) return;
+    const item = document.createElement("div");
+    item.className = "service-detail-endpoint";
+    const title = document.createElement("span");
+    title.textContent = label;
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = href;
+    const caption = document.createElement("small");
+    caption.textContent = note;
+    item.append(title, link, caption);
+    host.appendChild(item);
+  }
+
+  addEndpoint(
+    service?.exposure_intent === "public"
+      ? "Configured public URL"
+      : "Configured hostname (private / not a public guarantee)",
+    configured,
+    "Navigation only: a S3 API may require signed requests and reject GET /.",
+  );
+  addEndpoint(
+    "Internal LAN URL",
+    internal,
+    "Available only from the permitted LAN/VPN; not probed by this link.",
+  );
+  if (!configured && !internal) {
+    const missing = document.createElement("p");
+    missing.className = "service-detail-empty";
+    missing.textContent =
+      "No endpoint URL in the current authorized snapshot. Open the owner diagnostics or check the service catalog.";
+    host.appendChild(missing);
+  }
+
+  // A direct diagnostics permalink must work even when no service URL exists.
+  if (key) {
+    const permalink = document.createElement("a");
+    permalink.className = "service-detail-permalink";
+    const url = new URL(window.location.href);
+    url.searchParams.set("service", key);
+    permalink.href = url.href;
+    permalink.textContent = "Direct link to diagnostics";
+    host.appendChild(permalink);
+  }
 }
 
 function renderExposurePolicy(drawer, row) {
@@ -217,12 +281,22 @@ function renderExposurePolicy(drawer, row) {
   const status = document.createElement("strong");
   status.className = "service-detail-exposure-verdict";
   status.textContent = summary;
+  // The /sickz badge already contains the policy rule and its observed
+  // reason. Render that evidence as text instead of hiding it in a tooltip.
+  const reason = row.querySelector(
+    '.service-probe[data-probe-kind="policy"]'
+  )?.getAttribute("aria-label");
+  const explanation = document.createElement("p");
+  explanation.className = "service-detail-exposure-reason";
+  explanation.textContent = reason ||
+    "Policy evidence unavailable. Check /sickz; no network status is inferred.";
   const description = document.createElement("p");
   description.textContent =
-    "Security posture is independent of application uptime. " +
-    "An internal-only service must not expose a public HTTP entry point, " +
-    "even when it returns HTTP 401 or 403. Cloudflare Tunnel is routing; " +
-    "Access is the authorization layer.";
+    "Policy failed means observed ingress conflicts with the catalog " +
+    "(for example external=false but a public Tunnel/Access route or " +
+    "an outside-in response was observed). HTTP reachability and private " +
+    "service functionality are separate checks. A S3 GET / without AWS " +
+    "signature can return HTTP 403 while a signed S3 operation succeeds.";
   const sickzLink = document.createElement("a");
   // Prefer the matching /sickz row when it exists; otherwise use the
   // section anchor. No external URL or guess from a shared host is needed.
@@ -231,73 +305,128 @@ function renderExposurePolicy(drawer, row) {
   sickzLink.href = exposureRow ? `#${exposureRow.id}` : "#sickz-checks";
   sickzLink.textContent = "Review /sickz outside-in evidence";
   sickzLink.addEventListener("click", () => closeDrawer({ restoreFocus: false }));
-  host.append(status, description, sickzLink);
+  host.append(status, explanation, description, sickzLink);
 }
 
 function renderEvidence(drawer, row) {
   const host = drawer.querySelector("#service-detail-evidence");
-  host?.replaceChildren();
   if (!host) return;
-  const rank = { fail: 0, warn: 1, unknown: 2, neutral: 3, ok: 4 };
-  const probes = probeEntries(row).sort(
-    (left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)
+  const selectedId = catalogueRouteId(row) || String(row.dataset.serviceKey || "");
+  const preserving = host.dataset.selectedService === selectedId;
+  const existing = [...host.querySelectorAll(".service-detail-evidence-group")];
+  const openCategories = new Set(
+    preserving ? existing.filter((group) => group.open).map((group) => group.dataset.group) : [],
   );
+  const hadGroups = preserving && existing.length > 0;
+  host.dataset.selectedService = selectedId;
+  host.replaceChildren();
+  const probes = probeEntries(row);
+  const counts = evidenceCounts(probes);
+  const filter = document.createElement("label");
+  filter.className = "service-detail-issues-filter";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = evidenceIssuesOnly;
+  checkbox.addEventListener("change", () => {
+    evidenceIssuesOnly = checkbox.checked;
+    renderEvidence(drawer, row);
+    host.querySelector(".service-detail-issues-filter input")?.focus({ preventScroll: true });
+  });
+  filter.append(checkbox, document.createTextNode(" Show failed and warning signals only"));
+  const count = document.createElement("small");
+  count.textContent = counts.failed + " failed · " + counts.warning + " warning · " +
+    counts.info + " protected · " + counts.unknown + " unknown · " + counts.notRun + " not run";
+  host.append(filter, count);
   if (probes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
-    empty.textContent = "No probe evidence is attached to this service row.";
+    empty.textContent = "No probe evidence attached; service health is unverified.";
     host.appendChild(empty);
     return;
   }
-
-  for (const probe of probes) {
-    const item = document.createElement("article");
-    item.className = `service-detail-probe service-detail-probe--${probe.tone}`;
-    if (probe.disabled) item.dataset.disabled = "true";
-    const heading = document.createElement("div");
-    heading.className = "service-detail-probe-heading";
-    const icon = document.createElement("span");
-    icon.className = "service-detail-probe-icon";
-    icon.dataset.tone = probe.disabled ? "neutral" : probe.tone;
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = probe.icon;
-    const label = document.createElement(probe.href ? "a" : "strong");
-    label.className = "service-detail-probe-label";
-    label.textContent = probe.label;
-    if (label instanceof HTMLAnchorElement && probe.href) {
-      label.href = probe.href;
-      label.target = "_blank";
-      label.rel = "noopener noreferrer";
-      label.title = `Open ${probe.label} diagnostics`;
-    }
-    const labelWrap = document.createElement("span");
-    labelWrap.className = "service-detail-probe-name";
-    labelWrap.append(icon, label);
-    heading.appendChild(labelWrap);
-    const state = document.createElement("span");
-    state.className = "service-detail-probe-state";
-    state.textContent = probe.disabled
-      ? "NOT RUN"
-      : probe.tone === "ok"
-        ? "UP"
-        : probe.tone === "fail"
-          ? "FAILED"
-          : probe.tone === "warn"
-            ? "WARNING"
-            : "UNVERIFIED";
-    heading.appendChild(state);
-    const normalizedLabel = probe.label.trim().toLowerCase();
-    const normalizedKind = probe.kind.trim().toLowerCase();
-    if (normalizedKind && normalizedKind !== normalizedLabel) {
-      const kind = document.createElement("span");
-      kind.textContent = probe.kind;
-      heading.appendChild(kind);
-    }
-    const detail = document.createElement("p");
-    detail.textContent = probe.detail;
-    item.append(heading, detail);
-    host.appendChild(item);
+  const rank = { fail: 0, warn: 1, info: 2, unknown: 3, neutral: 4, ok: 5 };
+  const visible = probes.filter((probe) => !evidenceIssuesOnly ||
+    (!probe.disabled && ["fail", "warn"].includes(probe.tone)));
+  if (visible.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "service-detail-empty";
+    empty.textContent = "No failed or warning probes in the observed snapshot. Unknown or missing checks are not evidence of success.";
+    host.appendChild(empty);
+    return;
   }
+  // Prioritize families with confirmed failures across category boundaries.
+  const categories = EVIDENCE_GROUPS.map((category, order) => ({
+    category, order,
+    grouped: visible.filter((probe) => evidenceGroup(probe) === category)
+      .sort((left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)),
+  })).filter((item) => item.grouped.length > 0)
+    .sort((left, right) => {
+      const minRank = (group) => Math.min(...group.map((probe) =>
+        probe.disabled ? 3 : (rank[probe.tone] ?? 2)));
+      return minRank(left.grouped) - minRank(right.grouped) ||
+        left.order - right.order;
+    });
+  for (const { category, grouped } of categories) {
+    const section = document.createElement("details");
+    section.className = "service-detail-evidence-group";
+    section.dataset.group = category;
+    section.open = evidenceIssuesOnly || openCategories.has(category) ||
+      (!hadGroups && grouped.some((probe) => ["fail", "warn"].includes(probe.tone)));
+    const summary = document.createElement("summary");
+    const failures = grouped.filter((probe) => probe.tone === "fail" && !probe.disabled).length;
+    summary.textContent = category + " · " + grouped.length + " signals" +
+      (failures ? " · " + failures + " FAILED" : "");
+    section.appendChild(summary);
+    for (const probe of grouped) {
+      const item = document.createElement("article");
+      item.className = "service-detail-probe service-detail-probe--" + (probe.disabled ? "unknown" : probe.tone);
+      if (probe.disabled) item.dataset.disabled = "true";
+      const heading = document.createElement("div");
+      heading.className = "service-detail-probe-heading";
+      const icon = document.createElement("span");
+      icon.className = "service-detail-probe-icon";
+      icon.dataset.tone = probe.disabled ? "neutral" : probe.tone;
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = probe.icon;
+      const label = document.createElement(probe.href ? "a" : "strong");
+      label.className = "service-detail-probe-label";
+      label.textContent = probe.label;
+      if (label instanceof HTMLAnchorElement && probe.href) {
+        label.href = probe.href;
+        label.target = "_blank";
+        label.rel = "noopener noreferrer";
+      }
+      const labelWrap = document.createElement("span");
+      labelWrap.className = "service-detail-probe-name";
+      labelWrap.append(icon, label);
+      heading.appendChild(labelWrap);
+      const state = document.createElement("span");
+      state.className = "service-detail-probe-state";
+      state.textContent = probe.disabled ? "NOT RUN" :
+        probe.tone === "ok" ? "UP" :
+        probe.tone === "fail" ? "FAILED" :
+        probe.tone === "warn" ? "WARNING" :
+        probe.tone === "info" ? "AUTH REQUIRED · EXPECTED" : "UNVERIFIED";
+      heading.appendChild(state);
+      const detail = document.createElement("p");
+      detail.textContent = sanitizedEvidence(probe.detail);
+      item.append(heading, detail);
+      if (["fail", "warn"].includes(probe.tone) && !probe.disabled) {
+        const advice = evidenceAdvice(probe);
+        const explanation = document.createElement("p");
+        explanation.className = "service-detail-probe-advice";
+        explanation.textContent = advice.reason + " Action: " + advice.action;
+        item.appendChild(explanation);
+      }
+      section.appendChild(item);
+    }
+    host.appendChild(section);
+  }
+}
+
+function catalogueRouteId(row) {
+  const id = String(row?.dataset?.topologyId || row?.dataset?.serviceKey || "");
+  return validServiceId(id) ? id : null;
 }
 
 function matchingCatalogueRow(id) {
@@ -380,13 +509,16 @@ function renderProbeSummary(drawer, row) {
   const probes = probeEntries(row).filter((probe) => !probe.disabled);
   const failed = probes.filter((probe) => probe.tone === "fail").length;
   const warnings = probes.filter((probe) => probe.tone === "warn").length;
+  const protectedCount = probes.filter((probe) => probe.tone === "info").length;
   const unknown = probes.filter((probe) =>
-    !["ok", "fail", "warn"].includes(probe.tone)
+    !["ok", "fail", "warn", "info"].includes(probe.tone)
   ).length;
   const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
+  const timestamp = latestSnapshot?.platform_metrics?.generated_at;
+  const observationTime = Number.isFinite(Date.parse(timestamp)) ? " · Metrics snapshot: " + new Date(timestamp).toLocaleString() : " · Metrics snapshot: unverified";
   host.textContent = probes.length
-    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. Select a signal below for its source and reason.`
-    : "No direct probe evidence; this is not proof of service health.";
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${protectedCount} auth expected · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` + observationTime
+    : "No direct probe evidence; this is not proof of service health." + observationTime;
   host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
 }
 
@@ -401,6 +533,19 @@ function renderGatusFleet(drawer, row) {
   section.hidden = !isGatus;
   if (!isGatus) return;
   const fleet = gatusCoverage(latestSnapshot);
+  const ids = [...new Set([...document.querySelectorAll(
+    "#health-services-groups [data-service-filter-target]"
+  )].map((card) => catalogueRouteId(card)).filter(Boolean))];
+  const catalogue = gatusCatalogueCoverage(latestSnapshot, ids);
+  const coverageSummary = document.createElement("p");
+  coverageSummary.className = "service-detail-coverage";
+  coverageSummary.textContent = catalogue.state === "observed"
+    ? "Catalogue sampled: " + catalogue.withSamples + "/" + catalogue.catalogueTotal +
+      " visible cards · " + catalogue.withoutSamples.length + " with no labelled sample. " +
+      "Gatus monitor configuration parity has not been verified."
+    : "Catalogue coverage unknown: " + catalogue.reason +
+      ". No monitor can be marked UP from this snapshot.";
+  host.appendChild(coverageSummary);
   const totals = document.createElement("p");
   totals.className = "service-detail-empty";
   totals.textContent = fleet.state !== "observed"
@@ -408,6 +553,24 @@ function renderGatusFleet(drawer, row) {
     : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
   host.appendChild(totals);
   if (fleet.state !== "observed") return;
+  if (catalogue.withoutSamples.length) {
+    const heading = document.createElement("strong");
+    heading.className = "service-detail-relation-group";
+    heading.textContent = "Visible catalogue cards with no sampled monitor (" +
+      catalogue.withoutSamples.length + ")";
+    host.appendChild(heading);
+    for (const id of catalogue.withoutSamples.slice(0, 25)) {
+      host.appendChild(linkedCatalogueItem({ id, name: id }, {
+        type: "No sample", status: "not proven monitored",
+      }));
+    }
+    if (catalogue.withoutSamples.length > 25) {
+      const tail = document.createElement("p");
+      tail.className = "service-detail-empty";
+      tail.textContent = "Additional cards have no usable Gatus evidence.";
+      host.appendChild(tail);
+    }
+  }
   // The catalogue can contain services with no Gatus monitor. Never show
   // those as green, nor treat a healthy Gatus scheduler as healthy targets.
   const views = [
@@ -430,7 +593,13 @@ function renderGatusFleet(drawer, row) {
     entries.slice(0, 25).forEach((entry) => {
       host.appendChild(linkedCatalogueItem(
         { id: entry.id, name: entry.id },
-        { type: entry.type, status },
+        { type: entry.type, status: [
+          status,
+          typeof entry.availability === "number"
+            ? "5m " + (entry.availability * 100).toFixed(0) + "%" : "",
+          typeof entry.durationMs === "number"
+            ? entry.durationMs.toFixed(0) + " ms" : "",
+        ].filter(Boolean).join(" · ") },
       ));
     });
     if (entries.length > 25) {
@@ -481,9 +650,39 @@ function renderDrawer(row, { force = false } = {}) {
   drawer.dataset.renderSignature = signature;
 }
 
-function openDrawer(row, trigger) {
+function updateServiceUrl(row) {
+  const id = catalogueRouteId(row);
+  if (!id) return;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("service") === id) return;
+  url.searchParams.set("service", id);
+  window.history.pushState(window.history.state, "", url);
+}
+
+function syncDrawerFromUrl() {
+  const id = requestedServiceId(window.location.search);
+  if (!id) {
+    if (activeRow) closeDrawer({ restoreFocus: false, syncUrl: false });
+    return;
+  }
+  const row = matchingCatalogueRow(id);
+  if (row && (!activeRow || catalogueRouteId(activeRow) !== id)) {
+    openDrawer(row, row.querySelector(":scope > .service-detail-trigger"), {
+      syncUrl: false, recordTrail: false,
+    });
+  }
+}
+
+function openDrawer(row, trigger, { syncUrl = true, recordTrail = true } = {}) {
   if (!row) return;
-  if (activeRow && activeRow !== row) delete activeRow.dataset.detailSelected;
+  if (activeRow && activeRow !== row) {
+    if (recordTrail) {
+      const oldId = catalogueRouteId(activeRow);
+      if (oldId) navigationTrail.push(oldId);
+      if (navigationTrail.length > 20) navigationTrail.shift();
+    }
+    delete activeRow.dataset.detailSelected;
+  }
   activeRow = row;
   activeIdentity = rowIdentity(row);
   activeTrigger = trigger || null;
@@ -491,10 +690,14 @@ function openDrawer(row, trigger) {
   renderDrawer(row, { force: true });
   const drawer = ensureDrawer();
   drawer.hidden = false;
+  const back = drawer.querySelector("#service-detail-back");
+  if (back) back.hidden = navigationTrail.length === 0;
+  if (syncUrl) updateServiceUrl(row);
   drawer.focus({ preventScroll: true });
+  document.dispatchEvent(new CustomEvent("service-detail-selected", { detail: { serviceId: catalogueRouteId(row) } }));
 }
 
-function closeDrawer({ restoreFocus = true } = {}) {
+function closeDrawer({ restoreFocus = true, syncUrl = true } = {}) {
   const drawer = document.getElementById("service-detail-drawer");
   if (drawer) drawer.hidden = true;
   if (activeRow) delete activeRow.dataset.detailSelected;
@@ -502,27 +705,52 @@ function closeDrawer({ restoreFocus = true } = {}) {
   activeRow = null;
   activeTrigger = null;
   activeIdentity = null;
+  navigationTrail.length = 0;
+  if (syncUrl) {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("service")) {
+      url.searchParams.delete("service");
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }
   if (restoreFocus && trigger?.isConnected) {
     trigger.focus({ preventScroll: true });
   }
 }
 
+function updateDetailTrigger(row, trigger) {
+  const counts = evidenceCounts(probeEntries(row));
+  const text = counts.failed ? "Details · " + counts.failed + " failed"
+    : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
+  if (trigger.textContent !== text) trigger.textContent = text;
+  const tone = counts.failed ? "fail" : counts.warning ? "warn" : "neutral";
+  if (trigger.dataset.issues !== tone) trigger.dataset.issues = tone;
+  const title = "Open diagnostics for " + displayName(row) +
+    ": " + counts.failed + " failed, " + counts.warning + " warnings, " +
+    counts.info + " expected auth, " + counts.unknown + " unknown, " + counts.notRun + " not run";
+  if (trigger.getAttribute("aria-label") !== title) {
+    trigger.setAttribute("aria-label", title);
+  }
+}
+
 function ensureDetailTrigger(row) {
   if (!(row instanceof HTMLElement)) return;
-  if (row.querySelector(":scope > .service-detail-trigger")) return;
+  const current = row.querySelector(":scope > .service-detail-trigger");
+  if (current) {
+    row.classList.add("health-row--detail-footer");
+    updateDetailTrigger(row, current);
+    return;
+  }
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.className = "service-detail-trigger";
-  trigger.textContent = "Details";
+  updateDetailTrigger(row, trigger);
   trigger.setAttribute("aria-haspopup", "dialog");
-  trigger.setAttribute(
-    "aria-label",
-    `Open diagnostics for ${displayName(row)}`,
-  );
   trigger.addEventListener("click", (event) => {
     event.stopPropagation();
     openDrawer(row, trigger);
   });
+  row.classList.add("health-row--detail-footer");
   row.appendChild(trigger);
 }
 
@@ -563,6 +791,11 @@ function observeRows() {
       mutation.addedNodes.forEach((node) => {
         if (node instanceof HTMLElement) decorateRows(node);
       });
+      // Probe badges may arrive after initial row creation. Update the
+      // existing trigger without changing its identity or losing focus.
+      const owner = mutation.target instanceof HTMLElement
+        ? mutation.target.closest(ROW_SELECTOR) : null;
+      if (owner) ensureDetailTrigger(owner);
     }
     scheduleActiveRefresh();
   });
@@ -634,4 +867,18 @@ export function installServiceDetailDrawer() {
   installKeyboardClose();
   document.addEventListener("service-filter-changed", scheduleActiveRefresh);
   document.addEventListener("health-board-refreshed", scheduleActiveRefresh);
+  document.addEventListener("health-board-refreshed", () => {
+    // Rows may be replaced asynchronously after the board event.
+    window.requestAnimationFrame(() => {
+      decorateRows();
+      document.querySelectorAll(ROW_SELECTOR).forEach((row) => {
+        const trigger = row.querySelector(":scope > .service-detail-trigger");
+        if (!trigger) return;
+        updateDetailTrigger(row, trigger);
+      });
+      syncDrawerFromUrl();
+    });
+  });
+  window.addEventListener("popstate", syncDrawerFromUrl);
+  syncDrawerFromUrl();
 }

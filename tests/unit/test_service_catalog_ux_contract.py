@@ -53,7 +53,8 @@ def test_gatus_probe_failure_does_not_claim_entire_fleet_is_green() -> None:
     assert '"partial_coverage"' in card
     assert "fleet.observedServices" in drawer
     assert "latestSnapshot?.platform_metrics" in drawer
-    assert "fleet.failures.slice(0, 20)" in drawer
+    assert '["Failing checks", fleet.failures' in drawer
+    assert "entries.slice(0, 25)" in drawer
     assert "This is not full catalogue coverage." in drawer
 
 
