@@ -300,10 +300,19 @@ function renderEvidence(drawer, row) {
     host.appendChild(empty);
     return;
   }
-  for (const category of EVIDENCE_GROUPS) {
-    const grouped = visible.filter((probe) => evidenceGroup(probe) === category)
-      .sort((left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2));
-    if (!grouped.length) continue;
+  // Prioritize families with confirmed failures across category boundaries.
+  const categories = EVIDENCE_GROUPS.map((category, order) => ({
+    category, order,
+    grouped: visible.filter((probe) => evidenceGroup(probe) === category)
+      .sort((left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)),
+  })).filter((item) => item.grouped.length > 0)
+    .sort((left, right) => {
+      const minRank = (group) => Math.min(...group.map((probe) =>
+        probe.disabled ? 3 : (rank[probe.tone] ?? 2)));
+      return minRank(left.grouped) - minRank(right.grouped) ||
+        left.order - right.order;
+    });
+  for (const { category, grouped } of categories) {
     const section = document.createElement("details");
     section.className = "service-detail-evidence-group";
     section.dataset.group = category;
