@@ -202,7 +202,9 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
         "-o", "ConnectTimeout=7",
         "-o", "ServerAliveInterval=5",
         "-o", "ServerAliveCountMax=1",
-        "-p", str(port), "--", target, remote_command,
+        # Destination cannot begin with '-' thanks to the strict target regex.
+        # Avoid relying on a '--' flag supported inconsistently by SSH clients.
+        "-p", str(port), target, remote_command,
     ]
     try:
         source = Path(__file__).read_text(encoding="utf-8")
