@@ -250,3 +250,26 @@ de `PASS`.
 Pour la présente PR, la **quality gate complète est volontairement
 NOT_RUN** sur demande de l'opérateur. Aucun contrôle de sécurité du
 dépôt n'est supprimé ni neutralisé.
+
+## P1 — Statuts HTTP protégés et contrat de santé
+
+- [x] Couleur **bleue** `info` pour 401/403 anonyme attendu sur Garage
+  S3 `GET /` et LiteLLM `GET /health`, avec indication
+  « Authentification requise (attendu) ». Ne jamais assimiler
+  une réponse protégée à un HTTP 200 ou à une disponibilité LLM/S3.
+- [x] Diagnostic Drawer : compter les états d'authentification attendus
+  séparément des `fail`, `warn`, `unknown` et `not_run`, en
+  conservant les verdicts d'exposition `/sickz` indépendants.
+- [ ] Vérifier sur le déploiement au SHA exact que `healthz` et les
+  sondes réseau présentent le code 401/403, l'URL et le contexte
+  d'authentification ; ne pas appliquer l'exception à une requête signée.
+- [ ] Couverture étendue : établir depuis la source de vérité
+  `nabla-compose` les contrats de santé de tous les services :
+  `Docker HEALTHCHECK`, `Gatus TCP/HTTP`, routes de readiness et
+  opérations fonctionnelles distinctes. Une absence de healthcheck
+  reste `unverified` ; aucun sondage authentifié générique.
+- [ ] Auditer Garage S3 `external=false` vs router Traefik
+  `websecure` déclaré dans Compose ; exiger une vraie preuve
+  outside-in avant de conclure à une exposition publique.
+  Runbook : [Compose #281](https://github.com/AlbanAndrieu/nabla-compose/pull/281).
+
