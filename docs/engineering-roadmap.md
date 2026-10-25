@@ -94,7 +94,7 @@ involontaire des permissions, preuve négative et rollback du plan de migration.
 
 - [x] Ajouter `just node22-quick` : contrats JavaScript autonomes, sans installation npm et sans GitHub Actions.
 - [ ] Exécuter les deux suites avec **Node 22** sur un checkout complet au SHA de la PR. Le checkout Git n'est pas accessible depuis cet environnement (DNS GitHub indisponible). **NOT_RUN**, jamais PASS implicite.
-- [x] Compiler sept modules et exécuter neuf contrats métier JavaScript via V8 isolé dans l'outil GitHub : **9/9 PASS** (ne remplace ni `node --test`, ni pytest, ni un navigateur).
+- [x] Compiler sept modules et exécuter les contrats métier JavaScript via V8 isolé dans l'outil GitHub : **10/10 PASS** (ne remplace ni `node --test`, ni pytest, ni un navigateur).
 - [ ] Conserver le contrôle complet séparé avec Node >=24.22.1, requis par `package.json`; ne pas abaisser cette contrainte pour permettre un test isolé.
 
 ### UX et convergence Gatus — critères d'acceptation
@@ -103,7 +103,8 @@ involontaire des permissions, preuve négative et rollback du plan de migration.
 - [x] Ajouter URL partageable `?service=<id>`, filtre des échecs, focus clavier, retour entre dépendances et affichage mobile compact.
 - [ ] Afficher les relations amont/aval avec lien uniquement si l'ID canonique existe dans le snapshot autorisé ; signaler les dépendances absentes sans URL réseau privée.
 - [x] Réconcilier les échantillons Gatus avec les services visibles du catalogue (avec/sans métriques) sans faux statut vert.
-- [ ] Ajouter la parité réelle déclarées / observées / absentes / volontairement désactivées depuis la configuration Gatus chez Compose ; vérifier les identifiants et la provenance du point d'observation LAN. Ne jamais déduire que toutes les sondes sont vertes de `up{job="gatus"} == 1`.
+- [x] Ajouter `scripts/reconcile-gatus-coverage.py` : contrôle **hors ligne** des 85 monitors déclarés dans Compose (63 TCP, 21 HTTP, 1 HTTPS), classés UP / DOWN / NO_SAMPLE / UNVERIFIED à partir d'un snapshot FastAPI autorisé ; collision de labels non considérée saine. **9/9 tests Python locaux PASS**.
+- [ ] Vérifier la parité réelle de la configuration Gatus **en cours d'exécution** et des mesures LAN fraîches, avec validation du point d'observation et des endpoints. Les monitors absents du fichier ne peuvent pas être attribués automatiquement à une désactivation volontaire. Ne jamais déduire que toutes les sondes sont vertes de `up{job="gatus"} == 1`.
 - [ ] Sur Gatus non sain, distinguer HTTP 401/403/token, erreurs DNS, timeout TCP, attente TLS, nom d'endpoint incohérent, absence de recording rules et manque de scrape Prometheus ; valider avec les preuves LAN de Compose, sans afficher de secrets.
 
 ## P0 — UX des cartes et couverture Gatus (25 octobre 2026)
@@ -194,13 +195,11 @@ et [règles de sécurité](homelab-security-roadmap.md).
   erreurs DNS/TCP, métriques absentes et dépendances multiples.
   L'URL production n'était pas accessible depuis l'agent ; résultat
   live **NOT_RUN**.
-- [ ] Après diagnostic Gatus LAN (owner Compose), rapprocher
-  son nombre de sondes déclarées, les dernières mesures et les
-  `nabla_service_id` observés ; isoler les sondes volontairement
-  arrêtées des véritables pannes, sans falsifier les critères.
-- [ ] Proposer un filtre `failed evidence only`, une URL partageable
-  `?service=<id>`, navigation retour entre services, et historique
-  de latence/availability 5m uniquement si les mesures sont fraîches.
+- [ ] Après export du snapshot LAN (owner Compose), exécuter `just gatus-compare` sur la configuration réellement déployée et les `nabla_service_id` observés ; les définitions du dépôt ne prouvent pas l'état runtime. Procédure : [runbook Gatus](runbooks/fastapi-observability-acceptance.md).
+- [x] Filtre échecs/avertissements, URL partageable
+  `?service=<id>`, navigation retour, durée et disponibilité 5m
+  sur mesures Gatus fraîches et bornées.
+- [ ] Ajouter les historiques temporels Prometheus à plusieurs points, sans conclure à une disponibilité globale si des intervalles sont absents.
 
 ## P1 — Refactoring orienté domaine
 
