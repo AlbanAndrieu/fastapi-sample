@@ -69,12 +69,13 @@ export function evidenceAdvice(probe = {}) {
 }
 
 export function evidenceCounts(probes = []) {
-  const totals = { failed: 0, warning: 0, unknown: 0, notRun: 0, up: 0 };
+  const totals = { failed: 0, warning: 0, info: 0, unknown: 0, notRun: 0, up: 0 };
   for (const probe of probes) {
     if (probe.disabled) totals.notRun++;
     else if (probe.tone === "fail") totals.failed++;
     else if (probe.tone === "warn") totals.warning++;
     else if (probe.tone === "ok") totals.up++;
+    else if (probe.tone === "info") totals.info++;
     else totals.unknown++;
   }
   return totals;
