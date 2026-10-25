@@ -43,6 +43,9 @@ def test_token_file_is_private_bounded_and_not_symlink(tmp_path):
     assert module.read_token_file(token) == "private-test-token"
     token.chmod(0o640)
     assert module.read_token_file(token) == "private-test-token"
+    token.chmod(0o660)
+    assert module.read_token_file(token) is None
+    token.chmod(0o640)
     token.chmod(0o644)
     assert module.read_token_file(token) is None
     token.chmod(0o600)
