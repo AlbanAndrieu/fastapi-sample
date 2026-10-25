@@ -108,6 +108,70 @@ def assess(anonymous: int | None, authorized: int | None, token_supplied: bool) 
 
 
 
+# Categories are static: never return raw stderr, remote stdout or paths.
+_SSH_REMEDIATION = {
+    "ssh_client_missing": "install_local_openssh_client",
+    "ssh_host_key_untrusted": "verify_truenas_ssh_host_key",
+    "ssh_authentication_denied": "verify_ssh_user_and_authorized_key",
+    "ssh_connection_refused": "verify_truenas_ssh_listener_and_port",
+    "ssh_connection_timeout": "verify_lan_vpn_route_and_firewall",
+    "ssh_network_unreachable": "verify_lan_vpn_route",
+    "ssh_name_resolution_failed": "verify_ssh_client_configuration",
+    "ssh_session_rejected": "verify_truenas_ssh_account_shell",
+    "ssh_timeout": "verify_ssh_reachability_and_remote_runtime",
+    "remote_python_unavailable": "verify_python3_in_remote_noninteractive_shell",
+    "remote_report_invalid": "verify_remote_python_stdout_is_json_only",
+    "remote_output_too_large": "review_remote_shell_startup_output_privately",
+    "remote_token_file_invalid_or_unreadable": "verify_remote_token_file_exists_and_permissions",
+    "ssh_unavailable_or_report_invalid": "run_ssh_connectivity_preflight_locally",
+}
+
+
+def ssh_failure(state: str) -> tuple[dict, int]:
+    """Report a predetermined troubleshooting hint, never raw SSH output."""
+    if state not in _SSH_REMEDIATION:
+        state = "ssh_unavailable_or_report_invalid"
+    return {
+        "origin": "truenas_ssh",
+        "scrape_authorized": False,
+        "state": state,
+        "next_check": _SSH_REMEDIATION[state],
+    }, 2
+
+
+def classify_ssh_error(stderr: str, returncode: int) -> str:
+    """Use only fixed SSH failure signatures; no untrusted diagnostic echo."""
+    message = stderr.lower()[:8192]
+    if ("host key verification failed" in message
+            or "remote host identification has changed" in message
+            or "no " in message and "host key is known" in message):
+        return "ssh_host_key_untrusted"
+    if ("permission denied (publickey" in message
+            or "permission denied (keyboard-interactive" in message
+            or "too many authentication failures" in message
+            or "authentication failed" in message):
+        return "ssh_authentication_denied"
+    if "connection refused" in message:
+        return "ssh_connection_refused"
+    if "connection timed out" in message or "operation timed out" in message:
+        return "ssh_connection_timeout"
+    if "no route to host" in message or "network is unreachable" in message:
+        return "ssh_network_unreachable"
+    if "could not resolve hostname" in message:
+        return "ssh_name_resolution_failed"
+    if ("python3: command not found" in message
+            or "python3: not found" in message
+            or "python3: no such file or directory" in message):
+        return "remote_python_unavailable"
+    if ("kex_exchange_identification" in message
+            or "connection closed by" in message
+            or "connection reset by" in message
+            or "administratively prohibited" in message
+            or "this account is currently not available" in message):
+        return "ssh_session_rejected"
+    return "ssh_unavailable_or_report_invalid" if returncode == 255 else "remote_report_invalid"
+
+
 def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> tuple[dict, int]:
     """Execute the same read-only probe on TrueNAS over authenticated SSH.
 
@@ -140,9 +204,14 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
             command, input=source, capture_output=True, text=True,
             timeout=20, check=False,
         )
-        if completed.returncode not in (0, 1, 2) or len(completed.stdout) > 4096:
-            raise ValueError("ssh_runtime_unverified")
-        payload = json.loads(completed.stdout)
+        if completed.returncode not in (0, 1, 2):
+            return ssh_failure(classify_ssh_error(completed.stderr, completed.returncode))
+        if len(completed.stdout) > 4096:
+            return ssh_failure("remote_output_too_large")
+        try:
+            payload = json.loads(completed.stdout)
+        except (ValueError, TypeError):
+            return ssh_failure(classify_ssh_error(completed.stderr, completed.returncode))
         if (
             completed.returncode == 2
             and isinstance(payload, dict)
@@ -150,9 +219,7 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
             and payload["state"] == "token_file_invalid_or_unreadable"
             and payload["scrape_authorized"] is False
         ):
-            return {"origin": "truenas_ssh",
-                    "state": "remote_token_file_invalid_or_unreadable",
-                    "scrape_authorized": False}, 2
+            return ssh_failure("remote_token_file_invalid_or_unreadable")
         if (
             not isinstance(payload, dict)
             or payload.get("state") not in _REMOTE_STATES
@@ -166,7 +233,7 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
                 for key in ("anonymous_http", "authenticated_http")
             )
         ):
-            raise ValueError("invalid_remote_report")
+            return ssh_failure("remote_report_invalid")
         approved = (
             completed.returncode == 0
             and payload["scrape_authorized"]
@@ -188,9 +255,12 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
         return report, 0 if approved else (
             1 if completed.returncode == 1 else 2
         )
-    except (OSError, ValueError, UnicodeError, subprocess.TimeoutExpired):
-        return {"state": "ssh_unavailable_or_report_invalid",
-                "scrape_authorized": False}, 2
+    except FileNotFoundError:
+        return ssh_failure("ssh_client_missing")
+    except subprocess.TimeoutExpired:
+        return ssh_failure("ssh_timeout")
+    except (OSError, ValueError, UnicodeError):
+        return ssh_failure("ssh_unavailable_or_report_invalid")
 
 
 def main() -> int:
