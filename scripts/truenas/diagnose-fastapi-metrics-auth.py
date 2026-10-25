@@ -144,6 +144,16 @@ def ssh_status(target: str, token_file: Path | None = None, port: int = 22) -> t
             raise ValueError("ssh_runtime_unverified")
         payload = json.loads(completed.stdout)
         if (
+            completed.returncode == 2
+            and isinstance(payload, dict)
+            and set(payload) == {"state", "scrape_authorized"}
+            and payload["state"] == "token_file_invalid_or_unreadable"
+            and payload["scrape_authorized"] is False
+        ):
+            return {"origin": "truenas_ssh",
+                    "state": "remote_token_file_invalid_or_unreadable",
+                    "scrape_authorized": False}, 2
+        if (
             not isinstance(payload, dict)
             or payload.get("state") not in _REMOTE_STATES
             or payload.get("origin") != "truenas_loopback"
