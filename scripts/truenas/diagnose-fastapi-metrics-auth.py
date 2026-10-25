@@ -111,6 +111,7 @@ def assess(anonymous: int | None, authorized: int | None, token_supplied: bool) 
 # Categories are static: never return raw stderr, remote stdout or paths.
 _SSH_REMEDIATION = {
     "ssh_client_missing": "install_local_openssh_client",
+    "ssh_client_options_invalid": "check_openssh_client_version_and_ssh_arguments",
     "ssh_host_key_untrusted": "verify_truenas_ssh_host_key",
     "ssh_authentication_denied": "verify_ssh_user_and_authorized_key",
     "ssh_connection_refused": "verify_truenas_ssh_listener_and_port",
@@ -142,6 +143,11 @@ def ssh_failure(state: str) -> tuple[dict, int]:
 def classify_ssh_error(stderr: str, returncode: int) -> str:
     """Use only fixed SSH failure signatures; no untrusted diagnostic echo."""
     message = stderr.lower()[:8192]
+    if ("invalid option --" in message
+            or "unknown option" in message
+            or "bad configuration option" in message
+            or "usage: ssh " in message):
+        return "ssh_client_options_invalid"
     if ("host key verification failed" in message
             or "remote host identification has changed" in message
             or "no " in message and "host key is known" in message):
