@@ -275,4 +275,46 @@ jamais une conclusion de panne FastAPI.
 Ce mode exige un accès réseau LAN/VPN déjà existant ; aucun tunnel
 Cloudflare ou ouverture WAN n'est créé.
 
+### Collecte Prometheus FastAPI — preuve du 26 octobre 2026
+
+L'opérateur a confirmé depuis la workstation :
+- `ssh -G albandrieu@172.17.0.24` : port effectif **9922**.
+- Diagnostic avec `--ssh-target` corrigé : `origin=truenas_ssh`,
+  `anonymous_http=401`, `credentials_tested=false`,
+  `key_configured_scraper_credentials_unverified`.
+- Le port SSH personnalisé explique le `ssh_connection_refused` antérieur
+  lorsque le script imposait le port 22. La connexion distante fonctionne.
+
+**Responsabilité inter-dépôts :** l'accès anonyme HTTP 401 prouve que
+`/metrics` répond et exige une identité machine. Il ne valide pas le
+scrape. Le code FastAPI accepte la clé `METRICS_SCRAPE_KEY` via
+`Authorization: Bearer` et `X-Metrics-Key`. Dans le dépôt Compose,
+`apps/prometheus/prometheus.yml` déclare `job_name: fastapi_sample`
+avec la cible `172.17.0.24:8091`, **mais ne déclare pas encore**
+`authorization` ni `credentials_file` pour ce job sur la branche
+vérifiée (26/10/2026). Cela explique le HTTP 401 si la configuration
+déployée est identique. La configuration effective et les secrets restent
+à vérifier avant de corriger Compose.
+
+Séquence de correction, sans sortie de secret :
+
+1. Vérifier le job `fastapi_sample` dans la configuration active
+   de Prometheus sur TrueNAS. Ne pas afficher sa réponse brute.
+2. Provisionner un **jeton dédié** et identique côté runtime FastAPI
+   et côté fichier de credentials Prometheus, via la gestion de secrets
+   existante. Ne pas créer le fichier dans Git.
+3. Déclarer `authorization.type: Bearer` et
+   `authorization.credentials_file` sous le seul job
+   `fastapi_sample` dans `nabla-compose`.
+4. Tester en local `promtool check config`, les permissions du secret
+   pour l'UID `568` et le montage Compose avant tout déploiement.
+5. Faire valider le déploiement puis vérifier
+   `up{job="fastapi_sample"} == 1`. Ce signal prouve le scrape,
+   non la disponibilité fonctionnelle de l'application.
+
+Ne pas utiliser `DIAGNOSTICS_ACCESS_KEY` pour Prometheus, ne pas
+désactiver l'authentification, et ne pas divulguer d'empreinte de clé.
+Le diagnostic FastAPI affiche désormais `next_check` avec un code fixe,
+sans refléter les commandes ni les valeurs reçues depuis SSH.
+
 Les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` exigent toujours une clé diagnostics valide même lorsque `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=true`. L'accusé de trace n'est jamais fourni aux requêtes refusées.
