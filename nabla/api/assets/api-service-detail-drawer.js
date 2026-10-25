@@ -1,5 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
+import { gatusCoverage, gatusCatalogueCoverage } from "./api-service-gatus-coverage.js";
 import { serviceRelations } from "./api-service-relations.js";
 import { fetchTopology } from "./api-topology-data.js";
 import { EVIDENCE_GROUPS, evidenceAdvice, evidenceCounts, evidenceGroup, requestedServiceId, sanitizedEvidence, validServiceId } from "./api-service-evidence-ux.js";
@@ -457,6 +457,19 @@ function renderGatusFleet(drawer, row) {
   section.hidden = !isGatus;
   if (!isGatus) return;
   const fleet = gatusCoverage(latestSnapshot);
+  const ids = [...new Set([...document.querySelectorAll(
+    "#health-services-groups [data-service-filter-target]"
+  )].map((card) => catalogueRouteId(card)).filter(Boolean))];
+  const catalogue = gatusCatalogueCoverage(latestSnapshot, ids);
+  const coverageSummary = document.createElement("p");
+  coverageSummary.className = "service-detail-coverage";
+  coverageSummary.textContent = catalogue.state === "observed"
+    ? "Catalogue sampled: " + catalogue.withSamples + "/" + catalogue.catalogueTotal +
+      " visible cards · " + catalogue.withoutSamples.length + " with no labelled sample. " +
+      "Gatus monitor configuration parity has not been verified."
+    : "Catalogue coverage unknown: " + catalogue.reason +
+      ". No monitor can be marked UP from this snapshot.";
+  host.appendChild(coverageSummary);
   const totals = document.createElement("p");
   totals.className = "service-detail-empty";
   totals.textContent = fleet.state !== "observed"
@@ -464,6 +477,24 @@ function renderGatusFleet(drawer, row) {
     : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
   host.appendChild(totals);
   if (fleet.state !== "observed") return;
+  if (catalogue.withoutSamples.length) {
+    const heading = document.createElement("strong");
+    heading.className = "service-detail-relation-group";
+    heading.textContent = "Visible catalogue cards with no sampled monitor (" +
+      catalogue.withoutSamples.length + ")";
+    host.appendChild(heading);
+    for (const id of catalogue.withoutSamples.slice(0, 25)) {
+      host.appendChild(linkedCatalogueItem({ id, name: id }, {
+        type: "No sample", status: "not proven monitored",
+      }));
+    }
+    if (catalogue.withoutSamples.length > 25) {
+      const tail = document.createElement("p");
+      tail.className = "service-detail-empty";
+      tail.textContent = "Additional cards have no usable Gatus evidence.";
+      host.appendChild(tail);
+    }
+  }
   // The catalogue can contain services with no Gatus monitor. Never show
   // those as green, nor treat a healthy Gatus scheduler as healthy targets.
   const views = [
@@ -537,9 +568,39 @@ function renderDrawer(row, { force = false } = {}) {
   drawer.dataset.renderSignature = signature;
 }
 
-function openDrawer(row, trigger) {
+function updateServiceUrl(row) {
+  const id = catalogueRouteId(row);
+  if (!id) return;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("service") === id) return;
+  url.searchParams.set("service", id);
+  window.history.pushState(window.history.state, "", url);
+}
+
+function syncDrawerFromUrl() {
+  const id = requestedServiceId(window.location.search);
+  if (!id) {
+    if (activeRow) closeDrawer({ restoreFocus: false, syncUrl: false });
+    return;
+  }
+  const row = matchingCatalogueRow(id);
+  if (row && (!activeRow || catalogueRouteId(activeRow) !== id)) {
+    openDrawer(row, row.querySelector(":scope > .service-detail-trigger"), {
+      syncUrl: false, recordTrail: false,
+    });
+  }
+}
+
+function openDrawer(row, trigger, { syncUrl = true, recordTrail = true } = {}) {
   if (!row) return;
-  if (activeRow && activeRow !== row) delete activeRow.dataset.detailSelected;
+  if (activeRow && activeRow !== row) {
+    if (recordTrail) {
+      const oldId = catalogueRouteId(activeRow);
+      if (oldId) navigationTrail.push(oldId);
+      if (navigationTrail.length > 20) navigationTrail.shift();
+    }
+    delete activeRow.dataset.detailSelected;
+  }
   activeRow = row;
   activeIdentity = rowIdentity(row);
   activeTrigger = trigger || null;
@@ -547,10 +608,14 @@ function openDrawer(row, trigger) {
   renderDrawer(row, { force: true });
   const drawer = ensureDrawer();
   drawer.hidden = false;
+  const back = drawer.querySelector("#service-detail-back");
+  if (back) back.hidden = navigationTrail.length === 0;
+  if (syncUrl) updateServiceUrl(row);
   drawer.focus({ preventScroll: true });
+  document.dispatchEvent(new CustomEvent("service-detail-selected", { detail: { serviceId: catalogueRouteId(row) } }));
 }
 
-function closeDrawer({ restoreFocus = true } = {}) {
+function closeDrawer({ restoreFocus = true, syncUrl = true } = {}) {
   const drawer = document.getElementById("service-detail-drawer");
   if (drawer) drawer.hidden = true;
   if (activeRow) delete activeRow.dataset.detailSelected;
@@ -558,6 +623,14 @@ function closeDrawer({ restoreFocus = true } = {}) {
   activeRow = null;
   activeTrigger = null;
   activeIdentity = null;
+  navigationTrail.length = 0;
+  if (syncUrl) {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("service")) {
+      url.searchParams.delete("service");
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }
   if (restoreFocus && trigger?.isConnected) {
     trigger.focus({ preventScroll: true });
   }
@@ -565,11 +638,15 @@ function closeDrawer({ restoreFocus = true } = {}) {
 
 function ensureDetailTrigger(row) {
   if (!(row instanceof HTMLElement)) return;
-  if (row.querySelector(":scope > .service-detail-trigger")) return;
+  const current = row.querySelector(":scope > .service-detail-trigger");
+  if (current) return;
   const trigger = document.createElement("button");
   trigger.type = "button";
   trigger.className = "service-detail-trigger";
-  trigger.textContent = "Details";
+  const counts = evidenceCounts(probeEntries(row));
+  trigger.textContent = counts.failed
+    ? "Details · " + counts.failed + " failed"
+    : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
   trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute(
     "aria-label",
@@ -690,4 +767,21 @@ export function installServiceDetailDrawer() {
   installKeyboardClose();
   document.addEventListener("service-filter-changed", scheduleActiveRefresh);
   document.addEventListener("health-board-refreshed", scheduleActiveRefresh);
+  document.addEventListener("health-board-refreshed", () => {
+    // Rows may be replaced asynchronously after the board event.
+    window.requestAnimationFrame(() => {
+      decorateRows();
+      document.querySelectorAll(ROW_SELECTOR).forEach((row) => {
+        const trigger = row.querySelector(":scope > .service-detail-trigger");
+        if (!trigger) return;
+        const counts = evidenceCounts(probeEntries(row));
+        const label = counts.failed ? "Details · " + counts.failed + " failed"
+          : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
+        if (trigger.textContent !== label) trigger.textContent = label;
+      });
+      syncDrawerFromUrl();
+    });
+  });
+  window.addEventListener("popstate", syncDrawerFromUrl);
+  syncDrawerFromUrl();
 }
