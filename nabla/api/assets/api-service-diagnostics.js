@@ -222,7 +222,7 @@ function addHttpEvidence(target, check, kinds, { privateS3 = false, serviceId = 
   target.appendChild(
     probeBadge(
       "http",
-      privateS3 ? "unknown" : reachabilityTone(check),
+      expectedAuth ? "info" : privateS3 ? "unknown" : httpObservationTone(check, serviceId),
       label,
       detail,
       check,
