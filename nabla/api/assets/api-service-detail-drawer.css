@@ -518,3 +518,6 @@
     margin-left: 0;
   }
 }
+
+.service-detail-probe--info { border-color: rgba(96, 165, 250, 0.48); }
+.service-detail-probe--info .service-detail-probe-state { color: #a7d2ff; }
