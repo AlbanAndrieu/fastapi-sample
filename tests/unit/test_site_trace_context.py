@@ -1,4 +1,4 @@
-from nabla.api.site_trace_context import verified_site_trace_id
+from nabla.api.site_trace_context import extract_site_trace_id, verified_site_trace_id
 
 def test_valid_w3c_site_trace_is_returned():
     assert verified_site_trace_id("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01") == "4bf92f3577b34da6a3ce929d0e0e4736"
@@ -12,8 +12,6 @@ def test_bad_or_injected_traces_never_pass():
     ):
         assert verified_site_trace_id(value) is None
 
-
-from nabla.api.site_trace_context import extract_site_trace_id
 
 
 def test_site_receipt_compatibility_and_sampling_flags():
