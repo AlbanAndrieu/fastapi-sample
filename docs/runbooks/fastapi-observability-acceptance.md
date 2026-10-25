@@ -175,10 +175,10 @@ Depuis **TrueNAS** en lecture seule :
 python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check
 ```
 
-Un `401` anonyme est un **contrôle d'accès actif**, pas une panne FastAPI. Sans secret local, le résultat `key_configured_scraper_credentials_unverified` est **UNVERIFIED**, non `PASS`. Avec un fichier de clé privée détenu par l'opérateur (chemin hors Git, permission `0600`), contrôler explicitement le même jeton :
+Un `401` anonyme est un **contrôle d'accès actif**, pas une panne FastAPI. Sans secret local, le résultat `key_configured_scraper_credentials_unverified` est **UNVERIFIED**, non `PASS`. Avec un fichier de clé privée détenu par l'opérateur (chemin hors Git, permission `0600` ou `0640`, jamais lisible par tout le monde), contrôler explicitement le même jeton :
 
 ```bash
-sudo python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check \\
+sudo python3 scripts/truenas/diagnose-fastapi-metrics-auth.py --check \
   --token-file /chemin/prive/metrics-scrape-token
 ```
 
