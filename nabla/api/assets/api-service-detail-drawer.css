@@ -455,3 +455,12 @@
   .service-detail-drawer { max-height: calc(100dvh - 0.75rem); }
   .service-detail-evidence-group summary { min-height: 44px; }
 }
+
+.service-detail-trigger[data-issues="fail"] {
+  border-color: rgba(255, 104, 104, 0.7);
+  color: #ffaaaa;
+}
+.service-detail-trigger[data-issues="warn"] {
+  border-color: rgba(255, 205, 85, 0.65);
+  color: #ffdc88;
+}
