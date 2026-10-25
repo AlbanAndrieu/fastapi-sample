@@ -40,6 +40,7 @@ _DENY_HEADERS = {
 
 
 # Explicit temporary read allowlist; unknown and future operational routes stay gated.
+# Site machine v2 projections are never part of this anonymous rollback.
 _TEMPORARY_READ_ROUTES = frozenset({
     "/healthz",
     "/sickz",
@@ -51,8 +52,6 @@ _TEMPORARY_READ_ROUTES = frozenset({
     "/api/homelab-topology",
     "/api/public-topology",
     "/api/runtime/topology",
-    "/api/site/catalog/v2",
-    "/api/site/health/v2",
     "/api/homelab/declared-services",
     "/api/homelab/runtime",
     "/api/homelab/status",
