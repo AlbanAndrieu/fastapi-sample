@@ -170,7 +170,7 @@ def _register_site_projection_routes(app: FastAPI) -> None:
         trace_id = extract_site_trace_id(request.headers.get("traceparent"))
         if trace_id:
             response.headers["X-Nabla-Trace-ID"] = trace_id
-            logger.info("site_health_v2 trace_id=%s", trace_id)
+            logger.info("site_health_v2_trace", trace_id=trace_id)
         try:
             return await fetch_site_health_v2(request)
         except SiteCatalogV2Unavailable:
