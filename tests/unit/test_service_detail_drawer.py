@@ -65,7 +65,9 @@ def test_detail_drawer_refreshes_without_new_health_engine() -> None:
     assert 'document.addEventListener("health-board-refreshed", scheduleActiveRefresh)' in source
     assert "new MutationObserver" in source
     assert "fetch(" not in source
-    assert "fetchHealthBoard" not in source
+    # The drawer reuses the bounded cached board snapshot; no direct per-card fetch.
+    assert 'fetchHealthBoard()' in source
+    assert "window.fetch(" not in source
 
 
 def test_detail_drawer_has_dedicated_responsive_stylesheet() -> None:
