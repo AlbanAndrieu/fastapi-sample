@@ -96,3 +96,36 @@ export function gatusServiceEvidence(snapshot, id, now = Date.now()) {
     probes,
   };
 }
+
+/**
+ * Catalogue/metrics reconciliation, not monitor configuration parity.
+ * A card without a metric may be intentionally unmonitored or have a broken
+ * recording rule. Neither state should be reported as a failed check.
+ */
+export function gatusCatalogueCoverage(snapshot, catalogueIds = [], now = Date.now()) {
+  const fleet = gatusCoverage(snapshot, now);
+  const ids = [...new Set((Array.isArray(catalogueIds) ? catalogueIds : [])
+    .filter((id) => typeof id === "string" && ID_PATTERN.test(id)))].slice(0, MAX_SERVICES);
+  const result = {
+    state: fleet.state,
+    reason: fleet.reason,
+    catalogueTotal: ids.length,
+    withSamples: 0,
+    withoutSamples: [],
+    failingServices: 0,
+    status: fleet.state !== "observed" ? "unverified" : "partial",
+    declaredMonitors: null,
+  };
+  if (fleet.state !== "observed") return result;
+  for (const id of ids) {
+    const check = gatusServiceEvidence(snapshot, id, now);
+    if (check.probes.length) {
+      result.withSamples++;
+      if (check.status === "down") result.failingServices++;
+    } else {
+      result.withoutSamples.push(id);
+    }
+  }
+  // Even 100% of visible cards with samples cannot establish Gatus config parity.
+  return result;
+}
