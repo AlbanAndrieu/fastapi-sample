@@ -219,13 +219,34 @@ de tester `/metrics`, lancer séparément sur la workstation :
 
 ```bash
 ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes \
-  -o ConnectTimeout=7 -p 22 albandrieu@172.17.0.24 \
+  -o ConnectTimeout=7 albandrieu@172.17.0.24 \
   'command -v python3 >/dev/null' >/dev/null 2>/dev/null \
   && echo SSH_PYTHON_OK || echo SSH_PYTHON_NOT_VERIFIED
 ```
 
 Cette commande ne lit aucune clé de métriques. Ne pas désactiver
-`StrictHostKeyChecking`. Si la clé d'hôte est inconnue ou a changé,
+`StrictHostKeyChecking`.
+
+**Retour opérateur du 26 octobre 2026 :** la commande SSH ci-dessus
+(sans `-p`) affiche `SSH_PYTHON_OK`, tandis que la version précédente
+du script (avec `-p 22` imposé) annonçait
+`ssh_connection_refused`. L'hypothèse principale est un port SSH
+personnalisé dans la configuration locale, non une panne SSH TrueNAS.
+Depuis la version corrigée de #378, `--ssh-target` n'ajoute plus
+`-p 22` par défaut. `--ssh-port N` reste possible si un remplacement
+est explicitement demandé.
+
+Pour afficher **uniquement le port effectif** utilisé par OpenSSH
+sans copier les autres paramètres du client :
+
+```bash
+ssh -G albandrieu@172.17.0.24 |
+  awk '$1 == "port" { print "SSH_CONFIG_PORT=" $2; exit }'
+```
+
+Ne pas afficher `ssh -G` complet dans les tickets : les chemins
+IdentityFile et ProxyCommand peuvent contenir des informations locales.
+ Si la clé d'hôte est inconnue ou a changé,
 contrôler son empreinte depuis la console TrueNAS avant de l'approuver.
 En cas de refus d'authentification, vérifier le compte SSH,
 sa clé publique autorisée et son shell. Un compte API TrueNAS n'a
