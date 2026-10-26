@@ -282,6 +282,54 @@ ces différences entre clients ne constituent pas un diagnostic
 de crash serveur. La cible **`truenas` LAN direct** est la
 plus interprétable pour l'UI locale.
 
+## Nouvelle réception opérateur après #379 sur TrueNAS (27/10)
+
+`FASTAPI_SAMPLE_REF=fa13c08db05ce8ce086d2366e1f35706913f05be
+./scripts/truenas/update-fastapi-sample.sh` a **terminé 6/6** :
+HTTP healthy 4/4, Prometheus/Gatus contrat OK, observer OK,
+pfSense RBAC `warning` facultatif. L'image ne publie toujours
+pas `build_revision`, mais la provenance de la construction est
+présente dans le journal opérateur.
+
+Playwright **après** ce déploiement a confirmé de nouveau :
+`truenas: /api=200, pageErrors=0, main_thread_unresponsive` ;
+`cloud: /api=200, pageErrors=0, main_thread_unresponsive`.
+Le hotfix #379 est donc **insuffisant** pour supprimer le gel.
+
+### Correctif #380 : statut TrueNAS sans réécriture cyclique
+
+Le filtre global observait `data-semantic-status` dans
+`#health-board` puis réaffectait `panel.dataset.semanticStatus`
+à chaque frame, même pour une valeur inchangée.
+`setDatasetValueIfChanged(panel, "semanticStatus", status)` coupe
+la boucle ; les métadonnées `probeKinds`, `presentationGroup`
+et `environments` utilisent le même garde-fou.
+Une reproduction Chromium synthétique montre une seule
+mutation en 100 cycles après correction ; tests Node
+sur 1000 cycles idempotents PASS.
+La page complète doit encore être retestée après déploiement.
+
+### Mode de secours `?ui_safe=1` (nouveau dans #380)
+
+Si un autre enrichisseur DOM reste défectueux, la page
+`http://172.17.0.24:8091/api?ui_safe=1` contourne tous
+les installateurs UI avancés : **catalogue public uniquement**,
+`/api/ui/services` avec délai 6,5 s, pas d'auth OWNER,
+pas de probes privées ni actions de mutation.
+
+Après une recette #380 réussie, comparer :
+
+```bash
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+```
+
+**Avant le déploiement de #380, `ui_safe` n'est pas pris en
+charge par la version fa13c08d**. Ne pas interpréter un
+`main_thread_unresponsive` en mode safe avec l'ancienne
+version comme un échec du mode de secours.
+
 ## Contrôle Chrome sans secrets
 
 1. Ouvrir DevTools → **Performance** ; enregistrer 5 s sur
