@@ -51,6 +51,7 @@ def test_optional_lan_data_is_lazy_and_tickers_do_not_rewrite_all_rows_each_seco
     ticker = read("api-probe-live.js")
     http = read("api-http-probe-status.js")
     assert "loadHealthBoards({ includeTechnical: technicalDetailsOpen() })" in controller
+    assert "HEALTH_BOARD_ERROR_BACKOFF_MS = 60000" in controller
     assert "const AGE_TICK_MS = 10000;" in ticker
     assert "lastSnapshot && !document.hidden" in ticker
     assert "window.setInterval(schedule, 1000)" not in http
