@@ -103,7 +103,22 @@ async function bootstrapHealthUi() {
   installHealthUiConsistencyFollowup();
   installHealthUiProbeGrid();
   installHealthUiFinalFollowup();
-  await installPublicServiceOverview({ ownerAuthenticated: readable });
+  // The public projection is the independent fallback for a read-only
+  // dashboard when its private/aggregated health snapshots are stalled.
+  // OWNER mode still uses the richer service rows directly.
+  if (!authenticated) {
+    let detailedReady = false;
+    document.addEventListener("health-board-refreshed", () => {
+      detailedReady = true;
+      const fallback = document.getElementById("public-services-panel");
+      if (fallback) fallback.hidden = true;
+    });
+    await installPublicServiceOverview({ ownerAuthenticated: false });
+    if (detailedReady) {
+      const fallback = document.getElementById("public-services-panel");
+      if (fallback) fallback.hidden = true;
+    }
+  }
 }
 
 void bootstrapHealthUi();
