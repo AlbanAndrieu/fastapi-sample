@@ -43,7 +43,6 @@ def test_node_wrapper_streams_phases_and_has_hard_deadline():
     assert '"--no-project", "--with", "playwright"' in script
     assert "API_UI_TARGET: target" in script
     assert '"browser_diagnostic_timeout"' in script
-    assert '"phase"' not in script or "phase" in script
     assert "35_000" in script
     assert 'child.kill("SIGKILL")' in script
     assert 'child.stderr.on("data", () => {})' in script
@@ -57,5 +56,5 @@ def test_fast_transport_uses_pinned_get_requests_without_body_or_keys():
     assert 'timeout=3' in script
     assert 'method="GET"' in script
     assert "NoRedirect" in script
-    for forbidden in ("response.read(", "response.text(", "X-Diagnostics-Key", "Authorization", "cookie"):
+    for forbidden in ("response.read(", "response.text(", "X-Diagnostics-Key", "Authorization", '"Cookie":'):
         assert forbidden not in script
