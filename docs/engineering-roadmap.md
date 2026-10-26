@@ -50,6 +50,29 @@ HTTP n'empêchent pas un cycle `MutationObserver` → rAF → mutation DOM.
 - [ ] **Vérification runtime après déploiement** : `/api/site/health/v2`
   avec identité valide + traceparent doit répondre sans 500 ;
   `/api` doit rester interactif, sans boucle MutationObserver.
+- [x] **TrueNAS staging réexécuté** : déploiement `origin/master`
+  `f10c8147` (sans #379) ; health HTTP 4/4, Prometheus API 200,
+  LiteLLM/Ollama/OpenRAG backend HTTP 200 ; la page
+  `https://sample.albandrieu.com/api` reste pourtant bloquée
+  sur Loading. Ne plus attribuer la panne à l'échec des sondes LAN
+  sans preuve du navigateur.
+- [x] **Playwright diagnostique corrigé** : Chromium installé sur
+  workstation, mais l'ancien `spawnSync` de 50 s expire.
+  Diagnostic Python **asynchrone** avec `page.evaluate` limitée
+  à 2 s, phases de navigation, arrêt global à 35 s.
+  Le lanceur accepte `cloud`, `staging` et `truenas`.
+- [x] **Triage HTTP indépendant du navigateur** :
+  `scripts/diagnose-api-ui-transport.py` relève trois endpoints
+  essentiels par cible, timeouts 3 s, sans cookies ni données privées.
+- [ ] **Mesurer hors Cloudflare Access** : sur workstation
+  `node scripts/diagnose-production-api-ui-freeze.mjs truenas`
+  et `python3 scripts/diagnose-api-ui-transport.py --target truenas`.
+  Comparer `cloud`; pour `staging`, un 403/302 d'Access est
+  une limite du navigateur automatique non authentifié.
+- [ ] **Tester la vraie image #379** : master `f10c8147`
+  ne contient pas le hotfix ; recette TrueNAS avec le HEAD immuable
+  de #379 seulement après validation locale (sans toucher aux
+  secrets du corpus Bababou).
 - [ ] **UI en production** : fusionner/déployer le hotfix ;
   profiler la page Chrome Performance avant/après, relever
   long tasks et confirmer aucune animation infinie.
