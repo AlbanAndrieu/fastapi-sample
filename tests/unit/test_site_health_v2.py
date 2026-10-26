@@ -1,7 +1,7 @@
 """Contract and privacy tests for the SITE health v2 service."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -134,6 +134,42 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
     assert denied.status_code == 401
     assert "x-nabla-trace-id" not in denied.headers
 
+
+
+
+def test_traced_site_health_v2_structlog_does_not_raise_500(monkeypatch):
+    """Regression for 2026-10-26 Cloud 500 caused by brace-style logger args."""
+    settings = SimpleNamespace(
+        diagnostics_access_key=SecretStr("test-machine-key"),
+        admin_access_key=None,
+        mcp_ops_key=None,
+        ops_route_policy_strict=False,
+        homelab_trusted_cidrs="82.66.4.247/32",
+        homelab_trusted_proxy_cidrs="",
+    )
+    monkeypatch.setattr(access_control, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        health_routes,
+        "fetch_site_health_v2",
+        AsyncMock(return_value=project_site_health_v2(_catalog(), {"state": "pending"})),
+    )
+    log_info = MagicMock(wraps=health_routes.logger.info)
+    monkeypatch.setattr(health_routes, "logger", SimpleNamespace(info=log_info))
+    app = FastAPI()
+    app.middleware("http")(access_control.operations_access_middleware)
+    health_routes._register_homelab_catalog_routes(app)
+
+    trace_id = "f" * 32
+    response = TestClient(app).get(
+        "/api/site/health/v2",
+        headers={
+            "X-Diagnostics-Key": "test-machine-key",
+            "traceparent": f"00-{trace_id}-{'1' * 16}-01",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["x-nabla-trace-id"] == trace_id
+    log_info.assert_called_once_with("site_health_v2", trace_id=trace_id)
 
 def test_duplicate_backstage_names_do_not_share_a_single_health_observation():
     """One board ID cannot prove health for two different entity references."""
