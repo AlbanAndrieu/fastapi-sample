@@ -1,4 +1,7 @@
 // Owner UI authentication: never persist the diagnostics key in browser storage.
+import { withRequestDeadline } from "./api-request-deadline.js";
+
+const SESSION_DEADLINE_MS = 4500;
 let statusPromise = null;
 
 export function resetOwnerSessionStatus() {
@@ -7,20 +10,25 @@ export function resetOwnerSessionStatus() {
 
 async function sessionCapabilities() {
   if (!statusPromise) {
-    statusPromise = fetch("/api/ui/session", {
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        if (!response.ok) return { authenticated: false, readOnly: false };
-        const status = await response.json();
-        return {
-          authenticated: status.authenticated === true,
-          readOnly: status.readOnlyDiagnostics === true,
-        };
-      })
-      .catch(() => ({ authenticated: false, readOnly: false }));
+    statusPromise = withRequestDeadline(async (signal) => {
+      const response = await fetch("/api/ui/session", {
+        signal,
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return { authenticated: false, readOnly: false };
+      const status = await response.json();
+      return {
+        authenticated: status.authenticated === true,
+        readOnly: status.readOnlyDiagnostics === true,
+      };
+    }, SESSION_DEADLINE_MS).catch(() => ({
+      // Fail closed for diagnostic/owner capabilities; the public directory
+      // is rendered separately without an owner session.
+      authenticated: false,
+      readOnly: false,
+    }));
   }
   return statusPromise;
 }
