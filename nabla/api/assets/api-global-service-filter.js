@@ -101,11 +101,18 @@ function renderStatusChips(host) {
     button.setAttribute("aria-describedby", `service-filter-count-${status}`);
     button.dataset.tooltip = label;
     button.removeAttribute("title");
-    button.innerHTML =
-      `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
-      `<strong class="service-filter-health-count" aria-hidden="true">${counts[status]}</strong>` +
-      `<span class="service-filter-health-name" aria-hidden="true">${label}</span>` +
-      `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} services</span>`;
+    // Updating innerHTML creates childList records even when the count is
+    // unchanged. This module observes those same mutations on #health-board.
+    // Without this guard it schedules itself every animation frame.
+    const signature = `${counts[status]}:${enabled}`;
+    if (button.dataset.renderSignature !== signature) {
+      button.innerHTML =
+        `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
+        `<strong class="service-filter-health-count" aria-hidden="true">${counts[status]}</strong>` +
+        `<span class="service-filter-health-name" aria-hidden="true">${label}</span>` +
+        `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} services</span>`;
+      button.dataset.renderSignature = signature;
+    }
   }
 }
 
@@ -239,7 +246,6 @@ function ensureActiveFilters(host) {
 
 function renderActiveFilters(host, state = currentFilterState()) {
   const active = ensureActiveFilters(host);
-  active.replaceChildren();
   const entries = [];
   if (state.query) {
     entries.push(["query", "Search", "service-filter", state.query]);
@@ -250,6 +256,10 @@ function renderActiveFilters(host, state = currentFilterState()) {
     }
   }
 
+  const signature = JSON.stringify(entries);
+  if (active.dataset.renderSignature === signature) return;
+  active.dataset.renderSignature = signature;
+  active.replaceChildren();
   active.hidden = entries.length === 0;
   for (const [key, label, id, value] of entries) {
     const button = document.createElement("button");
