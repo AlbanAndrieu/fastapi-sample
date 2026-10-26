@@ -65,6 +65,28 @@ délais et logs `health board snapshot refresh timed out`.
 Les logs de serveur ne permettent pas à eux seuls de voir un
 `MutationObserver` qui boucle dans le navigateur.
 
+## Contrôle navigateur automatisé (read-only)
+
+Depuis un checkout local doté de Playwright et du navigateur Chromium,
+sans accès OWNER ni secret de production :
+
+```bash
+node scripts/diagnose-production-api-ui-freeze.mjs
+```
+
+La sonde vérifie le code HTTP de `/api`, les requêtes même origine
+vers les routes UI essentielles, les erreurs JavaScript (compte
+uniquement), les cartes encore sur Loading, les long tasks et
+la réactivité du thread JS. Elle **ne lit ni cookies ni réponse
+JSON des services** et ne déclenche pas d'appel de diagnostic OWNER.
+Elle attend 14 secondes après le chargement DOM, puis limite
+l'extraction du rapport à trois secondes.
+
+**Limite :** sans connectivité DNS à FastAPI Cloud ni binaire
+Playwright installé, ce test ne peut pas être exécuté par l'agent.
+Les tests unitaires Node de pure logique ne remplacent pas ce
+contrôle end-to-end.
+
 ## Contrôle Chrome sans secrets
 
 1. Ouvrir DevTools → **Performance** ; enregistrer 5 s sur
