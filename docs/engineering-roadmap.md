@@ -32,10 +32,24 @@ HTTP n'empêchent pas un cycle `MutationObserver` → rAF → mutation DOM.
 - [x] **Tests ciblés locaux** : 7 tests Node.js passent sur des blobs
   identiques aux fichiers GitHub, avec 100 passes sans nouvelle mutation.
   Aucun GitHub Actions consommé.
-- [ ] **Logs plateforme** : récupérer de manière autorisée
-  `fastapi cloud logs . --tail 200 --since 2h --no-follow` et
-  corréler `/api` et les endpoints de session/catalogue. L'agent ne
-  dispose pas d'une session CLI FastAPI Cloud ; **NOT_READ**.
+- [x] **Logs plateforme reçus (26/10)** : `/api` répond HTTP 200
+  en 6 ms, mais `/api/site/health/v2` retourne HTTP 500 avec
+  `TypeError: not all arguments converted during string formatting`.
+  L'origine est l'appel positionnel `logger.info("site_health_v2 trace_id={}", trace_id)`.
+  L'opérateur a récupéré les logs avec le CLI `mise exec -- uv run
+  fastapi cloud logs` ; aucun accès API Cloud supplémentaire requis.
+- [x] **Correctif backend PR #379** : journalisation structurée
+  `logger.info("site_health_v2", trace_id=trace_id)`, et test HTTP
+  authentifié avec `traceparent` valide pour empêcher la régression 500.
+- [x] **Dépendance Playwright locale** : le worktree PR #379 existe.
+  L'échec `ERR_MODULE_NOT_FOUND: playwright` venait de l'import JS
+  d'un package absent du `package.json` ; wrapper Node actualisé
+  pour utiliser Playwright Python par `mise exec -- uv run --with
+  playwright`, sans installation npm globale. Le diagnostic complet
+  après mise à jour reste **NOT_RUN**.
+- [ ] **Vérification runtime après déploiement** : `/api/site/health/v2`
+  avec identité valide + traceparent doit répondre sans 500 ;
+  `/api` doit rester interactif, sans boucle MutationObserver.
 - [ ] **UI en production** : fusionner/déployer le hotfix ;
   profiler la page Chrome Performance avant/après, relever
   long tasks et confirmer aucune animation infinie.
