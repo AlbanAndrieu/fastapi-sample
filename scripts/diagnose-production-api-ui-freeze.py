@@ -26,7 +26,7 @@ DEFAULT = "https://fastapi-sample.fastapicloud.dev/api"
 MAX_RECORDS = 45
 
 INIT_JS = r"""
-() => {
+(() => {
   window.__uiFreezeSample = { longTasks: 0, longTaskTotalMs: 0, frames: 0 };
   try {
     new PerformanceObserver((entries) => {
@@ -41,7 +41,7 @@ INIT_JS = r"""
     window.requestAnimationFrame(frame);
   };
   window.requestAnimationFrame(frame);
-}
+})();
 """
 REPORT_JS = r"""
 () => {
