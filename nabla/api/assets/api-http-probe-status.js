@@ -174,5 +174,6 @@ export function decorateHttpProbeStatuses(snapshot) {
 
 export function installHttpProbeStatuses() {
   document.addEventListener("health-board-refreshed", schedule);
-  window.setInterval(schedule, 1000);
+  // Changes originate from health-board events; a 1-second full-card scan
+  // wastes CPU and can make the catalogue look frozen on large inventories.
 }
