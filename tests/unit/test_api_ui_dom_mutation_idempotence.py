@@ -40,3 +40,20 @@ def test_new_regression_test_demonstrates_zero_mutations_after_stabilization():
     assert "afterFirstPass" in script
     assert "for (let i = 0; i < 100; i += 1)" in script
     assert "assert.equal(item.mutations, afterFirstPass)" in script
+
+
+def test_filter_widget_updates_html_only_for_changed_render_signature():
+    filter_js = source("api-global-service-filter.js")
+    pure_gate = source("api-dom-render-signature.js")
+    assert "shouldUpdateRenderSignature(button, signature)" in filter_js
+    assert "if (!shouldUpdateRenderSignature(active, signature)) return;" in filter_js
+    assert "active.replaceChildren()" in filter_js
+    assert "if (element.dataset.renderSignature === signature) return false;" in pure_gate
+
+
+def test_filter_and_probe_dom_guards_are_covered_by_node_regressions():
+    js_tests = ASSETS.parents[2] / "tests/js"
+    filter_regression = (js_tests / "api-filter-render-signature.test.mjs").read_text()
+    probe_regression = (js_tests / "api-probe-stable-order.test.mjs").read_text()
+    assert "for (let index = 0; index < 100; index += 1)" in filter_regression
+    assert "for (let i = 0; i < 100; i += 1)" in probe_regression
