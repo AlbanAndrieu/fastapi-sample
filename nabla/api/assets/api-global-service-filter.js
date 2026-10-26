@@ -1,3 +1,5 @@
+import { shouldUpdateRenderSignature } from "./api-dom-render-signature.js";
+
 const STATUS_CHIPS = [
   ["all", "All"],
   ["operational", "Operational"],
@@ -28,13 +30,6 @@ const ACTIVE_FILTERS = [
   ["exposure", "Exposure", "service-exposure-filter"],
   ["probe", "Probe", "service-probe-filter"],
 ];
-
-// A render that writes the observed DOM must only run when its input changes.
-export function shouldUpdateRenderSignature(element, signature) {
-  if (element.dataset.renderSignature === signature) return false;
-  element.dataset.renderSignature = signature;
-  return true;
-}
 
 const STICKY_HYSTERESIS_PX = 8;
 let refreshScheduled = false;
