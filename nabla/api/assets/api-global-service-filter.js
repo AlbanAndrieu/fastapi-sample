@@ -29,6 +29,13 @@ const ACTIVE_FILTERS = [
   ["probe", "Probe", "service-probe-filter"],
 ];
 
+// A render that writes the observed DOM must only run when its input changes.
+export function shouldUpdateRenderSignature(element, signature) {
+  if (element.dataset.renderSignature === signature) return false;
+  element.dataset.renderSignature = signature;
+  return true;
+}
+
 const STICKY_HYSTERESIS_PX = 8;
 let refreshScheduled = false;
 let stickyRefreshScheduled = false;
@@ -105,13 +112,12 @@ function renderStatusChips(host) {
     // unchanged. This module observes those same mutations on #health-board.
     // Without this guard it schedules itself every animation frame.
     const signature = `${counts[status]}:${enabled}`;
-    if (button.dataset.renderSignature !== signature) {
+    if (shouldUpdateRenderSignature(button, signature)) {
       button.innerHTML =
         `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
         `<strong class="service-filter-health-count" aria-hidden="true">${counts[status]}</strong>` +
         `<span class="service-filter-health-name" aria-hidden="true">${label}</span>` +
         `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} services</span>`;
-      button.dataset.renderSignature = signature;
     }
   }
 }
@@ -257,8 +263,7 @@ function renderActiveFilters(host, state = currentFilterState()) {
   }
 
   const signature = JSON.stringify(entries);
-  if (active.dataset.renderSignature === signature) return;
-  active.dataset.renderSignature = signature;
+  if (!shouldUpdateRenderSignature(active, signature)) return;
   active.replaceChildren();
   active.hidden = entries.length === 0;
   for (const [key, label, id, value] of entries) {
