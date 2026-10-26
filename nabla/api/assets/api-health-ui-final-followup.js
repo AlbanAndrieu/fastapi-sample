@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { reorderProbeNodesIfNeeded } from "./api-probe-stable-order.js";
 
 const PROBE_RETAIN_MS = 90000;
 const PROBE_SLOT_DEFINITIONS = new Map([
@@ -292,15 +293,7 @@ function stabilizeProbeSlots(row) {
     const probes = [
       ...strip.querySelectorAll(":scope > .service-probe[data-probe-kind]"),
     ];
-    probes
-      .sort(
-        (left, right) =>
-          (order.get(left.dataset.probeKind) ?? 99) -
-          (order.get(right.dataset.probeKind) ?? 99),
-      )
-      .forEach((probe) => {
-        strip.appendChild(probe);
-      });
+    reorderProbeNodesIfNeeded(strip, probes, order);
   }
 }
 
@@ -374,10 +367,13 @@ function normalizeTelemetry(row) {
     latency.title = "Latest probe latency unavailable";
     latency.setAttribute("aria-label", latency.title);
   } else {
-    latency.classList.toggle(
-      "health-meta-badge--probe-latency-unavailable",
-      latency.textContent.trim() === "—",
-    );
+    const unavailable = latency.textContent.trim() === "—";
+    if (
+      latency.classList.contains("health-meta-badge--probe-latency-unavailable") !==
+      unavailable
+    ) {
+      latency.classList.toggle("health-meta-badge--probe-latency-unavailable", unavailable);
+    }
     latency.title =
       latency.textContent.trim() === "—"
         ? "Latest probe latency unavailable"
@@ -388,7 +384,7 @@ function normalizeTelemetry(row) {
   const age = column.querySelector(".health-meta-badge--probe-age");
   if (age) {
     const value = String(age.textContent || "").trim() || "age unknown";
-    age.textContent = value;
+    if (age.textContent !== value) age.textContent = value;
     age.title = `Latest probe age: ${value}`;
     age.setAttribute("aria-label", age.title);
   }
@@ -416,7 +412,8 @@ function constrainLongMessages(row) {
   row
     .querySelectorAll(".health-row-detail, .service-provider-item")
     .forEach((node) => {
-      node.classList.add("health-overflow-safe");
+      if (!node.classList.contains("health-overflow-safe"))
+        node.classList.add("health-overflow-safe");
     });
 }
 

@@ -14,6 +14,51 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — Hotfix gel /api malgré PR #378 fusionnée (26 octobre 2026)
+
+**Preuve opérateur** : racine Cloud `/` utilisable ; page `/api` figée
+après fusion de #378 (`f10c8147`, 22:43 CET). Les anciennes bornes
+HTTP n'empêchent pas un cycle `MutationObserver` → rAF → mutation DOM.
+
+- [x] **Cause de code à forte confiance** : la finalisation des cartes
+  déplace chaque badge via `appendChild` à chaque frame, tandis que
+  l'observer surveille `childList`. Le filtre global réécrit
+  `innerHTML` des compteurs sans vérifier les valeurs, déclenchant
+  sa propre observation. Le libellé pfSense pouvait aussi être réécrit
+  sans changement.
+- [x] **Correctif dans la nouvelle PR** : rendre l'ordre des badges
+  idempotent ; ne reconstruire compteurs et filtres qu'au changement
+  de signature ; ne pas réécrire les textes/classes déjà corrects.
+- [x] **Tests ciblés locaux** : 7 tests Node.js passent sur des blobs
+  identiques aux fichiers GitHub, avec 100 passes sans nouvelle mutation.
+  Aucun GitHub Actions consommé.
+- [x] **Logs plateforme reçus (26/10)** : `/api` répond HTTP 200
+  en 6 ms, mais `/api/site/health/v2` retourne HTTP 500 avec
+  `TypeError: not all arguments converted during string formatting`.
+  L'origine est l'appel positionnel `logger.info("site_health_v2 trace_id={}", trace_id)`.
+  L'opérateur a récupéré les logs avec le CLI `mise exec -- uv run
+  fastapi cloud logs` ; aucun accès API Cloud supplémentaire requis.
+- [x] **Correctif backend PR #379** : journalisation structurée
+  `logger.info("site_health_v2", trace_id=trace_id)`, et test HTTP
+  authentifié avec `traceparent` valide pour empêcher la régression 500.
+- [x] **Dépendance Playwright locale** : le worktree PR #379 existe.
+  L'échec `ERR_MODULE_NOT_FOUND: playwright` venait de l'import JS
+  d'un package absent du `package.json` ; wrapper Node actualisé
+  pour utiliser Playwright Python par `mise exec -- uv run --with
+  playwright`, sans installation npm globale. Le diagnostic complet
+  après mise à jour reste **NOT_RUN**.
+- [ ] **Vérification runtime après déploiement** : `/api/site/health/v2`
+  avec identité valide + traceparent doit répondre sans 500 ;
+  `/api` doit rester interactif, sans boucle MutationObserver.
+- [ ] **UI en production** : fusionner/déployer le hotfix ;
+  profiler la page Chrome Performance avant/après, relever
+  long tasks et confirmer aucune animation infinie.
+- [ ] **Résilience en panne TrueNAS** : maintenir l'inventaire public,
+  les statuts non prouvés `UNKNOWN` et la réactivité des filtres.
+  Ne pas redémarrer TrueNAS pour résoudre une boucle navigateur.
+
+[Runbook incident Cloud /api](runbooks/fastapi-cloud-api-ui-freeze-20261026.md).
+
 ## P0 — Gel Cloud /api pendant une saturation mémoire TrueNAS (26 octobre 2026)
 
 **Signal opérateur :** la page Cloud
