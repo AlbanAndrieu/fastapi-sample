@@ -91,7 +91,7 @@ l'import de `playwright` **pour Node** qui échoue, car il n'est pas
 déclaré dans le `package.json` du dépôt. Le projet possède déjà
 l'extra Python de test `pytest-playwright`. La PR #379 remplace
 maintenant le lanceur Node par un wrapper `mise exec -- uv run
---with playwright python`, avec le vrai diagnostic dans
+--no-project --with playwright python`, avec le vrai diagnostic dans
 `scripts/diagnose-production-api-ui-freeze.py`.
 
 Le worktree `/tmp/fastapi-ui-freeze-pr379` **existe déjà**.
@@ -106,8 +106,8 @@ cd /tmp/fastapi-ui-freeze-pr379
 node scripts/diagnose-production-api-ui-freeze.mjs
 ```
 
-Le wrapper installe ou réutilise Playwright **dans l'environnement
-Python uv isolé**. Aucun `npm install`, `node_modules` ou
+Le wrapper installe ou réutilise Playwright **dans un environnement
+Python uv isolé, sans synchroniser les dépendances du projet**. Aucun `npm install`, `node_modules` ou
 installation globale n'est requis. Il faut en revanche que Chromium
 soit installé pour Playwright sur la workstation ; en cas de
 `browser_unavailable`, le prochain contrôle explicite est
