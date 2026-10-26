@@ -184,6 +184,8 @@ export function installHealthBoardController() {
 
   installSecurityControlIcons();
   installTechnicalDetailRefresh();
-  loadHealthBoards({ includeTechnical: true });
+  // Technical LAN drill-downs are lazy: the Cloud landing page must not
+  // eagerly fetch TrueNAS runtime/topology while the drawer is closed.
+  loadHealthBoards({ includeTechnical: technicalDetailsOpen() });
   installAutomaticRefresh();
 }
