@@ -1,4 +1,5 @@
-const AGE_TICK_MS = 1000;
+// Do not rescan and rewrite every service card every second.
+const AGE_TICK_MS = 10000;
 const ROW_DECORATION_RETRY_MS = 50;
 const ROW_DECORATION_ATTEMPTS = 20;
 
@@ -246,6 +247,6 @@ export function markVisibleProbeRowsPending() {
 export function startProbeAgeTicker() {
   if (ticker) return;
   ticker = window.setInterval(() => {
-    if (lastSnapshot) decorateRows(lastSnapshot);
+    if (lastSnapshot && !document.hidden) decorateRows(lastSnapshot);
   }, AGE_TICK_MS);
 }
