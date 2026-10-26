@@ -39,6 +39,32 @@ ne règlent pas cette classe de bug.
 - Tests Node avec 100 frames de rendu identiques : aucune nouvelle
   mutation DOM après la stabilisation.
 
+## Preuve serveur confirmée : `/api/site/health/v2` HTTP 500 (26/10)
+
+L'opérateur a réussi `mise exec -- uv run fastapi cloud whoami` :
+une identité Cloud et un API token d'environnement sont présents.
+Le CLI Cloud fonctionne ; ne pas renouveler ce token ni l'imprimer.
+Les logs applicatifs `--tail 200 --since 2h --no-follow` montrent :
+
+- `GET /api/site/health/v2` → **HTTP 500** à
+  `2026-10-26T22:16:50Z`.
+- Origine identifiée : `nabla/api/health_routes.py:171`,
+  `logger.info("site_health_v2 trace_id={}", trace_id)`.
+- `structlog` utilise la substitution de format `%` pour les
+  arguments positionnels ; une chaîne à accolades produit
+  `TypeError: not all arguments converted during string formatting`.
+- `GET /api` → **HTTP 200** en `0.006` seconde autour de
+  `2026-10-26T22:43:50Z` ; le HTML a été servi et la charge JS
+  reste un incident distinct.
+- `GET /vercel.svg` → **HTTP 404**, ressource décorative
+  indépendante du gel. Ne pas l'escalader comme incident API.
+
+Le hotfix #379 remplace la ligne par
+`logger.info("site_health_v2", trace_id=trace_id)`,
+et ajoute un test de régression avec en-tête `traceparent` valide.
+Le statut `200` de la route ne sera prouvé qu'après fusion et
+déploiement ; l'exception n'est pas résolue par la configuration réseau.
+
 ## Reprise après deux erreurs de commande locales (26/10)
 
 **CLI FastAPI :** la commande `fastapi cloud login` exécutée sans
@@ -59,28 +85,34 @@ Si la session n'est pas authentifiée, lancer **interactivement** :
 consultés avec `mise exec -- uv run fastapi cloud logs .`.
 La session interactive n'est **pas** un jeton CI ou un déploiement.
 
-**Fichier Playwright absent :** `node
-scripts/diagnose-production-api-ui-freeze.mjs` a donné
-`MODULE_NOT_FOUND` parce que le fichier a été ajouté dans la
-**PR #379 encore ouverte**, et non sur `master`.
-Il ne s'agit ni d'une erreur Node 24.22.1 ni d'une preuve de bug
-runtime. Depuis le checkout du dépôt, obtenir cette branche
-dans un worktree séparé (ne pas réinitialiser les modifications
-courantes) :
+**Playwright (erreur `ERR_MODULE_NOT_FOUND: playwright`) :**
+le script est bien présent dans le worktree de #379 ; c'est
+l'import de `playwright` **pour Node** qui échoue, car il n'est pas
+déclaré dans le `package.json` du dépôt. Le projet possède déjà
+l'extra Python de test `pytest-playwright`. La PR #379 remplace
+maintenant le lanceur Node par un wrapper `mise exec -- uv run
+--with playwright python`, avec le vrai diagnostic dans
+`scripts/diagnose-production-api-ui-freeze.py`.
+
+Le worktree `/tmp/fastapi-ui-freeze-pr379` **existe déjà**.
+Ne pas relancer `git worktree add` ; actualiser son HEAD
+détaché par fast-forward (en l'absence de changements locaux) :
 
 ```bash
 git fetch origin fix/api-ui-observer-render-loop-20261026
-git worktree add /tmp/fastapi-ui-freeze-pr379 \
+git -C /tmp/fastapi-ui-freeze-pr379 merge --ff-only \
   origin/fix/api-ui-observer-render-loop-20261026
 cd /tmp/fastapi-ui-freeze-pr379
 node scripts/diagnose-production-api-ui-freeze.mjs
 ```
 
-Ce script importe le paquet **Playwright** et nécessite Chromium ;
-le dépôt déclare déjà un autre vérificateur Playwright.
-Si le module ou le binaire Chrome est absent, conserver le message
-exact de cette nouvelle erreur et utiliser les DevTools du
-navigateur plutôt que des installations globales non supervisées.
+Le wrapper installe ou réutilise Playwright **dans l'environnement
+Python uv isolé**. Aucun `npm install`, `node_modules` ou
+installation globale n'est requis. Il faut en revanche que Chromium
+soit installé pour Playwright sur la workstation ; en cas de
+`browser_unavailable`, le prochain contrôle explicite est
+`mise exec -- uv run --with playwright python -m playwright install chromium`.
+Aucune permission OWNER ou clé de diagnostic n'est utilisée.
 
 ## Logs FastAPI Cloud — lecture seule opérateur
 
@@ -110,7 +142,7 @@ Les logs de serveur ne permettent pas à eux seuls de voir un
 
 ## Contrôle navigateur automatisé (read-only)
 
-Depuis un checkout local doté de Playwright et du navigateur Chromium,
+Depuis le checkout actualisé de #379 avec `mise`, `uv` et Chromium,
 sans accès OWNER ni secret de production :
 
 ```bash
@@ -122,8 +154,10 @@ vers les routes UI essentielles, les erreurs JavaScript (compte
 uniquement), les cartes encore sur Loading, les long tasks et
 la réactivité du thread JS. Elle **ne lit ni cookies ni réponse
 JSON des services** et ne déclenche pas d'appel de diagnostic OWNER.
-Elle attend 14 secondes après le chargement DOM, puis limite
-l'extraction du rapport à trois secondes.
+Elle échantillonne 14 secondes après le chargement DOM et
+le lanceur Node impose une limite globale de 50 secondes à la
+commande ; un navigateur bloqué n'occupe donc pas indéfiniment
+le terminal.
 
 **Limite :** sans connectivité DNS à FastAPI Cloud ni binaire
 Playwright installé, ce test ne peut pas être exécuté par l'agent.
