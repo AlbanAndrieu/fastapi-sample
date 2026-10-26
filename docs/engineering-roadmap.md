@@ -14,6 +14,52 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — UI Cloud + TrueNAS bloquée malgré #379 (27 octobre 2026)
+
+**Preuves réelles avant nouveau correctif :** depuis la workstation,
+la sonde HTTP a mesuré `truenas: /api=200 (4 ms), /api/ui/session=200
+(2 ms), /api/ui/services=200 (766 ms)`. Chromium Playwright
+`truenas` et `cloud` ont chargé `/api` et ses scripts avec HTTP
+200, sans `pageerror`, mais `page.evaluate()` a expiré sur **les
+deux** avec `main_thread_unresponsive`. Les 403 de la sonde Python
+`cloud`/`staging` sont spécifiques à cet accès HTTP anonyme ; le
+navigateur Chromium a obtenu HTTP 200 sur `cloud`. Ne pas confondre
+règle Edge et disponibilité API.
+
+**Déploiement TrueNAS :** le script `update-fastapi-sample.sh`
+a été lancé avec le SHA `fa13c08db05ce8ce086d2366e1f35706913f05be`
+(hotfix #379), mais le dernier log opérateur s'arrête à
+`3/6 Build image before replacing runtime`. **DÉPLOIEMENT EN COURS,
+pas encore confirmé**. Ne pas annoncer #379 déployé sur TrueNAS
+tant que la phase 6/6 n'a pas réussi.
+
+- [x] **Nouvelle boucle démontrée dans master après #379 :**
+  `api-global-service-filter.js` appelle `mapTrueNasStatus()`
+  sur un événement de son `MutationObserver` sur
+  `#health-board` avec `attributeFilter: ["data-semantic-status",
+  "hidden"]`, puis assigne inconditionnellement
+  `panel.dataset.semanticStatus`. Même si la valeur ne change
+  pas, le DOM émet une mutation, qui programme un autre rAF.
+- [x] **Correctif #380** : appliquer
+  `setDatasetValueIfChanged(panel, name, value)` à tous
+  les attributs de présentation du panneau TrueNAS, dont
+  `semanticStatus`, pour rendre les cycles idempotents.
+- [x] **Tests locaux** : Node 22, **3/3 PASS**, dont 1000
+  passes de statut identique et 500 passes de métadonnées.
+  Empreintes Git identiques aux fichiers publiés.
+  Chromium réel sur un panneau `#health-board` synthétique :
+  deux affectations identiques sans garde provoquent 2 mutations ;
+  100 passages avec garde provoquent une seule mutation initiale.
+- [ ] **E2E production/staging après fusion #380** : le navigateur
+  doit produire `sampled` avec frames/long tasks bornées,
+  des filtres cliquables et un tableau lisible. Le test Chromium
+  synthétique ne remplace pas l'E2E sur la page complète.
+- [ ] **Recette TrueNAS** : terminer d'abord le build
+  `fa13c08d` en cours et relever sa validation ; puis, si
+  le blocage persiste, tester la nouvelle version depuis un SHA
+  **immuable de #380** après validation et revue du code.
+  Ne pas lancer un second déploiement en parallèle.
+
 ## P0 — Hotfix gel /api malgré PR #378 fusionnée (26 octobre 2026)
 
 **Preuve opérateur** : racine Cloud `/` utilisable ; page `/api` figée
