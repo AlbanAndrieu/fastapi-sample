@@ -26,12 +26,18 @@ deux** avec `main_thread_unresponsive`. Les 403 de la sonde Python
 navigateur Chromium a obtenu HTTP 200 sur `cloud`. Ne pas confondre
 règle Edge et disponibilité API.
 
-**Déploiement TrueNAS :** le script `update-fastapi-sample.sh`
-a été lancé avec le SHA `fa13c08db05ce8ce086d2366e1f35706913f05be`
-(hotfix #379), mais le dernier log opérateur s'arrête à
-`3/6 Build image before replacing runtime`. **DÉPLOIEMENT EN COURS,
-pas encore confirmé**. Ne pas annoncer #379 déployé sur TrueNAS
-tant que la phase 6/6 n'a pas réussi.
+**Déploiement TrueNAS maintenant terminé (27/10) :**
+`update-fastapi-sample.sh` a construit puis redéployé
+`fa13c08db05ce8ce086d2366e1f35706913f05be`
+(hotfix #379), et atteint **`6/6 · final acceptance`** :
+`health=4/4`, `observer=passed`, `Prometheus/Gatus=ok`,
+`pfSense RBAC=warning` (diagnostic facultatif).
+La version applicative 1.25.0 ne publie toujours pas son SHA via
+`/v2/version` (`build_revision=null`) : la preuve de révision
+est issue du journal de construction/déploiement, non de l'API.
+**La sonde Chromium a été exécutée APRÈS cette recette** et
+reste `main_thread_unresponsive` sur TrueNAS et Cloud.
+Le correctif #379 seul n'a donc pas résolu le gel.
 
 - [x] **Nouvelle boucle démontrée dans master après #379 :**
   `api-global-service-filter.js` appelle `mapTrueNasStatus()`
@@ -54,11 +60,22 @@ tant que la phase 6/6 n'a pas réussi.
   doit produire `sampled` avec frames/long tasks bornées,
   des filtres cliquables et un tableau lisible. Le test Chromium
   synthétique ne remplace pas l'E2E sur la page complète.
-- [ ] **Recette TrueNAS** : terminer d'abord le build
-  `fa13c08d` en cours et relever sa validation ; puis, si
-  le blocage persiste, tester la nouvelle version depuis un SHA
-  **immuable de #380** après validation et revue du code.
-  Ne pas lancer un second déploiement en parallèle.
+- [x] **Recette TrueNAS #379** : `fa13c08d` déployé avec
+  `6/6` terminé et HTTP healthy ; l'interface est pourtant encore
+  figée au test Playwright. pfSense RBAC reste `warning`
+  indépendamment du chargement de /api.
+- [x] **Contournement public-only #380** : `?ui_safe=1`
+  ne démarre aucun contrôle opérateur, aucun collecteur de sondes
+  ni observateur de cartes ; il utilise seulement
+  `/api/ui/services` (deadline 6,5 s), sans escalade d'accès.
+- [ ] **Comparer normal/safe après #380** :
+  `node scripts/diagnose-production-api-ui-freeze.mjs truenas`,
+  puis `node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe`.
+  Si seul le second termine `sampled`, isoler les modules
+  UI avancés avant de les réactiver.
+- [ ] **Tester le correctif #380** : déployer son commit
+  immuable uniquement après la revue et sans autre déploiement
+  actif ; confirmer l'absence de boucle avec Chromium.
 
 ## P0 — Hotfix gel /api malgré PR #378 fusionnée (26 octobre 2026)
 
