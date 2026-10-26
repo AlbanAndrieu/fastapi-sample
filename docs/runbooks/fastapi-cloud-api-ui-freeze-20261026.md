@@ -233,6 +233,55 @@ Contrôler l'empreinte sélectionnée dans les logs de build et
 de TrueNAS est dégradée. **Aucun déploiement du hotfix n'a
 été exécuté par l'agent.**
 
+## Cause supplémentaire isolée après la fusion de #379 (27/10)
+
+La sonde HTTP côté workstation reçoit pour TrueNAS :
+`GET /api = 200 (4ms)`, `GET /api/ui/session = 200 (2ms)`,
+`GET /api/ui/services = 200 (766ms)`. La sonde Chromium
+produit **`main_thread_unresponsive`** sur les cibles
+`truenas` et `cloud` malgré `/api` et JS statiques HTTP 200,
+aucune erreur `pageerror`. Un gel synchrone de l'UI est donc
+une cause prioritaire. Le Cloud a même servi les modules du
+hotfix #379, preuve que l'ancien correctif ne suffit pas.
+
+**Boucle identifiée dans `api-global-service-filter.js`** :
+
+```text
+observer(#health-board, data-semantic-status)
+  → scheduleRefresh() / requestAnimationFrame()
+  → refreshGlobalFilter() / mapTrueNasStatus()
+  → panel.dataset.semanticStatus = SAME_VALUE
+  → nouvelle mutation de data-semantic-status
+  → observer...
+```
+
+Le navigateur Chromium local confirme que deux affectations
+identiques de `data-semantic-status` émettent deux notifications
+`MutationObserver`. Le correctif #380 emploie désormais
+`setDatasetValueIfChanged()`. Dans un fixture Chromium
+réel, **100 cycles ne produisent qu'une seule notification**.
+Les trois tests unitaires Node liés au garde-fou sont PASS,
+dont un avec 1000 cycles. Cette preuve localisée ne remplace
+pas encore le test de la page réelle après déploiement.
+
+**Séquence opérateur sans déploiement parallèle** :
+
+1. Laisser se terminer la commande TrueNAS déjà en cours qui
+   déploie le commit **`fa13c08d`** ; recueillir ses étapes
+   `3/6` à `6/6` et les éventuelles erreurs.
+2. Depuis le worktree FastAPI qui contient #380, relancer
+   `node scripts/diagnose-production-api-ui-freeze.mjs truenas`
+   puis `node scripts/diagnose-production-api-ui-freeze.mjs cloud`.
+3. Après revue/validation de #380, tester son commit immuable
+   sur TrueNAS et comparer `main_thread_unresponsive` à
+   `sampled`. Ne pas conclure au succès avant cette preuve.
+
+Les GET Python vers Cloud et `sample.albandrieu.com` renvoient
+`403`, alors que Chromium reçoit `200` depuis Cloud :
+ces différences entre clients ne constituent pas un diagnostic
+de crash serveur. La cible **`truenas` LAN direct** est la
+plus interprétable pour l'UI locale.
+
 ## Contrôle Chrome sans secrets
 
 1. Ouvrir DevTools → **Performance** ; enregistrer 5 s sur
