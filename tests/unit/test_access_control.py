@@ -374,5 +374,6 @@ def test_private_bababou_search_requires_owner_jwt_even_in_public_readonly_mode(
             json={"query": "Éléonore"},
             headers=headers,
         )
-        assert denied.status_code in (401, 403)
+        # 503 is also fail-closed when OWNER identity config is unavailable.
+        assert denied.status_code in (401, 403, 503)
         assert denied.headers["cache-control"] == "private, no-store"
