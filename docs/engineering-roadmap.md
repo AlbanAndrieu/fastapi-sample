@@ -300,6 +300,34 @@ dépôt n'est supprimé ni neutralisé.
   checkout intégral. Les contrôles de ce changement n'activent pas de
   GitHub Actions payante.
 
+## P0 — Recherche privée Bababou via OpenRAG (26/10, LAN indisponible)
+
+- [x] Vérifier dans les sources OpenRAG v0.7.1 le MCP `/mcp` avec
+  `X-API-Key` et l'outil `openrag_search(filter_id)`. La version et
+  l'authentification du conteneur effectivement lancé sont **NOT_RUN**.
+- [x] Préparer `POST /private/ops/ai/bababou/search` : classification
+  OWNER JWT, `OPENRAG_BABABOU_FILTER_ID` fixé côté serveur,
+  `MCP_CLIENTS` restreint à `openrag-frontend:3000/mcp`,
+  `openrag_search` uniquement, réponse bornée et chemins expurgés.
+- [x] Empêcher l'ajout automatique des outils OpenRAG aux agents
+  génériques `/run` lorsque le client MCP privé est provisionné.
+  Ne pas activer `OPENRAG_GENERAL_MCP_TOOLS_ENABLED` pour Bababou.
+- [x] Ajouter les tests de refus (absence de clé/filtre, mauvaise URL,
+  mauvais transport, sortie trop large et erreur MCP). Aucun fichier privé
+  nécessaire pour ces tests.
+- [ ] Provisionner un jeton OpenRAG dédié et un filtre de connaissance
+  **limité au corpus autorisé** dans `sample/.env.secrets`.
+  Ne pas confondre clé MCP avec clé LiteLLM ou OWNER.
+- [ ] Vérifier OWNER, réseau source, index privé, tool-list, retour avec
+  citations/page et impossibilité de lire un autre corpus. **Bloqué
+  jusqu'au retour de l'accès LAN**.
+- [ ] Confirmer la route LiteLLM `fastapi-qwen` avec la clé virtuelle,
+  les appels d'outils, le budget et l'upstream workstation ; vérifier
+  Ollama TrueNAS :30068 seulement si modèle local disponible.
+- [ ] Contrôler que Langfuse/LiteLLM/OpenRAG ne conservent aucun prompt
+  ni chunk privé avant une éventuelle génération d'answer.
+  Pas de redéploiement, d'indexation ni de fuite de PII depuis le cloud.
+
 ## P0 — Site v2 et scrape métrique (reprise PR #378)
 
 - [x] Accuser réception du `traceparent` W3C valide via `X-Nabla-Trace-ID` sur `/api/site/health/v2`, sans divulguer d'en-tête arbitraire.
