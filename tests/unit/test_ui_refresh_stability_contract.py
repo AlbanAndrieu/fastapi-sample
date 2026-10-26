@@ -18,7 +18,8 @@ def test_automatic_refresh_does_not_reload_collapsed_technical_drilldowns() -> N
         encoding="utf-8",
     )
     assert "includeTechnical = false" in controller
-    assert "loadHealthBoards({ includeTechnical: true })" in controller
+    assert "loadHealthBoards({ includeTechnical: technicalDetailsOpen() })" in controller
+    assert "loadHealthBoards({ includeTechnical: true })" not in controller
     assert "technicalDetailsOpen()" in controller
     assert 'getElementById("runtime-topology")' in controller
     assert 'getElementById("truenas-probe-dashboard")' in controller
