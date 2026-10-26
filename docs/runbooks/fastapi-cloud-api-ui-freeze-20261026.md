@@ -39,6 +39,49 @@ ne règlent pas cette classe de bug.
 - Tests Node avec 100 frames de rendu identiques : aucune nouvelle
   mutation DOM après la stabilisation.
 
+## Reprise après deux erreurs de commande locales (26/10)
+
+**CLI FastAPI :** la commande `fastapi cloud login` exécutée sans
+`mise exec -- uv run` a appelé `/usr/bin/fastapi`, paquet
+Python de la distribution qui ne possède pas les extras CLI
+`fastapi[standard]`. Cela **n'établit aucune panne Cloud**.
+Ne pas installer un second FastAPI système pour contourner le problème.
+Utiliser les dépendances épinglées du dépôt :
+
+```bash
+mise exec -- uv run which fastapi
+mise exec -- uv run fastapi --version
+mise exec -- uv run fastapi cloud whoami
+```
+
+Si la session n'est pas authentifiée, lancer **interactivement** :
+`mise exec -- uv run fastapi cloud login`. Les logs sont ensuite
+consultés avec `mise exec -- uv run fastapi cloud logs .`.
+La session interactive n'est **pas** un jeton CI ou un déploiement.
+
+**Fichier Playwright absent :** `node
+scripts/diagnose-production-api-ui-freeze.mjs` a donné
+`MODULE_NOT_FOUND` parce que le fichier a été ajouté dans la
+**PR #379 encore ouverte**, et non sur `master`.
+Il ne s'agit ni d'une erreur Node 24.22.1 ni d'une preuve de bug
+runtime. Depuis le checkout du dépôt, obtenir cette branche
+dans un worktree séparé (ne pas réinitialiser les modifications
+courantes) :
+
+```bash
+git fetch origin fix/api-ui-observer-render-loop-20261026
+git worktree add /tmp/fastapi-ui-freeze-pr379 \
+  origin/fix/api-ui-observer-render-loop-20261026
+cd /tmp/fastapi-ui-freeze-pr379
+node scripts/diagnose-production-api-ui-freeze.mjs
+```
+
+Ce script importe le paquet **Playwright** et nécessite Chromium ;
+le dépôt déclare déjà un autre vérificateur Playwright.
+Si le module ou le binaire Chrome est absent, conserver le message
+exact de cette nouvelle erreur et utiliser les DevTools du
+navigateur plutôt que des installations globales non supervisées.
+
 ## Logs FastAPI Cloud — lecture seule opérateur
 
 L'agent ne dispose pas de la session FastAPI Cloud et **n'a pas
