@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const diagnostic = join(repo, "scripts", "diagnose-production-api-ui-freeze.py");
 const cmd = "mise";
-const args = ["exec", "--", "uv", "run", "--with", "playwright", "python", diagnostic];
+const args = ["exec", "--", "uv", "run", "--no-project", "--with", "playwright", "python", diagnostic];
 const result = spawnSync(cmd, args, {
   cwd: repo,
   env: process.env,
