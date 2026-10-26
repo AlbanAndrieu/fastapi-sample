@@ -214,8 +214,10 @@ function moveTierNextToName(row) {
   const name = row.querySelector(".health-row-name");
   const note = row.querySelector(".health-meta-note");
   if (!primary || !name || !note) return;
-  if (row.dataset.serviceKey === PFSENSE_KEY) note.textContent = REQUIRED_TIER;
-  note.classList.add("health-tier-inline");
+  if (row.dataset.serviceKey === PFSENSE_KEY && note.textContent !== REQUIRED_TIER)
+    note.textContent = REQUIRED_TIER;
+  if (!note.classList.contains("health-tier-inline"))
+    note.classList.add("health-tier-inline");
   if (note.parentElement !== primary || note.previousElementSibling !== name) {
     name.insertAdjacentElement("afterend", note);
   }
