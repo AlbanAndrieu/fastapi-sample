@@ -58,3 +58,20 @@ def test_fast_transport_uses_pinned_get_requests_without_body_or_keys():
     assert "NoRedirect" in script
     for forbidden in ("response.read(", "response.text(", "X-Diagnostics-Key", "Authorization", '"Cookie":'):
         assert forbidden not in script
+
+
+
+def test_browser_safe_mode_is_explicit_and_allowlisted():
+    browser = source("scripts/diagnose-production-api-ui-freeze.py")
+    launcher = source("scripts/diagnose-production-api-ui-freeze.mjs")
+    ui = source("nabla/api/assets/api-health.js")
+    assert 'API_UI_SAFE' in browser
+    assert '"?ui_safe=1"' in browser
+    assert 'const safeMode = process.argv.includes("--safe")' in launcher
+    assert 'API_UI_SAFE: safeMode ? "1" : "0"' in launcher
+    assert 'get("ui_safe") === "1"' in ui
+    assert ui.index('get("ui_safe") === "1"') < ui.index("ownerSessionAvailable()")
+    assert 'await installPublicServiceOverview({ ownerAuthenticated: false })' in ui
+    assert "installHealthBoardController();" in ui
+    assert "return;\n  }\n  const operatorMode =" in ui
+    assert "read-only landing" in ui.lower()
