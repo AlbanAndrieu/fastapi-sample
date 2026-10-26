@@ -113,6 +113,26 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
     assert response.status_code == 200
     assert response.json()["boardState"] == "pending"
     assert response.headers["cache-control"] == "no-store, max-age=0"
+    trace_id = "a" * 32
+    traced = client.get(
+        "/api/site/health/v2",
+        headers={"X-Diagnostics-Key": "site-machine-key",
+                 "traceparent": f"00-{trace_id}-{'b' * 16}-01"},
+    )
+    assert traced.status_code == 200
+    assert traced.headers["x-nabla-trace-id"] == trace_id
+    invalid = client.get(
+        "/api/site/health/v2",
+        headers={"X-Diagnostics-Key": "site-machine-key", "traceparent": "not-a-trace"},
+    )
+    assert invalid.status_code == 200
+    assert "x-nabla-trace-id" not in invalid.headers
+    denied = client.get(
+        "/api/site/health/v2",
+        headers={"traceparent": f"00-{trace_id}-{'b' * 16}-01"},
+    )
+    assert denied.status_code == 401
+    assert "x-nabla-trace-id" not in denied.headers
 
 
 def test_duplicate_backstage_names_do_not_share_a_single_health_observation():

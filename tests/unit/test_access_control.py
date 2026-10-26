@@ -40,6 +40,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/api/public-topology")
     @app.get("/api/homelab/declared-services")
     @app.get("/api/site/catalog/v2")
+    @app.get("/api/site/health/v2")
     @app.get("/api/ui/session")
     @app.get("/api/homelab-topology")
     @app.get("/api/homelab/runtime")
@@ -47,6 +48,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/api/runtime/topology")
     @app.get("/api/homelab/health")
     @app.get("/api/homelab/probes")
+    @app.post("/private/ops/ai/bababou/search")
     @app.post("/api/health-board/cache/reset")
     def success() -> dict[str, bool]:
         return {"ok": True}
@@ -308,3 +310,70 @@ def test_metrics_auth_does_not_open_metrics_prefix_or_mutation(
 
 def test_metrics_key_declared_in_typed_settings() -> None:
     assert "metrics_scrape_key" in APIDeploymentSettings.model_fields
+
+
+def test_machine_site_routes_stay_private_with_public_readonly_enabled(
+    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The temporary diagnostics UI must not bypass the SERVICE gate."""
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
+    settings = protected_app.app.state.access_settings
+    settings.diagnostics_access_key = SecretStr("site-machine-key")
+
+    for path in ("/api/site/catalog/v2", "/api/site/health/v2"):
+        anonymous = protected_app.get(path)
+        assert anonymous.status_code == 401, path
+        assert anonymous.headers["cache-control"] == "private, no-store"
+        assert protected_app.get(
+            path, headers={"X-Diagnostics-Key": "wrong"},
+        ).status_code == 401
+        authorized = protected_app.get(
+            path, headers={"X-Diagnostics-Key": "site-machine-key"},
+        )
+        assert authorized.status_code == 200
+    # Existing temporary low-sensitivity views remain accessible.
+    assert protected_app.get("/api/public-topology").status_code == 200
+
+
+def test_metrics_stays_private_even_with_public_readonly_enabled(
+    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Metrics has a dedicated credential, not the diagnostics key."""
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
+    settings = protected_app.app.state.access_settings
+    settings.metrics_scrape_key = SecretStr("scrape-only-secret")
+    settings.diagnostics_access_key = SecretStr("diagnostics-secret")
+
+    assert protected_app.get("/metrics").status_code == 401
+    assert protected_app.get("/metrics", headers={
+        "X-Diagnostics-Key": "diagnostics-secret",
+    }).status_code == 401
+    assert protected_app.get("/metrics", headers={
+        "Authorization": "Bearer scrape-only-secret",
+    }).status_code == 200
+    assert protected_app.get("/api/site/health/v2", headers={
+        "Authorization": "Bearer scrape-only-secret",
+    }).status_code == 401
+
+
+
+def test_private_bababou_search_requires_owner_jwt_even_in_public_readonly_mode(
+    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
+    settings = protected_app.app.state.access_settings
+    settings.diagnostics_access_key = SecretStr("diagnostics-only")
+    settings.metrics_scrape_key = SecretStr("scrape-only")
+    for headers in (
+        {},
+        {"X-Diagnostics-Key": "diagnostics-only"},
+        {"Authorization": "Bearer scrape-only"},
+    ):
+        denied = protected_app.post(
+            "/private/ops/ai/bababou/search",
+            json={"query": "Éléonore"},
+            headers=headers,
+        )
+        # 503 is also fail-closed when OWNER identity config is unavailable.
+        assert denied.status_code in (401, 403, 503)
+        assert denied.headers["cache-control"] == "private, no-store"

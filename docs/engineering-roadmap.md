@@ -14,6 +14,49 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — Gel Cloud /api pendant une saturation mémoire TrueNAS (26 octobre 2026)
+
+**Signal opérateur :** la page Cloud
+`https://fastapi-sample.fastapicloud.dev/api` affiche `Loading` puis
+semble figée ; TrueNAS a sa mémoire saturée. La panne LAN peut expliquer
+les sondes indisponibles, mais le catalogue Cloud **ne doit jamais dépendre
+de la terminaison de ces sondes pour afficher le repli public**.
+Aucune disponibilité production n'a pu être mesurée depuis le runner
+(cette session ne résout pas le DNS `fastapi-sample.fastapicloud.dev`).
+**Cause exacte runtime NON CONFIRMÉE**, défauts de résilience identifiés
+dans les sources JS.
+
+- [x] **Code PR #378 :** borne de `4,5 s` sur
+  `/api/ui/session` avant fallback public anonyme ; accès OWNER jamais
+  accordé implicitement.
+- [x] **Code PR #378 :** requête de répertoire public `/api/ui/services`
+  bornée à `6,5 s`, y compris décodage JSON ; état d'indisponibilité
+  explicite et anciens verdicts marqués `UNKNOWN`.
+- [x] **Code PR #378 :** sondes `/api/health-board` bornées à
+  `6 s` par requête et un seul retry `pending` (au lieu de 30) ;
+  leur refresh reste serveur et asynchrone.
+- [x] **Code PR #378 :** le panneau public sert de repli aux visiteurs
+  readonly pendant que le tableau détaillé attend les sondes ;
+  il disparaît après un événement de snapshot réussi.
+- [x] **Code PR #378 :** ne pas démarrer immédiatement les flux LAN
+  techniques fermés ; calcul des âges toutes les 10 secondes, sans
+  rescanner toutes les cartes HTTP chaque seconde.
+- [x] **Test local ciblé :** `node --test tests/js/api-request-deadline.test.mjs`
+  → **4 PASS** sur les blobs Git exacts du helper et des tests.
+- [ ] **Validation PR :** lancer `python -m pytest -q
+  tests/unit/test_cloud_ui_outage_resilience.py` et les contrats UI,
+  puis valider la page dans navigateur desktop/mobile sous
+  DNS accessible et les trois scénarios : `session` bloquée,
+  `ui/services` lent, `health-board` perpétuellement `pending`.
+- [ ] **Production :** fusion/déploiement de #378, suivi des timings
+  `/api/ui/session`, `/api/ui/services` et `/api/health-board` ;
+  vérifier un inventaire public présent et des sondes dégradées
+  affichées comme `UNKNOWN` pendant une panne TrueNAS.
+  **Aucun déploiement déclenché ici.**
+- [ ] **Infrastructure (nabla-compose) :** analyser la saturation TrueNAS
+  (RAM, swap, pression ZFS ARC, OOM, mémoire des conteneurs) après
+  stabilisation de l'accès ; pas de reboot déclenché par la page Cloud.
+
 ## P0 — Garage S3 : clarifier l'HTTP et la politique réseau
 
 - [x] Rendre consultables les URL de catalogue internes et DNS via la
@@ -273,3 +316,67 @@ dépôt n'est supprimé ni neutralisé.
   outside-in avant de conclure à une exposition publique.
   Runbook : [Compose #281](https://github.com/AlbanAndrieu/nabla-compose/pull/281).
 
+
+## P0 — Mise en page des cartes et diagnostic TrueNAS à distance
+
+- [x] Réserver une zone pour **Details** en bas à droite des cartes de
+  `/api`. Le badge d'âge des sondes reste en haut à droite.
+  Préserver l'accès clavier et une surface tactile d'au moins 44 px.
+- [x] Ajouter `--ssh-target utilisateur@172.17.0.24` au diagnostic
+  `/metrics`. Utiliser SSH strict, sans proxy HTTP, sans transport de
+  secrets locaux et sans déploiement sur TrueNAS.
+- [ ] Valider le rendu réel à `https://sample.albandrieu.com/api`
+  au SHA déployé, sur desktop/mobile. Commit Git ≠ application déployée.
+- [x] Valider le diagnostic SSH distant sur TrueNAS depuis la workstation :
+  `ssh -G` confirme le port `9922` ; `--ssh-target` retourne un
+  HTTP 401 **anonyme attendu**. Pas de jeton testé.
+- [x] Identifier l'écart de contrat entre FastAPI et Compose :
+  FastAPI exige `METRICS_SCRAPE_KEY` ; le job `fastapi_sample` du
+  catalogue Compose ne déclare pas encore `authorization.credentials_file`.
+  La configuration réellement chargée par Prometheus reste à confirmer.
+- [ ] Provisionner et vérifier le **jeton dédié** FastAPI/Prometheus dans
+  `nabla-compose` (source de vérité des secrets et du collecteur), puis
+  obtenir `up{job="fastapi_sample"} == 1` sans exposer la valeur.
+  `scrape_authorized=false` et `credentials_tested=false` restent
+  `UNVERIFIED` et **ne doivent pas devenir verts** par défaut.
+- [ ] Exécuter localement les tests complets CSS/JS et FastAPI dans un
+  checkout intégral. Les contrôles de ce changement n'activent pas de
+  GitHub Actions payante.
+
+## P0 — Recherche privée Bababou via OpenRAG (26/10, LAN indisponible)
+
+- [x] Vérifier dans les sources OpenRAG v0.7.1 le MCP `/mcp` avec
+  `X-API-Key` et l'outil `openrag_search(filter_id)`. La version et
+  l'authentification du conteneur effectivement lancé sont **NOT_RUN**.
+- [x] Préparer `POST /private/ops/ai/bababou/search` : classification
+  OWNER JWT, `OPENRAG_BABABOU_FILTER_ID` fixé côté serveur,
+  `MCP_CLIENTS` restreint à `openrag-frontend:3000/mcp`,
+  `openrag_search` uniquement, réponse bornée et chemins expurgés.
+- [x] Empêcher l'ajout automatique des outils OpenRAG aux agents
+  génériques `/run` lorsque le client MCP privé est provisionné.
+  Ne pas activer `OPENRAG_GENERAL_MCP_TOOLS_ENABLED` pour Bababou.
+- [x] Ajouter les tests de refus (absence de clé/filtre, mauvaise URL,
+  mauvais transport, sortie trop large et erreur MCP). Aucun fichier privé
+  nécessaire pour ces tests.
+- [ ] Provisionner un jeton OpenRAG dédié et un filtre de connaissance
+  **limité au corpus autorisé** dans `sample/.env.secrets`.
+  Ne pas confondre clé MCP avec clé LiteLLM ou OWNER.
+- [ ] Vérifier OWNER, réseau source, index privé, tool-list, retour avec
+  citations/page et impossibilité de lire un autre corpus. **Bloqué
+  jusqu'au retour de l'accès LAN**.
+- [ ] Confirmer la route LiteLLM `fastapi-qwen` avec la clé virtuelle,
+  les appels d'outils, le budget et l'upstream workstation ; vérifier
+  Ollama TrueNAS :30068 seulement si modèle local disponible.
+- [ ] Contrôler que Langfuse/LiteLLM/OpenRAG ne conservent aucun prompt
+  ni chunk privé avant une éventuelle génération d'answer.
+  Pas de redéploiement, d'indexation ni de fuite de PII depuis le cloud.
+
+## P0 — Site v2 et scrape métrique (reprise PR #378)
+
+- [x] Accuser réception du `traceparent` W3C valide via `X-Nabla-Trace-ID` sur `/api/site/health/v2`, sans divulguer d'en-tête arbitraire.
+- [x] Retirer les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` de la dérogation `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY`. Conserver les refus anonymes même en mode lecture temporaire.
+- [x] Ajouter le préflight local `scripts/truenas/diagnose-fastapi-metrics-auth.py --check`, vérifiant les codes HTTP et jamais les secrets.
+- [x] La PR #376 a été fusionnée : `METRICS_SCRAPE_KEY` reste limitée à `GET/HEAD /metrics`, aucun accès anonyme.
+- [ ] Vérifier le SHA réellement déployé et la correspondance du jeton dédié côté FastAPI avec `authorization.credentials_file` côté Prometheus, sans imprimer la clé ni changer Compose ici. Preuve opérateur : `fastapi_sample` scrape HTTP 401, **non résolu en runtime**.
+- [ ] Vérifier la propagation de la trace Site→FastAPI avec jeton machine en staging, y compris refus 401/503 et absence de reflet sur requête anonyme. `NOT_RUN` live.
+- [ ] Contrats du checkout complet : pytest, Ruff et smoke en runtime autorisé. `NOT_RUN` tant qu'aucune preuve n'existe.

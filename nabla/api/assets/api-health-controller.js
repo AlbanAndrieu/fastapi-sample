@@ -21,6 +21,8 @@ import { loadTrueNas } from "./api-truenas.js";
 // Public readonly mode can be visited anonymously: bound frontend polling cost.
 const HEALTH_BOARD_IDLE_POLL_MS = 30000;
 const HEALTH_BOARD_REFRESHING_POLL_MS = 5000;
+// Do not increase outbound diagnostic load when a homelab is unresponsive.
+const HEALTH_BOARD_ERROR_BACKOFF_MS = 60000;
 let automaticRefreshInFlight = false;
 let automaticRefreshTimer = null;
 
@@ -133,9 +135,11 @@ function scheduleAutomaticRefresh(delayMs = HEALTH_BOARD_IDLE_POLL_MS) {
     const snapshot = await loadHealthBoards({ showPending: false });
     automaticRefreshInFlight = false;
     scheduleAutomaticRefresh(
-      snapshot?.refreshing === true
-        ? HEALTH_BOARD_REFRESHING_POLL_MS
-        : HEALTH_BOARD_IDLE_POLL_MS,
+      snapshot == null
+        ? HEALTH_BOARD_ERROR_BACKOFF_MS
+        : snapshot.refreshing === true
+          ? HEALTH_BOARD_REFRESHING_POLL_MS
+          : HEALTH_BOARD_IDLE_POLL_MS,
     );
   }, delayMs);
 }
@@ -184,6 +188,8 @@ export function installHealthBoardController() {
 
   installSecurityControlIcons();
   installTechnicalDetailRefresh();
-  loadHealthBoards({ includeTechnical: true });
+  // Technical LAN drill-downs are lazy: the Cloud landing page must not
+  // eagerly fetch TrueNAS runtime/topology while the drawer is closed.
+  loadHealthBoards({ includeTechnical: technicalDetailsOpen() });
   installAutomaticRefresh();
 }

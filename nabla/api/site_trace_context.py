@@ -15,3 +15,8 @@ def verified_site_trace_id(value: str | None) -> str | None:
     if set(trace_id) == {"0"} or set(span_id) == {"0"}:
         return None
     return trace_id
+
+
+def extract_site_trace_id(value: str | None) -> str | None:
+    """Compatibility alias for the Site v2 trace receipt contract."""
+    return verified_site_trace_id(value)

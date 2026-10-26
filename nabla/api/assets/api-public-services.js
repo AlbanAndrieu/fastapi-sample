@@ -1,3 +1,5 @@
+import { withRequestDeadline } from "./api-request-deadline.js";
+
 // Minimal public projection ONLY; no private probe URLs or credentials.
 const PREVIEW_LIMIT = 36;
 const STATES = new Set(["ok", "warn", "fail", "unknown"]);
@@ -125,13 +127,16 @@ export async function installPublicServiceOverview({
     refresh.disabled = true;
     summary.textContent = "Loading the limited service directory…";
     try {
-      const response = await fetch("/api/ui/services", {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok)
-        throw new Error("Unavailable (HTTP " + response.status + ")");
-      const payload = await response.json();
+      const payload = await withRequestDeadline(async (signal) => {
+        const response = await fetch("/api/ui/services", {
+          signal,
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok)
+          throw new Error("Unavailable (HTTP " + response.status + ")");
+        return response.json();
+      }, 6500);
       if (!validOverview(payload))
         throw new Error("Invalid service directory response");
       // Never label expired probe observations as healthy or failing.

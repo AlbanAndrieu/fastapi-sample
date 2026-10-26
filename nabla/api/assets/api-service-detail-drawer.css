@@ -465,19 +465,30 @@
   color: #ffdc88;
 }
 
-/* Keep the diagnostics action below the service title, URL and probe badges. */
+/* Reserve a separate bottom-right action zone on every service card.
+   Probe freshness/latency stays anchored at the top-right; neither badge
+   can intersect this action, including when the card is narrow. */
 .health-row.health-row--detail-footer {
-  flex-wrap: wrap;
-}
-.health-row > .service-detail-trigger {
-  order: 100;
-  flex: 1 0 100%;
-  width: 100%;
-  margin: 0.5rem 0 0;
-  padding: 0.55rem 0.7rem;
-  border-radius: 8px;
-  text-align: left;
   position: relative;
+  padding-bottom: 3.45rem;
+  box-sizing: border-box;
+}
+.health-row.health-row--detail-footer > .service-detail-trigger {
+  position: absolute;
+  inset: auto 0.65rem 0.65rem auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  order: 100;
+  width: auto;
+  max-width: calc(100% - 1.3rem);
+  min-height: 44px;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  text-align: center;
+  white-space: normal;
   z-index: 2;
 }
 .service-detail-link {
@@ -512,9 +523,12 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 768px) {
-  .health-row > .service-detail-trigger {
-    grid-column: 1 / -1;
-    justify-self: stretch;
+  .health-row.health-row--detail-footer {
+    padding-bottom: 3.65rem;
+  }
+  .health-row.health-row--detail-footer > .service-detail-trigger {
+    inset: auto 0.55rem 0.55rem auto;
+    justify-self: end;
     margin-left: 0;
   }
 }

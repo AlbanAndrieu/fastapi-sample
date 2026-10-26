@@ -125,18 +125,29 @@ def test_exposure_policy_failure_explains_the_actual_evidence() -> None:
     assert "external=false but a public Tunnel/Access route" in source
 
 
-def test_detail_button_is_full_width_below_card_contents() -> None:
+def test_details_action_reserves_bottom_right_without_covering_probe_age() -> None:
     css = (ASSETS / "api-service-detail-drawer.css").read_text(
         encoding="utf-8",
     )
     js = (ASSETS / "api-service-detail-drawer.js").read_text(
         encoding="utf-8",
     )
+    telemetry_css = (ASSETS / "api-service-probe-planes.css").read_text(
+        encoding="utf-8",
+    )
     assert 'row.classList.add("health-row--detail-footer")' in js
+    assert "row.appendChild(trigger)" in js
     assert ".health-row.health-row--detail-footer" in css
-    assert "flex-wrap: wrap;" in css
-    assert "order: 100;" in css
-    assert "flex: 1 0 100%;" in css
+    assert "padding-bottom: 3.45rem;" in css
+    assert ".health-row.health-row--detail-footer > .service-detail-trigger" in css
+    assert "position: absolute;" in css
+    assert "inset: auto 0.65rem 0.65rem auto;" in css
+    assert "max-width: calc(100% - 1.3rem);" in css
+    assert "min-height: 44px;" in css
+    assert "@media (max-width: 768px)" in css
+    assert "inset: auto 0.55rem 0.55rem auto;" in css
+    assert ".health-row-telemetry {" in telemetry_css
+    assert "top: 0.55rem;" in telemetry_css
 
 
 def test_private_s3_anonymous_http_is_not_a_green_health_claim() -> None:

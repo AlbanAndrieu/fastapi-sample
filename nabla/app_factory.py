@@ -161,8 +161,11 @@ def _register_routers(app: FastAPI, *, debug: bool, features: AppFeatures) -> No
     app.include_router(info.router, tags=["test"])
     if features.rag:
         from nabla.deepagents import workflow as ai_workflow
+        from nabla.api import private_bababou_search
 
         app.include_router(ai_workflow.router, tags=["ai"])
+        # OWNER-only route. No OpenRAG corpus is exposed via public /run.
+        app.include_router(private_bababou_search.router)
     if features.mcp:
         from nabla.api import mcp_ops_route
 
