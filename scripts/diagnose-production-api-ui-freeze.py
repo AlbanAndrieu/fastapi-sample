@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
-"""Read-only Chromium diagnostic for Cloud /api (no credentials or response bodies).
+"""No-secret Chromium /api UI freeze diagnostic, with bounded async operations.
 
-Playwright is provided through the existing optional pytest-playwright/test
-extra or `uv run --with playwright`. The Node launcher handles the latter.
+Browser evaluation is time-limited even when JS is consuming the main thread.
+Results report *only* selected same-origin HTTP paths and counters.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from urllib.parse import urlsplit
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright
 
+TARGETS = {
+    "cloud": "https://fastapi-sample.fastapicloud.dev/api",
+    "staging": "https://sample.albandrieu.com/api",
+    "truenas": "http://172.17.0.24:8091/api",
+}
 ALLOWED = {
     "/api", "/api/ui/session", "/api/ui/services", "/api/health-board",
     "/api/site/health/v2", "/api/assets/api-health.js",
@@ -22,9 +28,7 @@ ALLOWED = {
     "/api/assets/api-probe-stable-order.js",
     "/api/assets/api-dom-render-signature.js",
 }
-DEFAULT = "https://fastapi-sample.fastapicloud.dev/api"
 MAX_RECORDS = 45
-
 INIT_JS = r"""
 (() => {
   window.__uiFreezeSample = { longTasks: 0, longTaskTotalMs: 0, frames: 0 };
@@ -35,7 +39,7 @@ INIT_JS = r"""
         window.__uiFreezeSample.longTaskTotalMs += entry.duration;
       }
     }).observe({ type: "longtask", buffered: true });
-  } catch (_) { /* best effort */ }
+  } catch (_) {}
   const frame = () => {
     window.__uiFreezeSample.frames += 1;
     window.requestAnimationFrame(frame);
@@ -46,10 +50,8 @@ INIT_JS = r"""
 REPORT_JS = r"""
 () => {
   const summary = document.getElementById("health-summary-text");
-  const cards = [...document.querySelectorAll("#service-health-overview strong")];
   return {
     summaryLoading: /loading/i.test(summary?.textContent || ""),
-    loadingCards: cards.filter(card => /loading/i.test(card.textContent || "")).length,
     publicRows: document.querySelectorAll("#public-services-list .public-service-card").length,
     detailedRows: document.querySelectorAll("#health-checks .health-row").length,
     statusFilterPresent: Boolean(document.getElementById("service-status-filter")),
@@ -61,69 +63,94 @@ REPORT_JS = r"""
 """
 
 
-def main() -> int:
-    target = os.environ.get("PRODUCTION_API_URL", DEFAULT)
-    url = urlsplit(target)
-    if (url.scheme not in ("https", "http")
-            or not url.hostname or url.path != "/api" or url.query or url.fragment
-            or url.username or url.password):
-        print(json.dumps({"state": "invalid_target"}))
-        return 2
-    # Do not follow a user-provided external URL outside the known app.
-    if url.hostname != "fastapi-sample.fastapicloud.dev":
-        print(json.dumps({"state": "unapproved_host"}))
-        return 2
-
+async def check(target: str) -> dict:
+    origin = urlsplit(TARGETS[target]).netloc
     http: list[dict] = []
     failures: list[dict] = []
-    errors = [0]
-    info: dict = {"state": "not_run"}
+    page_errors = [0]
+    result: dict = {"target": target, "path": "/api", "state": "not_started"}
+    print(json.dumps({"phase": "launch_chromium", "target": target}), flush=True)
     try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(headless=True, timeout=8000)
             try:
-                context = browser.new_context(service_workers="block")
-                page = context.new_page()
+                context = await browser.new_context(service_workers="block")
+                page = await context.new_page()
                 page.on("response", lambda response: (
                     http.append({"path": urlsplit(response.url).path, "status": response.status})
-                    if urlsplit(response.url).netloc == url.netloc
+                    if urlsplit(response.url).netloc == origin
                     and urlsplit(response.url).path in ALLOWED
                     and len(http) < MAX_RECORDS else None
                 ))
                 page.on("requestfailed", lambda request: (
                     failures.append({"path": urlsplit(request.url).path, "kind": "request_failed"})
-                    if urlsplit(request.url).netloc == url.netloc
+                    if urlsplit(request.url).netloc == origin
                     and urlsplit(request.url).path in ALLOWED
                     and len(failures) < MAX_RECORDS else None
                 ))
-                page.on("pageerror", lambda _error: errors.__setitem__(0, errors[0] + 1))
-                page.add_init_script(INIT_JS)
+                page.on("pageerror", lambda _error: page_errors.__setitem__(0, page_errors[0] + 1))
+                await page.add_init_script(INIT_JS)
+
                 status = None
+                navigation_state = "not_started"
+                print(json.dumps({"phase": "navigate", "target": target}), flush=True)
                 try:
-                    navigation = page.goto(target, wait_until="domcontentloaded", timeout=15000)
-                    status = navigation.status if navigation is not None else None
+                    response = await page.goto(
+                        TARGETS[target], wait_until="commit", timeout=10000,
+                    )
+                    status = response.status if response is not None else None
+                    navigation_state = "committed"
                 except PlaywrightTimeoutError:
-                    info = {"state": "navigation_timeout"}
+                    navigation_state = "timeout"
                 except PlaywrightError:
-                    info = {"state": "navigation_failed"}
-                page.wait_for_timeout(14000)
+                    navigation_state = "failed"
                 try:
-                    info = {"state": "sampled", **page.evaluate(REPORT_JS)}
+                    redirected = urlsplit(page.url).netloc not in ("", origin)
+                except (ValueError, TypeError):
+                    redirected = False
+
+                print(json.dumps({"phase": "observe", "target": target}), flush=True)
+                await asyncio.sleep(8)
+                try:
+                    sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
+                    result["state"] = "sampled"
+                    result.update(sample)
+                except (asyncio.TimeoutError, PlaywrightTimeoutError):
+                    result["state"] = "main_thread_unresponsive"
                 except PlaywrightError:
-                    info = {"state": "main_thread_unresponsive"}
-                info["navigationStatus"] = status
+                    result["state"] = "browser_page_unavailable"
+                result.update({
+                    "navigationStatus": status,
+                    "navigationState": navigation_state,
+                    "redirectedOffOrigin": redirected,
+                })
             finally:
-                browser.close()
-    except PlaywrightError:
-        info = {"state": "browser_unavailable", "next_check": "uv_run_playwright_install_chromium"}
-    print(json.dumps({
-        "path": "/api",
-        "pageErrors": errors[0],
+                # Never hide the observed failure waiting for an unresponsive
+                # page/browser to close; the JS launcher has a hard kill limit.
+                try:
+                    await asyncio.wait_for(browser.close(), timeout=2)
+                except (asyncio.TimeoutError, PlaywrightError):
+                    pass
+    except (PlaywrightError, asyncio.TimeoutError):
+        result["state"] = "browser_or_transport_unavailable"
+        result["next_check"] = "verify_browser_launch_or_network_from_workstation"
+
+    result.update({
         "http": http[-MAX_RECORDS:],
         "requestFailures": failures[-MAX_RECORDS:],
-        **info,
-    }, indent=2, sort_keys=True))
-    return 0 if info.get("state") == "sampled" else 1
+        "pageErrors": page_errors[0],
+    })
+    return result
+
+
+def main() -> int:
+    target = os.getenv("API_UI_TARGET", "cloud")
+    if target not in TARGETS:
+        print(json.dumps({"state": "invalid_target", "allowed": sorted(TARGETS)}))
+        return 2
+    result = asyncio.run(check(target))
+    print(json.dumps(result, sort_keys=True), flush=True)
+    return 0 if result["state"] == "sampled" else 1
 
 
 if __name__ == "__main__":
