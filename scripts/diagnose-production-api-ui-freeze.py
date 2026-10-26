@@ -65,10 +65,12 @@ REPORT_JS = r"""
 
 async def check(target: str) -> dict:
     origin = urlsplit(TARGETS[target]).netloc
+    safe_mode = os.getenv("API_UI_SAFE") == "1"
+    page_url = TARGETS[target] + ("?ui_safe=1" if safe_mode else "")
     http: list[dict] = []
     failures: list[dict] = []
     page_errors = [0]
-    result: dict = {"target": target, "path": "/api", "state": "not_started"}
+    result: dict = {"target": target, "path": "/api", "state": "not_started", "safeMode": safe_mode}
     print(json.dumps({"phase": "launch_chromium", "target": target}), flush=True)
     try:
         async with async_playwright() as playwright:
@@ -96,7 +98,7 @@ async def check(target: str) -> dict:
                 print(json.dumps({"phase": "navigate", "target": target}), flush=True)
                 try:
                     response = await page.goto(
-                        TARGETS[target], wait_until="commit", timeout=10000,
+                        page_url, wait_until="commit", timeout=10000,
                     )
                     status = response.status if response is not None else None
                     navigation_state = "committed"
