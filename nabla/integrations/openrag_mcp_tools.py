@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from langchain_core.tools import tool
@@ -17,6 +18,11 @@ OPENRAG_SERVER_NAME = "openrag"
 
 
 def _openrag_mcp_configured() -> bool:
+    # A private OpenRAG client may expose search, ingest and delete tools.
+    # Do not make these tools callable by the general /run agent merely
+    # because a private MCP client is configured for the owner search route.
+    if os.environ.get("OPENRAG_GENERAL_MCP_TOOLS_ENABLED", "").lower() != "true":
+        return False
     return any(c.name == OPENRAG_SERVER_NAME and c.enabled for c in get_settings().mcp_clients)
 
 
