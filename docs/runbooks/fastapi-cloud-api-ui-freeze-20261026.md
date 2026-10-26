@@ -164,6 +164,75 @@ Playwright installé, ce test ne peut pas être exécuté par l'agent.
 Les tests unitaires Node de pure logique ne remplacent pas ce
 contrôle end-to-end.
 
+## Nouvelle preuve : TrueNAS et Cloud sur l'ancien code (27/10/2026)
+
+L'opérateur a redéployé TrueNAS avec
+`scripts/truenas/update-fastapi-sample.sh`. Le journal de
+déploiement contient **`Selected ref: origin/master`**, commit
+**`f10c8147dd0f7e1c05d21c5f44229e5ee37f4e1e`**, même base que
+le Cloud après #378. `/api` sur
+`https://sample.albandrieu.com/api` reste en état `Loading`
+malgré `/health` sain (4/4), LiteLLM/Ollama/OpenRAG backend HTTP 200
+et Prometheus prêt. **#379 n'est pas inclus dans l'image de staging** :
+ce test n'invalide pas encore le correctif DOM proposé.
+
+Le premier diagnostic Chromium a échoué avant lancement ;
+après installation de Chromium, le second lançait le processus,
+mais son ancien wrapper `spawnSync` expirait au bout de 50 s et
+n'indiquait pas si le blocage provenait du navigateur ou de l'UI.
+Le nouveau diagnostic a un échantillonnage **async** avec
+`page.evaluate` borné à 2 s, des phases imprimées et un arrêt forcé
+après **35 s**. Il accepte exactement trois cibles approuvées.
+
+### Diagnostic réseau sans navigateur, lecture seule
+
+Dans le worktree #379 **actualisé**, lancer séparément :
+
+```bash
+python3 scripts/diagnose-api-ui-transport.py --target truenas
+python3 scripts/diagnose-api-ui-transport.py --target cloud
+python3 scripts/diagnose-api-ui-transport.py --target staging
+```
+
+Chaque commande ne fait que trois GET anonymes (`/api`,
+`/api/ui/session`, `/api/ui/services`) avec timeout 3 s et
+sans lire le corps des réponses. Un `401`/`403` n'est pas
+un freeze du serveur. La cible `staging` est derrière Cloudflare
+Access et peut répondre avec une redirection ou un 403 même si
+la UI est utilisable depuis le navigateur connecté.
+**La cible `truenas` (LAN direct 172.17.0.24:8091) est la
+preuve de référence**, sans redirection Access.
+
+### Diagnostic navigateur borné, lecture seule
+
+```bash
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+node scripts/diagnose-production-api-ui-freeze.mjs staging
+```
+
+Les appels ne partagent pas les cookies de la session Chrome,
+ne lisent pas de réponses JSON privées et n'utilisent aucun token.
+Ils produisent des messages `phase` :
+`launch_chromium`, `navigate`, `observe`, puis un rapport
+`sampled`, `main_thread_unresponsive`,
+`browser_or_transport_unavailable` ou un
+`browser_diagnostic_timeout` précisant la dernière phase.
+Une absence de DOM sur le site de connexion Cloudflare ne prouve
+pas que la UI de FastAPI est défectueuse.
+
+### Prochaine étape de déploiement
+
+Ne pas redéployer `master` pour tester #379 :
+`update-fastapi-sample.sh` utilise master par défaut.
+Après revue et validation du hotfix, une recette TrueNAS peut
+sélectionner un **SHA immuable** de #379 via `FASTAPI_SAMPLE_REF`
+(dans le dépôt **nabla-compose**, pas le worktree FastAPI).
+Contrôler l'empreinte sélectionnée dans les logs de build et
+éviter le rechargement des images de base tant que la mémoire
+de TrueNAS est dégradée. **Aucun déploiement du hotfix n'a
+été exécuté par l'agent.**
+
 ## Contrôle Chrome sans secrets
 
 1. Ouvrir DevTools → **Performance** ; enregistrer 5 s sur
