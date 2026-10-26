@@ -14,6 +14,37 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — Hotfix gel /api malgré PR #378 fusionnée (26 octobre 2026)
+
+**Preuve opérateur** : racine Cloud `/` utilisable ; page `/api` figée
+après fusion de #378 (`f10c8147`, 22:43 CET). Les anciennes bornes
+HTTP n'empêchent pas un cycle `MutationObserver` → rAF → mutation DOM.
+
+- [x] **Cause de code à forte confiance** : la finalisation des cartes
+  déplace chaque badge via `appendChild` à chaque frame, tandis que
+  l'observer surveille `childList`. Le filtre global réécrit
+  `innerHTML` des compteurs sans vérifier les valeurs, déclenchant
+  sa propre observation. Le libellé pfSense pouvait aussi être réécrit
+  sans changement.
+- [x] **Correctif dans la nouvelle PR** : rendre l'ordre des badges
+  idempotent ; ne reconstruire compteurs et filtres qu'au changement
+  de signature ; ne pas réécrire les textes/classes déjà corrects.
+- [x] **Tests ciblés locaux** : 7 tests Node.js passent sur des blobs
+  identiques aux fichiers GitHub, avec 100 passes sans nouvelle mutation.
+  Aucun GitHub Actions consommé.
+- [ ] **Logs plateforme** : récupérer de manière autorisée
+  `fastapi cloud logs . --tail 200 --since 2h --no-follow` et
+  corréler `/api` et les endpoints de session/catalogue. L'agent ne
+  dispose pas d'une session CLI FastAPI Cloud ; **NOT_READ**.
+- [ ] **UI en production** : fusionner/déployer le hotfix ;
+  profiler la page Chrome Performance avant/après, relever
+  long tasks et confirmer aucune animation infinie.
+- [ ] **Résilience en panne TrueNAS** : maintenir l'inventaire public,
+  les statuts non prouvés `UNKNOWN` et la réactivité des filtres.
+  Ne pas redémarrer TrueNAS pour résoudre une boucle navigateur.
+
+[Runbook incident Cloud /api](runbooks/fastapi-cloud-api-ui-freeze-20261026.md).
+
 ## P0 — Gel Cloud /api pendant une saturation mémoire TrueNAS (26 octobre 2026)
 
 **Signal opérateur :** la page Cloud
