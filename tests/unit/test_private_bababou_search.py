@@ -130,3 +130,13 @@ def test_general_agent_tools_do_not_automatically_activate(monkeypatch):
     monkeypatch.setattr(openrag_mcp_tools, "get_settings",
                         lambda: SimpleNamespace(mcp_clients=[_mcp()]))
     assert openrag_mcp_tools.build_openrag_mcp_tools() == []
+
+
+
+def test_private_filter_cannot_enable_general_agent_even_with_opt_in(monkeypatch):
+    from nabla.integrations import openrag_mcp_tools
+    monkeypatch.setenv("OPENRAG_GENERAL_MCP_TOOLS_ENABLED", "true")
+    monkeypatch.setenv("OPENRAG_BABABOU_FILTER_ID", "bababou-filter-123")
+    monkeypatch.setattr(openrag_mcp_tools, "get_settings",
+                        lambda: SimpleNamespace(mcp_clients=[_mcp()]))
+    assert openrag_mcp_tools.build_openrag_mcp_tools() == []
