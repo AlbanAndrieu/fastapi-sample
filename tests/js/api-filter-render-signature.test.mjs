@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   shouldUpdateRenderSignature,
-} from "../../nabla/api/assets/api-global-service-filter.js";
+} from "../../nabla/api/assets/api-dom-render-signature.js";
 
 test("unchanged filter counts never rebuild the observed DOM", () => {
   const widget = { dataset: {} };
