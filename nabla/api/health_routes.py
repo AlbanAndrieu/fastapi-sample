@@ -168,7 +168,7 @@ def _register_site_projection_routes(app: FastAPI) -> None:
         response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
         if trace_id:
             response.headers["X-Nabla-Trace-ID"] = trace_id
-            logger.info("site_health_v2 trace_id={}", trace_id)
+            logger.info("site_health_v2", trace_id=trace_id)
         try:
             return await fetch_site_health_v2(request)
         except SiteCatalogV2Unavailable:
