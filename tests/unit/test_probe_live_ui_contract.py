@@ -6,10 +6,11 @@ from pathlib import Path
 ASSETS = Path("nabla/api/assets")
 
 
-def test_live_probe_ui_refreshes_age_without_network_each_second() -> None:
+def test_live_probe_ui_refreshes_age_without_network_every_ten_seconds() -> None:
     javascript = (ASSETS / "api-probe-live.js").read_text(encoding="utf-8")
 
-    assert "const AGE_TICK_MS = 1000;" in javascript
+    assert "const AGE_TICK_MS = 10000;" in javascript
+    assert "lastSnapshot && !document.hidden" in javascript
     assert "`${age}s ago`" in javascript
     assert 'badge.textContent = "probing…";' in javascript
     assert "probe_interval_seconds" in javascript
@@ -20,8 +21,8 @@ def test_health_board_poll_is_cached_and_pauses_when_tab_is_hidden() -> None:
     controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
     bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
 
-    assert "const HEALTH_BOARD_IDLE_POLL_MS = 10000;" in controller
-    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;" in controller
+    assert "const HEALTH_BOARD_IDLE_POLL_MS = 30000;" in controller
+    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 5000;" in controller
     assert "document.hidden" in controller
     assert "loadHealthBoards({ showPending: false })" in controller
     assert "snapshot?.refreshing === true" in controller
