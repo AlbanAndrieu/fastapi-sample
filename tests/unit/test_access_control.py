@@ -48,6 +48,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/api/runtime/topology")
     @app.get("/api/homelab/health")
     @app.get("/api/homelab/probes")
+    @app.post("/private/ops/ai/bababou/search")
     @app.post("/api/health-board/cache/reset")
     def success() -> dict[str, bool]:
         return {"ok": True}
@@ -353,3 +354,25 @@ def test_metrics_stays_private_even_with_public_readonly_enabled(
     assert protected_app.get("/api/site/health/v2", headers={
         "Authorization": "Bearer scrape-only-secret",
     }).status_code == 401
+
+
+
+def test_private_bababou_search_requires_owner_jwt_even_in_public_readonly_mode(
+    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
+    settings = protected_app.app.state.access_settings
+    settings.diagnostics_access_key = SecretStr("diagnostics-only")
+    settings.metrics_scrape_key = SecretStr("scrape-only")
+    for headers in (
+        {},
+        {"X-Diagnostics-Key": "diagnostics-only"},
+        {"Authorization": "Bearer scrape-only"},
+    ):
+        denied = protected_app.post(
+            "/private/ops/ai/bababou/search",
+            json={"query": "Éléonore"},
+            headers=headers,
+        )
+        assert denied.status_code in (401, 403)
+        assert denied.headers["cache-control"] == "private, no-store"
