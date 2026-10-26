@@ -5,6 +5,7 @@ The regular /run agent must not gain a private OpenRAG tool implicitly.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any
@@ -77,9 +78,12 @@ async def search_bababou(body: BababouSearch) -> JSONResponse:
             "openrag", "openrag_search",
             {"query": body.query, "limit": body.limit, "filter_id": filter_id},
         )
-    except Exception as exc:
+    except Exception:
         raise HTTPException(status_code=502, detail="Private RAG unavailable") from None
+    payload = {"status": "retrieved", "result": _redact_paths(result)}
+    if len(json.dumps(payload, ensure_ascii=False)) > 24_000:
+        raise HTTPException(status_code=502, detail="Private RAG result too large")
     return JSONResponse(
-        content={"status": "retrieved", "result": _redact_paths(result)},
+        content=payload,
         headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex"},
     )
