@@ -17,6 +17,14 @@ def test_browser_diagnostic_is_async_and_handles_unresponsive_main_thread():
     assert "asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)" in script
     assert '"main_thread_unresponsive"' in script
     assert "window.__uiFreezeSample" in script
+    assert "async def check_browser_preflight()" in script
+    assert '"browser_launch_unavailable"' in script
+    assert '"browserFailureClass"' in script
+    assert '"failedPhase"' in script
+    assert '"chromium_binary_missing"' in script
+    assert '"chromium_host_dependencies_missing"' in script
+    assert '"chromium_sandbox_or_permissions"' in script
+    assert '"browser_or_transport_unavailable"' not in script
     assert "longTasks" in script
     assert "page.on(\"pageerror\"" in script
     assert "browser.close()" in script
@@ -42,6 +50,8 @@ def test_node_wrapper_streams_phases_and_has_hard_deadline():
     assert "spawn(\"mise\", args" in script
     assert '"--no-project", "--with", "playwright"' in script
     assert "API_UI_TARGET: target" in script
+    assert 'const preflightMode = process.argv.includes("--preflight")' in script
+    assert 'API_UI_PREFLIGHT: preflightMode ? "1" : "0"' in script
     assert '"browser_diagnostic_timeout"' in script
     assert "35_000" in script
     assert 'child.kill("SIGKILL")' in script
