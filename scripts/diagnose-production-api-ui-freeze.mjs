@@ -9,6 +9,7 @@ const diagnostic = join(repo, "scripts", "diagnose-production-api-ui-freeze.py")
 const target = process.argv[2] || "cloud";
 const safeMode = process.argv.includes("--safe");
 const preflightMode = process.argv.includes("--preflight");
+const nativeMode = preflightMode || process.argv.includes("--native");
 const fullMode = process.argv.includes("--full");
 if (safeMode && fullMode) {
   console.error(JSON.stringify({ state: "invalid_browser_mode", allowed: ["--safe", "--full"] }));
@@ -21,8 +22,8 @@ if (!allowed.has(target)) {
 }
 // Preflight is a native, offline Python check; do not invoke uv because
 // resolution/download may fail before the diagnostic gets a chance to report.
-const executable = preflightMode ? (process.env.API_UI_PYTHON || "python3") : "mise";
-const args = preflightMode ? [diagnostic] : [
+const executable = nativeMode ? (process.env.API_UI_PYTHON || "python3") : "mise";
+const args = nativeMode ? [diagnostic] : [
   "exec", "--", "uv", "run", "--no-project", "--with", "playwright",
   "python", diagnostic,
 ];
@@ -37,7 +38,7 @@ try {
   });
 } catch {
   console.error(JSON.stringify({ state: "local_runner_unavailable",
-    next_check: preflightMode ? "verify_native_python3_on_path" : "verify_mise_and_uv_on_path" }));
+    next_check: nativeMode ? "verify_native_python3_on_path" : "verify_mise_and_uv_on_path" }));
   process.exit(2);
 }
 let phase = "spawn";
@@ -86,7 +87,7 @@ child.on("error", () => {
   finished = true;
   clearTimeout(timer);
   console.error(JSON.stringify({ state: "local_runner_unavailable",
-    next_check: preflightMode ? "verify_native_python3_on_path" : "verify_mise_and_uv_on_path" }));
+    next_check: nativeMode ? "verify_native_python3_on_path" : "verify_mise_and_uv_on_path" }));
   process.exitCode = 2;
 });
 child.on("close", (code) => {
@@ -105,7 +106,7 @@ child.on("close", (code) => {
       console.error(JSON.stringify({
         state: "browser_runner_failed", target, phase,
         runnerFailureClass: classifyRunnerFailure(privateStderr),
-        next_check: preflightMode ? "verify_native_python3_on_path" : "verify_mise_uv_and_python_playwright",
+        next_check: nativeMode ? "verify_native_python3_on_path" : "verify_mise_uv_and_python_playwright",
       }));
     }
     process.exitCode = code || 2;
