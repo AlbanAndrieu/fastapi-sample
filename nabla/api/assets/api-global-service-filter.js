@@ -1,4 +1,4 @@
-import { shouldUpdateRenderSignature } from "./api-dom-render-signature.js";
+import { shouldUpdateRenderSignature, setDatasetValueIfChanged } from "./api-dom-render-signature.js";
 
 const STATUS_CHIPS = [
   ["all", "All"],
@@ -182,9 +182,9 @@ function mapTrueNasStatus() {
   const panel = document.getElementById("truenas-platform");
   const state = document.getElementById("truenas-platform-state");
   if (!panel || !state) return;
-  panel.dataset.presentationGroup = "core-critical";
-  panel.dataset.environments = "production";
-  panel.dataset.environmentSource = "runtime";
+  setDatasetValueIfChanged(panel, "presentationGroup", "core-critical");
+  setDatasetValueIfChanged(panel, "environments", "production");
+  setDatasetValueIfChanged(panel, "environmentSource", "runtime");
   // Filter by visible measured protocol stages, not the declared capabilities.
   const allowed = new Set(["dns", "tcp", "tls", "http", "api", "websocket"]);
   const protocols = new Set(
@@ -196,13 +196,18 @@ function mapTrueNasStatus() {
       .map((node) => String(node.textContent || "").trim().toLowerCase())
       .filter((name) => allowed.has(name)),
   );
-  panel.dataset.probeKinds = [...protocols].join(" ");
+  setDatasetValueIfChanged(panel, "probeKinds", [...protocols].join(" "));
   const className = state.className;
-  if (className.includes("--ok")) panel.dataset.semanticStatus = "operational";
-  else if (className.includes("--warn"))
-    panel.dataset.semanticStatus = "degraded";
-  else if (className.includes("--fail")) panel.dataset.semanticStatus = "down";
-  else panel.dataset.semanticStatus = "unknown";
+  const status = className.includes("--ok")
+    ? "operational"
+    : className.includes("--warn")
+      ? "degraded"
+      : className.includes("--fail")
+        ? "down"
+        : "unknown";
+  // The board observer watches data-semantic-status. Writing the same value
+  // on every observer pass makes a self-sustaining rAF/mutation loop.
+  setDatasetValueIfChanged(panel, "semanticStatus", status);
 }
 
 function currentFilterState() {

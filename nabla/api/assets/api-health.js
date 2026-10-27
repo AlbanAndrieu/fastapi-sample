@@ -33,6 +33,25 @@ import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 // Temporary read-only diagnostics restore the detailed probe dashboard without
 // granting the browser an owner identity or access to mutation endpoints.
 async function bootstrapHealthUi() {
+  // Emergency read-only landing: no private probes, drawer observers or
+  // owner credentials. This remains usable if a UI decorator regresses.
+  if (new URLSearchParams(window.location.search).get("ui_safe") === "1") {
+    for (const id of [
+      "health-board-private-meta", "owner-readonly-detail",
+      "truenas-platform", "runtime-topology",
+    ]) {
+      const element = document.getElementById(id);
+      if (element) element.hidden = true;
+    }
+    document.querySelectorAll(".health-cache-reset, .health-refresh")
+      .forEach((button) => { button.hidden = true; });
+    const heading = document.getElementById("health-summary-text");
+    if (heading) {
+      heading.textContent = "Safe mode · public service directory only · probes not loaded";
+    }
+    await installPublicServiceOverview({ ownerAuthenticated: false });
+    return;
+  }
   const operatorMode =
     new URLSearchParams(window.location.search).get("operator") === "1";
   const [authenticated, readable] = await Promise.all([

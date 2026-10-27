@@ -14,6 +14,69 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — UI Cloud + TrueNAS bloquée malgré #379 (27 octobre 2026)
+
+**Preuves réelles avant nouveau correctif :** depuis la workstation,
+la sonde HTTP a mesuré `truenas: /api=200 (4 ms), /api/ui/session=200
+(2 ms), /api/ui/services=200 (766 ms)`. Chromium Playwright
+`truenas` et `cloud` ont chargé `/api` et ses scripts avec HTTP
+200, sans `pageerror`, mais `page.evaluate()` a expiré sur **les
+deux** avec `main_thread_unresponsive`. Les 403 de la sonde Python
+`cloud`/`staging` sont spécifiques à cet accès HTTP anonyme ; le
+navigateur Chromium a obtenu HTTP 200 sur `cloud`. Ne pas confondre
+règle Edge et disponibilité API.
+
+**Déploiement TrueNAS maintenant terminé (27/10) :**
+`update-fastapi-sample.sh` a construit puis redéployé
+`fa13c08db05ce8ce086d2366e1f35706913f05be`
+(hotfix #379), et atteint **`6/6 · final acceptance`** :
+`health=4/4`, `observer=passed`, `Prometheus/Gatus=ok`,
+`pfSense RBAC=warning` (diagnostic facultatif).
+La version applicative 1.25.0 ne publie toujours pas son SHA via
+`/v2/version` (`build_revision=null`) : la preuve de révision
+est issue du journal de construction/déploiement, non de l'API.
+**La sonde Chromium a été exécutée APRÈS cette recette** et
+reste `main_thread_unresponsive` sur TrueNAS et Cloud.
+Le correctif #379 seul n'a donc pas résolu le gel.
+
+- [x] **Nouvelle boucle démontrée dans master après #379 :**
+  `api-global-service-filter.js` appelle `mapTrueNasStatus()`
+  sur un événement de son `MutationObserver` sur
+  `#health-board` avec `attributeFilter: ["data-semantic-status",
+  "hidden"]`, puis assigne inconditionnellement
+  `panel.dataset.semanticStatus`. Même si la valeur ne change
+  pas, le DOM émet une mutation, qui programme un autre rAF.
+- [x] **Correctif #380** : appliquer
+  `setDatasetValueIfChanged(panel, name, value)` à tous
+  les attributs de présentation du panneau TrueNAS, dont
+  `semanticStatus`, pour rendre les cycles idempotents.
+- [x] **Tests locaux** : Node 22, **3/3 PASS**, dont 1000
+  passes de statut identique et 500 passes de métadonnées.
+  Empreintes Git identiques aux fichiers publiés.
+  Chromium réel sur un panneau `#health-board` synthétique :
+  deux affectations identiques sans garde provoquent 2 mutations ;
+  100 passages avec garde provoquent une seule mutation initiale.
+- [ ] **E2E production/staging après fusion #380** : le navigateur
+  doit produire `sampled` avec frames/long tasks bornées,
+  des filtres cliquables et un tableau lisible. Le test Chromium
+  synthétique ne remplace pas l'E2E sur la page complète.
+- [x] **Recette TrueNAS #379** : `fa13c08d` déployé avec
+  `6/6` terminé et HTTP healthy ; l'interface est pourtant encore
+  figée au test Playwright. pfSense RBAC reste `warning`
+  indépendamment du chargement de /api.
+- [x] **Contournement public-only #380** : `?ui_safe=1`
+  ne démarre aucun contrôle opérateur, aucun collecteur de sondes
+  ni observateur de cartes ; il utilise seulement
+  `/api/ui/services` (deadline 6,5 s), sans escalade d'accès.
+- [ ] **Comparer normal/safe après #380** :
+  `node scripts/diagnose-production-api-ui-freeze.mjs truenas`,
+  puis `node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe`.
+  Si seul le second termine `sampled`, isoler les modules
+  UI avancés avant de les réactiver.
+- [ ] **Tester le correctif #380** : déployer son commit
+  immuable uniquement après la revue et sans autre déploiement
+  actif ; confirmer l'absence de boucle avec Chromium.
+
 ## P0 — Hotfix gel /api malgré PR #378 fusionnée (26 octobre 2026)
 
 **Preuve opérateur** : racine Cloud `/` utilisable ; page `/api` figée
@@ -50,6 +113,29 @@ HTTP n'empêchent pas un cycle `MutationObserver` → rAF → mutation DOM.
 - [ ] **Vérification runtime après déploiement** : `/api/site/health/v2`
   avec identité valide + traceparent doit répondre sans 500 ;
   `/api` doit rester interactif, sans boucle MutationObserver.
+- [x] **TrueNAS staging réexécuté** : déploiement `origin/master`
+  `f10c8147` (sans #379) ; health HTTP 4/4, Prometheus API 200,
+  LiteLLM/Ollama/OpenRAG backend HTTP 200 ; la page
+  `https://sample.albandrieu.com/api` reste pourtant bloquée
+  sur Loading. Ne plus attribuer la panne à l'échec des sondes LAN
+  sans preuve du navigateur.
+- [x] **Playwright diagnostique corrigé** : Chromium installé sur
+  workstation, mais l'ancien `spawnSync` de 50 s expire.
+  Diagnostic Python **asynchrone** avec `page.evaluate` limitée
+  à 2 s, phases de navigation, arrêt global à 35 s.
+  Le lanceur accepte `cloud`, `staging` et `truenas`.
+- [x] **Triage HTTP indépendant du navigateur** :
+  `scripts/diagnose-api-ui-transport.py` relève trois endpoints
+  essentiels par cible, timeouts 3 s, sans cookies ni données privées.
+- [ ] **Mesurer hors Cloudflare Access** : sur workstation
+  `node scripts/diagnose-production-api-ui-freeze.mjs truenas`
+  et `python3 scripts/diagnose-api-ui-transport.py --target truenas`.
+  Comparer `cloud`; pour `staging`, un 403/302 d'Access est
+  une limite du navigateur automatique non authentifié.
+- [ ] **Tester la vraie image #379** : master `f10c8147`
+  ne contient pas le hotfix ; recette TrueNAS avec le HEAD immuable
+  de #379 seulement après validation locale (sans toucher aux
+  secrets du corpus Bababou).
 - [ ] **UI en production** : fusionner/déployer le hotfix ;
   profiler la page Chrome Performance avant/après, relever
   long tasks et confirmer aucune animation infinie.

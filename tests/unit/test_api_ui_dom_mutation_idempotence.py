@@ -57,3 +57,25 @@ def test_filter_and_probe_dom_guards_are_covered_by_node_regressions():
     probe_regression = (js_tests / "api-probe-stable-order.test.mjs").read_text()
     assert "for (let index = 0; index < 100; index += 1)" in filter_regression
     assert "for (let i = 0; i < 100; i += 1)" in probe_regression
+
+
+
+def test_truenas_semantic_status_observer_does_not_rewrite_same_value():
+    """Prevent self-triggered rAF from the observed data-semantic-status."""
+    global_filter = source("api-global-service-filter.js")
+    helper = source("api-dom-render-signature.js")
+    assert 'attributeFilter: ["data-semantic-status", "hidden"]' in global_filter
+    assert 'setDatasetValueIfChanged(panel, "semanticStatus", status);' in global_filter
+    assert 'setDatasetValueIfChanged(panel, "probeKinds", [...protocols].join(" "));' in global_filter
+    assert 'panel.dataset.semanticStatus = ' not in global_filter
+    assert "if (element.dataset[name] === value) return false;" in helper
+    assert "element.dataset[name] = value;" in helper
+
+
+def test_truenas_status_stability_is_exercised_over_1000_cycles():
+    regression = (
+        ASSETS.parents[2] / "tests/js/api-dom-observer-idempotence.test.mjs"
+    ).read_text(encoding="utf-8")
+    assert "frame < 1000" in regression
+    assert "tracked.mutations, 1" in regression
+    assert "tracked.mutations, 2" in regression

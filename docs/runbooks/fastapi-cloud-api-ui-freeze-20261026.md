@@ -164,6 +164,172 @@ Playwright installé, ce test ne peut pas être exécuté par l'agent.
 Les tests unitaires Node de pure logique ne remplacent pas ce
 contrôle end-to-end.
 
+## Nouvelle preuve : TrueNAS et Cloud sur l'ancien code (27/10/2026)
+
+L'opérateur a redéployé TrueNAS avec
+`scripts/truenas/update-fastapi-sample.sh`. Le journal de
+déploiement contient **`Selected ref: origin/master`**, commit
+**`f10c8147dd0f7e1c05d21c5f44229e5ee37f4e1e`**, même base que
+le Cloud après #378. `/api` sur
+`https://sample.albandrieu.com/api` reste en état `Loading`
+malgré `/health` sain (4/4), LiteLLM/Ollama/OpenRAG backend HTTP 200
+et Prometheus prêt. **#379 n'est pas inclus dans l'image de staging** :
+ce test n'invalide pas encore le correctif DOM proposé.
+
+Le premier diagnostic Chromium a échoué avant lancement ;
+après installation de Chromium, le second lançait le processus,
+mais son ancien wrapper `spawnSync` expirait au bout de 50 s et
+n'indiquait pas si le blocage provenait du navigateur ou de l'UI.
+Le nouveau diagnostic a un échantillonnage **async** avec
+`page.evaluate` borné à 2 s, des phases imprimées et un arrêt forcé
+après **35 s**. Il accepte exactement trois cibles approuvées.
+
+### Diagnostic réseau sans navigateur, lecture seule
+
+Dans le worktree #379 **actualisé**, lancer séparément :
+
+```bash
+python3 scripts/diagnose-api-ui-transport.py --target truenas
+python3 scripts/diagnose-api-ui-transport.py --target cloud
+python3 scripts/diagnose-api-ui-transport.py --target staging
+```
+
+Chaque commande ne fait que trois GET anonymes (`/api`,
+`/api/ui/session`, `/api/ui/services`) avec timeout 3 s et
+sans lire le corps des réponses. Un `401`/`403` n'est pas
+un freeze du serveur. La cible `staging` est derrière Cloudflare
+Access et peut répondre avec une redirection ou un 403 même si
+la UI est utilisable depuis le navigateur connecté.
+**La cible `truenas` (LAN direct 172.17.0.24:8091) est la
+preuve de référence**, sans redirection Access.
+
+### Diagnostic navigateur borné, lecture seule
+
+```bash
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+node scripts/diagnose-production-api-ui-freeze.mjs staging
+```
+
+Les appels ne partagent pas les cookies de la session Chrome,
+ne lisent pas de réponses JSON privées et n'utilisent aucun token.
+Ils produisent des messages `phase` :
+`launch_chromium`, `navigate`, `observe`, puis un rapport
+`sampled`, `main_thread_unresponsive`,
+`browser_or_transport_unavailable` ou un
+`browser_diagnostic_timeout` précisant la dernière phase.
+Une absence de DOM sur le site de connexion Cloudflare ne prouve
+pas que la UI de FastAPI est défectueuse.
+
+### Prochaine étape de déploiement
+
+Ne pas redéployer `master` pour tester #379 :
+`update-fastapi-sample.sh` utilise master par défaut.
+Après revue et validation du hotfix, une recette TrueNAS peut
+sélectionner un **SHA immuable** de #379 via `FASTAPI_SAMPLE_REF`
+(dans le dépôt **nabla-compose**, pas le worktree FastAPI).
+Contrôler l'empreinte sélectionnée dans les logs de build et
+éviter le rechargement des images de base tant que la mémoire
+de TrueNAS est dégradée. **Aucun déploiement du hotfix n'a
+été exécuté par l'agent.**
+
+## Cause supplémentaire isolée après la fusion de #379 (27/10)
+
+La sonde HTTP côté workstation reçoit pour TrueNAS :
+`GET /api = 200 (4ms)`, `GET /api/ui/session = 200 (2ms)`,
+`GET /api/ui/services = 200 (766ms)`. La sonde Chromium
+produit **`main_thread_unresponsive`** sur les cibles
+`truenas` et `cloud` malgré `/api` et JS statiques HTTP 200,
+aucune erreur `pageerror`. Un gel synchrone de l'UI est donc
+une cause prioritaire. Le Cloud a même servi les modules du
+hotfix #379, preuve que l'ancien correctif ne suffit pas.
+
+**Boucle identifiée dans `api-global-service-filter.js`** :
+
+```text
+observer(#health-board, data-semantic-status)
+  → scheduleRefresh() / requestAnimationFrame()
+  → refreshGlobalFilter() / mapTrueNasStatus()
+  → panel.dataset.semanticStatus = SAME_VALUE
+  → nouvelle mutation de data-semantic-status
+  → observer...
+```
+
+Le navigateur Chromium local confirme que deux affectations
+identiques de `data-semantic-status` émettent deux notifications
+`MutationObserver`. Le correctif #380 emploie désormais
+`setDatasetValueIfChanged()`. Dans un fixture Chromium
+réel, **100 cycles ne produisent qu'une seule notification**.
+Les trois tests unitaires Node liés au garde-fou sont PASS,
+dont un avec 1000 cycles. Cette preuve localisée ne remplace
+pas encore le test de la page réelle après déploiement.
+
+**Séquence opérateur sans déploiement parallèle** :
+
+1. Laisser se terminer la commande TrueNAS déjà en cours qui
+   déploie le commit **`fa13c08d`** ; recueillir ses étapes
+   `3/6` à `6/6` et les éventuelles erreurs.
+2. Depuis le worktree FastAPI qui contient #380, relancer
+   `node scripts/diagnose-production-api-ui-freeze.mjs truenas`
+   puis `node scripts/diagnose-production-api-ui-freeze.mjs cloud`.
+3. Après revue/validation de #380, tester son commit immuable
+   sur TrueNAS et comparer `main_thread_unresponsive` à
+   `sampled`. Ne pas conclure au succès avant cette preuve.
+
+Les GET Python vers Cloud et `sample.albandrieu.com` renvoient
+`403`, alors que Chromium reçoit `200` depuis Cloud :
+ces différences entre clients ne constituent pas un diagnostic
+de crash serveur. La cible **`truenas` LAN direct** est la
+plus interprétable pour l'UI locale.
+
+## Nouvelle réception opérateur après #379 sur TrueNAS (27/10)
+
+`FASTAPI_SAMPLE_REF=fa13c08db05ce8ce086d2366e1f35706913f05be
+./scripts/truenas/update-fastapi-sample.sh` a **terminé 6/6** :
+HTTP healthy 4/4, Prometheus/Gatus contrat OK, observer OK,
+pfSense RBAC `warning` facultatif. L'image ne publie toujours
+pas `build_revision`, mais la provenance de la construction est
+présente dans le journal opérateur.
+
+Playwright **après** ce déploiement a confirmé de nouveau :
+`truenas: /api=200, pageErrors=0, main_thread_unresponsive` ;
+`cloud: /api=200, pageErrors=0, main_thread_unresponsive`.
+Le hotfix #379 est donc **insuffisant** pour supprimer le gel.
+
+### Correctif #380 : statut TrueNAS sans réécriture cyclique
+
+Le filtre global observait `data-semantic-status` dans
+`#health-board` puis réaffectait `panel.dataset.semanticStatus`
+à chaque frame, même pour une valeur inchangée.
+`setDatasetValueIfChanged(panel, "semanticStatus", status)` coupe
+la boucle ; les métadonnées `probeKinds`, `presentationGroup`
+et `environments` utilisent le même garde-fou.
+Une reproduction Chromium synthétique montre une seule
+mutation en 100 cycles après correction ; tests Node
+sur 1000 cycles idempotents PASS.
+La page complète doit encore être retestée après déploiement.
+
+### Mode de secours `?ui_safe=1` (nouveau dans #380)
+
+Si un autre enrichisseur DOM reste défectueux, la page
+`http://172.17.0.24:8091/api?ui_safe=1` contourne tous
+les installateurs UI avancés : **catalogue public uniquement**,
+`/api/ui/services` avec délai 6,5 s, pas d'auth OWNER,
+pas de probes privées ni actions de mutation.
+
+Après une recette #380 réussie, comparer :
+
+```bash
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+```
+
+**Avant le déploiement de #380, `ui_safe` n'est pas pris en
+charge par la version fa13c08d**. Ne pas interpréter un
+`main_thread_unresponsive` en mode safe avec l'ancienne
+version comme un échec du mode de secours.
+
 ## Contrôle Chrome sans secrets
 
 1. Ouvrir DevTools → **Performance** ; enregistrer 5 s sur

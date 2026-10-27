@@ -5,3 +5,11 @@ export function shouldUpdateRenderSignature(element, signature) {
   element.dataset.renderSignature = signature;
   return true;
 }
+
+// MutationObserver attributes can self-trigger on *identical* DOM writes.
+// Return false without updating the DOM when the published status is stable.
+export function setDatasetValueIfChanged(element, name, value) {
+  if (element.dataset[name] === value) return false;
+  element.dataset[name] = value;
+  return true;
+}
