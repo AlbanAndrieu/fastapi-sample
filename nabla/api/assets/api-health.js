@@ -52,14 +52,15 @@ async function bootstrapHealthUi() {
       .forEach((button) => { button.hidden = true; });
     const heading = document.getElementById("health-summary-text");
     if (heading) {
-      heading.textContent = "Safe mode · public service directory only · probes not loaded";
+      heading.textContent = params.get("ui_safe") === "1"
+        ? "Safe mode · public service directory only · probes not loaded"
+        : "Public service directory · detailed diagnostics available on request";
     }
     // Offer the previous rich dashboard without automatically installing its
     // competing observers on every anonymous browser session.
     if (params.get("ui_safe") !== "1") {
       const fullLink = document.createElement("a");
-      fullLink.href = new URL(window.location.href);
-      const target = new URL(fullLink.href);
+      const target = new URL(window.location.href);
       target.searchParams.set("ui_full", "1");
       fullLink.href = target.href;
       fullLink.textContent = "Open detailed diagnostics";
