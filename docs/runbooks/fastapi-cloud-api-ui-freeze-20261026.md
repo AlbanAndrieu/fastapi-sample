@@ -365,3 +365,72 @@ node scripts/diagnose-production-api-ui-freeze.mjs cloud
 ~~~
 
 Ces tests n'affirment aucune modification de production : l'agent ne possède pas de canal d'exécution vers TrueNAS ni de session de déploiement FastAPI Cloud. Le test Node vérifie le contrat du code et non le comportement navigateur final.
+
+
+## Retour du 28 octobre — Playwright bloqué AVANT /api
+
+Le test Node n'a pas trouvé le fichier api-public-fast-start.test.mjs parce que le
+checkout local ne contient pas encore la branche PR #381. Les trois lancements
+Chromium ont échoué pendant launch_chromium, avec http=[] et pageErrors=0.
+**Aucune requête HTTP vers Cloud ou TrueNAS et aucune évaluation DOM n'a eu
+lieu.** Il ne s'agit donc pas d'une nouvelle preuve de gel du serveur ou du
+frontend.
+
+### Validation de PR #381 en worktree isolé
+
+Sur TrueNAS, le sous-module FastAPI du dépôt nabla-compose est encore lié à
+l'image immuable déjà déployée. Ne pas nettoyer ou écraser ce sous-module.
+
+~~~bash
+cd /mnt/cpool/compose/nabla-compose
+FASTAPI_REPO="$PWD/fastapi-sample"
+git -C "$FASTAPI_REPO" fetch origin fix/api-ui-public-fast-start-20261028
+
+WT="$(mktemp -d /tmp/fastapi-ui-pr381.XXXXXX)"
+rmdir "$WT"
+git -C "$FASTAPI_REPO" -c submodule.recurse=false worktree add --detach \
+  "$WT" origin/fix/api-ui-public-fast-start-20261028
+
+test_status=0
+(
+  set -e
+  cd "$WT"
+  node --test tests/js/api-public-fast-start.test.mjs
+  node scripts/diagnose-production-api-ui-freeze.mjs truenas --preflight
+) || test_status=$?
+git -C "$FASTAPI_REPO" worktree remove "$WT"
+test "$test_status" -eq 0
+~~~
+
+Le test Node ne requiert ni réseau ni Playwright. Le preflight vérifie le
+binaire Chromium associé au Playwright Python installé, sans ouvrir la page,
+faire de requête HTTP, ni télécharger le navigateur. Il dépend de mise et uv.
+
+La PR #381 distingue maintenant browser_launch_unavailable de
+navigation_failed et navigation_timeout ; elle ne confond plus un HTTP
+401/403, une redirection d'auth ou une page vide avec une UI saine.
+Une classe de lancement fixe identifie le binaire Chromium absent, les
+librairies système manquantes, le sandbox ou les permissions. Les chemins
+exécutables et les erreurs brutes ne sont pas rendus.
+
+Si le navigateur est absent, préférer effectuer cette validation depuis la
+workstation ayant Chromium disponible. Installer Chromium est une action
+facultative explicite, qui télécharge des données :
+
+~~~bash
+mise exec -- uv run --no-project --with playwright python -m playwright install chromium
+~~~
+
+Après réussite du preflight, comparer normal et les deux chemins explicites :
+
+~~~bash
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --full
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+node scripts/diagnose-production-api-ui-freeze.mjs cloud --full
+~~~
+
+La branche PR #381 n'est PAS déployée ; les URLs publiques ne valident pas
+encore le mode public-first tant que le déploiement n'est pas effectué.
+Aucune CI, rotation de clé ou modification du runtime n'est nécessaire.
