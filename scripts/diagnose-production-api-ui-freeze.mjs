@@ -9,6 +9,11 @@ const diagnostic = join(repo, "scripts", "diagnose-production-api-ui-freeze.py")
 const target = process.argv[2] || "cloud";
 const safeMode = process.argv.includes("--safe");
 const preflightMode = process.argv.includes("--preflight");
+const fullMode = process.argv.includes("--full");
+if (safeMode && fullMode) {
+  console.error(JSON.stringify({ state: "invalid_browser_mode", allowed: ["--safe", "--full"] }));
+  process.exit(2);
+}
 const allowed = new Set(["cloud", "staging", "truenas"]);
 if (!allowed.has(target)) {
   console.error(JSON.stringify({ state: "invalid_target", allowed: [...allowed] }));
@@ -23,7 +28,8 @@ try {
   child = spawn("mise", args, {
     cwd: repo,
     env: { ...process.env, API_UI_TARGET: target, API_UI_SAFE: safeMode ? "1" : "0",
-      API_UI_PREFLIGHT: preflightMode ? "1" : "0" },
+      API_UI_PREFLIGHT: preflightMode ? "1" : "0",
+      API_UI_FULL: fullMode ? "1" : "0" },
     stdio: ["ignore", "pipe", "pipe"],
   });
 } catch {
