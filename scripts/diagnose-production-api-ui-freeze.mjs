@@ -8,6 +8,7 @@ const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const diagnostic = join(repo, "scripts", "diagnose-production-api-ui-freeze.py");
 const target = process.argv[2] || "cloud";
 const safeMode = process.argv.includes("--safe");
+const preflightMode = process.argv.includes("--preflight");
 const allowed = new Set(["cloud", "staging", "truenas"]);
 if (!allowed.has(target)) {
   console.error(JSON.stringify({ state: "invalid_target", allowed: [...allowed] }));
@@ -21,7 +22,8 @@ let child;
 try {
   child = spawn("mise", args, {
     cwd: repo,
-    env: { ...process.env, API_UI_TARGET: target, API_UI_SAFE: safeMode ? "1" : "0" },
+    env: { ...process.env, API_UI_TARGET: target, API_UI_SAFE: safeMode ? "1" : "0",
+      API_UI_PREFLIGHT: preflightMode ? "1" : "0" },
     stdio: ["ignore", "pipe", "pipe"],
   });
 } catch {
