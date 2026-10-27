@@ -12,9 +12,20 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from playwright.async_api import Error as PlaywrightError
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
-from playwright.async_api import async_playwright
+# The offline preflight must work even on a TrueNAS host without Playwright.
+# Never install packages or download Chromium as part of diagnosis.
+try:
+    from playwright.async_api import Error as PlaywrightError
+    from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+    from playwright.async_api import async_playwright
+except ImportError:
+    async_playwright = None
+
+    class PlaywrightError(Exception):
+        """Placeholder only when the optional browser dependency is absent."""
+
+    class PlaywrightTimeoutError(PlaywrightError):
+        """Placeholder to preserve explicit failure handling in offline mode."""
 
 TARGETS = {
     "cloud": "https://fastapi-sample.fastapicloud.dev/api",
@@ -80,6 +91,12 @@ def classify_chromium_start_failure(exc: BaseException) -> str:
 
 async def check_browser_preflight() -> dict:
     """Check Playwright's pinned Chromium path without launching or networking."""
+    if async_playwright is None:
+        return {
+            "state": "playwright_python_missing",
+            "browser": "not_verified",
+            "network_requests_sent": 0,
+        }
     try:
         async with async_playwright() as playwright:
             chromium = Path(playwright.chromium.executable_path)
@@ -105,6 +122,15 @@ async def check(target: str) -> dict:
     failures: list[dict] = []
     page_errors = [0]
     result: dict = {"target": target, "path": "/api", "state": "not_started", "safeMode": safe_mode, "fullMode": full_mode}
+    if async_playwright is None:
+        return {
+            **result,
+            "state": "playwright_python_missing",
+            "next_check": "install_playwright_in_selected_python_environment",
+            "http": [],
+            "requestFailures": [],
+            "pageErrors": 0,
+        }
     phase = "launch_chromium"
     print(json.dumps({"phase": phase, "target": target}), flush=True)
     try:
