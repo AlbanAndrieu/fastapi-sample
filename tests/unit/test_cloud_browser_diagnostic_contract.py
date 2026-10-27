@@ -79,9 +79,15 @@ def test_browser_safe_mode_is_explicit_and_allowlisted():
     assert '"?ui_safe=1"' in browser
     assert 'const safeMode = process.argv.includes("--safe")' in launcher
     assert 'API_UI_SAFE: safeMode ? "1" : "0"' in launcher
+    assert 'API_UI_FULL: fullMode ? "1" : "0"' in launcher
+    assert 'API_UI_PREFLIGHT: preflightMode ? "1" : "0"' in launcher
+    assert 'page_url = TARGETS[target] + (' in browser
+    assert '"?ui_full=1" if full_mode else ""' in browser
     assert 'get("ui_safe") === "1"' in ui
     assert ui.index('get("ui_safe") === "1"') < ui.index("ownerSessionAvailable()")
     assert 'await installPublicServiceOverview({ ownerAuthenticated: false })' in ui
     assert "installHealthBoardController();" in ui
     assert "return;\n  }\n  const operatorMode =" in ui
-    assert "read-only landing" in ui.lower()
+    assert "public directory is the resilient default" in ui.lower()
+    assert 'params.get("ui_full") === "1"' in ui
+    assert 'params.get("operator") === "1"' in ui
