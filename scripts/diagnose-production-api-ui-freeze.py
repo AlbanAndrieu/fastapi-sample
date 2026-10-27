@@ -148,17 +148,32 @@ async def check(target: str) -> dict:
                 except (ValueError, TypeError):
                     redirected = False
 
-                phase = "observe"
-                print(json.dumps({"phase": phase, "target": target}), flush=True)
-                await asyncio.sleep(8)
-                try:
-                    sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
-                    result["state"] = "sampled"
-                    result.update(sample)
-                except (asyncio.TimeoutError, PlaywrightTimeoutError):
-                    result["state"] = "main_thread_unresponsive"
-                except PlaywrightError:
-                    result["state"] = "browser_page_unavailable"
+                # Never claim an empty/about:blank page was sampled after a
+                # failed navigation. Access redirects are not JS freezes.
+                if navigation_state != "committed":
+                    result["state"] = (
+                        "navigation_timeout" if navigation_state == "timeout"
+                        else "navigation_failed"
+                    )
+                    result["next_check"] = "verify_pinned_http_transport"
+                elif redirected:
+                    result["state"] = "redirected_off_origin"
+                    result["next_check"] = "verify_external_access_policy"
+                elif status in (401, 403):
+                    result["state"] = "http_access_restricted"
+                    result["next_check"] = "verify_expected_authentication_policy"
+                else:
+                    phase = "observe"
+                    print(json.dumps({"phase": phase, "target": target}), flush=True)
+                    await asyncio.sleep(8)
+                    try:
+                        sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
+                        result["state"] = "sampled"
+                        result.update(sample)
+                    except (asyncio.TimeoutError, PlaywrightTimeoutError):
+                        result["state"] = "main_thread_unresponsive"
+                    except PlaywrightError:
+                        result["state"] = "browser_page_unavailable"
                 result.update({
                     "navigationStatus": status,
                     "navigationState": navigation_state,
