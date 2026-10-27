@@ -1,6 +1,10 @@
 """Hermetic Playwright startup classification, independent of browser/PyPI."""
 import ast
 from pathlib import Path
+import json
+import os
+import subprocess
+import sys
 
 SRC = Path(__file__).resolve().parents[2] / "scripts/diagnose-production-api-ui-freeze.py"
 
@@ -57,3 +61,34 @@ def test_browser_diagnostic_has_no_install_or_network_preflight():
     assert '"network_requests_sent": 0' in script
     assert "playwright install chromium" not in script
     assert "browser_or_transport_unavailable" not in script
+
+
+def test_native_offline_preflight_reports_python_playwright_missing_without_network():
+    """-S suppresses site packages and reproduces TrueNAS missing dependency."""
+    env = {**os.environ, "API_UI_PREFLIGHT": "1", "API_UI_TARGET": "truenas"}
+    completed = subprocess.run(
+        [sys.executable, "-S", str(SRC)],
+        env=env, capture_output=True, text=True, check=False, timeout=6,
+    )
+    report = json.loads(completed.stdout)
+    assert completed.returncode == 2
+    assert report == {
+        "state": "playwright_python_missing",
+        "browser": "not_verified",
+        "network_requests_sent": 0,
+    }
+    assert completed.stderr == ""
+
+
+def test_no_playwright_ordinary_diagnostic_is_not_mislabeled_ui_freeze():
+    env = {**os.environ, "API_UI_PREFLIGHT": "0", "API_UI_TARGET": "truenas"}
+    completed = subprocess.run(
+        [sys.executable, "-S", str(SRC)],
+        env=env, capture_output=True, text=True, check=False, timeout=6,
+    )
+    report = json.loads(completed.stdout)
+    assert completed.returncode == 1
+    assert report["state"] == "playwright_python_missing"
+    assert report["http"] == []
+    assert report["pageErrors"] == 0
+    assert completed.stderr == ""
