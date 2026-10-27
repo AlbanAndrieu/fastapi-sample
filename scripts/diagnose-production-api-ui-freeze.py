@@ -97,11 +97,14 @@ async def check_browser_preflight() -> dict:
 async def check(target: str) -> dict:
     origin = urlsplit(TARGETS[target]).netloc
     safe_mode = os.getenv("API_UI_SAFE") == "1"
-    page_url = TARGETS[target] + ("?ui_safe=1" if safe_mode else "")
+    full_mode = os.getenv("API_UI_FULL") == "1"
+    page_url = TARGETS[target] + (
+        "?ui_safe=1" if safe_mode else "?ui_full=1" if full_mode else ""
+    )
     http: list[dict] = []
     failures: list[dict] = []
     page_errors = [0]
-    result: dict = {"target": target, "path": "/api", "state": "not_started", "safeMode": safe_mode}
+    result: dict = {"target": target, "path": "/api", "state": "not_started", "safeMode": safe_mode, "fullMode": full_mode}
     phase = "launch_chromium"
     print(json.dumps({"phase": phase, "target": target}), flush=True)
     try:
