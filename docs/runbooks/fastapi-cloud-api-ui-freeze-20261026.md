@@ -347,3 +347,21 @@ version comme un échec du mode de secours.
 N'utiliser ni `fastapi deploy`, ni modification d'environnement,
 ni mutation TrueNAS dans cette procédure de diagnostic. La plateforme
 FastAPI Cloud gère son propre déploiement après fusion approuvée.
+
+## Confinement P0 — catalogue public prioritaire (28/10/2026)
+
+Les PR #379 et #380 ont corrigé plusieurs écritures DOM qui redéclenchaient leurs propres MutationObserver. Après le déploiement TrueNAS FastAPI 1.25.0, l'opérateur signale toujours un gel de /api. L'hypothèse d'autres boucles reste à vérifier avec un navigateur. La réponse HTTP 200 de /health ou /api ne démontre pas que le thread principal du navigateur reste disponible. LiteLLM HTTP 401 est un incident d'authentification distinct, sans lien causal démontré avec le gel.
+
+Pour contenir ce défaut, /api sans paramètre initialise uniquement le catalogue public, sans installer les observateurs de détails/probes et sans attendre les appels de contrôle de session. La navigation **/api?ui_full=1** conserve l'ancien tableau détaillé avec toutes les règles d'accès OWNER : ce paramètre n'accorde aucune identité supplémentaire. **/api?operator=1** préserve le parcours opérateur et **/api?ui_safe=1** préserve le mode strict public, sans lien d'accès aux détails. La page publique affiche un lien « Open detailed diagnostics » vers l'interface complète.
+
+Compromis UX : le catalogue reste interactif par défaut, mais le tableau détaillé n'est plus chargé automatiquement. **Ce confinement ne corrige pas à lui seul une éventuelle boucle en mode complet.** Après publication, comparer les parcours normal, ui_full et ui_safe dans un vrai navigateur, enregistrer les Long Tasks et la réactivité du thread principal.
+
+Validation locale sans GitHub Actions :
+~~~bash
+node --test tests/js/api-public-fast-start.test.mjs
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+~~~
+
+Ces tests n'affirment aucune modification de production : l'agent ne possède pas de canal d'exécution vers TrueNAS ni de session de déploiement FastAPI Cloud. Le test Node vérifie le contrat du code et non le comportement navigateur final.
