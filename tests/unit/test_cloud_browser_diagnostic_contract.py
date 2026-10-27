@@ -47,7 +47,8 @@ def test_browser_targets_are_pinned_to_cloud_access_and_lan():
 def test_node_wrapper_streams_phases_and_has_hard_deadline():
     script = source("scripts/diagnose-production-api-ui-freeze.mjs")
     assert 'from "node:child_process"' in script
-    assert "spawn(\"mise\", args" in script
+    assert "spawn(executable, args" in script
+    assert 'preflightMode ? (process.env.API_UI_PYTHON || "python3") : "mise"' in script
     assert '"--no-project", "--with", "playwright"' in script
     assert "API_UI_TARGET: target" in script
     assert 'const preflightMode = process.argv.includes("--preflight")' in script
@@ -55,7 +56,9 @@ def test_node_wrapper_streams_phases_and_has_hard_deadline():
     assert '"browser_diagnostic_timeout"' in script
     assert "35_000" in script
     assert 'child.kill("SIGKILL")' in script
-    assert 'child.stderr.on("data", () => {})' in script
+    assert 'child.stderr.on("data", (part) =>' in script
+    assert 'classifyRunnerFailure(privateStderr)' in script
+    assert 'runnerFailureClass:' in script
     assert '"from \"playwright\""' not in script
 
 
@@ -63,7 +66,9 @@ def test_fast_transport_uses_pinned_get_requests_without_body_or_keys():
     script = source("scripts/diagnose-api-ui-transport.py")
     compile(script, "scripts/diagnose-api-ui-transport.py", "exec")
     assert '"/api/ui/session", "/api/ui/services"' in script
-    assert 'timeout=3' in script
+    assert 'TIMEOUTS = {"/api": 3, "/api/ui/session": 3, "/api/ui/services": 7}' in script
+    assert "timeout=deadline_seconds" in script
+    assert '"deadline_seconds": deadline_seconds' in script
     assert 'method="GET"' in script
     assert "NoRedirect" in script
     for forbidden in ("response.read(", "response.text(", "X-Diagnostics-Key", "Authorization", '"Cookie":'):
