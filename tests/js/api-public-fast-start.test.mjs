@@ -109,3 +109,20 @@ test("OWNER controller does not install duplicate handlers", () => {
   assert.ok(ownerSession.includes('"X-Diagnostics-Key": key'));
   assert.ok(!entry.includes("ownerAuthenticated: true"));
 });
+
+test("OWNER access is discoverable without frontend bootstrapping", () => {
+  assert.match(page, /href="\/api\?operator=1">Owner access<\/a>/);
+  assert.ok(entry.includes('const operatorMode = params.get("operator") === "1"'));
+  assert.ok(entry.includes('const richMode = params.get("ui_full") === "1"'));
+  assert.ok(entry.includes('import("./api-owner-session.js")'));
+});
+
+test("OWNER session is refreshed on return without storing a diagnostics key", () => {
+  assert.ok(ownerSession.includes('window.addEventListener("online", refreshStatus)'));
+  assert.ok(ownerSession.includes('window.addEventListener("pageshow", refreshStatus)'));
+  assert.ok(ownerSession.includes('document.addEventListener("visibilitychange"'));
+  assert.ok(ownerSession.includes('if (!form.hidden) return'));
+  assert.ok(ownerSession.includes('resetOwnerSessionStatus()'));
+  assert.ok(!ownerSession.includes('localStorage.setItem('));
+  assert.ok(!ownerSession.includes('sessionStorage.setItem('));
+});
