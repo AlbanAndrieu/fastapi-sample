@@ -539,3 +539,62 @@ dans Network que `/api` ne requiert **pas**
 filtre, les cartes, la sécurité OWNER et les sondes dans le mode riche.
 Cela ne prouve pas encore la disparition d'une éventuelle boucle DOM :
 aucune session Chromium réelle n'a été exécutée depuis cet agent.
+
+
+## P1 — OWNER mobile LAN sans import riche, PR #382 (28/10/2026)
+
+**Symptôme utilisateur :** depuis le Wi-Fi du domicile, `/api/ui/session`
+retourne `{ "authenticated": false, "readOnlyDiagnostics": true }` et
+`http://172.17.0.24:8091/api` est joignable. Cependant, `?operator=1`
+n’affiche pas `Unlock diagnostics`. Cela prouve l’accessibilité directe
+LAN et la lecture seule autorisée, **pas** une session OWNER.
+
+**Défaut de frontend :** `#owner-session-panel` part masqué dans HTML.
+Avant #382, le rendre visible exigeait d’importer tout `api-health.js`
+par `?operator=1` ; cet import contient les observateurs et le chemin
+qui a déjà produit `main_thread_unresponsive`. Le code pouvait geler
+avant `panel.hidden = false`. On ne peut pas attribuer à coup sûr le
+gèle de ce téléphone sans une mesure Chromium sur son runtime.
+
+**Contrat #382 :**
+
+1. Une entrée `Owner access` est présente dans la navigation HTML même
+   lorsque le JavaScript du catalogue échoue.
+2. `/api?operator=1` reste sur le catalogue public rapide et fait
+   apparaître immédiatement `Unlock diagnostics`, via un module léger.
+3. `/api?ui_full=1` déclenche *uniquement sur demande* le tableau riche.
+   `?operator=1&ui_full=1` combine les deux sans double binding.
+4. Le retour depuis 4G/5G vers le Wi-Fi revalide l’état de session sur
+   les événements `online`, `pageshow` et `visibilitychange`. Aucun
+   événement réseau n’authentifie OWNER automatiquement.
+5. `?ui_safe=1` garde la priorité et ne monte pas la connexion OWNER.
+   Les routes privées requièrent toujours une clé correcte, un cookie
+   signé et une source approuvée.
+
+**Recette sans CI et sans toucher aux secrets :**
+
+```bash
+# Depuis un checkout fastapi-sample de la PR #382, PAS nabla-compose
+node --test tests/js/api-public-fast-start.test.mjs
+node --test tests/js/api-chromium-preflight-runner.test.mjs
+python3 -m pytest -q tests/unit/test_api_ui_assets.py
+```
+
+Après recette et déploiement **par SHA immuable** sur TrueNAS :
+
+- Ouvrir `/api` : lien `Owner access` visible, catalogue réactif.
+- Ouvrir `/api?operator=1` : bouton `Unlock diagnostics` visible sans
+  module `api-health.js` dans l’onglet Network.
+- Essayer la clé via le formulaire (jamais en URL ou dans un log).
+  Un succès doit produire `authenticated=true` sur le même navigateur.
+- Un `403 source_unverified` impose d’examiner la chaîne HAProxy /
+  Cloudflare et les CIDR de proxy connus, sans contourner l’ACL.
+- Après succès, cliquer `Open detailed diagnostics`; le gel éventuel
+  du tableau riche est une **anomalie distincte** à corriger avant GO.
+
+**État :** modifications publiées dans la PR #382 ; tests Node et recette
+Chromium réelle **non exécutés ici**. Le dernier runtime TrueNAS attesté
+dans le journal est `fa13c08d` ; le build de `0266f20d` a échoué à
+l’étape Docker 3/6 avec l’ancienne image conservée. La PR #289 de
+`nabla-compose` est fusionnée, mais le classifieur ne démontre aucune
+cause tant que son journal privé n’a pas été traité localement.
