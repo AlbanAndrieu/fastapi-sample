@@ -19,6 +19,7 @@ def test_api_page_serves_external_assets() -> None:
     client = TestClient(app)
 
     page = client.get("/api")
+    entry = client.get("/api/assets/api-health-entry.js")
     bootstrap = client.get("/api/assets/api-health.js")
     controller = client.get("/api/assets/api-health-controller.js")
     health = client.get("/api/assets/api-health-core.js")
@@ -39,7 +40,7 @@ def test_api_page_serves_external_assets() -> None:
     assert page.headers["cache-control"] == "no-store, max-age=0"
     assert page.headers["pragma"] == "no-cache"
     assert 'href="/api/assets/api.css?v=test-version"' in page.text
-    assert 'type="module" src="/api/assets/api-health.js?v=test-version"' in page.text
+    assert 'type="module" src="/api/assets/api-health-entry.js?v=test-version"' in page.text
     assert "function computeOverall" not in page.text
     assert 'property="og:type" content="website"' in page.text
     assert 'property="og:image" content="https://fastapi-sample.fastapicloud.dev/api/assets/open-graph.png"' in page.text
@@ -50,6 +51,7 @@ def test_api_page_serves_external_assets() -> None:
     assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
     for asset in (
+        entry,
         bootstrap,
         controller,
         board,
@@ -65,6 +67,8 @@ def test_api_page_serves_external_assets() -> None:
         assert asset.headers["cache-control"] == "no-store, max-age=0"
         assert asset.headers["pragma"] == "no-cache"
 
+    assert 'from "./api-public-services.js"' in entry.text
+    assert 'import("./api-health.js")' in entry.text
     assert 'from "./api-health-controller.js"' in bootstrap.text
     assert 'from "./api-sickz-port-labels.js"' in bootstrap.text
     assert 'from "./api-health-core.js"' in controller.text
