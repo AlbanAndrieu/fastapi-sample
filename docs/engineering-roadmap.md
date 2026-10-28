@@ -15,6 +15,47 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 possède Next.js/Vercel, icônes et cache du navigateur.
 
 
+## P1 prioritaire — Accès OWNER et drill-down sur smartphone LAN (28 octobre 2026)
+
+**Observations opérateur :** sur Wi-Fi, `/api/ui/session` répond
+`authenticated=false`, `readOnlyDiagnostics=true`, tandis que
+`http://172.17.0.24:8091/api` est accessible. L'URL
+`/api?operator=1` ne révèle pas `Unlock diagnostics` dans le runtime
+observé. Cela démontre l'absence de session OWNER ; ce n'est pas un échec
+de connectivité LAN. Le gel éventuel sur le smartphone n'est pas encore
+prouvé par Chromium.
+
+- [x] **PR #382 en Draft [skip ci] :** entrée `Owner access` dans HTML,
+  panneau OWNER activé par le module léger sans importer les observateurs
+  du dashboard avancé ; `operator=1` n'active plus `ui_full=1`.
+- [x] **Contrat d'authentification maintenu :** clé, cookie signé HttpOnly,
+  source/chaîne de proxy approuvées ; `readOnlyDiagnostics=true` ne
+  devient jamais OWNER. Sur `ui_safe=1`, aucune connexion n'est montée.
+- [x] **Session mobile :** revalidation sur `online`, `pageshow` et
+  retour sur l'onglet ; état OWNER séparé de lecture seule ; aucune clé
+  enregistrée dans le navigateur.
+- [x] **Contrôles statiques :** 23/23 vérifications ciblées PASS sur les
+  sources de la branche. Des tests Node de contrat sont ajoutés mais
+  **non exécutés localement dans cette session**.
+- [ ] **Recette locale :** exécuter Node/pytest sur un checkout #382,
+  confirmer navigation HTML et affichage du bouton depuis smartphone.
+- [ ] **Accès HTTPS :** après authentification effective, confirmer le
+  cookie et distinguer HTTP 401 (clé) de 403 source/proxy/origine. Ne
+  jamais supposer qu'une connexion Wi-Fi constitue une identité OWNER.
+- [ ] **Cartes et drill-down :** après sélection volontaire de
+  `ui_full=1`, prouver que DNS/TCP/HTTP/Gatus/Prometheus, le détail
+  TrueNAS et les références downstream restent réactifs ; un gel du
+  mode riche reste P0 séparé.
+- [ ] **Build TrueNAS :** classifier le dernier journal privé Docker
+  (classifieur déjà fusionné dans nabla-compose #289). Ne déployer le
+  commit immuable #382 que lorsque la cause est comprise et le build
+  accepté 6/6 ; aucun nouveau déploiement par cet agent.
+
+**Décisions de publication :** #380 et #381 sont déjà fusionnées dans
+fastapi-sample ; cela n'atteste pas leur présence sur TrueNAS. #382 est
+encore Draft. Ne pas consommer de CI GitHub, ne pas fusionner
+automatiquement et ne pas désactiver les ACL.
+
 ## P0 — Déchargement réel des modules UI lourds (28 octobre 2026)
 
 - [x] **Analyse de la PR #381 :** le branchement `publicFirst` dans
