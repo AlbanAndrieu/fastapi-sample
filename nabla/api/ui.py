@@ -310,7 +310,7 @@ def render_api_root_page(
                 </div>
             </div>
         </main>
-        <script type="module" src="/api/assets/api-health.js?v={app_version}"></script>
+        <script type="module" src="/api/assets/api-health-entry.js?v={app_version}"></script>
     </body>
     </html>
     """
