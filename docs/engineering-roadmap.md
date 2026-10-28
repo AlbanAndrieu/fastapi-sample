@@ -15,6 +15,30 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 possède Next.js/Vercel, icônes et cache du navigateur.
 
 
+## P0 — Déchargement réel des modules UI lourds (28 octobre 2026)
+
+- [x] **Analyse de la PR #381 :** le branchement `publicFirst` dans
+  `api-health.js` n'empêchait pas ses **imports ESM statiques** de
+  charger et évaluer les modules du tableau complet avant le test de mode.
+  Cette faiblesse est démontrée dans le code ; une causalité avec le gel
+  Chromium n'est pas encore prouvée.
+- [x] **Correctif de code publié dans #381 [skip ci] :** le HTML de `/api`
+  charge désormais `api-health-entry.js`, qui n'importe statiquement
+  que `api-public-services.js`. `api-health.js` et son graphe de sondes,
+  filtres et observateurs sont importés **dynamiquement** si `ui_full=1`
+  ou `operator=1`. `ui_safe=1` reste strictement public et prioritaire.
+  En cas d'échec de l'import riche, repli vers le catalogue public sans
+  accorder d'identité OWNER.
+- [x] Trois nouveaux tests Node de contrat valident le lien HTML, l'unique
+  import statique et l'absence d'observateurs dans l'amorçage public.
+  Le test HTTP d'assets vérifie la présence du nouvel entrypoint.
+- [ ] **Exécuter les nouveaux tests** et prouver avec Chromium (ou Chrome
+  DevTools) que la page publique ne charge pas `api-health.js` et qu'elle
+  demeure interactive même avec un catalogue lent. Vérifier le parcours
+  OWNER avec `ui_full=1`, les ACL et le rendu des sondes.
+- [ ] **Déploiement ultérieur contrôlé** uniquement après revue et
+  validation navigateur. Aucune CI GitHub, aucun déploiement automatique.
+
 ## P0 — Vérification du navigateur, catalogue public et Cloud 403 (28 octobre 2026)
 
 - [x] **PR #381 testée localement sur TrueNAS au SHA 72b97623 :** 4/4 tests Node
