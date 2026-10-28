@@ -14,6 +14,39 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+
+## P0 — Vérification du navigateur, catalogue public et Cloud 403 (28 octobre 2026)
+
+- [x] **PR #381 testée localement sur TrueNAS au SHA 72b97623 :** 4/4 tests Node
+  PASS en worktree détaché. La recette a rendu test_status=1 uniquement parce que
+  l'ancien \`--preflight\` passait par mise/uv, a échoué en phase \`spawn\`,
+  et n'a produit aucun rapport Python. Chromium n'a pas été testé.
+- [x] **Preuves HTTP opérateur :** TrueNAS /api HTTP 200 (3 ms),
+  /api/ui/session 200 (2 ms), /api/ui/services timeout à 3 s.
+  Cloud /api, /api/ui/session et /api/ui/services HTTP 403 depuis le
+  client urllib anonyme. Ces résultats ne prouvent aucun gel JS ni panne
+  généralisée : la protection Cloud peut dépendre de l'identité/client.
+- [x] **Préflight Playwright autonome :** \`--preflight\` exécute maintenant
+  python3 sans mise/uv, sans téléchargement et sans navigation ; la sortie
+  distingue \`playwright_python_missing\`, \`chromium_binary_missing\` et
+  \`browser_binary_ready\`. \`--native\` permet de lancer Chromium via le
+  même Python natif si Playwright y est déjà installé ; les erreurs de
+  lancement restent classées sans afficher stderr.
+- [x] **Budget serveur public** : Backstage v2 plafonné à 1,5 s,
+  instantané health-board plafonné à 0,7 s, puis catalogue embarqué et
+  états UNKNOWN sur absence de preuve fraîche. Le client conserve
+  son délai de 6,5 s. La sonde transport applique 7 s uniquement
+  à /api/ui/services afin de ne plus confondre 3 s avec ce délai client.
+- [ ] **Exécuter les nouveaux tests de la branche PR #381** : tests Node
+  public-first, tests Pytest de préflight absent, budget public et transport.
+  Aucun test GitHub Actions et aucun nouveau déploiement automatique.
+- [ ] **Comparer avec navigateur effectivement lancé** : TrueNAS /api,
+  ?ui_safe=1, ?ui_full=1 ; Cloud /api et ?ui_full=1 depuis un client
+  autorisé. Vérifier l'absence de boucle DOM et les longues tâches.
+- [ ] **Publication** : le confinement public-first #381 reste uniquement
+  dans une PR Draft ; pas encore déployé ni sur Cloud ni sur TrueNAS.
+  Restaurer les cartes avancées par défaut seulement après preuve Chromium.
+
 ## P0 — UI Cloud + TrueNAS bloquée malgré #379 (27 octobre 2026)
 
 **Preuves réelles avant nouveau correctif :** depuis la workstation,
