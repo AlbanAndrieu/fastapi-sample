@@ -34,7 +34,7 @@ TARGETS = {
 }
 ALLOWED = {
     "/api", "/api/ui/session", "/api/ui/services", "/api/health-board",
-    "/api/site/health/v2", "/api/assets/api-health.js",
+    "/api/site/health/v2", "/api/assets/api-health-entry.js", "/api/assets/api-health.js",
     "/api/assets/api-global-service-filter.js",
     "/api/assets/api-health-ui-final-followup.js",
     "/api/assets/api-probe-stable-order.js",
