@@ -493,3 +493,49 @@ si ce runtime est confirmé. Ne jamais interpréter un
 `playwright_python_missing` ou un `browser_runner_failed` comme un
 gel de la page. Le code public-first n'est pas encore déployé :
 la validation Cloud/TrueNAS dépend d'une publication ultérieure approuvée.
+
+
+## Avancement PR #381 — désactiver le coût des imports ESM en public (28/10)
+
+**Cause de surcharge prouvée par lecture du code :** le `if (publicFirst)`
+dans `api-health.js` ne protégeait pas le navigateur du chargement et de
+l'évaluation de la trentaine d'imports statiques de ce module. Même en
+mode `?ui_safe=1`, tous les modules du tableau avancé étaient résolus
+avant que le navigateur ne puisse prendre la branche publique.
+
+**Correctif publié dans la PR #381, non déployé :**
+
+- `/api` importe `api-health-entry.js`, un petit amorceur avec
+  **un seul import statique**, `api-public-services.js`.
+- `/api?ui_safe=1` utilise uniquement ce catalogue read-only ; il masque
+  les vues privées et n'autorise pas l'ouverture des diagnostics riches.
+- `/api?ui_full=1` et `/api?operator=1` utilisent
+  `import("./api-health.js")` pour charger le graphe complet de modules,
+  dont la vérification normale d'identité OWNER/SERVICE. Le paramètre
+  ne confère aucun privilège.
+- Sur un échec du chargement dynamique, le frontend retrouve le catalogue
+  public sans présenter une fausse santé opérationnelle.
+- Les tests de contrat HTTP et Node vérifient le nouvel entrypoint, la
+  restriction des imports statiques et l'isolation des modes.
+
+**Recette locale dans un worktree de la branche #381 :**
+
+```bash
+node --test tests/js/api-public-fast-start.test.mjs \
+  tests/js/api-chromium-preflight-runner.test.mjs
+python3 -m pytest -q \
+  tests/unit/test_api_ui_assets.py \
+  tests/unit/test_ui_public_services.py \
+  tests/unit/test_browser_launch_failure_codes.py \
+  tests/unit/test_cloud_browser_diagnostic_contract.py
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --preflight
+python3 scripts/diagnose-api-ui-transport.py --target truenas
+```
+
+En navigateur Chrome/Chromium **après un déploiement futur**, contrôler
+dans Network que `/api` ne requiert **pas**
+`/api/assets/api-health.js` ni ses modules riches, alors que
+`?ui_full=1` les charge. Vérifier la réactivité des boutons de
+filtre, les cartes, la sécurité OWNER et les sondes dans le mode riche.
+Cela ne prouve pas encore la disparition d'une éventuelle boucle DOM :
+aucune session Chromium réelle n'a été exécutée depuis cet agent.
