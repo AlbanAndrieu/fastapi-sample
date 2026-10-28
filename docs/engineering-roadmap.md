@@ -14,6 +14,63 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+
+## P0 — Déchargement réel des modules UI lourds (28 octobre 2026)
+
+- [x] **Analyse de la PR #381 :** le branchement `publicFirst` dans
+  `api-health.js` n'empêchait pas ses **imports ESM statiques** de
+  charger et évaluer les modules du tableau complet avant le test de mode.
+  Cette faiblesse est démontrée dans le code ; une causalité avec le gel
+  Chromium n'est pas encore prouvée.
+- [x] **Correctif de code publié dans #381 [skip ci] :** le HTML de `/api`
+  charge désormais `api-health-entry.js`, qui n'importe statiquement
+  que `api-public-services.js`. `api-health.js` et son graphe de sondes,
+  filtres et observateurs sont importés **dynamiquement** si `ui_full=1`
+  ou `operator=1`. `ui_safe=1` reste strictement public et prioritaire.
+  En cas d'échec de l'import riche, repli vers le catalogue public sans
+  accorder d'identité OWNER.
+- [x] Trois nouveaux tests Node de contrat valident le lien HTML, l'unique
+  import statique et l'absence d'observateurs dans l'amorçage public.
+  Le test HTTP d'assets vérifie la présence du nouvel entrypoint.
+- [ ] **Exécuter les nouveaux tests** et prouver avec Chromium (ou Chrome
+  DevTools) que la page publique ne charge pas `api-health.js` et qu'elle
+  demeure interactive même avec un catalogue lent. Vérifier le parcours
+  OWNER avec `ui_full=1`, les ACL et le rendu des sondes.
+- [ ] **Déploiement ultérieur contrôlé** uniquement après revue et
+  validation navigateur. Aucune CI GitHub, aucun déploiement automatique.
+
+## P0 — Vérification du navigateur, catalogue public et Cloud 403 (28 octobre 2026)
+
+- [x] **PR #381 testée localement sur TrueNAS au SHA 72b97623 :** 4/4 tests Node
+  PASS en worktree détaché. La recette a rendu test_status=1 uniquement parce que
+  l'ancien \`--preflight\` passait par mise/uv, a échoué en phase \`spawn\`,
+  et n'a produit aucun rapport Python. Chromium n'a pas été testé.
+- [x] **Preuves HTTP opérateur :** TrueNAS /api HTTP 200 (3 ms),
+  /api/ui/session 200 (2 ms), /api/ui/services timeout à 3 s.
+  Cloud /api, /api/ui/session et /api/ui/services HTTP 403 depuis le
+  client urllib anonyme. Ces résultats ne prouvent aucun gel JS ni panne
+  généralisée : la protection Cloud peut dépendre de l'identité/client.
+- [x] **Préflight Playwright autonome :** \`--preflight\` exécute maintenant
+  python3 sans mise/uv, sans téléchargement et sans navigation ; la sortie
+  distingue \`playwright_python_missing\`, \`chromium_binary_missing\` et
+  \`browser_binary_ready\`. \`--native\` permet de lancer Chromium via le
+  même Python natif si Playwright y est déjà installé ; les erreurs de
+  lancement restent classées sans afficher stderr.
+- [x] **Budget serveur public** : Backstage v2 plafonné à 1,5 s,
+  instantané health-board plafonné à 0,7 s, puis catalogue embarqué et
+  états UNKNOWN sur absence de preuve fraîche. Le client conserve
+  son délai de 6,5 s. La sonde transport applique 7 s uniquement
+  à /api/ui/services afin de ne plus confondre 3 s avec ce délai client.
+- [ ] **Exécuter les nouveaux tests de la branche PR #381** : tests Node
+  public-first, tests Pytest de préflight absent, budget public et transport.
+  Aucun test GitHub Actions et aucun nouveau déploiement automatique.
+- [ ] **Comparer avec navigateur effectivement lancé** : TrueNAS /api,
+  ?ui_safe=1, ?ui_full=1 ; Cloud /api et ?ui_full=1 depuis un client
+  autorisé. Vérifier l'absence de boucle DOM et les longues tâches.
+- [ ] **Publication** : le confinement public-first #381 reste uniquement
+  dans une PR Draft ; pas encore déployé ni sur Cloud ni sur TrueNAS.
+  Restaurer les cartes avancées par défaut seulement après preuve Chromium.
+
 ## P0 — UI Cloud + TrueNAS bloquée malgré #379 (27 octobre 2026)
 
 **Preuves réelles avant nouveau correctif :** depuis la workstation,

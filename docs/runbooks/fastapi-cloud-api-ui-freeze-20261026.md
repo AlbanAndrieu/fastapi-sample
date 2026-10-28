@@ -347,3 +347,195 @@ version comme un échec du mode de secours.
 N'utiliser ni `fastapi deploy`, ni modification d'environnement,
 ni mutation TrueNAS dans cette procédure de diagnostic. La plateforme
 FastAPI Cloud gère son propre déploiement après fusion approuvée.
+
+## Confinement P0 — catalogue public prioritaire (28/10/2026)
+
+Les PR #379 et #380 ont corrigé plusieurs écritures DOM qui redéclenchaient leurs propres MutationObserver. Après le déploiement TrueNAS FastAPI 1.25.0, l'opérateur signale toujours un gel de /api. L'hypothèse d'autres boucles reste à vérifier avec un navigateur. La réponse HTTP 200 de /health ou /api ne démontre pas que le thread principal du navigateur reste disponible. LiteLLM HTTP 401 est un incident d'authentification distinct, sans lien causal démontré avec le gel.
+
+Pour contenir ce défaut, /api sans paramètre initialise uniquement le catalogue public, sans installer les observateurs de détails/probes et sans attendre les appels de contrôle de session. La navigation **/api?ui_full=1** conserve l'ancien tableau détaillé avec toutes les règles d'accès OWNER : ce paramètre n'accorde aucune identité supplémentaire. **/api?operator=1** préserve le parcours opérateur et **/api?ui_safe=1** préserve le mode strict public, sans lien d'accès aux détails. La page publique affiche un lien « Open detailed diagnostics » vers l'interface complète.
+
+Compromis UX : le catalogue reste interactif par défaut, mais le tableau détaillé n'est plus chargé automatiquement. **Ce confinement ne corrige pas à lui seul une éventuelle boucle en mode complet.** Après publication, comparer les parcours normal, ui_full et ui_safe dans un vrai navigateur, enregistrer les Long Tasks et la réactivité du thread principal.
+
+Validation locale sans GitHub Actions :
+~~~bash
+node --test tests/js/api-public-fast-start.test.mjs
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+~~~
+
+Ces tests n'affirment aucune modification de production : l'agent ne possède pas de canal d'exécution vers TrueNAS ni de session de déploiement FastAPI Cloud. Le test Node vérifie le contrat du code et non le comportement navigateur final.
+
+
+## Retour du 28 octobre — Playwright bloqué AVANT /api
+
+Le test Node n'a pas trouvé le fichier api-public-fast-start.test.mjs parce que le
+checkout local ne contient pas encore la branche PR #381. Les trois lancements
+Chromium ont échoué pendant launch_chromium, avec http=[] et pageErrors=0.
+**Aucune requête HTTP vers Cloud ou TrueNAS et aucune évaluation DOM n'a eu
+lieu.** Il ne s'agit donc pas d'une nouvelle preuve de gel du serveur ou du
+frontend.
+
+### Validation de PR #381 en worktree isolé
+
+Sur TrueNAS, le sous-module FastAPI du dépôt nabla-compose est encore lié à
+l'image immuable déjà déployée. Ne pas nettoyer ou écraser ce sous-module.
+
+~~~bash
+cd /mnt/cpool/compose/nabla-compose
+FASTAPI_REPO="$PWD/fastapi-sample"
+git -C "$FASTAPI_REPO" fetch origin fix/api-ui-public-fast-start-20261028
+
+WT="$(mktemp -d /tmp/fastapi-ui-pr381.XXXXXX)"
+rmdir "$WT"
+git -C "$FASTAPI_REPO" -c submodule.recurse=false worktree add --detach \
+  "$WT" origin/fix/api-ui-public-fast-start-20261028
+
+test_status=0
+(
+  set -e
+  cd "$WT"
+  node --test tests/js/api-public-fast-start.test.mjs
+  node scripts/diagnose-production-api-ui-freeze.mjs truenas --preflight
+) || test_status=$?
+git -C "$FASTAPI_REPO" worktree remove "$WT"
+test "$test_status" -eq 0
+~~~
+
+Le test Node ne requiert ni réseau ni Playwright. Le preflight vérifie le
+binaire Chromium associé au Playwright Python installé, sans ouvrir la page,
+faire de requête HTTP, ni télécharger le navigateur. Il dépend de mise et uv.
+
+La PR #381 distingue maintenant browser_launch_unavailable de
+navigation_failed et navigation_timeout ; elle ne confond plus un HTTP
+401/403, une redirection d'auth ou une page vide avec une UI saine.
+Une classe de lancement fixe identifie le binaire Chromium absent, les
+librairies système manquantes, le sandbox ou les permissions. Les chemins
+exécutables et les erreurs brutes ne sont pas rendus.
+
+Si le navigateur est absent, préférer effectuer cette validation depuis la
+workstation ayant Chromium disponible. Installer Chromium est une action
+facultative explicite, qui télécharge des données :
+
+~~~bash
+mise exec -- uv run --no-project --with playwright python -m playwright install chromium
+~~~
+
+Après réussite du preflight, comparer normal et les deux chemins explicites :
+
+~~~bash
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --safe
+node scripts/diagnose-production-api-ui-freeze.mjs truenas
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --full
+node scripts/diagnose-production-api-ui-freeze.mjs cloud
+node scripts/diagnose-production-api-ui-freeze.mjs cloud --full
+~~~
+
+La branche PR #381 n'est PAS déployée ; les URLs publiques ne valident pas
+encore le mode public-first tant que le déploiement n'est pas effectué.
+Aucune CI, rotation de clé ou modification du runtime n'est nécessaire.
+
+
+## Résultat opérateur — PR #381 : tests oui, Chromium non ; catalogue lent
+
+Depuis un worktree détaché `72b97623`, le test
+`node --test tests/js/api-public-fast-start.test.mjs` a réussi **4/4**.
+L'ancien `--preflight` a rendu `browser_diagnostic_failed`, phase
+`spawn`, sans le moindre rapport Python : **ceci teste le runner, pas
+Chromium ni le frontend**.
+
+La sonde HTTP directe a produit les résultats suivants :
+- TrueNAS : `/api=200` (3 ms), `/api/ui/session=200` (2 ms),
+  `/api/ui/services=timeout_or_network_failure` après 3002 ms ;
+- Cloud : `/api=403`, `/api/ui/session=403`,
+  `/api/ui/services=403` depuis le client Python anonyme sans proxy.
+  Ces statuts n'établissent pas que le navigateur authentifié reçoit
+  également 403, ni que l'instance Cloud est hors service.
+
+**Corrections dans #381, pas encore déployées :**
+
+1. Le préflight `node ... truenas --preflight` utilise désormais
+   directement le `python3` natif sans invoquer mise/uv ni télécharger de
+   paquet. Si Playwright Python manque, il produit
+   `state=playwright_python_missing`, `network_requests_sent=0`.
+   `--native` permet aussi le test navigateur depuis ce même Python,
+   **uniquement si le module Python et le binaire Chromium sont présents**.
+2. Le runner capture stderr localement, ne le reproduit jamais, et ne
+   publie qu'une classe d'échec fixe (mise/uv/dépendance/résolution/etc.).
+   La navigation échouée, le refus HTTP 403 et le blocage réel
+   `main_thread_unresponsive` restent des états distincts.
+3. La sonde HTTP a un délai de 3 s pour `/api` et
+   `/api/ui/session`, et de **7 s pour `/api/ui/services`** afin de
+   mesurer son délai réel au-delà du plafond client 6,5 s.
+4. La route publique serveur borne désormais la récupération Backstage
+   à 1,5 s, l'instantané de santé à 0,7 s, puis affiche un inventaire
+   embarqué et **des états UNKNOWN** si la preuve vivante manque.
+   Deux tests asynchrones isolent les dépendances qui ne répondent jamais.
+
+**Validation locale recommandée depuis le worktree PR #381 :**
+
+~~~bash
+node --test tests/js/api-public-fast-start.test.mjs \
+  tests/js/api-chromium-preflight-runner.test.mjs
+python3 -m pytest -q \
+  tests/unit/test_browser_launch_failure_codes.py \
+  tests/unit/test_cloud_browser_diagnostic_contract.py \
+  tests/unit/test_ui_public_services.py
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --preflight
+python3 scripts/diagnose-api-ui-transport.py --target truenas
+python3 scripts/diagnose-api-ui-transport.py --target cloud
+~~~
+
+Exécuter la sonde Playwright réelle uniquement sur un hôte avec Chromium
+fonctionnel : `node scripts/diagnose-production-api-ui-freeze.mjs truenas
+--native` si Python natif dispose de Playwright, ou le lanceur mise/uv
+si ce runtime est confirmé. Ne jamais interpréter un
+`playwright_python_missing` ou un `browser_runner_failed` comme un
+gel de la page. Le code public-first n'est pas encore déployé :
+la validation Cloud/TrueNAS dépend d'une publication ultérieure approuvée.
+
+
+## Avancement PR #381 — désactiver le coût des imports ESM en public (28/10)
+
+**Cause de surcharge prouvée par lecture du code :** le `if (publicFirst)`
+dans `api-health.js` ne protégeait pas le navigateur du chargement et de
+l'évaluation de la trentaine d'imports statiques de ce module. Même en
+mode `?ui_safe=1`, tous les modules du tableau avancé étaient résolus
+avant que le navigateur ne puisse prendre la branche publique.
+
+**Correctif publié dans la PR #381, non déployé :**
+
+- `/api` importe `api-health-entry.js`, un petit amorceur avec
+  **un seul import statique**, `api-public-services.js`.
+- `/api?ui_safe=1` utilise uniquement ce catalogue read-only ; il masque
+  les vues privées et n'autorise pas l'ouverture des diagnostics riches.
+- `/api?ui_full=1` et `/api?operator=1` utilisent
+  `import("./api-health.js")` pour charger le graphe complet de modules,
+  dont la vérification normale d'identité OWNER/SERVICE. Le paramètre
+  ne confère aucun privilège.
+- Sur un échec du chargement dynamique, le frontend retrouve le catalogue
+  public sans présenter une fausse santé opérationnelle.
+- Les tests de contrat HTTP et Node vérifient le nouvel entrypoint, la
+  restriction des imports statiques et l'isolation des modes.
+
+**Recette locale dans un worktree de la branche #381 :**
+
+```bash
+node --test tests/js/api-public-fast-start.test.mjs \
+  tests/js/api-chromium-preflight-runner.test.mjs
+python3 -m pytest -q \
+  tests/unit/test_api_ui_assets.py \
+  tests/unit/test_ui_public_services.py \
+  tests/unit/test_browser_launch_failure_codes.py \
+  tests/unit/test_cloud_browser_diagnostic_contract.py
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --preflight
+python3 scripts/diagnose-api-ui-transport.py --target truenas
+```
+
+En navigateur Chrome/Chromium **après un déploiement futur**, contrôler
+dans Network que `/api` ne requiert **pas**
+`/api/assets/api-health.js` ni ses modules riches, alors que
+`?ui_full=1` les charge. Vérifier la réactivité des boutons de
+filtre, les cartes, la sécurité OWNER et les sondes dans le mode riche.
+Cela ne prouve pas encore la disparition d'une éventuelle boucle DOM :
+aucune session Chromium réelle n'a été exécutée depuis cet agent.

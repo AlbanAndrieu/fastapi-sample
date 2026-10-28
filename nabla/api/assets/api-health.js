@@ -33,9 +33,14 @@ import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 // Temporary read-only diagnostics restore the detailed probe dashboard without
 // granting the browser an owner identity or access to mutation endpoints.
 async function bootstrapHealthUi() {
-  // Emergency read-only landing: no private probes, drawer observers or
-  // owner credentials. This remains usable if a UI decorator regresses.
-  if (new URLSearchParams(window.location.search).get("ui_safe") === "1") {
+  const params = new URLSearchParams(window.location.search);
+  // The public directory is the resilient default: even healthy /api and
+  // /api/ui/* HTTP responses cannot prevent a browser MutationObserver loop.
+  // Rich diagnostics remain opt-in; this query parameter grants NO owner access.
+  const fullDashboardRequested =
+    params.get("ui_full") === "1" || params.get("operator") === "1";
+  const publicFirst = params.get("ui_safe") === "1" || !fullDashboardRequested;
+  if (publicFirst) {
     for (const id of [
       "health-board-private-meta", "owner-readonly-detail",
       "truenas-platform", "runtime-topology",
@@ -47,7 +52,21 @@ async function bootstrapHealthUi() {
       .forEach((button) => { button.hidden = true; });
     const heading = document.getElementById("health-summary-text");
     if (heading) {
-      heading.textContent = "Safe mode · public service directory only · probes not loaded";
+      heading.textContent = params.get("ui_safe") === "1"
+        ? "Safe mode · public service directory only · probes not loaded"
+        : "Public service directory · detailed diagnostics available on request";
+    }
+    // Offer the previous rich dashboard without automatically installing its
+    // competing observers on every anonymous browser session.
+    if (params.get("ui_safe") !== "1") {
+      const fullLink = document.createElement("a");
+      const target = new URL(window.location.href);
+      target.searchParams.set("ui_full", "1");
+      fullLink.href = target.href;
+      fullLink.textContent = "Open detailed diagnostics";
+      fullLink.className = "health-full-dashboard-link";
+      const parent = heading?.parentElement || document.getElementById("health-board");
+      parent?.appendChild(fullLink);
     }
     await installPublicServiceOverview({ ownerAuthenticated: false });
     return;

@@ -1,5 +1,6 @@
 """Temporary public overview must never leak owner-only diagnostic evidence."""
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -248,3 +249,51 @@ async def test_bootstrap_never_fabricates_state_from_stale_or_ambiguous_evidence
     assert len(ambiguous.services) == 1
     assert ambiguous.services[0].state == "unknown"
     assert ambiguous.catalogSource == "bootstrap-snapshot"
+
+
+@pytest.mark.asyncio
+async def test_slow_backstage_falls_back_to_bounded_public_bootstrap(monkeypatch):
+    """A cold external catalog must not block the anonymous landing."""
+    async def never_catalog():
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(ui_public_services, "fetch_site_catalog_v2", never_catalog)
+    monkeypatch.setattr(ui_public_services, "_PUBLIC_CATALOG_DEADLINE_SECONDS", 0.01)
+    monkeypatch.setattr(ui_public_services, "_PUBLIC_BOARD_DEADLINE_SECONDS", 0.01)
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
+    monkeypatch.setattr(
+        ui_public_services, "packaged_homelab_catalog",
+        lambda: SimpleNamespace(services=[
+            SimpleNamespace(name="Garage", service_id="garage"),
+        ]),
+    )
+    monkeypatch.setattr(
+        "nabla.api.health_board.get_health_board_snapshot",
+        AsyncMock(return_value={"state": "pending"}),
+    )
+    result = await asyncio.wait_for(ui_public_services.get_public_ui_services(None), 0.3)
+    assert result.catalogSource == "bootstrap-snapshot"
+    assert result.boardState == "pending"
+    assert {s.name: s.state for s in result.services} == {"Garage": "unknown"}
+    assert ui_public_services._backstage_backoff["retry_after"] > 0
+
+
+@pytest.mark.asyncio
+async def test_slow_cached_health_snapshot_returns_unknown_public_states(monkeypatch):
+    """Never serialize stale cached health as a verified operational state."""
+    async def never_board(_request):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(
+        ui_public_services, "fetch_site_catalog_v2",
+        AsyncMock(return_value=_catalog()),
+    )
+    monkeypatch.setattr(
+        "nabla.api.health_board.get_health_board_snapshot", never_board,
+    )
+    monkeypatch.setattr(ui_public_services, "_PUBLIC_BOARD_DEADLINE_SECONDS", 0.01)
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
+    result = await asyncio.wait_for(ui_public_services.get_public_ui_services(None), 0.3)
+    assert result.catalogSource == "backstage-v2"
+    assert result.boardState == "pending"
+    assert all(s.state == "unknown" for s in result.services)

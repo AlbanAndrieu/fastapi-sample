@@ -7,6 +7,7 @@ No URLs, IPs, ports, dependencies, security posture or probe evidence escape.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -89,7 +90,10 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
     """
     catalog = packaged_homelab_catalog()
     try:
-        board = await health_board.get_health_board_snapshot(request)
+        board = await asyncio.wait_for(
+            health_board.get_health_board_snapshot(request),
+            timeout=_PUBLIC_BOARD_DEADLINE_SECONDS,
+        )
     except Exception:
         board = {"state": "pending"}
     board_state, states = verified_health_by_service_id(board)
@@ -123,6 +127,11 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
 
 
 _BACKSTAGE_RETRY_SECONDS = 60.0
+# The public catalogue must not inherit the 5s Backstage HTTP timeout.
+# These two independent caps keep the anonymous landing responsive when
+# Backstage or the cached health board stalls.
+_PUBLIC_CATALOG_DEADLINE_SECONDS = 1.5
+_PUBLIC_BOARD_DEADLINE_SECONDS = 0.7
 # Monotonic deadline before the next Backstage attempt; shared by all requests.
 _backstage_backoff: dict[str, float] = {"retry_after": 0.0}
 
@@ -132,14 +141,19 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
     if time.monotonic() < _backstage_backoff["retry_after"]:
         return await _bootstrap_public_service_directory(request)
     try:
-        catalog = await fetch_site_catalog_v2()
-    except SiteCatalogV2Unavailable:
+        catalog = await asyncio.wait_for(
+            fetch_site_catalog_v2(), timeout=_PUBLIC_CATALOG_DEADLINE_SECONDS,
+        )
+    except (SiteCatalogV2Unavailable, TimeoutError):
         # Bound repeated failed GitHub attempts across anonymous UI refreshes.
         _backstage_backoff["retry_after"] = time.monotonic() + _BACKSTAGE_RETRY_SECONDS
         return await _bootstrap_public_service_directory(request)
     _backstage_backoff["retry_after"] = 0.0
     try:
-        board = await health_board.get_health_board_snapshot(request)
+        board = await asyncio.wait_for(
+            health_board.get_health_board_snapshot(request),
+            timeout=_PUBLIC_BOARD_DEADLINE_SECONDS,
+        )
     except Exception:
         # The service directory should survive failures in optional diagnostic
         # collectors. No fresh evidence means UNKNOWN, never fabricated OK/FAIL.

@@ -19,6 +19,10 @@ TARGETS = {
     "truenas": "http://172.17.0.24:8091",
 }
 PATHS = ("/api", "/api/ui/session", "/api/ui/services")
+# The public catalogue has an independent server-side deadline of 6.5s.
+# A 3s socket timeout there is an inconclusive diagnosis, not evidence of
+# browser main-thread blocking. Bound this probe separately.
+TIMEOUTS = {"/api": 3, "/api/ui/session": 3, "/api/ui/services": 7}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -30,12 +34,13 @@ def check(target: str) -> dict:
     client = build_opener(ProxyHandler({}), NoRedirect())
     checks = []
     for path in PATHS:
+        deadline_seconds = TIMEOUTS[path]
         start = time.monotonic()
         state = "transport_unverified"
         try:
             with client.open(
                 Request(TARGETS[target] + path, method="GET", headers={"Accept": "application/json"}),
-                timeout=3,
+                timeout=deadline_seconds,
             ) as response:
                 state = "http_" + str(response.status)
         except HTTPError as error:
@@ -52,7 +57,7 @@ def check(target: str) -> dict:
         except (OSError, TimeoutError):
             state = "timeout_or_network_failure"
         checks.append({
-            "path": path, "state": state,
+            "path": path, "state": state, "deadline_seconds": deadline_seconds,
             "elapsed_ms": min(round(1000 * (time.monotonic() - start)), 9999),
         })
     return {"component": "api_ui_transport", "target": target, "requests": checks}
