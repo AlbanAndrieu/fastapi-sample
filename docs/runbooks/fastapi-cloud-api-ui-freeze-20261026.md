@@ -434,3 +434,62 @@ node scripts/diagnose-production-api-ui-freeze.mjs cloud --full
 La branche PR #381 n'est PAS déployée ; les URLs publiques ne valident pas
 encore le mode public-first tant que le déploiement n'est pas effectué.
 Aucune CI, rotation de clé ou modification du runtime n'est nécessaire.
+
+
+## Résultat opérateur — PR #381 : tests oui, Chromium non ; catalogue lent
+
+Depuis un worktree détaché \`72b97623\`, le test
+\`node --test tests/js/api-public-fast-start.test.mjs\` a réussi **4/4**.
+L'ancien \`--preflight\` a rendu \`browser_diagnostic_failed\`, phase
+\`spawn\`, sans le moindre rapport Python : **ceci teste le runner, pas
+Chromium ni le frontend**.
+
+La sonde HTTP directe a produit les résultats suivants :
+- TrueNAS : \`/api=200\` (3 ms), \`/api/ui/session=200\` (2 ms),
+  \`/api/ui/services=timeout_or_network_failure\` après 3002 ms ;
+- Cloud : \`/api=403\`, \`/api/ui/session=403\`,
+  \`/api/ui/services=403\` depuis le client Python anonyme sans proxy.
+  Ces statuts n'établissent pas que le navigateur authentifié reçoit
+  également 403, ni que l'instance Cloud est hors service.
+
+**Corrections dans #381, pas encore déployées :**
+
+1. Le préflight \`node ... truenas --preflight\` utilise désormais
+   directement le \`python3\` natif sans invoquer mise/uv ni télécharger de
+   paquet. Si Playwright Python manque, il produit
+   \`state=playwright_python_missing\`, \`network_requests_sent=0\`.
+   \`--native\` permet aussi le test navigateur depuis ce même Python,
+   **uniquement si le module Python et le binaire Chromium sont présents**.
+2. Le runner capture stderr localement, ne le reproduit jamais, et ne
+   publie qu'une classe d'échec fixe (mise/uv/dépendance/résolution/etc.).
+   La navigation échouée, le refus HTTP 403 et le blocage réel
+   \`main_thread_unresponsive\` restent des états distincts.
+3. La sonde HTTP a un délai de 3 s pour \`/api\` et
+   \`/api/ui/session\`, et de **7 s pour \`/api/ui/services\`** afin de
+   mesurer son délai réel au-delà du plafond client 6,5 s.
+4. La route publique serveur borne désormais la récupération Backstage
+   à 1,5 s, l'instantané de santé à 0,7 s, puis affiche un inventaire
+   embarqué et **des états UNKNOWN** si la preuve vivante manque.
+   Deux tests asynchrones isolent les dépendances qui ne répondent jamais.
+
+**Validation locale recommandée depuis le worktree PR #381 :**
+
+~~~bash
+node --test tests/js/api-public-fast-start.test.mjs \
+  tests/js/api-chromium-preflight-runner.test.mjs
+python3 -m pytest -q \
+  tests/unit/test_browser_launch_failure_codes.py \
+  tests/unit/test_cloud_browser_diagnostic_contract.py \
+  tests/unit/test_ui_public_services.py
+node scripts/diagnose-production-api-ui-freeze.mjs truenas --preflight
+python3 scripts/diagnose-api-ui-transport.py --target truenas
+python3 scripts/diagnose-api-ui-transport.py --target cloud
+~~~
+
+Exécuter la sonde Playwright réelle uniquement sur un hôte avec Chromium
+fonctionnel : \`node scripts/diagnose-production-api-ui-freeze.mjs truenas
+--native\` si Python natif dispose de Playwright, ou le lanceur mise/uv
+si ce runtime est confirmé. Ne jamais interpréter un
+\`playwright_python_missing\` ou un \`browser_runner_failed\` comme un
+gel de la page. Le code public-first n'est pas encore déployé :
+la validation Cloud/TrueNAS dépend d'une publication ultérieure approuvée.
