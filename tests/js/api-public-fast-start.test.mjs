@@ -38,3 +38,43 @@ test("normal public landing has no observer-based decorations", () => {
   assert.ok(!publicBranch.includes("installHealthBoardController()"));
   assert.ok(!publicBranch.includes("installGlobalServiceFilter()"));
 });
+
+const entry = readFileSync(
+  fileURLToPath(new URL("../../nabla/api/assets/api-health-entry.js", import.meta.url)),
+  "utf8",
+);
+const page = readFileSync(
+  fileURLToPath(new URL("../../nabla/api/ui.py", import.meta.url)),
+  "utf8",
+);
+
+test("HTML selects a lightweight module with no eager rich UI imports", () => {
+  assert.ok(page.includes('src="/api/assets/api-health-entry.js?v={app_version}"'));
+  assert.ok(entry.includes('from "./api-public-services.js"'));
+  assert.ok(entry.includes('import("./api-health.js")'));
+  const topLevelImports = entry.split("\n").filter((line) =>
+    line.startsWith("import ") && line.includes(" from ")
+  );
+  assert.deepEqual(topLevelImports, [
+    'import { installPublicServiceOverview } from "./api-public-services.js";',
+  ]);
+  assert.ok(!entry.includes('from "./api-health-controller.js"'));
+  assert.ok(!entry.includes('from "./api-health-ui-final-followup.js"'));
+});
+
+test("emergency safe always wins over requested full and operator modes", () => {
+  assert.ok(entry.includes('const safeMode = params.get("ui_safe") === "1"'));
+  assert.ok(entry.includes('params.get("ui_full") === "1" || params.get("operator") === "1"'));
+  assert.ok(entry.includes("if (safeMode || !richMode)"));
+  assert.ok(entry.includes("allowAdvancedLink: !safeMode"));
+  assert.ok(entry.includes('target.searchParams.delete("ui_safe")'));
+});
+
+test("public mode never imports owner session, probes or DOM observers", () => {
+  const publicOnly = entry.slice(0, entry.indexOf('  void import("./api-health.js")'));
+  assert.ok(!publicOnly.includes("ownerSessionAvailable("));
+  assert.ok(!publicOnly.includes("diagnosticsReadAvailable("));
+  assert.ok(!publicOnly.includes("MutationObserver"));
+  assert.ok(publicOnly.includes("installPublicServiceOverview({ ownerAuthenticated: false })"));
+  assert.ok(entry.includes("void import(\"./api-health.js\").catch"));
+});
