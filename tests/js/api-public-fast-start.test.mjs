@@ -126,3 +126,10 @@ test("OWNER session is refreshed on return without storing a diagnostics key", (
   assert.ok(!ownerSession.includes('localStorage.setItem('));
   assert.ok(!ownerSession.includes('sessionStorage.setItem('));
 });
+
+test("owner status explicitly distinguishes read-only and OWNER authorization", () => {
+  assert.ok(ownerSession.includes('Promise.all([ownerSessionAvailable(), diagnosticsReadAvailable()])'));
+  assert.ok(ownerSession.includes('Owner locked. Read-only diagnostics permitted'));
+  assert.ok(ownerSession.includes('Owner authorized (20 minute session)'));
+  assert.ok(ownerSession.includes('if (check === sessionCheck && form.hidden)'));
+});
