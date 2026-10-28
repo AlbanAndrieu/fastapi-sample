@@ -48,11 +48,13 @@ def test_node_wrapper_streams_phases_and_has_hard_deadline():
     script = source("scripts/diagnose-production-api-ui-freeze.mjs")
     assert 'from "node:child_process"' in script
     assert "spawn(executable, args" in script
-    assert 'preflightMode ? (process.env.API_UI_PYTHON || "python3") : "mise"' in script
+    assert 'const nativeMode = preflightMode || process.argv.includes("--native")' in script
+    assert 'nativeMode ? (process.env.API_UI_PYTHON || "python3") : "mise"' in script
     assert '"--no-project", "--with", "playwright"' in script
     assert "API_UI_TARGET: target" in script
     assert 'const preflightMode = process.argv.includes("--preflight")' in script
     assert 'API_UI_PREFLIGHT: preflightMode ? "1" : "0"' in script
+    assert 'const nativeMode = preflightMode || process.argv.includes("--native")' in script
     assert '"browser_diagnostic_timeout"' in script
     assert "35_000" in script
     assert 'child.kill("SIGKILL")' in script
