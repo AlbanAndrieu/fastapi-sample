@@ -64,7 +64,9 @@ test("HTML selects a lightweight module with no eager rich UI imports", () => {
 
 test("emergency safe always wins over requested full and operator modes", () => {
   assert.ok(entry.includes('const safeMode = params.get("ui_safe") === "1"'));
-  assert.ok(entry.includes('params.get("ui_full") === "1" || params.get("operator") === "1"'));
+  assert.ok(entry.includes('const richMode = params.get("ui_full") === "1"'));
+  assert.ok(entry.includes('const operatorMode = params.get("operator") === "1"'));
+  assert.ok(entry.includes("if (operatorMode && !safeMode)"));
   assert.ok(entry.includes("if (safeMode || !richMode)"));
   assert.ok(entry.includes("allowAdvancedLink: !safeMode"));
   assert.ok(entry.includes('target.searchParams.delete("ui_safe")'));
@@ -77,4 +79,33 @@ test("public mode never imports owner session, probes or DOM observers", () => {
   assert.ok(!publicOnly.includes("MutationObserver"));
   assert.ok(publicOnly.includes("installPublicServiceOverview({ ownerAuthenticated: false })"));
   assert.ok(entry.includes("void import(\"./api-health.js\").catch"));
+});
+
+const ownerSession = readFileSync(
+  fileURLToPath(new URL("../../nabla/api/assets/api-owner-session.js", import.meta.url)),
+  "utf8",
+);
+
+test("operator-only view shows OWNER sign-in before advanced code is imported", () => {
+  assert.ok(entry.includes('panel.hidden = false'));
+  assert.ok(entry.includes('import("./api-owner-session.js")'));
+  assert.ok(entry.indexOf('panel.hidden = false') < entry.indexOf('import("./api-health.js")'));
+  assert.ok(entry.includes('const richMode = params.get("ui_full") === "1"'));
+  assert.ok(entry.includes('link.textContent = "Owner access"'));
+  assert.ok(entry.includes('link.textContent = "Open detailed diagnostics"'));
+  assert.ok(entry.includes('installOwnerSessionControls(() => window.location.reload())'));
+});
+
+test("safe mode never mounts OWNER controls or rich UI", () => {
+  assert.ok(entry.includes("if (operatorMode && !safeMode)"));
+  assert.ok(entry.includes("if (safeMode || !richMode)"));
+  assert.ok(entry.includes("allowAdvancedLink: !safeMode"));
+});
+
+test("OWNER controller does not install duplicate handlers", () => {
+  assert.ok(ownerSession.includes('if (form.dataset.ownerSessionInitialized === "1") return'));
+  assert.ok(ownerSession.includes('form.dataset.ownerSessionInitialized = "1"'));
+  assert.ok(ownerSession.includes('credentials: "same-origin"'));
+  assert.ok(ownerSession.includes('"X-Diagnostics-Key": key'));
+  assert.ok(!entry.includes("ownerAuthenticated: true"));
 });
