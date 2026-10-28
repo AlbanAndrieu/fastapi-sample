@@ -52,6 +52,9 @@ export function installOwnerSessionControls(onAuthenticated) {
   const input = document.getElementById("owner-session-key");
   const cancel = document.getElementById("owner-session-cancel");
   if (!state || !login || !logout || !form || !input || !cancel) return;
+  // Entry and rich dashboard may both request installation. Bind once only.
+  if (form.dataset.ownerSessionInitialized === "1") return;
+  form.dataset.ownerSessionInitialized = "1";
 
   function update(authenticated) {
     state.textContent = authenticated
