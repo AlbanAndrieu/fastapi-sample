@@ -56,10 +56,12 @@ export function installOwnerSessionControls(onAuthenticated) {
   if (form.dataset.ownerSessionInitialized === "1") return;
   form.dataset.ownerSessionInitialized = "1";
 
-  function update(authenticated) {
+  function update(authenticated, readable = false) {
     state.textContent = authenticated
       ? "Owner authorized (20 minute session). Use Open detailed diagnostics for service probes."
-      : "Owner diagnostics are locked. Public liveness remains available.";
+      : readable
+        ? "Owner locked. Read-only diagnostics permitted; sign in for OWNER access."
+        : "Owner locked. Public service status remains available.";
     login.hidden = authenticated;
     logout.hidden = !authenticated;
     form.hidden = true;
@@ -75,9 +77,10 @@ export function installOwnerSessionControls(onAuthenticated) {
     if (!form.hidden) return;
     const check = ++sessionCheck;
     resetOwnerSessionStatus();
-    void ownerSessionAvailable().then((authenticated) => {
-      if (check === sessionCheck && form.hidden) update(authenticated);
-    });
+    void Promise.all([ownerSessionAvailable(), diagnosticsReadAvailable()])
+      .then(([authenticated, readable]) => {
+        if (check === sessionCheck && form.hidden) update(authenticated, readable);
+      });
   }
   refreshStatus();
   window.addEventListener("online", refreshStatus);
