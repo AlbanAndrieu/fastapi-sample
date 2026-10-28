@@ -58,7 +58,7 @@ export function installOwnerSessionControls(onAuthenticated) {
 
   function update(authenticated) {
     state.textContent = authenticated
-      ? "Owner diagnostics unlocked (authenticated, 20 minute session)."
+      ? "Owner authorized (20 minute session). Use Open detailed diagnostics for service probes."
       : "Owner diagnostics are locked. Public liveness remains available.";
     login.hidden = authenticated;
     logout.hidden = !authenticated;
@@ -66,7 +66,25 @@ export function installOwnerSessionControls(onAuthenticated) {
     input.value = "";
   }
 
-  ownerSessionAvailable().then(update);
+  // Re-check a short-lived signed session when returning to the app.
+  // Network transitions do not grant OWNER access; the server still checks
+  // the source IP and the signed cookie. Never read or retain the key.
+  let sessionCheck = 0;
+  function refreshStatus() {
+    // Do not erase a key currently being entered while changing networks.
+    if (!form.hidden) return;
+    const check = ++sessionCheck;
+    resetOwnerSessionStatus();
+    void ownerSessionAvailable().then((authenticated) => {
+      if (check === sessionCheck && form.hidden) update(authenticated);
+    });
+  }
+  refreshStatus();
+  window.addEventListener("online", refreshStatus);
+  window.addEventListener("pageshow", refreshStatus);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshStatus();
+  });
   login.addEventListener("click", () => {
     form.hidden = false;
     input.focus();
@@ -80,6 +98,8 @@ export function installOwnerSessionControls(onAuthenticated) {
     const key = input.value.trim();
     input.value = "";
     if (!key) return;
+    // Ignore earlier unauthenticated status requests during this login.
+    sessionCheck += 1;
     try {
       const response = await fetch("/api/ui/session", {
         method: "POST",
@@ -95,7 +115,7 @@ export function installOwnerSessionControls(onAuthenticated) {
         }
         if (response.status === 503 || reason === "unconfigured") {
           throw new Error(
-            "Owner access is not configured on FastAPI Cloud (HTTP 503).",
+            "Owner access is not configured on this FastAPI runtime (HTTP 503).",
           );
         }
         if (
