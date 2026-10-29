@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, chmodSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -54,4 +54,19 @@ test("safe and full modes cannot run simultaneously", () => {
   );
   assert.equal(result.status, 2);
   assert.match(result.stderr, /"state":"invalid_browser_mode"/);
+});
+
+
+test("safe mode and operator mode cannot run simultaneously", () => {
+  const result = spawnSync(process.execPath, [runner, "truenas", "--safe", "--operator"],
+    { encoding: "utf8", timeout: 5000 });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /"state":"invalid_browser_mode"/);
+});
+
+test("operator mode is forwarded to native preflight runner without credential headers", () => {
+  const script = readFileSync(runner, "utf8");
+  assert.match(script, /const operatorMode = process\.argv\.includes\("--operator"\)/);
+  assert.match(script, /API_UI_OPERATOR: operatorMode \? "1" : "0"/);
+  assert.doesNotMatch(script, /X-Diagnostics-Key/);
 });
