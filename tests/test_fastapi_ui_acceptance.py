@@ -92,5 +92,77 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(runner.safe_atom('source_unverified'), 'source_unverified')
 
 
+    def test_browser_modes_have_explicit_owner_and_rich_contracts(self):
+        transport = {'requests': [
+            {'path': p, 'state': 'http_200'} for p in
+            ('/api', '/api/ui/session', '/api/ui/services')]}
+
+        def fake_execute(argv, **kwargs):
+            if '--preflight' in argv:
+                return 0, {'state': 'browser_binary_ready'}
+            if '--native' in argv:
+                return 0, {'state': 'sampled',
+                           'ownerUnlockVisible': '--operator' in argv,
+                           'richAssetLoaded': '--full' in argv,
+                           'publicRows': 10, 'detailedRows': 4}
+            if '--target' in argv:
+                return 0, transport
+            return 2, {'state': 'key_configured_scraper_credentials_unverified'}
+
+        with patch.object(runner, 'execute', side_effect=fake_execute):
+            checks = runner.runtime_checks(['truenas'], compose=Path('/nonexistent'),
+                build_log=None, expected_sha=None, browser=True, extended=False)
+        browser = [row for row in checks if row['name'].startswith('chromium_')]
+        self.assertEqual(len(browser), 5)
+        self.assertTrue(all(row['verdict'] == 'PASS' for row in browser))
+        self.assertEqual(next(row for row in checks if row['name'] == 'metrics_auth')['verdict'],
+                         'UNVERIFIED')
+
+    def test_owner_button_missing_is_failure_not_false_pass(self):
+        transport = {'requests': [
+            {'path': p, 'state': 'http_200'} for p in
+            ('/api', '/api/ui/session', '/api/ui/services')]}
+
+        def fake_execute(argv, **kwargs):
+            if '--preflight' in argv:
+                return 0, {'state': 'browser_binary_ready'}
+            if '--native' in argv:
+                return 0, {'state': 'sampled',
+                           'ownerUnlockVisible': False,
+                           'richAssetLoaded': '--full' in argv}
+            if '--target' in argv:
+                return 0, transport
+            return 2, {'state': 'key_configured_scraper_credentials_unverified'}
+
+        with patch.object(runner, 'execute', side_effect=fake_execute):
+            checks = runner.runtime_checks(['truenas'], compose=Path('/nonexistent'),
+                build_log=None, expected_sha=None, browser=True, extended=False)
+        self.assertEqual(
+            next(row for row in checks if row['name'] == 'chromium_operator')['verdict'],
+            'FAIL')
+
+    def test_browser_main_thread_block_is_failure(self):
+        transport = {'requests': [
+            {'path': p, 'state': 'http_200'} for p in
+            ('/api', '/api/ui/session', '/api/ui/services')]}
+
+        def fake_execute(argv, **kwargs):
+            if '--preflight' in argv:
+                return 0, {'state': 'browser_binary_ready'}
+            if '--native' in argv:
+                return 1, {'state': 'main_thread_unresponsive'}
+            if '--target' in argv:
+                return 0, transport
+            return 2, {'state': 'key_configured_scraper_credentials_unverified'}
+
+        with patch.object(runner, 'execute', side_effect=fake_execute):
+            checks = runner.runtime_checks(['truenas'], compose=Path('/nonexistent'),
+                build_log=None, expected_sha=None, browser=True, extended=False)
+        self.assertEqual(
+            next(row for row in checks if row['name'] == 'chromium_rich_owner')['verdict'],
+            'FAIL')
+
+
+
 if __name__ == '__main__':
     unittest.main()
