@@ -156,9 +156,12 @@ def runtime_checks(targets: list[str], *, compose: Path, build_log: str | None,
             if expected_sha:
                 argv += ['--expected-sha', expected_sha]
             code, report = execute(argv, timeout=155)
+            # Compose can emit WARN and still exit zero. Never infer full
+            # runtime acceptance from a successful shell exit alone.
             results.append(item('compose_acceptance',
-                                'NOT_RUN' if code is None else 'PASS' if code == 0 else 'UNVERIFIED',
-                                safe_atom(report.get('state')) if code is None else 'script_exit_0' if code == 0 else 'script_nonzero'))
+                                'NOT_RUN' if code is None else 'UNVERIFIED',
+                                safe_atom(report.get('state')) if code is None else
+                                'completed_review_warnings' if code == 0 else 'script_nonzero'))
     if browser and 'truenas' not in targets:
         results.append(item('chromium_preflight', 'NOT_RUN', 'truenas_target_required'))
     if browser and 'truenas' in targets:
