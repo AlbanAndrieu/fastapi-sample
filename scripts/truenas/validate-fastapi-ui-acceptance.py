@@ -8,6 +8,7 @@ secrets, installs packages, or changes firewall/container configuration.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -88,6 +89,9 @@ def local_checks() -> list[dict[str, object]]:
     ]
     results = []
     for name, argv, timeout in cases:
+        if name == 'python_ui_contracts' and importlib.util.find_spec('pytest') is None:
+            results.append(item(name, 'NOT_RUN', 'pytest_missing'))
+            continue
         if name == 'acceptance_selftests' and not (ROOT / 'tests/test_fastapi_ui_acceptance.py').is_file():
             results.append(item(name, 'NOT_RUN', 'test_module_missing'))
             continue
