@@ -37,6 +37,14 @@ Une PR fusionnée n'implique ni `DEPLOYED` ni `ACCEPTED`.
   Ne pas enregistrer `DIAGNOSTICS_ACCESS_KEY` dans le navigateur.
 - [x] **Contrôles statiques de sources :** 23/23 PASS durant la préparation de #382.
   Il ne s'agit pas de tests Node/Chromium ou d'une preuve de déploiement.
+- [x] **CODED — recette consolidée :** `scripts/truenas/validate-fastapi-ui-acceptance.py`
+  unifie Node/pytest, HTTP TrueNAS/HTTPS, classifieur Docker Compose #289,
+  /metrics, diagnostic Compose et quatre modes Chromium (public, safe,
+  operator, rich), bornés, avec réseau opt-in seulement. Procédure :
+  [validation OWNER TrueNAS](runbooks/fastapi-truenas-owner-acceptance-20261029.md).
+- [x] **TESTED — lanceur isolé :** 10/10 tests unittest PASS sur la copie
+  locale des sources publiées, et py_compile PASS. Les tests Node/pytest
+  sur le checkout complet demeurent **NOT_RUN**.
 - [ ] **TESTED :** exécuter `node --test tests/js/api-public-fast-start.test.mjs tests/js/api-chromium-preflight-runner.test.mjs`
   et `pytest tests/unit/test_api_ui_assets.py` sur un checkout de #382.
   Sans CI GitHub, enregistrer les résultats exacts.
@@ -81,6 +89,9 @@ reste refusée. `readOnlyDiagnostics=true` ne devient jamais OWNER.
 - [ ] **E2E navigateur :** mesurer public, `?ui_safe=1`, `?operator=1`
   et `?operator=1&ui_full=1` sur TrueNAS ; comparer l'environnement Cloud
   depuis un client autorisé. `pageErrors=0` n'exclut pas un gel du thread.
+- [x] **CODED :** extension des diagnostics Chromium `--operator`,
+  `ownerPanelVisible`, `ownerUnlockVisible`, `richAssetLoaded` ;
+  aucun cookie/secret n'est lu. L'E2E TrueNAS reste **NOT_RUN**.
 - [ ] **Conserver l'état public** si le mode riche gèle encore :
   pas de chargement automatique des MutationObservers avant preuve réelle.
 
