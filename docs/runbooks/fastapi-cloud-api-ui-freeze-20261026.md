@@ -1,5 +1,14 @@
 # Incident /api Cloud — boucle DOM après fusion PR #378
 
+> **Mise à jour du 29 octobre 2026 — document d'incident historique.**
+> Les PR [#380](https://github.com/AlbanAndrieu/fastapi-sample/pull/380)
+> et [#381](https://github.com/AlbanAndrieu/fastapi-sample/pull/381)
+> sont **fusionnées**. La [PR #382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382)
+> reste **Draft** et traite la visibilité du panneau OWNER sur mobile.
+> Leur état Git ne prouve pas un déploiement TrueNAS.
+> La [roadmap active consolidée](../engineering-roadmap.md) fait foi
+> pour les priorités ; les observations ci-dessous sont datées et conservées.
+
 **26 octobre 2026 — P0, correctif candidat non déployé.**
 L'opérateur confirme que `https://fastapi-sample.fastapicloud.dev/`
 répond alors que `/api` reste sur Loading puis fige le navigateur.
