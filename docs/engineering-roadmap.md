@@ -42,7 +42,7 @@ Une PR fusionnée n'implique ni `DEPLOYED` ni `ACCEPTED`.
   /metrics, diagnostic Compose et quatre modes Chromium (public, safe,
   operator, rich), bornés, avec réseau opt-in seulement. Procédure :
   [validation OWNER TrueNAS](runbooks/fastapi-truenas-owner-acceptance-20261029.md).
-- [x] **TESTED — lanceur isolé :** 10/10 tests unittest PASS sur la copie
+- [x] **TESTED — lanceur isolé :** 13/13 tests unittest PASS sur la copie
   locale des sources publiées, et py_compile PASS. Les tests Node/pytest
   sur le checkout complet demeurent **NOT_RUN**.
 - [ ] **TESTED :** exécuter `node --test tests/js/api-public-fast-start.test.mjs tests/js/api-chromium-preflight-runner.test.mjs`
