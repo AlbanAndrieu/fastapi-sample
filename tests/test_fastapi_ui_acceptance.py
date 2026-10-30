@@ -67,11 +67,11 @@ class AcceptanceTests(unittest.TestCase):
                 build_log=None, expected_sha=None, browser=False, extended=False)
         self.assertEqual(checks[0]['verdict'], 'PASS')
 
-    def test_browser_skipped_for_staging_without_false_success(self):
-        with patch.object(runner, 'execute', return_value=(0, {'requests': []})):
+    def test_browser_staging_missing_preflight_is_not_false_success(self):
+        with patch.object(runner, 'execute', return_value=(2, {'state': 'playwright_python_missing'})):
             checks = runner.runtime_checks(['staging'], compose=Path('/nonexistent'),
                 build_log=None, expected_sha=None, browser=True, extended=False)
-        self.assertEqual(checks[-1]['code'], 'truenas_target_required')
+        self.assertEqual(checks[-1]['code'], 'playwright_python_missing')
         self.assertEqual(checks[-1]['verdict'], 'NOT_RUN')
 
     def test_no_runtime_options_implicitly_enable_network(self):
@@ -162,6 +162,27 @@ class AcceptanceTests(unittest.TestCase):
             next(row for row in checks if row['name'] == 'chromium_rich_owner')['verdict'],
             'FAIL')
 
+
+
+    def test_browser_cloud_denied_vs_loading_state(self):
+        transport = {'requests': [{'path': p, 'state': 'http_403'} for p in
+                     ('/api', '/api/ui/session', '/api/ui/services')]}
+        for state, expected in [('ui_loading_without_content', 'FAIL'),
+                                ('http_access_restricted', 'DENIED')]:
+            def fake_execute(argv, **kwargs):
+                if '--preflight' in argv:
+                    return 0, {'state': 'browser_binary_ready'}
+                if '--native' in argv:
+                    self.assertIn('cloud', argv)
+                    return 1, {'state': state}
+                return 0, transport
+            with self.subTest(state=state):
+                with patch.object(runner, 'execute', side_effect=fake_execute):
+                    checks = runner.runtime_checks(['cloud'], compose=Path('/nonexistent'),
+                        build_log=None, expected_sha=None, browser=True, extended=False)
+                self.assertEqual(
+                    next(c for c in checks if c['name'] == 'chromium_rich_owner')['verdict'],
+                    expected)
 
 
 if __name__ == '__main__':
