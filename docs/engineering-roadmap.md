@@ -170,6 +170,47 @@ sur la vue riche. **Aucun déploiement n'a été exécuté dans la PR #382.**
 **Done :** une carte affiche état, transport, preuve fraîche et remédiation ;
 les relations sont navigables et aucune sonde absente n'est affichée en vert.
 
+## P1 — Efficacité des agents FastAPI / local-first (30 octobre 2026)
+
+**Source réconciliée :** `nabla-compose` au commit
+[`d718a018`](https://github.com/AlbanAndrieu/nabla-compose/commit/d718a018cc7cbebdc027355a68631de77c2117c2).
+Son `agent-context`, la sélection du test le plus étroit et la
+séparation L0/L1/L2/L3 sont adaptés à FastAPI. Ne pas reprendre les
+commandes Compose `agent-loop`/`agent-pre-push` qui n'existent pas
+dans ce dépôt. Ne pas copier l'infrastructure, la configuration ou les secrets.
+
+- [x] **CODED :** `scripts/agent-task-context.py`, routeur hors réseau
+  de l'incident (`ui/cloud/truenas/metrics/api/quality`) ; sortie courte,
+  SHA/base, liste de chemins plafonnée, skill recommandé et premier test.
+  Il conserve `prState=NOT_CHECKED` et `localGate=NOT_RUN`.
+- [x] **CODED :** `just agent-context ui`, `just ui-quick`
+  (contrats Node sans npm install) et `just agent-context-contracts`.
+  L1 ne remplace pas les gates Python, sécurité ou publication.
+- [x] **CODED :** skill
+  [local-first-quality](../.agents/skills/local-first-quality/SKILL.md),
+  `AGENTS.md` et commande OpenCode
+  [continue-pr](../.opencode/commands/continue-pr.md) actualisés.
+  Conserver le Python 3.13 verrouillé dans chaque worktree et l'ordre
+  `AGENTS.md` puis skills spécifiques, puis exemples externes.
+- [x] **TESTED isolé :** `py_compile` réussi et **8/8 tests unittest
+  réussis** dans un répertoire synthétique, avec commits Git locaux,
+  contrôle du routage, absence d'accès distant et limitation du contexte.
+  Ce n'est pas la gate L3 du checkout complet.
+- [ ] **L1 sur PR #382 :** `just ui-quick` au SHA exact avec Node 22/24
+  présent, sans installation ni navigateur. Les nouveaux contrôles UI
+  et le gel `ui_full=1` doivent encore être vérifiés.
+- [ ] **L2 puis L3 :** `bash scripts/agent-quality-gate.sh --fix`,
+  revue du diff, commit propre puis `bash scripts/agent-publish.sh`.
+  **NOT_RUN** ici, aucun checkout complet accessible.
+- [ ] **Runtime :** confronter le SHA déployé Cloud et la recette
+  Chromium aux quatre modes. `ui_safe=1` fonctionne selon l'opérateur,
+  mais `ui_full=1` reste à confirmer après correctif et déploiement.
+
+**Critère de clôture :** un agent identifie le bon skill/test à partir de
+son contexte, réalise L1 sans CI ni installation, n'affirme jamais
+de résultat L3/runtime non mesuré et publie un seul lot revu sur la
+PR sélectionnée.
+
 ## P2 — Sécurité des contrats et interopérabilité
 
 - [ ] Inventaire strict HTTP/ASGI/MCP/WebSocket/metrics et tests négatifs
