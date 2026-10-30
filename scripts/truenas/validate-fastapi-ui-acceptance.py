@@ -162,11 +162,11 @@ def runtime_checks(targets: list[str], *, compose: Path, build_log: str | None,
                                 'NOT_RUN' if code is None else 'UNVERIFIED',
                                 safe_atom(report.get('state')) if code is None else
                                 'completed_review_warnings' if code == 0 else 'script_nonzero'))
-    if browser and 'truenas' not in targets:
-        results.append(item('chromium_preflight', 'NOT_RUN', 'truenas_target_required'))
-    if browser and 'truenas' in targets:
+    if browser and targets:
+        # Pinned first target only; Cloud Access refusal is not service-down.
+        browser_target = targets[0]
         runner = ROOT / 'scripts/diagnose-production-api-ui-freeze.mjs'
-        command = ['node', str(runner), 'truenas', '--preflight']
+        command = ['node', str(runner), browser_target, '--preflight']
         code, report = execute(command, timeout=12, json_report=True)
         preflight = safe_atom(report.get('state'))
         ok = code == 0 and preflight == 'browser_binary_ready'
@@ -175,13 +175,18 @@ def runtime_checks(targets: list[str], *, compose: Path, build_log: str | None,
             scenarios = [('public', []), ('safe', ['--safe']),
                          ('operator', ['--operator']), ('rich_owner', ['--full', '--operator'])]
             for label, flags in scenarios:
-                code, report = execute(['node', str(runner), 'truenas', '--native', *flags],
+                code, report = execute(['node', str(runner), browser_target, '--native', *flags],
                                        timeout=39, json_report=True)
                 state = safe_atom(report.get('state'))
                 sampled = code == 0 and state == 'sampled'
                 if not sampled:
-                    verdict = 'FAIL' if state == 'main_thread_unresponsive' else 'UNVERIFIED'
-                    results.append(item('chromium_' + label, verdict, state))
+                    verdict = ('FAIL' if state in (
+                        'main_thread_unresponsive', 'ui_loading_without_content'
+                    ) else 'DENIED' if state in (
+                        'http_access_restricted', 'redirected_off_origin'
+                    ) else 'UNVERIFIED')
+                    results.append(item('chromium_' + label, verdict, state,
+                                        target=browser_target))
                     continue
                 rich = report.get('richAssetLoaded') is True
                 owner_visible = report.get('ownerUnlockVisible') is True
@@ -190,6 +195,7 @@ def runtime_checks(targets: list[str], *, compose: Path, build_log: str | None,
                 passed = rich == expected_rich and owner_visible == expected_owner
                 results.append(item('chromium_' + label, 'PASS' if passed else 'FAIL',
                                     'ui_contract_ok' if passed else 'ui_contract_mismatch',
+                                    target=browser_target,
                                     public_rows=report.get('publicRows') if isinstance(report.get('publicRows'), int) else None,
                                     detailed_rows=report.get('detailedRows') if isinstance(report.get('detailedRows'), int) else None))
     return results
@@ -198,7 +204,7 @@ def runtime_checks(targets: list[str], *, compose: Path, build_log: str | None,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--phase', choices=('offline', 'runtime', 'all'), default='offline')
-    parser.add_argument('--target', action='append', choices=('truenas', 'staging'), dest='targets')
+    parser.add_argument('--target', action='append', choices=('truenas', 'staging', 'cloud'), dest='targets')
     parser.add_argument('--build-log', help='Optional historical private /tmp/tmp.* Docker build evidence')
     parser.add_argument('--expected-sha', help='Exact immutable commit to compare in Compose diagnostic')
     parser.add_argument('--compose-root', type=Path, default=COMPOSE)
