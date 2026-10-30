@@ -9,7 +9,8 @@ FastAPI Radar is intentionally not installed and is not an MCP server.
 | --- | --- | --- |
 | FastAPI development | `uv run fastapi dev` | `http://127.0.0.1:8000` unless a port is supplied |
 | Repository development | `uv run uvicorn server_all:app --reload --host 0.0.0.0 --port 8080` | `http://127.0.0.1:8080` |
-| Docker Compose API | `docker compose up api` | `http://127.0.0.1:8080` |
+| Docker Compose image smoke | `docker compose up fastapi-sample` (`docker-compose.yaml`) | `http://127.0.0.1:8080` |
+| TrueNAS homelab runtime | [`nabla-compose/apps/sample/compose.yml`](https://github.com/AlbanAndrieu/nabla-compose/blob/master/apps/sample/compose.yml) | `https://sample.int.albandrieu.com/api` |
 | Production container | Gunicorn loads `server_all:app` | port `8080` |
 | Python console script | `app` loads `server_app:app` | configured by `EXPOSE_HOST` and `EXPOSE_PORT` |
 
