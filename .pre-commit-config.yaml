@@ -278,11 +278,14 @@ repos:
           - "4"
           - "-ln"
           - "bash"
-  - repo: https://github.com/detailyang/pre-commit-shell
-    rev: v1.0.6
+  # Local shellcheck (pinned by mise): detailyang/pre-commit-shell v1.0.6 crashed under DEBUG=true.
+  - repo: local
     hooks:
       - id: shell-lint
         name: "🐚 shell · Lint shell scripts"
+        entry: shellcheck
+        language: system
+        types: [shell]
         args: [-x]
         exclude: >
           (?x)^(

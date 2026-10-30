@@ -160,3 +160,9 @@ La gate exécute `pytest --maxfail=1` en ordre aléatoire : chaque run ne montra
 - [ ] Retirer l'entrée `.quality-gate-large-deletions` du renommage après fusion.
 - [ ] **UI riche :** l'extraction de `api-health-visibility.js` n'est vérifiée que par les tests ; vérifier `/api`, `?ui_safe=1`, `?ui_full=1` et `?operator=1` dans un navigateur réel. `NOT_RUN`. Formatage Biome JS/CSS `NOT_RUN` localement.
 - [ ] **Clôture #355 :** `bash scripts/agent-publish.sh` sur un HEAD propre, puis deux runs `master` consécutifs verts. La CI hébergée n'a pas été lancée par l'agent.
+
+## P2 — Claude Code et Codex sur la même workstation (30 octobre 2026)
+
+- [x] **TESTED :** verrou de gate par worktree (`QG_LOCKED`, code 75 ; verrou orphelin repris par `QG_STALE_LOCK`) ; `QUALITY_PYTEST_MAXFAIL=0` liste tous les échecs pytest ; hook `shell-lint` local (shellcheck épinglé par mise), l'ancien hook distant plantait avec `DEBUG=true` exporté par Claude Code ; `AGENTS.md` neutre (Claude Code, Codex, OpenCode) avec une worktree par agent. Deux gates concurrentes dans un checkout : la seconde refusée (75), le verrou libéré ensuite.
+- [ ] **Codex :** absent de cette session (`codex` hors `PATH`, pas de `~/.codex`). Preuve à fournir : depuis Codex, dans une worktree séparée, vérifier qu'il charge `AGENTS.md` et `.agents/skills/local-first-quality`, puis lancer `bash scripts/agent-quality-gate.sh --fix`. `NOT_RUN`.
+- [ ] Les règles globales du propriétaire (`~/.claude/CLAUDE.md` et ses hooks de garde) ne s'appliquent qu'à Claude Code ; les reporter dans `~/.codex/AGENTS.md` si Codex doit les suivre hors de ce dépôt.
