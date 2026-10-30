@@ -98,3 +98,23 @@ def test_browser_safe_mode_is_explicit_and_allowlisted():
     assert "public directory is the resilient default" in ui.lower()
     assert 'params.get("ui_full") === "1"' in ui
     assert 'params.get("operator") === "1"' in ui
+
+
+def test_browser_operator_mode_reports_visibility_without_secret_or_private_dom():
+    browser = source("scripts/diagnose-production-api-ui-freeze.py")
+    launcher = source("scripts/diagnose-production-api-ui-freeze.mjs")
+    assert 'API_UI_OPERATOR' in browser and 'API_UI_OPERATOR' in launcher
+    assert '"?operator=1" if operator_mode else ""' in browser
+    assert '"?ui_full=1&operator=1" if full_mode and operator_mode' in browser
+    for label in ("ownerPanelVisible", "ownerUnlockVisible", "richAssetLoaded"):
+        assert label in browser
+    for forbidden in ("document.cookie", "localStorage.getItem", "sessionStorage.getItem"):
+        assert forbidden not in browser
+
+
+def test_responsive_but_empty_loading_ui_is_not_marked_sampled():
+    browser = source("scripts/diagnose-production-api-ui-freeze.py")
+    assert 'if sample.get("summaryLoading") and not (' in browser
+    assert '"ui_loading_without_content"' in browser
+    assert '"inspect_ui_bootstrap_and_http_statuses"' in browser
+    assert 'result["state"] = "sampled"' in browser

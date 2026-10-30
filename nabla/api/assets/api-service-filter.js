@@ -363,8 +363,8 @@ function updateGroupVisibility() {
   for (const group of document.querySelectorAll("[data-service-group]")) {
     const rows = [...group.querySelectorAll("[data-service-filter-target]")];
     const visible = rows.some((row) => !row.hidden);
-    group.hidden = !visible;
-    if (isFiltering() && visible) group.open = true;
+    if (group.hidden !== !visible) group.hidden = !visible;
+    if (isFiltering() && visible && !group.open) group.open = true;
   }
 }
 
@@ -382,9 +382,10 @@ function updateFilterResult(rows) {
   if (filters.probe !== "all") active.push(`probe=${filters.probe}`);
   if (filters.query) active.push(`search=“${filters.query}”`);
   const details = active.length ? ` · ${active.join(" · ")}` : "";
-  result.textContent = visible === 0 && isFiltering()
+  const message = visible === 0 && isFiltering()
     ? `0/${rows.length} diagnostic views visible. No services match these filters. Remove a filter or select Reset.`
     : `${visible}/${rows.length} diagnostic views visible${details}`;
+  if (result.textContent !== message) result.textContent = message;
 }
 
 function updateCollapseButton() {
@@ -420,7 +421,7 @@ function notifyFilterChanged() {
 export function refreshServiceFilter() {
   const rows = [...document.querySelectorAll("[data-service-filter-target]")];
   for (const row of rows) {
-    row.hidden = !(
+    const hidden = !(
       queryMatches(row) &&
       statusMatches(row) &&
       environmentMatches(row) &&
@@ -428,6 +429,9 @@ export function refreshServiceFilter() {
       exposureMatches(row) &&
       probeMatches(row)
     );
+    // Observers watch the hidden attribute. Assigning the same value can
+    // still generate an attribute mutation and re-enter the rich UI refresh.
+    if (row.hidden !== hidden) row.hidden = hidden;
   }
   updateGroupVisibility();
   updateFilterResult(rows);

@@ -1,61 +1,73 @@
-# Documentation
+# Documentation — FastAPI Sample
 
-Documentation is organized by **operator task**, not implementation history.
-The root [README](../README.md) is intentionally limited to quick start and
-canonical entry points.
+La documentation est organisée par **décision** et par **tâche opérateur**.
+Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 
-## Canonical documents
+## Sources de vérité
 
-LiteLLM staging provisioning and the two-proxy Qwen chain are owned by
-[nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/runbooks/fastapi-sample-litellm.md). FastAPI owns client wiring and tests only.
-
-| Need | Document |
+| Besoin | Document canonique |
 | --- | --- |
-| What remains to do? | [Engineering roadmap](engineering-roadmap.md) |\n| Which historical unchecked tasks need re-triage? | [On-demand backlog](engineering-backlog.md) |
-| Has this happened before? | [Incident register](incidents.md) |
-| How is health evidence interpreted? | [Platform diagnostics model](platform-service-diagnostics-model.md) |
-| How do I validate local runtime dependencies? | [Local runtime diagnostic](local-runtime-dependency-report.md) |
-| What are the stable homelab security rules? | [Homelab security guardrails](homelab-security-roadmap.md) |
-| What are the continuity targets? | [Business Impact Analysis](business-impact-analysis.md) |
-| Where are APIs/dashboards? | [Entry points and dashboards](entrypoints-and-dashboards.md) |
+| **Que reste-t-il à faire ?** | [Roadmap active P0/P1/P2](engineering-roadmap.md) |
+| **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
+| **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
+| **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
+| **Architecture de l'interface ?** | [UI et topologie](api-ui-architecture.md) |
+| **Règles sécurité homelab ?** | [Guardrails](homelab-security-roadmap.md) |
+| **RTO/RPO et continuité ?** | [Business Impact Analysis](business-impact-analysis.md) |
+| **Points d'entrée et dashboards ?** | [Entrypoints](entrypoints-and-dashboards.md) |
 
-## Runbooks
+## Runbooks opérateur
 
-- [Acceptation Prometheus/Akvorado, métriques staging et accès Cloud 401/403](runbooks/fastapi-observability-acceptance.md)
-- [Historique du roadmap et des procédures précédentes](archive/2026-10-24/engineering-roadmap.md)
+| Tâche | Procédure |
+| --- | --- |
+| Loading de `/api?ui_full=1` sur Cloud/TrueNAS | [Diagnostiquer le gel UI](runbooks/fastapi-cloud-api-ui-freeze-20261026.md) |
+| Tests locaux, build Docker, OWNER mobile, recette navigateur | [Validation consolidée Cloud/TrueNAS/OWNER](runbooks/fastapi-truenas-owner-acceptance-20261029.md) |
+| Scrape/metrics, auth 401/403, Prometheus/Akvorado | [Acceptation observabilité](runbooks/fastapi-observability-acceptance.md) |
+| Dépendances locales, cache et sondes | [Rapport de runtime local](local-runtime-dependency-report.md) |
+| pfSense 502 : sémantique de l'observateur FastAPI | [Contrat pfSense](pfsense-webconfigurator-recovery.md) |
+| pfSense : observabilité sécurité | [Diagnostics sécurité](pfsense-security-observability.md) |
+| Cache des sondes extérieures | [Opérations cache](external-probe-cache-operations.md) |
+| Trajet public TrueNAS | [Ingress public](truenas-public-ingress.md) |
+| Cloudflare/Sentry dans l'application | [Observateurs et SDK](cloudflare-sentry-runtime-diagnostics.md) |
+| Contrat réseau Cloudflare | [Réseau FastAPI](fastapi-sample-cloudflare-network-contract.md) |
 
+La configuration réelle des services, des secrets, du réseau, de
+l'infrastructure Gatus/Prometheus et les déploiements TrueNAS appartiennent
+à [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
+FastAPI conserve les clients, diagnostics, DTO et tests.
+Le provisionnement LiteLLM staging est documenté dans
+[le runbook Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/runbooks/fastapi-sample-litellm.md).
 
-- [pfSense 502 observer contract (platform recovery in nabla-compose)](pfsense-webconfigurator-recovery.md)
-- [pfSense security observability](pfsense-security-observability.md)
-- [External probe cache operations](external-probe-cache-operations.md)
-- [TrueNAS public ingress](truenas-public-ingress.md)
-- [Cloudflare/Sentry application observer and SDK contract](cloudflare-sentry-runtime-diagnostics.md)
-- [Cloudflare network contract](fastapi-sample-cloudflare-network-contract.md)
-- [Health monitoring environment](health-monitoring-environment.md)
-- [Kubernetes zero-trust hardening](kubernetes-zero-trust-hardening.md)
+## Agents et contrôles locaux
 
-## Architecture/reference
+- [Règles de contribution](../AGENTS.md) : priorité des instructions et sécurité.
+- [Skill local-first](../.agents/skills/local-first-quality/SKILL.md) :
+  L0 contexte, L1 ciblé, L2 convergence et L3 publication.
+- [Reprise OpenCode d'une PR](../.opencode/commands/continue-pr.md) :
+  portée de changement bornée et preuve au SHA exact.
 
-- [API/UI architecture](api-ui-architecture.md)
-- [MCP integrations](mcp-integrations.md)
-- [Cloudflare Tunnel audit](cloudflare-tunnel-audit.md)
-- [Snort WAN validation](snort-wan-validation.md)
-- [Cashews evaluation](cashews-evaluation.md)
+## Références complémentaires et archives
 
-Release notes under `docs/release-*.md` are historical records, not active
-roadmaps.
+Les documents de référence restent accessibles :
+[MCP](mcp-integrations.md),
+[monitoring](health-monitoring-environment.md),
+[Kubernetes zero-trust](kubernetes-zero-trust-hardening.md),
+[Cloudflare Tunnel](cloudflare-tunnel-audit.md),
+[Snort WAN](snort-wan-validation.md) et
+[Cashews](cashews-evaluation.md).
 
-## Documentation rules
+Les preuves et décisions anciennes sont conservées, sans statut courant :
 
-1. **One roadmap:** `engineering-roadmap.md`.
-2. **One incident register:** dated symptom/cause/recognition evidence goes in
-    `incidents.md`.
-3. **Runbooks are timeless:** keep commands, safety constraints and acceptance
-    criteria; remove dated status snapshots once captured in the incident register.
-4. **Completed work is compacted:** keep only durable guardrails/capabilities in
-    the roadmap; tests and Git history hold implementation detail.
-5. **No duplicated truth:** link to the canonical document rather than copying a
-    state matrix or command sequence.
-6. **Diagnostic essentials are never removed:** observer vantage point, first
-    failing layer, decisive command/probe, expected result, recovery safety and
-    acceptance criteria must remain recoverable.
+- [Roadmap détaillée du 29 octobre](archive/2026-10-29/engineering-roadmap-before-consolidation.md)
+- [Ancienne roadmap du 24 octobre](archive/2026-10-24/engineering-roadmap.md)
+- [Historique intégral du gel UI d'octobre](archive/2026-10-30/fastapi-cloud-api-ui-freeze-20261026-history.md)
+
+## Règles de maintenance
+
+1. **Une roadmap active** : seulement priorités, critères de fin et blocages.
+2. **Un registre d'incidents** : symptômes datés et preuves attribuées.
+3. **Des runbooks durables** : commandes, ordre d'exécution et résultats attendus.
+4. **Historique archivé** : ne pas effacer les causes ni les procédures utiles.
+5. **Preuves distinctes** : `CODED`, `TESTED`, `DEPLOYED`, `ACCEPTED`.
+6. **Un seul propriétaire par domaine** : liens entre dépôts, sans recopier
+   secrets, catalogues ou configurations d'appliance.

@@ -11,8 +11,9 @@ const safeMode = process.argv.includes("--safe");
 const preflightMode = process.argv.includes("--preflight");
 const nativeMode = preflightMode || process.argv.includes("--native");
 const fullMode = process.argv.includes("--full");
-if (safeMode && fullMode) {
-  console.error(JSON.stringify({ state: "invalid_browser_mode", allowed: ["--safe", "--full"] }));
+const operatorMode = process.argv.includes("--operator");
+if (safeMode && (fullMode || operatorMode)) {
+  console.error(JSON.stringify({ state: "invalid_browser_mode", allowed: ["--safe", "--operator", "--full", "--operator --full"] }));
   process.exit(2);
 }
 const allowed = new Set(["cloud", "staging", "truenas"]);
@@ -33,7 +34,7 @@ try {
     cwd: repo,
     env: { ...process.env, API_UI_TARGET: target, API_UI_SAFE: safeMode ? "1" : "0",
       API_UI_PREFLIGHT: preflightMode ? "1" : "0",
-      API_UI_FULL: fullMode ? "1" : "0" },
+      API_UI_FULL: fullMode ? "1" : "0", API_UI_OPERATOR: operatorMode ? "1" : "0" },
     stdio: ["ignore", "pipe", "pipe"],
   });
 } catch {

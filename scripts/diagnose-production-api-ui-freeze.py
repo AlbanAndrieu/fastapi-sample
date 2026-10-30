@@ -66,6 +66,18 @@ REPORT_JS = r"""
     summaryLoading: /loading/i.test(summary?.textContent || ""),
     publicRows: document.querySelectorAll("#public-services-list .public-service-card").length,
     detailedRows: document.querySelectorAll("#health-checks .health-row").length,
+    ownerPanelVisible: (() => {
+      const panel = document.getElementById("owner-session-panel");
+      return Boolean(panel && !panel.hidden && getComputedStyle(panel).display !== "none");
+    })(),
+    ownerUnlockVisible: (() => {
+      const panel = document.getElementById("owner-session-panel");
+      const button = document.getElementById("owner-session-login");
+      return Boolean(panel && button && !panel.hidden && !button.hidden &&
+        getComputedStyle(panel).display !== "none" && getComputedStyle(button).display !== "none");
+    })(),
+    richAssetLoaded: performance.getEntriesByType("resource").some(entry =>
+      new URL(entry.name).pathname === "/api/assets/api-health.js"),
     statusFilterPresent: Boolean(document.getElementById("service-status-filter")),
     longTasks: window.__uiFreezeSample?.longTasks ?? null,
     longTaskTotalMs: Math.round(window.__uiFreezeSample?.longTaskTotalMs ?? 0),
@@ -115,13 +127,19 @@ async def check(target: str) -> dict:
     origin = urlsplit(TARGETS[target]).netloc
     safe_mode = os.getenv("API_UI_SAFE") == "1"
     full_mode = os.getenv("API_UI_FULL") == "1"
+    operator_mode = os.getenv("API_UI_OPERATOR") == "1"
     page_url = TARGETS[target] + (
-        "?ui_safe=1" if safe_mode else "?ui_full=1" if full_mode else ""
+        "?ui_safe=1" if safe_mode else (
+            "?ui_full=1&operator=1" if full_mode and operator_mode else
+            "?ui_full=1" if full_mode else
+            "?operator=1" if operator_mode else ""
+        )
     )
     http: list[dict] = []
     failures: list[dict] = []
     page_errors = [0]
-    result: dict = {"target": target, "path": "/api", "state": "not_started", "safeMode": safe_mode, "fullMode": full_mode}
+    result: dict = {"target": target, "path": "/api", "state": "not_started",
+                    "safeMode": safe_mode, "fullMode": full_mode, "operatorMode": operator_mode}
     if async_playwright is None:
         return {
             **result,
@@ -194,8 +212,16 @@ async def check(target: str) -> dict:
                     await asyncio.sleep(8)
                     try:
                         sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
-                        result["state"] = "sampled"
                         result.update(sample)
+                        if sample.get("summaryLoading") and not (
+                            sample.get("publicRows") or sample.get("detailedRows")
+                        ):
+                            # A responsive JS thread can still display a
+                            # permanently loading UI. Never mark that healthy.
+                            result["state"] = "ui_loading_without_content"
+                            result["next_check"] = "inspect_ui_bootstrap_and_http_statuses"
+                        else:
+                            result["state"] = "sampled"
                     except (asyncio.TimeoutError, PlaywrightTimeoutError):
                         result["state"] = "main_thread_unresponsive"
                     except PlaywrightError:

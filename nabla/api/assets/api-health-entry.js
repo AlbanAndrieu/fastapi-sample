@@ -5,7 +5,9 @@ import { installPublicServiceOverview } from "./api-public-services.js";
 
 const params = new URLSearchParams(window.location.search);
 const safeMode = params.get("ui_safe") === "1";
-const richMode = params.get("ui_full") === "1" || params.get("operator") === "1";
+const operatorMode = params.get("operator") === "1";
+// Viewing OWNER controls does not opt into the observer-heavy dashboard.
+const richMode = params.get("ui_full") === "1";
 
 function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
   for (const id of [
@@ -39,12 +41,44 @@ function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
     heading.parentElement?.appendChild(link);
   }
 
+  // Make the operator entry discoverable without loading advanced observers.
+  if (allowAdvancedLink && !operatorMode && heading && !document.getElementById("owner-access-link")) {
+    const target = new URL(window.location.href);
+    target.searchParams.set("operator", "1");
+    const link = document.createElement("a");
+    link.id = "owner-access-link";
+    link.href = target.href;
+    link.textContent = "Owner access";
+    link.className = "health-full-dashboard-link";
+    heading.parentElement?.appendChild(link);
+  }
+
   // This bounded public endpoint does not require an owner session.
   // Its failure must leave a usable page with a visible error message.
   void installPublicServiceOverview({ ownerAuthenticated: false }).catch(() => {
     const summary = document.getElementById("public-services-summary");
     if (summary) summary.textContent = "Public service directory unavailable";
   });
+}
+
+// Reveal and bind OWNER controls before any slow or frozen rich UI import.
+// This is a UI affordance only: POST /api/ui/session still verifies the key
+// and the trusted source IP; query parameters never confer privileges.
+if (operatorMode && !safeMode) {
+  const panel = document.getElementById("owner-session-panel");
+  if (panel) {
+    panel.hidden = false;
+    void import("./api-owner-session.js")
+      .then(({ installOwnerSessionControls }) => {
+        installOwnerSessionControls(() => window.location.reload());
+      })
+      .catch(() => {
+        const state = document.getElementById("owner-session-state");
+        const login = document.getElementById("owner-session-login");
+        if (state) state.textContent = "Owner sign-in unavailable; check page assets.";
+        if (login) login.disabled = true;
+      });
+  }
 }
 
 if (safeMode || !richMode) {

@@ -655,7 +655,16 @@ async function decorateRows() {
   }
 }
 
-function scheduleRefresh() {
+function scheduleRefresh(records) {
+  // The board contains many badges, timers and drawers. Decorating a badge
+  // must not re-run the whole service reconciliation and issue another
+  // service-filter-changed notification. Observe only row topology changes.
+  if (Array.isArray(records) && !records.some((record) => {
+    const nodes = [...record.addedNodes, ...record.removedNodes];
+    return nodes.some((node) => node.nodeType === 1 &&
+      (node.matches?.("[data-service-filter-target]") ||
+       node.querySelector?.("[data-service-filter-target]")));
+  })) return;
   if (refreshScheduled) return;
   refreshScheduled = true;
   window.requestAnimationFrame(() => {
@@ -671,5 +680,6 @@ export function installServiceDiagnostics() {
     const observer = new MutationObserver(scheduleRefresh);
     observer.observe(board, { childList: true, subtree: true });
   }
+  document.addEventListener("health-board-refreshed", scheduleRefresh);
   scheduleRefresh();
 }

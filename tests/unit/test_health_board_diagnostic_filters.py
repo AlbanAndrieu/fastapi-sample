@@ -170,3 +170,14 @@ def test_issues_button_tracks_status_filter_and_clear_state() -> None:
     assert 'button.textContent = active ? "All" : "Issues";' in javascript
     assert 'button.setAttribute("aria-pressed", String(active));' in javascript
     assert "syncIssuesButton();" in javascript
+
+
+def test_rich_dashboard_refresh_is_bounded_to_row_structure():
+    filter_js = (ASSETS / "api-service-filter.js").read_text(encoding="utf-8")
+    diagnostics = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
+    assert "if (row.hidden !== hidden) row.hidden = hidden;" in filter_js
+    assert "if (group.hidden !== !visible) group.hidden = !visible;" in filter_js
+    assert "if (result.textContent !== message) result.textContent = message;" in filter_js
+    assert 'node.matches?.("[data-service-filter-target]")' in diagnostics
+    assert 'node.querySelector?.("[data-service-filter-target]")' in diagnostics
+    assert 'document.addEventListener("health-board-refreshed", scheduleRefresh);' in diagnostics
