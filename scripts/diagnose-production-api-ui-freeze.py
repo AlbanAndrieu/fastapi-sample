@@ -212,8 +212,16 @@ async def check(target: str) -> dict:
                     await asyncio.sleep(8)
                     try:
                         sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
-                        result["state"] = "sampled"
                         result.update(sample)
+                        if sample.get("summaryLoading") and not (
+                            sample.get("publicRows") or sample.get("detailedRows")
+                        ):
+                            # A responsive JS thread can still display a
+                            # permanently loading UI. Never mark that healthy.
+                            result["state"] = "ui_loading_without_content"
+                            result["next_check"] = "inspect_ui_bootstrap_and_http_statuses"
+                        else:
+                            result["state"] = "sampled"
                     except (asyncio.TimeoutError, PlaywrightTimeoutError):
                         result["state"] = "main_thread_unresponsive"
                     except PlaywrightError:
