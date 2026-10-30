@@ -69,6 +69,50 @@ Une PR fusionnée n'implique ni `DEPLOYED` ni `ACCEPTED`.
 approuvé, les détails utiles s'affichent sans gel et une source non autorisée
 reste refusée. `readOnlyDiagnostics=true` ne devient jamais OWNER.
 
+## P0 — Cloud /api?ui_full=1 bloqué sur Loading (30 octobre 2026)
+
+**Signal utilisateur :** le tableau riche Cloud `https://fastapi-sample.fastapicloud.dev/api?ui_full=1`
+semble rester sur `Loading`. La page Cloud n'est pas accessible depuis
+l'environnement de cet agent (accès direct au site refusé) ; **aucune
+nouvelle navigation Chromium Cloud réelle** n'a été mesurée.
+
+- [x] **Analyse de code :** le mode `ui_full=1` importe immédiatement
+  `api-health.js` et ses nombreux modules/observers. `api-service-diagnostics.js`
+  observait tous les ajouts/retraits dans `#health-board` ; chaque
+  déclenchement reconstruisait les sondes et appelait
+  `refreshServiceFilter()`. Ce dernier assignait `hidden` aux rows/groupes
+  même sans changement : des attributs observés par les autres modules
+  pouvaient recréer une cascade `MutationObserver → rAF → refresh`.
+  Ce chemin est **constaté dans le code**, mais n'est pas encore une
+  preuve de causalité sur le runtime Cloud.
+- [x] **CODED dans #382 [skip ci] :** rendre `hidden` idempotent,
+  réagir seulement aux changements structurels des lignes pour
+  `api-service-diagnostics`, recharger explicitement au signal
+  `health-board-refreshed`.
+- [x] **CODED :** la sonde navigateur distingue
+  `ui_loading_without_content` de `main_thread_unresponsive`,
+  `http_access_restricted`, `navigation_failed` et `sampled`.
+  Le lanceur consolidé accepte maintenant `--target cloud --browser`
+  et traite un refus Cloudflare comme `DENIED` et non `DOWN`.
+- [ ] **TESTED :** lancer les tests de la PR #382 en local sur le HEAD.
+  Aucun résultat Node/pytest réel de ces nouveaux changements n'est
+  disponible ici ; les vérifications statiques ne suffisent pas.
+- [ ] **PROVE :** sur une machine ayant Playwright/Chromium et un accès
+  Cloud autorisé, comparer les modes Cloud public, safe, full ; relever
+  le SHA réellement déployé, le statut HTTP, `summaryLoading`,
+  `publicRows`, `detailedRows`, `pageErrors`, `longTasks` et
+  `richAssetLoaded`. Ne pas interpréter 403 comme un gel.
+- [ ] **DEPLOY :** publier le correctif seulement après revue,
+  tests et confirmation du système de déploiement Cloud ; **aucune
+  publication ni fusion automatique depuis cet agent**.
+
+**Commande de triage native sans installation :**
+`node scripts/diagnose-production-api-ui-freeze.mjs cloud --full --native`
+(depuis un checkout FastAPI #382 avec Playwright Python/Chromium présents).
+Alternativement, utiliser
+`python3 scripts/truenas/validate-fastapi-ui-acceptance.py --phase runtime --target cloud --browser`.
+Les probes anonymes ne transmettent pas de cookie ou de clé.
+
 ## P0 de publication — Build Docker et gel du navigateur
 
 - [x] **Historique :** #379 a été déployée sur TrueNAS (6/6) mais
