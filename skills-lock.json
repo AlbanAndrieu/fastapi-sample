@@ -13,11 +13,23 @@
       "skillPath": "skills/langfuse/SKILL.md",
       "computedHash": "38cb23bf337eff2ccdbf54c09391ef96ed4cda42b97474ecd17abca820065121"
     },
+    "python-appservice-deploy": {
+      "source": "microsoft/azure-skills",
+      "sourceType": "github",
+      "skillPath": "skills/python-appservice-deploy/SKILL.md",
+      "computedHash": "6ae95192f2670f8d5385f7f1440816debba0382f46b410cfb4f8935a02a5c3d7"
+    },
     "sentry-workflow": {
       "source": "getsentry/sentry-for-ai",
       "sourceType": "github",
       "skillPath": "skills/sentry-workflow/SKILL.md",
       "computedHash": "219e8f7bd0de395531b28974272859a5df2c9f52271152aeb3d4b0cd07a20f76"
+    },
+    "setup-pre-commit": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/misc/setup-pre-commit/SKILL.md",
+      "computedHash": "7fc7b680161a5cb834b165e36efc2378ff63a1f80df0a9efd18448d366bea98a"
     },
     "supabase": {
       "source": "supabase/agent-skills",

@@ -297,6 +297,7 @@ repos:
             .envrc|
             trunk|
             .devcontainer/postCreateCommand.sh|
+            .agents/skills/.*|
           )$
 
   - repo: https://github.com/openstack/bashate
