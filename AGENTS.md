@@ -8,6 +8,20 @@
 - Never mark a PR Ready automatically merely to burn credits. Only do so after explicit user direction or the repository's documented publication gate, and never merge without authorization.
 - Keep generated PDFs (when uploaded) for at most **1 day**. Prefer no uploads on successful routine PR jobs and short-lived failure diagnostics.
 
+## Agent FastAPI — démarrage local-first sans réseau
+
+Pour un incident `/api` ou une reprise de PR, commencer par
+`just agent-context ui` (ou `python3 scripts/agent-task-context.py --task ui`
+si Just est absent). Ce préflight borne les chemins, suggère le skill
+`local-first-quality` et sélectionne `just ui-quick` ; il ne lance
+aucun réseau, navigateur, déploiement, installation ou CI. Pour les travaux
+hors UI, passer `cloud`, `truenas`, `metrics`, `api` ou `quality`.
+Conserver les règles de publication ci-dessous : `just ui-quick` = L1,
+`agent-quality-gate.sh --fix` = L2 et `agent-publish.sh` = L3 sur
+HEAD exact. Un résultat `L1 PASS` ne valide ni CI, ni runtime Cloud,
+ni TrueNAS. Les commandes `mise run agent-loop/agent-pre-push` de
+`nabla-compose` **n'existent pas dans ce dépôt et ne sont pas copiées**.
+
 ## Fast investigation protocol (load only when relevant)
 
 Before a tool-heavy task, resolve the PR's immutable HEAD and check changed
