@@ -129,3 +129,36 @@ n'accorde jamais le GO automatiquement.
 
 Voir aussi [roadmap canonique](../engineering-roadmap.md) et
 [historique du gel UI](fastapi-cloud-api-ui-freeze-20261026.md).
+
+
+## 7. Diagnostic ciblé FastAPI Cloud — mode riche (30 octobre 2026)
+
+L'URL `https://fastapi-sample.fastapicloud.dev/api?ui_full=1`
+a été signalée bloquée sur « Loading ». Les probes sont épinglées
+au domaine Cloud ; aucune clé/cookie n'est injectée dans Chromium.
+Ne pas interpréter un refus d'Access comme un gel.
+
+Depuis un checkout FastAPI de la PR #382 :
+
+~~~bash
+node --test tests/js/api-rich-observer-refresh.test.mjs
+
+# Diagnostic réseau + navigateur natif (Chromium et Playwright déjà installés)
+python3 scripts/truenas/validate-fastapi-ui-acceptance.py   --phase runtime --target cloud --browser
+
+# Diagnostic direct limité au seul mode Cloud riche
+node scripts/diagnose-production-api-ui-freeze.mjs cloud --full --native
+~~~
+
+Le navigateur rapporte `main_thread_unresponsive` lorsqu'il ne peut
+plus exécuter JavaScript ; `ui_loading_without_content` lorsqu'il est
+réactif mais reste sur Loading sans aucune ligne ; `http_access_restricted`
+en cas de HTTP 401/403 ; `sampled` lorsqu'un échantillon DOM est lu.
+Aucune de ces sondes **ne prouve la présence du correctif sur FastAPI Cloud** :
+corréler d'abord le SHA/image réellement déployé.
+
+Le code de #382 limite les rafraîchissements des diagnostics
+aux ajouts/retraits de lignes de services, et évite les écritures
+répétées de l'attribut `hidden` sur les cartes. Ce sont des
+corrections ciblées du mécanisme observé dans le code, non une
+validation E2E de la cause exacte sur le runtime Cloud.
