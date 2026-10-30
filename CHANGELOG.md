@@ -1,3 +1,20 @@
+# [1.26.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.25.0...1.26.0) (2026-10-30)
+
+
+### Bug Fixes
+
+* **metrics:** isoler la clé de scrape Prometheus de l'accès diagnostics ([#376](https://github.com/AlbanAndrieu/fastapi-sample/issues/376)) ([9c0ef52](https://github.com/AlbanAndrieu/fastapi-sample/commit/9c0ef5236e00cba4f7e06a829c41cea094e524f9))
+* **ui P0:** keep /api responsive with public-first dashboard; advanced opt-in ([#381](https://github.com/AlbanAndrieu/fastapi-sample/issues/381)) ([501d682](https://github.com/AlbanAndrieu/fastapi-sample/commit/501d68262858cc81ca11d92eef8398afb549210e))
+* **ui P0:** stop status observer loop and provide public-only safe mode for frozen /api ([#380](https://github.com/AlbanAndrieu/fastapi-sample/issues/380)) ([db89cd2](https://github.com/AlbanAndrieu/fastapi-sample/commit/db89cd2386003d3d983830dfe39ee38f273a2895)), closes [#379](https://github.com/AlbanAndrieu/fastapi-sample/issues/379) [#379](https://github.com/AlbanAndrieu/fastapi-sample/issues/379) [#379](https://github.com/AlbanAndrieu/fastapi-sample/issues/379)
+* **ui P1:** rendre l'accès OWNER indépendant du tableau avancé ([#382](https://github.com/AlbanAndrieu/fastapi-sample/issues/382)) ([7fbd2f6](https://github.com/AlbanAndrieu/fastapi-sample/commit/7fbd2f6191480a829775cfeb43d1e76bbe76adf2))
+* **ui:** stop /api MutationObserver render loop after [#378](https://github.com/AlbanAndrieu/fastapi-sample/issues/378) ([#379](https://github.com/AlbanAndrieu/fastapi-sample/issues/379)) ([fa13c08](https://github.com/AlbanAndrieu/fastapi-sample/commit/fa13c08db05ce8ce086d2366e1f35706913f05be))
+
+
+### Features
+
+* **site:** accuser réception des traceparent W3C authentifiés ([#378](https://github.com/AlbanAndrieu/fastapi-sample/issues/378)) ([f10c814](https://github.com/AlbanAndrieu/fastapi-sample/commit/f10c8147dd0f7e1c05d21c5f44229e5ee37f4e1e))
+* **ui:** diagnostics par service, liens et parité Gatus hors ligne ([#377](https://github.com/AlbanAndrieu/fastapi-sample/issues/377)) ([e44711a](https://github.com/AlbanAndrieu/fastapi-sample/commit/e44711a3ddd71683d511b9f0596ed48f04a3829f))
+
 # [1.25.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.7...1.25.0) (2026-10-24)
 
 
