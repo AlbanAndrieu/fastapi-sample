@@ -123,7 +123,7 @@ un `X-Forwarded-For` sans proxy vérifié.
 Le JSON consolidé utilise `PASS`, `FAIL`, `DENIED`,
 `UNVERIFIED` et `NOT_RUN`. Son exit 0 signifie seulement que
 les **précontrôles exécutés** sont passés ; la validation humaine
-OWNER reste obligatoire. Une image/SHА, un build 6/6, les tests
+OWNER reste obligatoire. Un SHA d'image, un build 6/6, les tests
 L3 et les cartes riches doivent être attestés séparément.
 
 **GO manuel** : build expliqué, SHA/image confirmé, tests L3 valides,
