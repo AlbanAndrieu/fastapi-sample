@@ -94,4 +94,9 @@ async function bootstrapHealthUi() {
   if (!authenticated) await visibility.installReadOnlyPublicFallback();
 }
 
-void bootstrapHealthUi();
+// An import() resolves when the ESM module evaluates, even if the
+// asynchronous bootstrap rejects afterwards. Notify the lightweight entry
+// without leaking stack traces, credentials or internal diagnostic data.
+void bootstrapHealthUi().catch(() => {
+  document.dispatchEvent(new Event("health-board-bootstrap-failed"));
+});

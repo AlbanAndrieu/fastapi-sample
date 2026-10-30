@@ -87,6 +87,13 @@ function startRichDashboard() {
     const fallback = document.getElementById("public-services-panel");
     if (fallback) fallback.hidden = true;
   }, { once: true });
+  // An import may resolve even if the asynchronous dashboard bootstrap fails.
+  // Never expose the rejected error or hide the public fallback.
+  document.addEventListener("health-board-bootstrap-failed", () => {
+    showUnavailable(
+      "Detailed diagnostics could not initialize. Public services remain available.",
+    );
+  }, { once: true });
   // Give the public directory and OWNER button a chance to paint first.
   // This is a scheduling guard, not proof that all advanced modules are safe.
   window.setTimeout(() => {

@@ -136,3 +136,27 @@ test("public fallback stays visible until advanced board confirms refresh", asyn
   page.emit("health-board-refreshed");
   assert.equal(page.element("public-services-panel").hidden, true);
 });
+
+test("advanced bootstrap rejection leaves the public catalogue visible", async () => {
+  const page = boot("?ui_full=1", { readable: true });
+  await flush();
+  assert.equal(page.timers.length, 1);
+  page.timers.shift()();
+  await flush();
+  page.emit("health-board-bootstrap-failed");
+  assert.equal(page.element("public-services-panel").hidden, false);
+  assert.match(
+    page.element("health-summary-text").textContent,
+    /could not initialize/,
+  );
+});
+
+test("rich ESM module reports asynchronous bootstrap failures", () => {
+  const source = readFileSync(
+    fileURLToPath(new URL("../../nabla/api/assets/api-health.js", import.meta.url)),
+    "utf8",
+  );
+  assert.ok(source.includes("void bootstrapHealthUi().catch(() => {"));
+  assert.ok(source.includes('new Event("health-board-bootstrap-failed")'));
+  assert.ok(!source.includes("console.error(error)"));
+});
