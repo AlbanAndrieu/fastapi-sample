@@ -263,6 +263,92 @@ proven TrueNAS failures.
 Reference:
 [Cloudflare and Sentry runtime diagnostics](cloudflare-sentry-runtime-diagnostics.md).
 
+## 2026-10-26 to 2026-10-30 — `/api` rich dashboard stays on Loading
+
+**Observed symptoms / limits**
+
+- Earlier Chromium probes of the full Cloud/TrueNAS UI reported
+  `main_thread_unresponsive` despite an HTTP 200 and fetched JS assets.
+  The tested historical runtime must not be confused with current production.
+- On 30 October, the operator reported FastAPI Cloud
+  `/api?ui_full=1` remaining on `Loading`, while `/api?ui_safe=1`
+  worked. This isolates the **user-visible symptom** to the rich UI path,
+  but does not independently prove the exact DOM-loop cause on Cloud.
+- GitHub PRs [#380](https://github.com/AlbanAndrieu/fastapi-sample/pull/380)
+  and [#381](https://github.com/AlbanAndrieu/fastapi-sample/pull/381)
+  were merged. PR [#382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382)
+  remains Draft. GitHub state is **not** deployment evidence.
+
+**Source-level attribution (candidate, not runtime proof)**
+
+The rich entry imports `api-health.js` and several DOM observers.
+A diagnostics observer reprocessed all service rows after descendant
+mutations, while the filter reapplied unchanged `hidden` attributes.
+This can amplify `MutationObserver` / animation-frame updates.
+PR #382 contains a targeted observer/visibility patch and a browser
+classifier for `ui_loading_without_content`; neither is yet
+accepted on a deployed Cloud SHA.
+
+**Recognition and closure**
+
+Compare `ui_safe=1` with `ui_full=1` on the same client, classify
+`main_thread_unresponsive`, `ui_loading_without_content` and
+`http_access_restricted` separately, and attest the deployed SHA.
+Only interactive rich cards and drill-down on the current runtime
+close this incident.
+
+Runbook: [UI freeze triage](runbooks/fastapi-cloud-api-ui-freeze-20261026.md).
+Historic evidence: [October UI chronology](archive/2026-10-30/fastapi-cloud-api-ui-freeze-20261026-history.md).
+
+## 2026-10-28 to 2026-10-30 — OWNER login inaccessible on mobile LAN
+
+**Observed symptoms / limits**
+
+- On home Wi-Fi, the operator obtained
+  `{"authenticated":false,"readOnlyDiagnostics":true}` from
+  `/api/ui/session`. Direct HTTP LAN `172.17.0.24:8091/api` worked.
+- `?operator=1` did not show `Unlock diagnostics`. Successful LAN
+  transport does not prove OWNER authorization on the proxied HTTPS path.
+
+**Corrective candidate**
+
+The HTML OWNER panel starts hidden. The earlier JS route could depend
+on the rich UI bootstrap. PR #382 separates operator controls from
+the heavy dashboard, adds a navigation entry and refreshes signed-session
+status on browser return. The cookie, key and trusted-source checks
+remain server-side.
+
+**Recognition and closure**
+
+On an attested deployed SHA, prove the button is visible without a rich
+import, then prove `authenticated=true` after the operator logs in
+over HTTPS from an approved source. HTTP 401/403/503 must remain
+distinct; a read-only response must never be presented as OWNER access.
+
+Runbook: [OWNER and TrueNAS acceptance](runbooks/fastapi-truenas-owner-acceptance-20261029.md).
+
+## 2026-10-27 — TrueNAS Docker build stopped before deployment
+
+**Observed evidence**
+
+An attempted build of FastAPI commit `0266f20d` failed at
+stage 3/6; the previously running image remained in service.
+The last fully accepted TrueNAS deployment recorded in this workstream
+was `fa13c08d`. That is historical evidence, **not a measurement
+of the current live SHA**.
+
+**Unresolved root cause**
+
+The build log was private (historical local path
+`/tmp/tmp.ngofCbFlgw`). A read-only classifier is available in
+`nabla-compose`; no classification output has been supplied here.
+Do not attribute the failure to memory, Docker Hub, network or
+dependencies without classifier evidence. Do not rerun Docker builds
+to discover the problem before reviewing that evidence.
+
+Procedure: [OWNER/TrueNAS acceptance](runbooks/fastapi-truenas-owner-acceptance-20261029.md);
+infrastructure implementation: `nabla-compose`.
+
 ## Recurrence checklist
 
 For any new incident:
