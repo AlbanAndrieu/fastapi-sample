@@ -27,7 +27,11 @@ def test_drawer_reattaches_when_selected_card_is_replaced() -> None:
     assert "function reattachActiveRow()" in source
     assert 'activeRow.dataset.detailSelected = "true"' in source
     assert "if (!reattachActiveRow())" in source
-    assert "closeDrawer({ restoreFocus: false })" not in source
+    # A replaced card must not close the drawer; only explicit navigation may.
+    refresh = source[source.index("function scheduleActiveRefresh()") :]
+    refresh = refresh[: refresh.index("\nfunction ", 1)]
+    assert "if (!reattachActiveRow())" in refresh
+    assert "closeDrawer" not in refresh
 
 
 def test_probe_grid_has_fixed_order_and_neutral_startup_slots() -> None:
@@ -36,18 +40,19 @@ def test_probe_grid_has_fixed_order_and_neutral_startup_slots() -> None:
         encoding="utf-8",
     )
 
+    # Request-path order since #370: network, edge, then service evidence.
     expected = [
         '["dns", "🧭", "DNS"]',
-        '["http", "🌐", "HTTP"]',
+        '["tcp", "🔌", "TCP"]',
         '["tls", "🔒", "TLS"]',
+        '["http", "🌐", "HTTP"]',
         '["cloudflare", "☁️", "Tunnel"]',
         '["access", "🛡️", "Access"]',
         '["service-token", "🔑", "Token"]',
         '["api", "⚙️", "API"]',
-        '["policy", "🛡️", "Policy"]',
-        '["tcp", "🔌", "TCP"]',
         '["websocket", "↔", "WebSocket"]',
-        '["metrics", "📈", "Prometheus"]',
+        '["metrics", "📈", "Metrics"]',
+        '["policy", "🛡️", "Policy"]',
     ]
     positions = [source.index(item) for item in expected]
     assert positions == sorted(positions)

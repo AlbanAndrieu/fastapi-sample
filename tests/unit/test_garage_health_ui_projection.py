@@ -30,10 +30,12 @@ def test_exposure_filter_uses_declared_intent_without_certifying_ingress() -> No
     assert 'if (intent !== "internal" && intent !== "public")' in source
     assert 'external: intent === "public"' in source
     assert "declared.unexpected_tunnel_route === true" in source
+    # #376 binds the projection once so the filter and policy verdict share it.
     assert re.search(
-        r"setExposureMetadata\(\s*row,\s*garageExposureForFilter\(",
+        r"const effectiveExposure = garageExposureForFilter\(snapshot, row, exposure\);",
         source,
     )
+    assert re.search(r"setExposureMetadata\(\s*row,\s*effectiveExposure,", source)
 
 
 def test_garage_projection_preserves_private_exposure_and_stale_unknown() -> None:

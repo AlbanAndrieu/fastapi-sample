@@ -96,14 +96,13 @@ def test_probe_dashboard_exposes_operator_triage_without_new_fanout() -> None:
 
 
 def test_probe_dashboard_treats_protected_matrix_as_auth_flow() -> None:
-    shared = (
-        Path(__file__).parents[2] / "nabla" / "api" / "assets" / "api-homelab-health.js"
-    ).read_text(encoding="utf-8")
+    shared = (Path(__file__).parents[2] / "nabla" / "api" / "assets" / "api-homelab-health.js").read_text(encoding="utf-8")
     dashboard = DASHBOARD.read_text(encoding="utf-8")
 
     assert '"X-Diagnostics-Key"' in shared
     assert '"diagnostics_auth_required"' in shared
-    assert "Raw probe matrix is protected by DIAGNOSTICS_ACCESS_KEY" in shared
+    assert "Raw probe matrix access denied by the server" in shared
+    assert "response.status === 401 || response.status === 403" in shared
     assert '"probe_matrix_unavailable"' in shared
     assert 'probe_snapshot_source: "health-board"' in shared
     assert "window.prompt" in dashboard

@@ -290,12 +290,11 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
         assert "completion gate" in skill.lower()
         assert "docs/engineering-roadmap.md" in skill
     # Check enduring semantics, not a heading changed during roadmap consolidation.
-    assert "master-red" in roadmap
-    assert "scripts/ci/master_red_issue.py" in roadmap
-    assert "deux runs complets consécutifs" in roadmap
-    assert "## P0 — public/private observability boundary" in roadmap
-    assert "## P1 — health, topology and runtime acceptance" in roadmap
+    assert "issues/355" in roadmap
+    assert "deux runs master" in roadmap
+    assert "RoutePolicy" in roadmap
     assert "engineering-backlog.md" in roadmap
+    assert "archive/2026-10-29/engineering-roadmap-before-consolidation.md" in roadmap
     assert "## P0 — homelab dependency convergence" in backlog
     assert "scripts/diagnose-local-runtime-dependencies.py" in backlog
     assert "## 2026-09" in incidents  # forensic evidence retained outside roadmap

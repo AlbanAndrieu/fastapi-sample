@@ -8,11 +8,12 @@ import { installHealthUiPolish } from "./api-health-ui-polish.js";
 import { installHealthUiProbeExplanations } from "./api-health-ui-probe-explanations.js";
 import { installHealthUiProbeGrid } from "./api-health-ui-probe-grid.js";
 import { installHealthUiResponsiveFollowup } from "./api-health-ui-responsive-followup.js";
+import * as visibility from "./api-health-visibility.js";
 import { installHttpProbeStatuses } from "./api-http-probe-status.js";
 import {
+  diagnosticsReadAvailable,
   installOwnerSessionControls,
   ownerSessionAvailable,
-  diagnosticsReadAvailable,
 } from "./api-owner-session.js";
 import { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";
 import { installPlatformFlowUi } from "./api-platform-flow-ui.js";
@@ -41,33 +42,7 @@ async function bootstrapHealthUi() {
     params.get("ui_full") === "1" || params.get("operator") === "1";
   const publicFirst = params.get("ui_safe") === "1" || !fullDashboardRequested;
   if (publicFirst) {
-    for (const id of [
-      "health-board-private-meta", "owner-readonly-detail",
-      "truenas-platform", "runtime-topology",
-    ]) {
-      const element = document.getElementById(id);
-      if (element) element.hidden = true;
-    }
-    document.querySelectorAll(".health-cache-reset, .health-refresh")
-      .forEach((button) => { button.hidden = true; });
-    const heading = document.getElementById("health-summary-text");
-    if (heading) {
-      heading.textContent = params.get("ui_safe") === "1"
-        ? "Safe mode · public service directory only · probes not loaded"
-        : "Public service directory · detailed diagnostics available on request";
-    }
-    // Offer the previous rich dashboard without automatically installing its
-    // competing observers on every anonymous browser session.
-    if (params.get("ui_safe") !== "1") {
-      const fullLink = document.createElement("a");
-      const target = new URL(window.location.href);
-      target.searchParams.set("ui_full", "1");
-      fullLink.href = target.href;
-      fullLink.textContent = "Open detailed diagnostics";
-      fullLink.className = "health-full-dashboard-link";
-      const parent = heading?.parentElement || document.getElementById("health-board");
-      parent?.appendChild(fullLink);
-    }
+    visibility.enterPublicFirstDirectory(params);
     await installPublicServiceOverview({ ownerAuthenticated: false });
     return;
   }
@@ -77,37 +52,11 @@ async function bootstrapHealthUi() {
     ownerSessionAvailable(),
     diagnosticsReadAvailable(),
   ]);
-  const panel = document.getElementById("owner-session-panel");
-  if (panel) panel.hidden = !operatorMode;
-  for (const id of [
-    "health-board-private-meta",
-    "owner-readonly-detail",
-    "truenas-platform",
-    "runtime-topology",
-  ]) {
-    const element = document.getElementById(id);
-    if (element) element.hidden = !readable;
-  }
-
-  // An anonymous read-only session may refresh GET probes, never purge caches.
-  if (!authenticated) {
-    document.querySelectorAll(".health-cache-reset").forEach((button) => {
-      button.hidden = true;
-      button.disabled = true;
-    });
-  }
+  visibility.applyAccessVisibility({ operatorMode, authenticated, readable });
 
   if (!readable) {
     installGlobalServiceFilter();
-    const heading = document.getElementById("health-summary-text");
-    if (heading)
-      heading.textContent =
-        "Public read-only service inventory · no owner sign-in required.";
-    document
-      .querySelectorAll(".health-cache-reset, .health-refresh")
-      .forEach((button) => {
-        button.hidden = true;
-      });
+    visibility.enterReadOnlyInventory();
     if (operatorMode)
       installOwnerSessionControls(() => window.location.reload());
     await installPublicServiceOverview();
@@ -141,22 +90,8 @@ async function bootstrapHealthUi() {
   installHealthUiConsistencyFollowup();
   installHealthUiProbeGrid();
   installHealthUiFinalFollowup();
-  // The public projection is the independent fallback for a read-only
-  // dashboard when its private/aggregated health snapshots are stalled.
-  // OWNER mode still uses the richer service rows directly.
-  if (!authenticated) {
-    let detailedReady = false;
-    document.addEventListener("health-board-refreshed", () => {
-      detailedReady = true;
-      const fallback = document.getElementById("public-services-panel");
-      if (fallback) fallback.hidden = true;
-    });
-    await installPublicServiceOverview({ ownerAuthenticated: false });
-    if (detailedReady) {
-      const fallback = document.getElementById("public-services-panel");
-      if (fallback) fallback.hidden = true;
-    }
-  }
+  // OWNER mode uses richer service rows; read-only keeps a public fallback.
+  if (!authenticated) await visibility.installReadOnlyPublicFallback();
 }
 
 void bootstrapHealthUi();

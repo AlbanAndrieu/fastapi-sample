@@ -4,6 +4,7 @@
 Browser evaluation is time-limited even when JS is consuming the main thread.
 Results report *only* selected same-origin HTTP paths and counters.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,14 +28,20 @@ except ImportError:
     class PlaywrightTimeoutError(PlaywrightError):
         """Placeholder to preserve explicit failure handling in offline mode."""
 
+
 TARGETS = {
     "cloud": "https://fastapi-sample.fastapicloud.dev/api",
     "staging": "https://sample.albandrieu.com/api",
     "truenas": "http://172.17.0.24:8091/api",
 }
 ALLOWED = {
-    "/api", "/api/ui/session", "/api/ui/services", "/api/health-board",
-    "/api/site/health/v2", "/api/assets/api-health-entry.js", "/api/assets/api-health.js",
+    "/api",
+    "/api/ui/session",
+    "/api/ui/services",
+    "/api/health-board",
+    "/api/site/health/v2",
+    "/api/assets/api-health-entry.js",
+    "/api/assets/api-health.js",
     "/api/assets/api-global-service-filter.js",
     "/api/assets/api-health-ui-final-followup.js",
     "/api/assets/api-probe-stable-order.js",
@@ -43,46 +50,46 @@ ALLOWED = {
 MAX_RECORDS = 45
 INIT_JS = r"""
 (() => {
-  window.__uiFreezeSample = { longTasks: 0, longTaskTotalMs: 0, frames: 0 };
-  try {
-    new PerformanceObserver((entries) => {
-      for (const entry of entries.getEntries()) {
-        window.__uiFreezeSample.longTasks += 1;
-        window.__uiFreezeSample.longTaskTotalMs += entry.duration;
-      }
-    }).observe({ type: "longtask", buffered: true });
-  } catch (_) {}
-  const frame = () => {
-    window.__uiFreezeSample.frames += 1;
+    window.__uiFreezeSample = { longTasks: 0, longTaskTotalMs: 0, frames: 0 };
+    try {
+        new PerformanceObserver((entries) => {
+            for (const entry of entries.getEntries()) {
+                window.__uiFreezeSample.longTasks += 1;
+                window.__uiFreezeSample.longTaskTotalMs += entry.duration;
+            }
+        }).observe({ type: "longtask", buffered: true });
+    } catch (_) {}
+    const frame = () => {
+        window.__uiFreezeSample.frames += 1;
+        window.requestAnimationFrame(frame);
+    };
     window.requestAnimationFrame(frame);
-  };
-  window.requestAnimationFrame(frame);
 })();
 """
 REPORT_JS = r"""
 () => {
-  const summary = document.getElementById("health-summary-text");
-  return {
-    summaryLoading: /loading/i.test(summary?.textContent || ""),
-    publicRows: document.querySelectorAll("#public-services-list .public-service-card").length,
-    detailedRows: document.querySelectorAll("#health-checks .health-row").length,
-    ownerPanelVisible: (() => {
-      const panel = document.getElementById("owner-session-panel");
-      return Boolean(panel && !panel.hidden && getComputedStyle(panel).display !== "none");
-    })(),
-    ownerUnlockVisible: (() => {
-      const panel = document.getElementById("owner-session-panel");
-      const button = document.getElementById("owner-session-login");
-      return Boolean(panel && button && !panel.hidden && !button.hidden &&
-        getComputedStyle(panel).display !== "none" && getComputedStyle(button).display !== "none");
-    })(),
-    richAssetLoaded: performance.getEntriesByType("resource").some(entry =>
-      new URL(entry.name).pathname === "/api/assets/api-health.js"),
-    statusFilterPresent: Boolean(document.getElementById("service-status-filter")),
-    longTasks: window.__uiFreezeSample?.longTasks ?? null,
-    longTaskTotalMs: Math.round(window.__uiFreezeSample?.longTaskTotalMs ?? 0),
-    frames: window.__uiFreezeSample?.frames ?? null
-  };
+    const summary = document.getElementById("health-summary-text");
+    return {
+        summaryLoading: /loading/i.test(summary?.textContent || ""),
+        publicRows: document.querySelectorAll("#public-services-list .public-service-card").length,
+        detailedRows: document.querySelectorAll("#health-checks .health-row").length,
+        ownerPanelVisible: (() => {
+            const panel = document.getElementById("owner-session-panel");
+            return Boolean(panel && !panel.hidden && getComputedStyle(panel).display !== "none");
+        })(),
+        ownerUnlockVisible: (() => {
+            const panel = document.getElementById("owner-session-panel");
+            const button = document.getElementById("owner-session-login");
+            return Boolean(panel && button && !panel.hidden && !button.hidden &&
+                getComputedStyle(panel).display !== "none" && getComputedStyle(button).display !== "none");
+        })(),
+        richAssetLoaded: performance.getEntriesByType("resource").some(entry =>
+            new URL(entry.name).pathname === "/api/assets/api-health.js"),
+        statusFilterPresent: Boolean(document.getElementById("service-status-filter")),
+        longTasks: window.__uiFreezeSample?.longTasks ?? null,
+        longTaskTotalMs: Math.round(window.__uiFreezeSample?.longTaskTotalMs ?? 0),
+        frames: window.__uiFreezeSample?.frames ?? null
+    };
 }
 """
 
@@ -123,23 +130,57 @@ async def check_browser_preflight() -> dict:
     }
 
 
+def navigation_block(navigation_state: str, redirected: bool, status: int | None) -> tuple[str, str] | None:
+    """Return (state, next_check) when the page must not be sampled."""
+    # Never claim an empty/about:blank page was sampled after a
+    # failed navigation. Access redirects are not JS freezes.
+    if navigation_state != "committed":
+        state = "navigation_timeout" if navigation_state == "timeout" else "navigation_failed"
+        return state, "verify_pinned_http_transport"
+    if redirected:
+        return "redirected_off_origin", "verify_external_access_policy"
+    if status in (401, 403):
+        return "http_access_restricted", "verify_expected_authentication_policy"
+    return None
+
+
+async def observe_page(page, result: dict) -> None:
+    await asyncio.sleep(8)
+    try:
+        sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
+        result.update(sample)
+        if sample.get("summaryLoading") and not (sample.get("publicRows") or sample.get("detailedRows")):
+            # A responsive JS thread can still display a
+            # permanently loading UI. Never mark that healthy.
+            result["state"] = "ui_loading_without_content"
+            result["next_check"] = "inspect_ui_bootstrap_and_http_statuses"
+        else:
+            result["state"] = "sampled"
+    except (asyncio.TimeoutError, PlaywrightTimeoutError):
+        result["state"] = "main_thread_unresponsive"
+    except PlaywrightError:
+        result["state"] = "browser_page_unavailable"
+
+
 async def check(target: str) -> dict:
     origin = urlsplit(TARGETS[target]).netloc
     safe_mode = os.getenv("API_UI_SAFE") == "1"
     full_mode = os.getenv("API_UI_FULL") == "1"
     operator_mode = os.getenv("API_UI_OPERATOR") == "1"
     page_url = TARGETS[target] + (
-        "?ui_safe=1" if safe_mode else (
-            "?ui_full=1&operator=1" if full_mode and operator_mode else
-            "?ui_full=1" if full_mode else
-            "?operator=1" if operator_mode else ""
-        )
+        "?ui_safe=1" if safe_mode else ("?ui_full=1&operator=1" if full_mode and operator_mode else "?ui_full=1" if full_mode else "?operator=1" if operator_mode else "")
     )
     http: list[dict] = []
     failures: list[dict] = []
     page_errors = [0]
-    result: dict = {"target": target, "path": "/api", "state": "not_started",
-                    "safeMode": safe_mode, "fullMode": full_mode, "operatorMode": operator_mode}
+    result: dict = {
+        "target": target,
+        "path": "/api",
+        "state": "not_started",
+        "safeMode": safe_mode,
+        "fullMode": full_mode,
+        "operatorMode": operator_mode,
+    }
     if async_playwright is None:
         return {
             **result,
@@ -158,18 +199,22 @@ async def check(target: str) -> dict:
                 phase = "create_browser_context"
                 context = await browser.new_context(service_workers="block")
                 page = await context.new_page()
-                page.on("response", lambda response: (
-                    http.append({"path": urlsplit(response.url).path, "status": response.status})
-                    if urlsplit(response.url).netloc == origin
-                    and urlsplit(response.url).path in ALLOWED
-                    and len(http) < MAX_RECORDS else None
-                ))
-                page.on("requestfailed", lambda request: (
-                    failures.append({"path": urlsplit(request.url).path, "kind": "request_failed"})
-                    if urlsplit(request.url).netloc == origin
-                    and urlsplit(request.url).path in ALLOWED
-                    and len(failures) < MAX_RECORDS else None
-                ))
+                page.on(
+                    "response",
+                    lambda response: (
+                        http.append({"path": urlsplit(response.url).path, "status": response.status})
+                        if urlsplit(response.url).netloc == origin and urlsplit(response.url).path in ALLOWED and len(http) < MAX_RECORDS
+                        else None
+                    ),
+                )
+                page.on(
+                    "requestfailed",
+                    lambda request: (
+                        failures.append({"path": urlsplit(request.url).path, "kind": "request_failed"})
+                        if urlsplit(request.url).netloc == origin and urlsplit(request.url).path in ALLOWED and len(failures) < MAX_RECORDS
+                        else None
+                    ),
+                )
                 page.on("pageerror", lambda _error: page_errors.__setitem__(0, page_errors[0] + 1))
                 await page.add_init_script(INIT_JS)
 
@@ -179,7 +224,9 @@ async def check(target: str) -> dict:
                 print(json.dumps({"phase": phase, "target": target}), flush=True)
                 try:
                     response = await page.goto(
-                        page_url, wait_until="commit", timeout=10000,
+                        page_url,
+                        wait_until="commit",
+                        timeout=10000,
                     )
                     status = response.status if response is not None else None
                     navigation_state = "committed"
@@ -192,45 +239,20 @@ async def check(target: str) -> dict:
                 except (ValueError, TypeError):
                     redirected = False
 
-                # Never claim an empty/about:blank page was sampled after a
-                # failed navigation. Access redirects are not JS freezes.
-                if navigation_state != "committed":
-                    result["state"] = (
-                        "navigation_timeout" if navigation_state == "timeout"
-                        else "navigation_failed"
-                    )
-                    result["next_check"] = "verify_pinned_http_transport"
-                elif redirected:
-                    result["state"] = "redirected_off_origin"
-                    result["next_check"] = "verify_external_access_policy"
-                elif status in (401, 403):
-                    result["state"] = "http_access_restricted"
-                    result["next_check"] = "verify_expected_authentication_policy"
+                blocked = navigation_block(navigation_state, redirected, status)
+                if blocked is not None:
+                    result["state"], result["next_check"] = blocked
                 else:
                     phase = "observe"
                     print(json.dumps({"phase": phase, "target": target}), flush=True)
-                    await asyncio.sleep(8)
-                    try:
-                        sample = await asyncio.wait_for(page.evaluate(REPORT_JS), timeout=2)
-                        result.update(sample)
-                        if sample.get("summaryLoading") and not (
-                            sample.get("publicRows") or sample.get("detailedRows")
-                        ):
-                            # A responsive JS thread can still display a
-                            # permanently loading UI. Never mark that healthy.
-                            result["state"] = "ui_loading_without_content"
-                            result["next_check"] = "inspect_ui_bootstrap_and_http_statuses"
-                        else:
-                            result["state"] = "sampled"
-                    except (asyncio.TimeoutError, PlaywrightTimeoutError):
-                        result["state"] = "main_thread_unresponsive"
-                    except PlaywrightError:
-                        result["state"] = "browser_page_unavailable"
-                result.update({
-                    "navigationStatus": status,
-                    "navigationState": navigation_state,
-                    "redirectedOffOrigin": redirected,
-                })
+                    await observe_page(page, result)
+                result.update(
+                    {
+                        "navigationStatus": status,
+                        "navigationState": navigation_state,
+                        "redirectedOffOrigin": redirected,
+                    },
+                )
             finally:
                 # Never hide the observed failure waiting for an unresponsive
                 # page/browser to close; the JS launcher has a hard kill limit.
@@ -251,11 +273,13 @@ async def check(target: str) -> dict:
             result["state"] = "browser_session_unavailable"
             result["next_check"] = "verify_browser_page_without_disclosing_runtime_errors"
 
-    result.update({
-        "http": http[-MAX_RECORDS:],
-        "requestFailures": failures[-MAX_RECORDS:],
-        "pageErrors": page_errors[0],
-    })
+    result.update(
+        {
+            "http": http[-MAX_RECORDS:],
+            "requestFailures": failures[-MAX_RECORDS:],
+            "pageErrors": page_errors[0],
+        },
+    )
     return result
 
 

@@ -14,14 +14,14 @@ def test_health_entrypoint_installs_one_global_filter_shell() -> None:
     # One call in the public branch; one after controls exist in the detailed branch.
     assert entrypoint.count("installGlobalServiceFilter();") == 2
     assert entrypoint.index("installServiceDiagnostics();") < entrypoint.rindex(
-        "installGlobalServiceFilter();"
+        "installGlobalServiceFilter();",
     )
     assert 'document.querySelector(".service-filter")' in shell
     assert 'board.insertAdjacentElement("beforebegin", host);' in shell
     assert 'host.classList.add("service-filter--global")' in shell
     assert "Service health and filters" in shell
     assert "Global view" in shell
-    assert "Cards are the canonical operational view" in shell
+    assert "Choose a status, then refine the services." in shell
 
 
 def test_global_filter_mirrors_site_health_summary_without_second_engine() -> None:
@@ -80,12 +80,13 @@ def test_global_filter_supports_keyboard_and_truenas_status_sync() -> None:
     assert 'event.key === "/"' in shell
     assert 'event.key === "Escape"' in shell
     assert 'document.getElementById("truenas-platform")' in shell
-    assert 'panel.dataset.presentationGroup = "core-critical";' in shell
-    assert 'panel.dataset.environments = "production";' in shell
-    assert 'panel.dataset.environmentSource = "runtime";' in shell
-    assert 'panel.dataset.semanticStatus = "operational";' in shell
-    assert 'panel.dataset.semanticStatus = "degraded";' in shell
-    assert 'panel.dataset.semanticStatus = "down";' in shell
+    # #380: idempotent writes so the observed panel cannot self-trigger.
+    assert 'setDatasetValueIfChanged(panel, "presentationGroup", "core-critical");' in shell
+    assert 'setDatasetValueIfChanged(panel, "environments", "production");' in shell
+    assert 'setDatasetValueIfChanged(panel, "environmentSource", "runtime");' in shell
+    for status in ('"operational"', '"degraded"', '"down"', '"unknown"'):
+        assert f"? {status}" in shell or f": {status}" in shell
+    assert 'setDatasetValueIfChanged(panel, "semanticStatus", status);' in shell
 
 
 def test_health_legend_explains_card_flow_and_security_icons() -> None:
@@ -101,6 +102,7 @@ def test_health_legend_explains_card_flow_and_security_icons() -> None:
     assert '"🚫", "pfBlockerNG"' in legend
     assert '"👥", "CrowdSec"' in legend
     assert "gray = unavailable/unconfirmed" in legend
+
 
 def test_mobile_filter_uses_horizontal_rails_and_one_row_actions() -> None:
     stylesheet = (ASSETS / "api-service-diagnostics.css").read_text(
@@ -127,17 +129,18 @@ def test_mobile_filter_is_compact_before_the_first_scroll() -> None:
     assert 'window.matchMedia("(max-width: 720px)").matches' in shell
     assert 'host.dataset.mobileExpanded = "false";' in shell
     assert 'mobile && host.dataset.mobileExpanded !== "true"' in shell
-    assert 'button.textContent = mobile' in shell
+    assert "button.textContent = mobile" in shell
     assert '"Filters"' in shell
     assert '"Hide filters"' in shell
     assert "syncCompactState(host);" in shell
+
 
 def test_section_navigation_stays_horizontal_on_mobile() -> None:
     operator = (ASSETS / "api-health-operator-ux.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "api-service-diagnostics.css").read_text(encoding="utf-8")
 
     assert 'nav.className = "service-section-navigation";' in operator
-    assert 'nav.style.gridTemplateColumns' not in operator
+    assert "nav.style.gridTemplateColumns" not in operator
     assert "#service-section-navigation.service-section-navigation" in stylesheet
     assert "flex-direction: row;" in stylesheet
     assert "overflow-x: auto;" in stylesheet
@@ -153,15 +156,15 @@ def test_mobile_status_filters_are_compact_accessible_toggles() -> None:
     assert "counts.all = rows.length;" in shell
     assert "STATUS_ICON_PATHS" in shell
     assert 'button.setAttribute("aria-pressed", String(enabled));' in shell
-    assert 'button.dataset.tooltip' in shell
+    assert "button.dataset.tooltip" in shell
     assert 'button.setAttribute("aria-label"' in shell
     assert 'select.dispatchEvent(new Event("change", { bubbles: true }));' in shell
     assert "service-filter-health-count" in css
     assert "repeat(6, minmax(44px, 1fr))" in css
-    assert 'service-filter-health-chip:focus-visible::after' in css
-    assert 'service-filter-health-chip:active::after' in css
-    assert 'service-filter--compact #service-protocol-shortcuts' in css
-    assert 'api-diagnostics-ux.css' in entry
+    assert "service-filter-health-chip:focus-visible::after" in css
+    assert "service-filter-health-chip:active::after" in css
+    assert "service-filter--compact #service-protocol-shortcuts" in css
+    assert "api-diagnostics-ux.css" in entry
 
 
 def test_accessible_disclosure_contract() -> None:
@@ -182,7 +185,7 @@ def test_mobile_disclosure_respects_touch_and_keyboard() -> None:
     assert 'button.setAttribute("aria-expanded", String(!compact));' in shell
     assert 'aria-controls="service-filter-advanced"' in shell
     assert entry.index("installServiceDiagnostics();") < entry.rindex(
-        "installGlobalServiceFilter();"
+        "installGlobalServiceFilter();",
     )
 
 

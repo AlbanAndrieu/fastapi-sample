@@ -125,17 +125,17 @@ d'exécution courant.
 ## Procédures et responsabilités
 
 1. **Reprendre #382 :** [skill local-first](../.agents/skills/local-first-quality/SKILL.md),
-   `just agent-context ui`, puis `just ui-quick`. Le skill FastAPI
-   conserve L2 = `agent-quality-gate.sh --fix`, L3 =
-   `agent-publish.sh`. Les outils Compose `agent-loop` et
-   `agent-pre-push` ne sont pas les outils de ce dépôt.
+    `just agent-context ui`, puis `just ui-quick`. Le skill FastAPI
+    conserve L2 = `agent-quality-gate.sh --fix`, L3 =
+    `agent-publish.sh`. Les outils Compose `agent-loop` et
+    `agent-pre-push` ne sont pas les outils de ce dépôt.
 2. **Diagnostiquer Cloud Loading :**
-   [runbook UI](runbooks/fastapi-cloud-api-ui-freeze-20261026.md).
+    [runbook UI](runbooks/fastapi-cloud-api-ui-freeze-20261026.md).
 3. **Valider TrueNAS/OWNER/Gatus :**
-   [recette consolidée](runbooks/fastapi-truenas-owner-acceptance-20261029.md).
+    [recette consolidée](runbooks/fastapi-truenas-owner-acceptance-20261029.md).
 4. **Rechercher un incident antérieur :**
-   [registre](incidents.md) et archives, pas des statuts de production
-   extrapolés depuis GitHub.
+    [registre](incidents.md) et archives, pas des statuts de production
+    extrapolés depuis GitHub.
 
 **Ownership :** FastAPI possède ses API, projections et diagnostics ;
 [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md)
@@ -144,3 +144,19 @@ Gatus et Prometheus ; [Site Alban](https://github.com/AlbanAndrieu/nabla-site-al
 possède la présentation Next.js, ses icônes et le cache SERVICE.
 Pas de mutation de `master`, pas de CI GitHub avec crédits épuisés,
 pas d'automerge, pas de bypass d'ACL ni d'intervention runtime implicite.
+
+## P2 — Renovate et `helmfile.yaml` (29 octobre 2026)
+
+- [x] `helmfile.yaml` (racine) déclare la release `fastapi-sample` sur le chart local `charts/generic-service`. Le gestionnaire natif `helmfile` de Renovate 44.2.1 l'extrait sans erreur (`--platform=local --dry-run=lookup`) : `skipReason: local-chart`, attendu.
+- [ ] L'image suivie par `helm-values` et `kustomize` est encore `registry.gitlab.com/AlbanAndrieu/fastapi-sample` (`1.2.3`, `latest`), alors que l'image publiée est `ghcr.io/albanandrieu/fastapi-sample`. Preuve à fournir : aligner le dépôt d'image et la valeur du chart, puis un run Renovate qui propose une mise à jour réelle.
+- [ ] Premier run planifié du workflow `Renovate` après fusion : vérifier dans le Dependency Dashboard la présence du fichier `helmfile.yaml`. `NOT_RUN`.
+
+## P0 — master rouge : pytest complet (30 octobre 2026)
+
+La gate exécute `pytest --maxfail=1` en ordre aléatoire : chaque run ne montrait qu'un échec. Sur `7fbd2f61`, la suite complète donnait **28 échecs**. Aucun n'était une régression fonctionnelle : les tests n'avaient pas suivi des changements volontaires (#370, #373, #376–#382) fusionnés en `[skip ci]`.
+
+- [x] **TESTED (branche `build/helm/renovate-helmfile`) :** tests réalignés en gardant leur intention ; aucun contrôle d'accès affaibli, aucun seuil relevé. Clé `metrics_scrape_key` ajoutée aux réglages de test ; `api-health.js` ramené de 162 à 97 lignes par extraction de `api-health-visibility.js` ; `api.css` à 19 imports via `api-platform-services.css` ; test de worktree portable sous macOS ; `scripts/diagnose-production-api-ui-freeze.py` renommé `scripts/diagnose-api-ui-freeze.py` (`check()` découpé, complexité ≤ 10). `uv run pytest -q` : 1879 réussis, 0 échec ; `node --test tests/js/*.test.mjs` : 35/35 ; `agent-quality-gate.sh --fix` : PASS (L2).
+- [ ] Le lanceur `scripts/diagnose-production-api-ui-freeze.mjs` porte encore `production` dans son nom ; à renommer si souhaité (runbook, `validate-fastapi-ui-acceptance.py` et tests JS à suivre).
+- [ ] Retirer l'entrée `.quality-gate-large-deletions` du renommage après fusion.
+- [ ] **UI riche :** l'extraction de `api-health-visibility.js` n'est vérifiée que par les tests ; vérifier `/api`, `?ui_safe=1`, `?ui_full=1` et `?operator=1` dans un navigateur réel. `NOT_RUN`. Formatage Biome JS/CSS `NOT_RUN` localement.
+- [ ] **Clôture #355 :** `bash scripts/agent-publish.sh` sur un HEAD propre, puis deux runs `master` consécutifs verts. La CI hébergée n'a pas été lancée par l'agent.

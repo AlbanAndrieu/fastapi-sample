@@ -1,0 +1,8 @@
+---
+# Renovate's native helmfile manager tracks remote chart versions declared here.
+releases:
+  - name: fastapi-sample
+    namespace: fastapi-sample
+    chart: ./charts/generic-service
+    values:
+      - ./charts/generic-service/values.yaml

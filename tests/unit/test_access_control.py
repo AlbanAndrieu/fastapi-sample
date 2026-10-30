@@ -224,15 +224,19 @@ def test_site_catalog_service_key_never_weakens_owner_cidr(protected_app: TestCl
 
 
 def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
-    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+    protected_app: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Temporary public GET mode cannot unlock state changes or admin routes."""
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
     for path in (
-        "/healthz", "/api/topology", "/api/topology-telemetry",
-        "/api/homelab-topology", "/api/runtime/topology",
-        "/api/homelab/health", "/api/homelab/probes",
-        "/api/site/catalog/v2",
+        "/healthz",
+        "/api/topology",
+        "/api/topology-telemetry",
+        "/api/homelab-topology",
+        "/api/runtime/topology",
+        "/api/homelab/health",
+        "/api/homelab/probes",
     ):
         response = protected_app.get(path)
         assert response.status_code == 200, (path, response.text)
@@ -245,9 +249,12 @@ def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
         "/api/homelab/future-secret",
         "/api/health-board/cache/reset",
         "/api/health-board/refresh-event",
-        "/api/topology-telemetry/private",
     ):
         assert protected_app.get(path).status_code == 503, path
+    # Exact-match bypass: a sub-path falls back to REVIEW and is never unlocked.
+    unlisted = protected_app.get("/api/topology-telemetry/private")
+    assert unlisted.status_code == 404
+    assert "cache-control" not in unlisted.headers
 
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
     assert protected_app.get("/api/homelab/probes").status_code == 503
@@ -261,38 +268,68 @@ def test_metrics_token_is_required_and_scoped_to_metrics(
     settings.diagnostics_access_key = SecretStr("diagnostics-token")
 
     assert protected_app.get("/metrics").status_code == 401
-    assert protected_app.get(
-        "/metrics", headers={"X-Diagnostics-Key": "diagnostics-token"}
-    ).status_code == 401
-    assert protected_app.get(
-        "/metrics", headers={"Authorization": "Bearer metrics-only-token"}
-    ).status_code == 200
-    assert protected_app.get(
-        "/metrics", headers={"X-Metrics-Key": "metrics-only-token"}
-    ).status_code == 200
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={"X-Diagnostics-Key": "diagnostics-token"},
+        ).status_code
+        == 401
+    )
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={"Authorization": "Bearer metrics-only-token"},
+        ).status_code
+        == 200
+    )
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={"X-Metrics-Key": "metrics-only-token"},
+        ).status_code
+        == 200
+    )
 
-    assert protected_app.get(
-        "/metrics", headers={"X-Metrics-Key": "wrong"}
-    ).status_code == 401
-    assert protected_app.get(
-        "/api/homelab/health",
-        headers={"Authorization": "Bearer metrics-only-token"},
-    ).status_code == 401
-    assert protected_app.get(
-        "/admin",
-        headers={"Authorization": "Bearer metrics-only-token"},
-    ).status_code == 503
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={"X-Metrics-Key": "wrong"},
+        ).status_code
+        == 401
+    )
+    assert (
+        protected_app.get(
+            "/api/homelab/health",
+            headers={"Authorization": "Bearer metrics-only-token"},
+        ).status_code
+        == 401
+    )
+    assert (
+        protected_app.get(
+            "/admin",
+            headers={"Authorization": "Bearer metrics-only-token"},
+        ).status_code
+        == 503
+    )
 
 
 def test_metrics_key_is_fail_closed_when_not_configured(
     protected_app: TestClient,
 ) -> None:
-    assert protected_app.get(
-        "/metrics", headers={"X-Metrics-Key": "invented-token"}
-    ).status_code == 503
-    assert protected_app.get(
-        "/metrics", headers={"Authorization": "Bearer invented-token"}
-    ).status_code == 503
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={"X-Metrics-Key": "invented-token"},
+        ).status_code
+        == 503
+    )
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={"Authorization": "Bearer invented-token"},
+        ).status_code
+        == 503
+    )
 
 
 def test_metrics_auth_does_not_open_metrics_prefix_or_mutation(
@@ -300,12 +337,20 @@ def test_metrics_auth_does_not_open_metrics_prefix_or_mutation(
 ) -> None:
     settings = protected_app.app.state.access_settings
     settings.metrics_scrape_key = SecretStr("metrics-only-token")
-    assert protected_app.get(
-        "/metrics/private", headers={"X-Metrics-Key": "metrics-only-token"}
-    ).status_code == 503
-    assert protected_app.post(
-        "/metrics", headers={"X-Metrics-Key": "metrics-only-token"}
-    ).status_code == 503
+    assert (
+        protected_app.get(
+            "/metrics/private",
+            headers={"X-Metrics-Key": "metrics-only-token"},
+        ).status_code
+        == 503
+    )
+    assert (
+        protected_app.post(
+            "/metrics",
+            headers={"X-Metrics-Key": "metrics-only-token"},
+        ).status_code
+        == 503
+    )
 
 
 def test_metrics_key_declared_in_typed_settings() -> None:
@@ -313,7 +358,8 @@ def test_metrics_key_declared_in_typed_settings() -> None:
 
 
 def test_machine_site_routes_stay_private_with_public_readonly_enabled(
-    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+    protected_app: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The temporary diagnostics UI must not bypass the SERVICE gate."""
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
@@ -324,11 +370,16 @@ def test_machine_site_routes_stay_private_with_public_readonly_enabled(
         anonymous = protected_app.get(path)
         assert anonymous.status_code == 401, path
         assert anonymous.headers["cache-control"] == "private, no-store"
-        assert protected_app.get(
-            path, headers={"X-Diagnostics-Key": "wrong"},
-        ).status_code == 401
+        assert (
+            protected_app.get(
+                path,
+                headers={"X-Diagnostics-Key": "wrong"},
+            ).status_code
+            == 401
+        )
         authorized = protected_app.get(
-            path, headers={"X-Diagnostics-Key": "site-machine-key"},
+            path,
+            headers={"X-Diagnostics-Key": "site-machine-key"},
         )
         assert authorized.status_code == 200
     # Existing temporary low-sensitivity views remain accessible.
@@ -336,7 +387,8 @@ def test_machine_site_routes_stay_private_with_public_readonly_enabled(
 
 
 def test_metrics_stays_private_even_with_public_readonly_enabled(
-    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+    protected_app: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Metrics has a dedicated credential, not the diagnostics key."""
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
@@ -345,20 +397,38 @@ def test_metrics_stays_private_even_with_public_readonly_enabled(
     settings.diagnostics_access_key = SecretStr("diagnostics-secret")
 
     assert protected_app.get("/metrics").status_code == 401
-    assert protected_app.get("/metrics", headers={
-        "X-Diagnostics-Key": "diagnostics-secret",
-    }).status_code == 401
-    assert protected_app.get("/metrics", headers={
-        "Authorization": "Bearer scrape-only-secret",
-    }).status_code == 200
-    assert protected_app.get("/api/site/health/v2", headers={
-        "Authorization": "Bearer scrape-only-secret",
-    }).status_code == 401
-
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={
+                "X-Diagnostics-Key": "diagnostics-secret",
+            },
+        ).status_code
+        == 401
+    )
+    assert (
+        protected_app.get(
+            "/metrics",
+            headers={
+                "Authorization": "Bearer scrape-only-secret",
+            },
+        ).status_code
+        == 200
+    )
+    assert (
+        protected_app.get(
+            "/api/site/health/v2",
+            headers={
+                "Authorization": "Bearer scrape-only-secret",
+            },
+        ).status_code
+        == 401
+    )
 
 
 def test_private_bababou_search_requires_owner_jwt_even_in_public_readonly_mode(
-    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+    protected_app: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
     settings = protected_app.app.state.access_settings

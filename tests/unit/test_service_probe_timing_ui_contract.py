@@ -8,14 +8,17 @@ ASSETS = Path("nabla/api/assets")
 
 def test_http_200_is_transport_green_and_hover_has_timing() -> None:
     javascript = (ASSETS / "api-http-probe-status.js").read_text(encoding="utf-8")
+    # The 2xx/3xx transport rule moved to the shared HTTP auth helper in #377.
+    http_auth = (ASSETS / "api-service-http-auth.js").read_text(encoding="utf-8")
 
-    assert 'if (status >= 200 && status < 400) return "ok";' in javascript
+    assert 'if (status >= 200 && status < 400) return "ok";' in http_auth
+    assert "return httpObservationTone(check, serviceId);" in javascript
     assert "elapsed_ms ?? check?.latency_ms" in javascript
     assert "last-run=" in javascript
     assert "cadence=" in javascript
     assert "next-due=" in javascript
     assert "PENDING / probing…" in javascript
-    assert "badge.classList.add(`service-probe--${toneFor(check)}`)" in javascript
+    assert "badge.classList.add(`service-probe--${toneFor(check, serviceId)}`)" in javascript
 
 
 def test_question_help_reuses_http_probe_timing() -> None:

@@ -43,6 +43,7 @@ UNIT_OPS_KEYS = {
     "admin_access_key": ("X-Admin-Key", "unit-admin-key"),
     "diagnostics_access_key": ("X-Diagnostics-Key", "unit-diagnostics-key"),
     "mcp_ops_key": ("X-MCP-Key", "unit-mcp-key"),
+    "metrics_scrape_key": ("X-Metrics-Key", "unit-metrics-key"),
 }
 
 

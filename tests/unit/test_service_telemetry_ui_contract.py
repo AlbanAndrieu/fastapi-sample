@@ -9,8 +9,11 @@ def test_telemetry_badges_reuse_one_health_board_snapshot():
     module = (ASSETS / "api-service-telemetry.js").read_text()
     strips = (ASSETS / "api-service-probe-planes.js").read_text()
     drawer = (ASSETS / "api-service-probe-details.js").read_text()
+    coverage = (ASSETS / "api-service-gatus-coverage.js").read_text()
     assert "export function serviceTelemetry(snapshot, row)" in module
-    assert "synthetic_probes" in module and "exporter_jobs" in module
+    # Gatus synthetic probes moved to the coverage helper in #377.
+    assert "synthetic_probes" in coverage and "fetch(" not in coverage
+    assert "exporter_jobs" in module
     assert "postgres_exporter" in module and "pfsense_exporter" in module
     assert "pg_up" in module
     assert "pfsense_memory_available_ratio" in module

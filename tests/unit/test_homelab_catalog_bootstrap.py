@@ -109,7 +109,8 @@ def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
     assert admin.tunnel_secure is False
     assert admin.effective_cloudflare_access_required is False
 
-    bichon = by_name["Bichon"]
+    bichon = by_name["Bichon UI"]
+    assert bichon.service_id == "bichon"
     assert bichon.external is False
     assert bichon.tunnel_secure is False
     assert bichon.effective_cloudflare_access_required is False
