@@ -6,6 +6,19 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
+# Lightweight agent routing, independent of checkout dependencies and network.
+# --task ui prevents unrelated PR files from widening an incident investigation.
+agent-context task="auto":
+    python3 scripts/agent-task-context.py --task "{{task}}"
+
+# Default FastAPI UI L1: Node only; no npm install, browser or GitHub Actions.
+ui-quick:
+    node --test tests/js/api-public-fast-start.test.mjs tests/js/api-rich-observer-refresh.test.mjs tests/js/api-chromium-preflight-runner.test.mjs
+
+# Verify the no-network, bounded agent router with stdlib unittest only.
+agent-context-contracts:
+    python3 -m unittest discover -s tests -p 'test_agent_task_context.py' -q
+
 # Read-only Python 3.13 worktree environment check.
 worktree-python-check:
     bash scripts/agent-worktree-python.sh --check
