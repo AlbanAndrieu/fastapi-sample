@@ -80,7 +80,8 @@ def local_checks() -> list[dict[str, object]]:
     cases = [
         ('node_ui_contracts', ['node', '--test',
           'tests/js/api-public-fast-start.test.mjs',
-          'tests/js/api-chromium-preflight-runner.test.mjs'], 45),
+          'tests/js/api-chromium-preflight-runner.test.mjs',
+          'tests/js/api-rich-observer-refresh.test.mjs'], 45),
         ('python_ui_contracts', [sys.executable, '-m', 'pytest', '-q',
           'tests/unit/test_api_ui_assets.py',
           'tests/unit/test_cloud_browser_diagnostic_contract.py'], 90),
