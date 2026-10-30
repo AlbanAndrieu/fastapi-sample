@@ -1,3 +1,10 @@
+## [1.26.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.26.0...1.26.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **deps:** bump the uv group across 1 directory with 6 updates ([#385](https://github.com/AlbanAndrieu/fastapi-sample/issues/385)) ([7e231fe](https://github.com/AlbanAndrieu/fastapi-sample/commit/7e231fed835e50864b9d97ef19a8182735adc993))
+
 # [1.26.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.25.0...1.26.0) (2026-10-30)
 
 
