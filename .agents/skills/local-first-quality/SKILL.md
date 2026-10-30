@@ -50,10 +50,60 @@ du répertoire courant, seulement pour les étapes inaccessibles à l'agent.
 - L1 ciblé précède L2 puis la gate L3 complète. Déclarer NOT_RUN
   pour les validations impossibles dans l'agent.
 
+## Optimisation FastAPI : routage et preuves L0–L3 (Compose 30/10/2026)
+
+Ce projet réutilise **les principes**, pas les commandes incompatibles, de
+`nabla-compose` : `agent-context`, sélection d'un seul test ciblé, revue des
+changements automatiques et gate de publication exécutée une fois.
+`nabla-compose` propose `mise run agent-loop/agent-pre-push` ;
+**FastAPI conserve** `scripts/agent-quality-gate.sh --fix` et
+`scripts/agent-publish.sh` comme sources d'autorité. Ne pas créer une seconde
+quality gate ou installer de nouveaux outils pour ce routage.
+
+| Niveau | FastAPI : commande | Preuve maximale |
+| --- | --- | --- |
+| **L0** contexte | `just agent-context ui` ou `python3 scripts/agent-task-context.py --task ui --json` | Inspection ; `NOT_RUN` pour les tests |
+| **L1** UI rapide | `just ui-quick` (Node déjà disponible, sans npm install) | Contrats JS ciblés seulement |
+| **L1** API ou système | le test ciblé indiqué par `agent-context`, dans le Python du worktree | Contrat ciblé seulement |
+| **L2** convergence | `bash scripts/agent-quality-gate.sh --fix`, puis revue du diff | Gate local de l'arbre en cours, pas L3 |
+| **L3** publication | commit propre puis `bash scripts/agent-publish.sh` | Gate locale complète au SHA exact |
+
+`agent-context` fonctionne sans réseau, navigateur, CI ni installation. Il
+signale la base absente et limite la liste des chemins; **il n'infère pas
+l'état d'une PR depuis le checkout**. Vérifier l'état et le HEAD distant
+une fois avant toute mutation. Pour une PR contenant plusieurs sujets,
+préférer `--task ui|cloud|truenas|metrics|api|quality` au routage `auto`.
+Le routage choisit **un point d'entrée**, jamais une dispense de suite
+complète en L3.
+
+**Incident UI spécifique :** lorsque `/api?ui_safe=1` fonctionne et que
+`/api?ui_full=1` reste sur `Loading`, concentrer L1 sur le bootstrap
+ESM, les réécritures DOM et `MutationObserver`. Comparer
+`main_thread_unresponsive`, `ui_loading_without_content`,
+`http_access_restricted` et `sampled` avant de changer la collecte
+réseau. Le contrat `readOnlyDiagnostics=true` ne prouve ni OWNER ni
+la disponibilité des sondes internes. Le navigateur Cloud doit rester
+une recette **opt-in** ; ne pas le lancer pour chaque changement de texte.
+
+**Mode GitHub API sans checkout :** utiliser des lectures ciblées sur le HEAD
+sélectionné et une mutation avec blob SHA attendu. Reconstituer le test exact
+dans un répertoire jetable si l'environnement permet de l'exécuter ; sinon
+rester à `L0` / `L1 partiel` et annoncer `L2/L3 NOT_RUN`. Un test de
+présence de chaînes ne prouve pas le fonctionnement de Chromium ou de FastAPI.
+Ne pas multiplier les commits, relances CI, journalisations et recherches
+GitHub pour obtenir artificiellement des preuves.
+
+**Contrats multi-repo :** ne pas recopier les secrets, ressources réseau,
+Docker/HAProxy ni la roadmap de `nabla-compose` vers FastAPI.
+Consulter les chemins Compose précis, et conserver ses contraintes
+TrueNAS/Vaultwarden/ZFS et les skills du domaine. Tout skill externe nécessite
+validation explicite avant installation. L'absence d'accès LAN ne bloque pas
+les tests UI locaux, mais interdit de déclarer une recette TrueNAS `PASS`.
+
 ## Minimal loop
-1. Resolve current branch, PR HEAD and base once. Inspect changed files,
-    immediate tests, failing CI job/step only; avoid giant GitHub diffs,
-    full roadmap and unrelated skills.
+1. Run `just agent-context ui` (or select another task). Resolve the PR
+    HEAD and base once. Inspect only the changed files and the nearest tests;
+    avoid broad diffs, full roadmaps and unrelated skills.
 2. Keep changes in one logical patch; use `uv` / `just`. For a real
     checkout run targeted tests → `bash scripts/agent-quality-gate.sh --fix`
     → review diff → clean commit → `bash scripts/agent-publish.sh`.
