@@ -110,3 +110,11 @@ def test_browser_operator_mode_reports_visibility_without_secret_or_private_dom(
         assert label in browser
     for forbidden in ("document.cookie", "localStorage.getItem", "sessionStorage.getItem"):
         assert forbidden not in browser
+
+
+def test_responsive_but_empty_loading_ui_is_not_marked_sampled():
+    browser = source("scripts/diagnose-production-api-ui-freeze.py")
+    assert 'if sample.get("summaryLoading") and not (' in browser
+    assert '"ui_loading_without_content"' in browser
+    assert '"inspect_ui_bootstrap_and_http_statuses"' in browser
+    assert 'result["state"] = "sampled"' in browser
