@@ -56,15 +56,15 @@ class RouterContracts(unittest.TestCase):
 
     def test_explicit_cloud_task_never_triggers_network(self) -> None:
         with patch.object(router, "ROOT", self.repo):
-            with patch.object(router, "subprocess", wraps=subprocess) as mocked:
+            with patch.object(router, "git", wraps=router.git) as mocked:
                 result = router.context("cloud", 10)
         self.assertIn("fastapi-cloud", result["skills"])
         self.assertEqual(result["task"], "cloud")
-        for call_args in mocked.run.call_args_list:
-            command = call_args.args[0]
-            self.assertEqual(command[0], "git")
+        for call_args in mocked.call_args_list:
+            command = call_args.args
             self.assertNotIn("fetch", command)
             self.assertNotIn("pull", command)
+            self.assertNotIn("push", command)
 
     def test_truncated_paths_are_counted_not_misreported_as_full(self) -> None:
         for index in range(5):
