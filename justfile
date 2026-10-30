@@ -59,6 +59,7 @@ test-local-first:
     bash -n scripts/run-pytest-compact.sh
     bash -n scripts/agent-quality-gate.sh
     bash -n scripts/agent-offline-check.sh
+    python3 -m unittest discover -s tests -p 'test_agent_task_context.py' -q
     bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py tests/unit/test_quality_failure_log_retention.py tests/unit/test_dagger_pilot_preflight.py
 
 # P1 Dagger pilot reference: native deterministic checks only, not a release gate.
