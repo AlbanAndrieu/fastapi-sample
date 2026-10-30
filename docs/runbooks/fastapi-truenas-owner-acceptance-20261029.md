@@ -9,28 +9,35 @@ dans [la roadmap](../engineering-roadmap.md).
 
 ## 1. Préparer un checkout séparé du runtime TrueNAS
 
-Confirmer que le dépôt FastAPI existe sous `nabla-compose/fastapi-sample`
-**avant** de lancer ces commandes. Ne jamais changer la branche de
-l'éventuel sous-module utilisé par le runtime :
+La PR #382 est **fusionnée**. Pour une validation publiée, utiliser un SHA
+immuable de `master`. Pour examiner une PR Draft (actuellement
+[#383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383)),
+récupérer sa branche **explicitement**, puis créer un worktree isolé.
+Ne jamais modifier le checkout ni le sous-module du runtime.
 
 ```bash
 cd /mnt/cpool/compose/nabla-compose
 git -C fastapi-sample rev-parse --show-toplevel
 git -C fastapi-sample worktree list
 
-git -C fastapi-sample fetch origin   fix/owner-entry-public-first-20261028
+# Pour vérifier master ; remplacer origin/master par le SHA immuable voulu.
+git -C fastapi-sample fetch origin master
+git -C fastapi-sample worktree add --detach \
+  /mnt/cpool/compose/fastapi-sample-ui-acceptance origin/master
 
-git -C fastapi-sample worktree add --detach   /mnt/cpool/compose/fastapi-sample-pr382-acceptance   origin/fix/owner-entry-public-first-20261028
-
-cd /mnt/cpool/compose/fastapi-sample-pr382-acceptance
+cd /mnt/cpool/compose/fastapi-sample-ui-acceptance
 git rev-parse HEAD
 ```
 
-Si le chemin source ou la branche distante n'existe pas, **STOP** :
-retrouver le checkout Git FastAPI réel, sans toucher au conteneur.
-Si le worktree cible existe déjà, **ne pas répéter** `worktree add` ;
-vérifier son SHA et son état avant toute mise à jour. Ne jamais
-exécuter `set -euo pipefail` avec `source` dans un shell interactif.
+Pour une PR en cours, `git fetch origin <branche-de-la-PR>`, puis
+utiliser `origin/<branche-de-la-PR>` au lieu de `origin/master` dans
+`worktree add`. Noter le SHA exact exécuté dans le rapport ; les
+résultats d'un ancien HEAD ne se transfèrent pas au nouveau commit.
+
+Si le dépôt source ou la référence n'existe pas : **STOP**. Si le
+worktree de validation existe : ne pas répéter `worktree add` ; vérifier
+son SHA et son état avant toute action. Ne pas exécuter
+`set -euo pipefail` dans un shell interactif.
 
 ## 2. Contrôles locaux L1 — hors réseau
 
@@ -81,8 +88,9 @@ python3 scripts/truenas/validate-fastapi-ui-acceptance.py   --phase runtime --ta
 python3 scripts/truenas/validate-fastapi-ui-acceptance.py   --phase runtime --target cloud --browser
 ```
 
-Le navigateur vérifie quatre parcours : `/api`, `?ui_safe=1`,
-`?operator=1`, et `?ui_full=1&operator=1`.
+Le lanceur vérifie quatre parcours : `/api`, `?ui_safe=1`,
+`?operator=1`, et `?ui_full=1&operator=1`. Le mode riche **sans**
+OWNER (`?ui_full=1`) demande une sonde séparée dans le runbook de gel UI.
 Le bouton OWNER ne doit pas dépendre du chargement riche.
 Un `main_thread_unresponsive` ou `ui_loading_without_content`
 est distinct d'un `http_access_restricted`.

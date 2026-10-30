@@ -40,6 +40,13 @@ default_install_hook_types:
 default_stages:
   - pre-commit
 
+# The local-first quality gate already uses Node/npm from PATH (Node 22/24).
+# Never let nodeenv resolve the newest (possibly prerelease) remote Node tag:
+# nodeenv can reject a semver suffix such as "0-alpha" while installing hooks.
+# Keep all Node-backed pre-commit hooks enabled; only reuse the installed Node.
+default_language_version:
+  node: system
+
 repos:
   # ---------------------------------------------------------------------------- #
   #                              🔄 Pre-Commit Hooks                             #

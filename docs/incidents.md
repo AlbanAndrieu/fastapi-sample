@@ -275,9 +275,11 @@ Reference:
   worked. This isolates the **user-visible symptom** to the rich UI path,
   but does not independently prove the exact DOM-loop cause on Cloud.
 - GitHub PRs [#380](https://github.com/AlbanAndrieu/fastapi-sample/pull/380)
-  and [#381](https://github.com/AlbanAndrieu/fastapi-sample/pull/381)
-  were merged. PR [#382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382)
-  remains Draft. GitHub state is **not** deployment evidence.
+  and [#381](https://github.com/AlbanAndrieu/fastapi-sample/pull/381),
+  plus [#382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382),
+  were merged by 30 October. [#383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383)
+  remains Draft and changes OWNER-first sequencing. GitHub state is
+  **not** deployment evidence.
 
 **Source-level attribution (candidate, not runtime proof)**
 
@@ -285,9 +287,12 @@ The rich entry imports `api-health.js` and several DOM observers.
 A diagnostics observer reprocessed all service rows after descendant
 mutations, while the filter reapplied unchanged `hidden` attributes.
 This can amplify `MutationObserver` / animation-frame updates.
-PR #382 contains a targeted observer/visibility patch and a browser
-classifier for `ui_loading_without_content`; neither is yet
-accepted on a deployed Cloud SHA.
+PR #382 merged the observer/visibility patch and a browser classifier
+for `ui_loading_without_content`. PR #383 defers the rich import until
+OWNER handling or read-only permission has been checked. Its L1 test
+suite passed 37/37 at `cb43c27b`, while full quality and Chromium
+acceptance were still pending. No fix is yet accepted on an attested
+Cloud deployment SHA.
 
 **Recognition and closure**
 
@@ -312,11 +317,12 @@ Historic evidence: [October UI chronology](archive/2026-10-30/fastapi-cloud-api-
 
 **Corrective candidate**
 
-The HTML OWNER panel starts hidden. The earlier JS route could depend
-on the rich UI bootstrap. PR #382 separates operator controls from
-the heavy dashboard, adds a navigation entry and refreshes signed-session
-status on browser return. The cookie, key and trusted-source checks
-remain server-side.
+The HTML OWNER panel starts hidden. The earlier JS path depended on
+the rich UI bootstrap. Merged PR #382 separated the lightweight operator
+entry and added session revalidation. Draft PR #383 additionally
+installs the OWNER controller before optional rich imports, preserving
+an interactive public catalogue while authorization is checked. The
+cookie, key and trusted-source checks remain server-side.
 
 **Recognition and closure**
 
