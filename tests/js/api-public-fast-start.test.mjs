@@ -134,10 +134,12 @@ const ownerSession = readFileSync(
 test("operator-only view shows OWNER sign-in before advanced code is imported", () => {
   assert.ok(entry.includes("panel.hidden = false"));
   assert.ok(entry.includes('import("./api-owner-session.js")'));
-  assert.ok(
-    entry.indexOf("panel.hidden = false") <
-      entry.indexOf('import("./api-health.js")'),
-  );
+  assert.ok(entry.includes('ownerSessionReady = import("./api-owner-session.js")'));
+  assert.ok(entry.includes('installOwnerSessionControls(() => window.location.reload())'));
+  assert.ok(entry.includes('return ownerSessionAvailable()'));
+  assert.ok(entry.includes('void ownerSessionReady.then((authenticated) =>'));
+  assert.ok(entry.includes('if (!authenticated) {'));
+  assert.ok(entry.includes('startRichDashboard();'));
   assert.ok(entry.includes('const richMode = params.get("ui_full") === "1"'));
   assert.ok(entry.includes('link.textContent = "Owner access"'));
   assert.ok(entry.includes('link.textContent = "Open detailed diagnostics"'));
@@ -206,4 +208,27 @@ test("owner status explicitly distinguishes read-only and OWNER authorization", 
   assert.ok(
     ownerSession.includes("if (check === sessionCheck && form.hidden)"),
   );
+});
+
+test("full dashboard never races OWNER sign-in or silently bypasses read access", () => {
+  assert.ok(entry.includes('enterPublicDirectory({ allowAdvancedLink: true })'));
+  assert.ok(entry.includes('ownerSessionReady.then((authenticated) =>'));
+  assert.ok(entry.includes('if (!authenticated) {'));
+  assert.ok(entry.includes('import("./api-owner-session.js")'));
+  assert.ok(entry.includes('diagnosticsReadAvailable()'));
+  assert.ok(entry.includes('if (readable) startRichDashboard()'));
+  assert.ok(entry.includes('window.setTimeout(() => {'));
+  assert.ok(!entry.includes('ownerAuthenticated: true'));
+});
+
+const publicServicesSource = readFileSync(
+  fileURLToPath(new URL("../../nabla/api/assets/api-public-services.js", import.meta.url)),
+  "utf8",
+);
+
+test("rich fallback never registers a second public directory controller", () => {
+  assert.ok(publicServicesSource.includes('panel.dataset.publicServicesInitialized === "1"'));
+  assert.ok(publicServicesSource.includes('panel.dataset.publicServicesInitialized = "1"'));
+  assert.ok(entry.includes('document.addEventListener("health-board-refreshed"'));
+  assert.ok(entry.includes('if (fallback) fallback.hidden = true'));
 });

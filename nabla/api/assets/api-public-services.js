@@ -40,8 +40,11 @@ export async function installPublicServiceOverview({
   const filter = document.getElementById("service-filter");
   if (!panel || !list || !summary || !refresh || !expand) return;
 
-  // When the full owner dashboard works, do not duplicate its service cards.
+  // The rich board may reuse the public fallback during startup. Never
+  // install a second set of listeners or trigger duplicate catalogue GETs.
   if (ownerAuthenticated) return;
+  if (panel.dataset.publicServicesInitialized === "1") return;
+  panel.dataset.publicServicesInitialized = "1";
   panel.hidden = false;
   let rows = [];
   let expanded = false;

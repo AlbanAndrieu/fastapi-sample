@@ -9,6 +9,76 @@ Pour une recette complète, utiliser
 Pour décider de la prochaine action, utiliser
 [la roadmap active](../engineering-roadmap.md).
 
+## Correctif OWNER-first — PR #383 (30/10/2026)
+
+La PR [#382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382)
+est **fusionnée**, mais aucune recette Cloud du SHA déployé n'est encore
+attestée. Depuis `master` `7fbd2f61`, le démarrage simultané
+`?operator=1&ui_full=1` importait le contrôleur OWNER et le graphe riche
+en parallèle. L'installation du gestionnaire `Unlock diagnostics`
+n'était pas garantie avant le chargement lourd.
+
+La [PR #383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383)
+conserve le catalogue public immédiatement accessible et **attend**
+l'installation des contrôles puis l'authentification OWNER avant le
+premier import riche. Pour `?ui_full=1` sans OWNER, une capacité
+`readOnlyDiagnostics` vérifiée est exigée ; 401/403/timeout gardent le
+catalogue public. Les doubles abonnements au catalogue sont empêchés.
+La disparition du fallback attend `health-board-refreshed`, pas
+seulement l'import du module. Aucun paramètre URL ne confère OWNER.
+
+**Contournement tant que #383 n'est pas déployée :** ouvrir
+`/api?operator=1` sans `ui_full=1`, puis utiliser le formulaire
+`Unlock diagnostics` depuis une source approuvée. Le mode
+`/api?ui_safe=1` reste indépendant. Le contournement ne résout pas
+un gel éventuel du tableau riche après authentification.
+
+**Recette requise :** `just ui-quick` sur le HEAD #383, puis Chromium
+sur le SHA **effectivement déployé** : `?operator=1&ui_full=1`
+avant login doit permettre de cliquer `Unlock diagnostics` sans
+charger `api-health.js`. Après login, vérifier les détails. Un
+`main_thread_unresponsive` après l'import riche reste un incident
+distinct et n'est **pas** marqué résolu par cette PR.
+
+## Validation locale de #383 et incident nodeenv du 30/10
+
+Sur TrueNAS, au SHA `cd3eb037`, `just ui-quick` a réussi
+**35 tests sur 35** (165 ms). Le contrôle OWNER, les refus 401/403/503
+et le fallback public sont validés **sans navigateur réel**.
+
+`just quality` a ensuite passé les vérifications de base Git, de
+suppression destructive et de mode exécutable. Il s'est arrêté dans
+`nodeenv.py` avec `ValueError: invalid literal for int() with base 10:
+'0-alpha'` pendant la préparation de pre-commit. Cela ne constitue
+**ni un échec du lint JS ni une réussite de la quality gate**.
+
+La PR #383 choisit maintenant `default_language_version: node: system`
+dans `.pre-commit-config.yaml`. Tous les hooks restent actifs ;
+Node/npm doivent être disponibles sur le PATH. Cette politique évite
+la résolution d'une version Node distante potentiellement incompatible
+avec le parseur de `nodeenv`. Aucune installation ni migration Python
+n'est nécessaire pour ce correctif.
+
+Reprendre depuis le worktree propre à la PR et le HEAD actuel :
+
+```bash
+cd /mnt/cpool/compose/fastapi-sample-pr383-acceptance
+git status --short
+git fetch origin fix/ui-owner-auth-before-rich-import-20261030
+git switch --detach origin/fix/ui-owner-auth-before-rich-import-20261030
+node --version
+npm --version
+just ui-quick
+just quality
+```
+
+Si `just quality` échoue encore, conserver le **premier échec causal**
+et son nom de hook (pre-commit peut ensuite rencontrer d'autres erreurs
+que la précédente trace masquait). Ne pas effacer le cache pre-commit
+global, ne pas modifier la venv partagée, ne pas ignorer de hook et
+ne pas considérer le SHA publiable avant validation. La recette Chromium
+Cloud réelle, sans déploiement implicite, reste obligatoire.
+
 ## 1. Distinguer disponibilité et interface bloquée
 
 Comparer, depuis **le même navigateur et le même réseau** :
