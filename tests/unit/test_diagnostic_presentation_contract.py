@@ -13,7 +13,7 @@ def asset(name: str) -> str:
 def test_diagnostic_stylesheet_is_loaded_after_legacy_overrides() -> None:
     styles = asset("api.css")
     assert styles.index("api-service-experience.css") > styles.index(
-        "api-health-ui-final-followup.css"
+        "api-health-ui-final-followup.css",
     )
     presentation = asset("api-service-experience.css")
     assert ".service-protocol-shortcuts" in presentation
@@ -39,13 +39,13 @@ def test_filter_shortcuts_use_existing_select_and_url_state() -> None:
     script = asset("api-service-filter.js")
     for protocol in ("dns", "tcp", "tls", "http", "api", "websocket"):
         assert f'["{protocol}",' in script
-    assert 'button.dataset.protocolShortcut = value' in script
+    assert "button.dataset.protocolShortcut = value" in script
     assert 'control.dispatchEvent(new Event("change"' in script
     assert '"aria-pressed"' in script
     assert 'probe.dataset.probePlaceholder !== "true"' in script
     global_filter = asset("api-global-service-filter.js")
-    assert 'panel.dataset.probeKinds = [...protocols].join(" ")' in global_filter
-    assert 'panel.dataset.probeKinds = "http tls api websocket"' not in global_filter
+    assert 'setDatasetValueIfChanged(panel, "probeKinds", [...protocols].join(" "));' in global_filter
+    assert '"http tls api websocket"' not in global_filter
 
 
 def test_flow_distinguishes_failure_from_unconfirmed_evidence() -> None:

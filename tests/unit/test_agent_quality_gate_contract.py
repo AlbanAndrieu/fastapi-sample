@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 import stat
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -77,7 +79,8 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "uv run pre-commit run shfmt" in text
     assert "uv run pre-commit run shell-lint" in text
     assert "uv run pre-commit run bashate" in text
-    assert "uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml" in text
+    assert 'uv run pytest -q --disable-warnings --maxfail="${PYTEST_MAXFAIL}" --junit-xml=junit.xml' in text
+    assert 'PYTEST_MAXFAIL="${QUALITY_PYTEST_MAXFAIL:-1}"' in text
     assert "quality-gate contract pytest (isolated fail-fast)" in text
     assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in text
     assert "uv run pytest -q --noconftest" in text
@@ -290,12 +293,11 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
         assert "completion gate" in skill.lower()
         assert "docs/engineering-roadmap.md" in skill
     # Check enduring semantics, not a heading changed during roadmap consolidation.
-    assert "master-red" in roadmap
-    assert "scripts/ci/master_red_issue.py" in roadmap
-    assert "deux runs complets consécutifs" in roadmap
-    assert "## P0 — public/private observability boundary" in roadmap
-    assert "## P1 — health, topology and runtime acceptance" in roadmap
+    assert "issues/355" in roadmap
+    assert "deux runs master" in roadmap
+    assert "RoutePolicy" in roadmap
     assert "engineering-backlog.md" in roadmap
+    assert "archive/2026-10-29/engineering-roadmap-before-consolidation.md" in roadmap
     assert "## P0 — homelab dependency convergence" in backlog
     assert "scripts/diagnose-local-runtime-dependencies.py" in backlog
     assert "## 2026-09" in incidents  # forensic evidence retained outside roadmap
@@ -366,3 +368,69 @@ def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
     assert "issue_fingerprint" in tracker
     assert "manually_modified" in tracker
     assert "closed" in tracker and "reopened" in tracker
+
+
+def _run_gate(tmp_path: Path, **env: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", str(ROOT / "scripts/agent-quality-gate.sh")],
+        cwd=ROOT,
+        env={**os.environ, "QUALITY_GATE_LOCK_DIR": str(tmp_path / "gate.lock"), **env},
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+
+def test_second_agent_gate_in_same_worktree_fails_fast(tmp_path: Path) -> None:
+    """Claude Code and Codex must not run the gate concurrently in one checkout."""
+    lock = tmp_path / "gate.lock"
+    lock.mkdir()
+    (lock / "pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
+
+    result = _run_gate(tmp_path)
+
+    assert result.returncode == 75
+    assert f"QG_LOCKED: another quality gate (pid {os.getpid()})" in result.stderr
+    assert "own git worktree" in result.stderr
+    # The live holder keeps its lock.
+    assert (lock / "pid").read_text(encoding="utf-8") == f"{os.getpid()}\n"
+
+
+def test_gate_rejects_invalid_pytest_maxfail_before_locking(tmp_path: Path) -> None:
+    result = _run_gate(tmp_path, QUALITY_PYTEST_MAXFAIL="all")
+
+    assert result.returncode == 2
+    assert "QUALITY_PYTEST_MAXFAIL must be a non-negative integer" in result.stderr
+    assert not (tmp_path / "gate.lock").exists()
+
+
+def test_gate_lock_is_per_worktree_and_released_on_exit() -> None:
+    text = (ROOT / "scripts/agent-quality-gate.sh").read_text(encoding="utf-8")
+    assert "git rev-parse --path-format=absolute --git-path agent-quality-gate.lock" in text
+    assert "trap release_gate_lock EXIT" in text
+    assert "QG_STALE_LOCK" in text
+
+
+def test_claude_code_and_codex_share_one_policy_and_skill_tree() -> None:
+    guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "@AGENTS.md" in (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    assert (ROOT / ".claude/skills").resolve() == (ROOT / ".agents/skills").resolve()
+    # Codex truncates project instructions above project_doc_max_bytes (32 KiB by default).
+    assert len(guide.encode("utf-8")) < 32 * 1024
+    for agent in ("Claude Code", "Codex", "OpenCode"):
+        assert agent in guide
+    assert "Une worktree Git par agent" in guide
+    assert "QG_LOCKED" in guide
+    assert "QUALITY_PYTEST_MAXFAIL=0" in guide
+
+
+def test_shell_lint_does_not_depend_on_agent_debug_environment() -> None:
+    """Claude Code exports DEBUG=true; the old remote hook crashed on it."""
+    config = yaml.safe_load((ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hooks = {hook["id"]: (repo["repo"], hook) for repo in config["repos"] for hook in repo["hooks"]}
+    repo, hook = hooks["shell-lint"]
+    assert repo == "local"
+    assert hook["entry"] == "shellcheck"
+    assert hook["language"] == "system"
+    assert all("detailyang/pre-commit-shell" not in repo["repo"] for repo in config["repos"])

@@ -14,3 +14,5 @@
 0448c563cfddfd8f927ed423531c28ea2366cadd .github/workflows/deploy.yml
 # Approved by owner: remove duplicate manual Super-Linter workflow.
 0448c563cfddfd8f927ed423531c28ea2366cadd .github/workflows/linter.yml
+# Reviewed rename requested by the owner: diagnose-production-api-ui-freeze.py -> diagnose-api-ui-freeze.py.
+7fbd2f6191480a829775cfeb43d1e76bbe76adf2 scripts/diagnose-production-api-ui-freeze.py

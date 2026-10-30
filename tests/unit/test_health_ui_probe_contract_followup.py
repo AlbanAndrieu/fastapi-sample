@@ -11,18 +11,19 @@ from nabla.api.homelab_models import HomelabService
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "nabla" / "api" / "assets"
 
+# Request-path order since #370: network, edge, then service evidence.
 PROBE_KINDS = (
     "dns",
-    "http",
+    "tcp",
     "tls",
+    "http",
     "cloudflare",
     "access",
     "service-token",
     "api",
-    "policy",
-    "tcp",
     "websocket",
     "metrics",
+    "policy",
 )
 
 
@@ -34,7 +35,9 @@ def test_probe_grid_pins_one_canonical_column_per_evidence_kind() -> None:
     assert "export const PROBE_COLUMNS" in source
     assert "cell.dataset.probeColumn" in source
     assert "cell.style.gridColumn" in source
-    assert 'setAttribute("aria-colcount", String(PROBE_COLUMNS.length))' in source
+    # #370 exposes the grid as a list; aria-colcount is invalid on role=list.
+    assert 'grid.setAttribute("role", "list")' in source
+    assert 'cell.setAttribute("role", "listitem")' in source
     assert 'return "neutral"' in source
 
 
@@ -101,7 +104,7 @@ def test_packaged_catalog_matches_nabla_compose_197_exposure_baseline() -> None:
             "Prometheus",
             "Uptime Kuma",
             "Grafana",
-            "Gatus",
+            "Gatus UI",
             "Affine",
             "FreshRSS",
             "Clickhouse",

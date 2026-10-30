@@ -22,6 +22,24 @@ HEAD exact. Un résultat `L1 PASS` ne valide ni CI, ni runtime Cloud,
 ni TrueNAS. Les commandes `mise run agent-loop/agent-pre-push` de
 `nabla-compose` **n'existent pas dans ce dépôt et ne sont pas copiées**.
 
+## Claude Code et Codex sur la même workstation
+
+`AGENTS.md` est la seule politique : Codex et OpenCode le lisent directement,
+Claude Code via `CLAUDE.md` (`@AGENTS.md`). Les skills vivent dans
+`.agents/skills/` ; `.claude/skills` n'en est qu'un lien symbolique.
+Ne pas dupliquer de règle dans un fichier propre à un agent.
+
+- **Une worktree Git par agent** (`git worktree add ../fastapi-sample-codex -b <branche>`),
+  chacune avec sa `.venv` (`scripts/agent-worktree-python.sh`). Deux agents
+  ne modifient jamais le même checkout en même temps.
+- La gate prend un verrou par worktree : `QG_LOCKED` (code 75) signifie
+  qu'un autre agent valide déjà ce checkout. Attendre, ne pas supprimer
+  le verrou ; un verrou orphelin est repris automatiquement.
+- Pour lister **tous** les échecs pytest en un passage :
+  `QUALITY_PYTEST_MAXFAIL=0 QUALITY_LOG_TAIL=80 bash scripts/agent-quality-gate.sh --fix`.
+- Ne pas indexer ni commiter sans demande explicite du propriétaire ;
+  laisser les changements non indexés pour sa relecture.
+
 ## Fast investigation protocol (load only when relevant)
 
 Before a tool-heavy task, resolve the PR's immutable HEAD and check changed
@@ -98,9 +116,11 @@ For every non-trivial repository task:
 3. **Read the plan.** Inspect the relevant section of
     `docs/engineering-roadmap.md`. Keep work inside the requested PR scope and
     record newly discovered residual work there.
-4. **Load the task-specific skill before implementation.** Use OpenCode's
-    `skill` tool for the matching entry in the skill-routing table below. Do not
-    rely on remembered instructions when a repository skill exists.
+4. **Load the task-specific skill before implementation.** Use your agent's
+    skill mechanism (Claude Code `Skill` tool, Codex skills, OpenCode `skill`
+    tool) for the matching entry in the skill-routing table below; all of them
+    read the same `.agents/skills/<name>/SKILL.md`. Do not rely on remembered
+    instructions when a repository skill exists.
 5. **Inspect implementation and tests together.** Find the production code,
     closest tests, configuration, and callers before editing. For files above the
     maintainability thresholds, extract a cohesive responsibility rather than
@@ -314,7 +334,7 @@ Before every `git push` or other publication of a completed local batch:
 6. Only publish after `agent-publish.sh` succeeds for the exact committed HEAD.
 
 GitHub API file writes are an emergency/API-only fallback, not the preferred
-OpenCode workflow. When a real checkout is available, edit and validate locally
+agent workflow. When a real checkout is available, edit and validate locally
 so repository hooks and publication proofs cannot be bypassed.
 
 Keep iterative agent pull requests as drafts until the strict local gate is green. Expensive CI may skip draft PRs while the deterministic preflight still runs. When `mise run hooks` has been run, the normal Git `pre-commit` hook validates commits and the `pre-push` hook invokes `scripts/agent-quality-gate.sh --publish`.

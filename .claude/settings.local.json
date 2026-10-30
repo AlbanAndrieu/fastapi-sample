@@ -1,6 +1,13 @@
 {
   "permissions": {
-    "allow": ["Bash(direnv allow *)", "Bash(direnv exec *)", "Bash(mise ls *)"]
+    "allow": [
+      "Bash(direnv allow *)",
+      "Bash(direnv exec *)",
+      "Bash(mise ls *)",
+      "Bash(python3 -)",
+      "Bash(chmod +x scripts/diagnose-api-ui-freeze.py)",
+      "Bash(uv run *)"
+    ]
   },
   "enabledMcpjsonServers": ["fastapi-sample", "github", "vercel", "sentry"]
 }

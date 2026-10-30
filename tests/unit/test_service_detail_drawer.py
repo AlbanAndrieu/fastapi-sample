@@ -66,7 +66,7 @@ def test_detail_drawer_refreshes_without_new_health_engine() -> None:
     assert "new MutationObserver" in source
     assert "fetch(" not in source
     # The drawer reuses the bounded cached board snapshot; no direct per-card fetch.
-    assert 'fetchHealthBoard()' in source
+    assert "fetchHealthBoard()" in source
     assert "window.fetch(" not in source
 
 
@@ -84,16 +84,16 @@ def test_detail_drawer_has_dedicated_responsive_stylesheet() -> None:
 
 def test_gatus_drawer_distinguishes_down_up_and_missing_observations() -> None:
     drawer = (ASSETS / "api-service-detail-drawer.js").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     coverage = (ASSETS / "api-service-gatus-coverage.js").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     assert "Failing checks" in drawer
     assert "Checks without usable samples" in drawer
     assert "Successful checks" in drawer
-    assert 'summary.missing.push(' in coverage
-    assert 'summary.successes.push(' in coverage
+    assert "summary.missing.push(" in coverage
+    assert "summary.successes.push(" in coverage
     assert "linkedCatalogueItem(" in drawer
     assert "Unlisted catalogue services have unknown Gatus coverage" in drawer
     assert "not run" in drawer
@@ -103,9 +103,7 @@ def test_garage_s3_links_show_configured_and_internal_urls_without_guessing_ids(
     source = (ASSETS / "api-service-detail-drawer.js").read_text(
         encoding="utf-8",
     )
-    assert '"internal_endpoint_url"' in (
-        ROOT / "nabla/api/homelab_service_health.py"
-    ).read_text(encoding="utf-8")
+    assert '"internal_endpoint_url"' in (ROOT / "nabla/api/homelab_service_health.py").read_text(encoding="utf-8")
     assert "service?.internal_endpoint_url" in source
     assert "entry?.id === key" in source
     assert 'heading.textContent = "Service endpoints"' in source
@@ -157,6 +155,6 @@ def test_private_s3_anonymous_http_is_not_a_green_health_claim() -> None:
     planes = (ASSETS / "api-service-probe-planes.js").read_text(
         encoding="utf-8",
     )
-    assert "privateS3 ? \"unknown\" : reachabilityTone(check)" in diag
-    assert "privateS3 ? \"unknown\" : publicTone(check)" in planes
+    assert 'privateS3 ? "unknown" : httpObservationTone(check, serviceId)' in diag
+    assert 'privateS3 ? "unknown" : publicTone(check, serviceId)' in planes
     assert "A signed S3 request from the LAN is needed" in diag

@@ -20,7 +20,7 @@ from nabla.main import mcp, mcp_app
 
 DATABASE_PATHS = {"/auth/jwt/login", "/notes/", "/users/me", "/"}
 MCP_PATHS = {"/v1/mcp/ops/servers"}
-RAG_PATHS = {"/run"}
+RAG_PATHS = {"/run", "/private/ops/ai/bababou/search"}
 
 
 def _forbid(name: str):

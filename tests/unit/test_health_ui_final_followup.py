@@ -13,15 +13,17 @@ def test_final_followup_is_loaded_last() -> None:
     assert 'from "./api-health-ui-final-followup.js"' in entrypoint
     assert entrypoint.rstrip().endswith("void bootstrapHealthUi();")
     # Final overrides must run after every other health-UI installer; only the
-    # separate public service overview may follow them.
+    # separate read-only public fallback (#378) may follow them.
     final_call = entrypoint.index("  installHealthUiFinalFollowup();")
     assert entrypoint.rindex("  installHealthUi") == final_call
     trailing_calls = entrypoint[final_call:].split("\n")[1:]
     assert [line.strip() for line in trailing_calls if "install" in line] == [
-        "await installPublicServiceOverview({ ownerAuthenticated: true });",
+        "if (!authenticated) await visibility.installReadOnlyPublicFallback();",
     ]
+    # #370/#373 deliberately layer service-experience and diagnostics-ux
+    # overrides after the final follow-up; nothing else may follow it.
     assert stylesheet.rstrip().endswith(
-        '@import url("./api-health-ui-final-followup.css");',
+        '@import url("./api-health-ui-final-followup.css");\n@import url("./api-service-experience.css");\n@import url("./api-diagnostics-ux.css");',
     )
 
 

@@ -97,7 +97,11 @@ def test_external_access_requires_explicit_validated_opt_in() -> None:
 
     exposed = discovered.with_external_access("https://openwebui.albandrieu.com")
 
-    assert exposed.service_id == "open-webui"
+    # TrueNAS "open-webui" is normalized to the canonical public slug (#373).
+    assert discovered.service_id == "openwebui"
+    assert discovered.external is False
+    assert exposed.service_id == "openwebui"
+    assert exposed.source_id == "open-webui"
     assert exposed.external is True
     assert exposed.endpoint_enabled is True
     assert exposed.public_https_probe_url == "https://openwebui.albandrieu.com/"
@@ -437,7 +441,9 @@ def test_public_hello_canary_requires_no_cloudflare_access() -> None:
     ],
 )
 def test_verified_service_roles_keep_canonical_ids(
-    legacy_id: str, canonical: str, title: str,
+    legacy_id: str,
+    canonical: str,
+    title: str,
 ) -> None:
     service = HomelabService.model_validate(
         {"id": legacy_id, "name": legacy_id, "external": False},

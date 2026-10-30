@@ -1,4 +1,5 @@
 """Cloud landing should remain usable while LAN diagnostics are degraded."""
+
 from pathlib import Path
 
 ASSETS = Path(__file__).resolve().parents[2] / "nabla/api/assets"
@@ -40,10 +41,12 @@ def test_health_board_cannot_keep_browser_pending_for_one_minute():
 
 def test_readonly_public_directory_stays_visible_until_detailed_snapshot_arrives():
     bootstrap = read("api-health.js")
-    assert 'document.addEventListener("health-board-refreshed"' in bootstrap
-    assert "ownerAuthenticated: false" in bootstrap
-    assert "detailedReady = true" in bootstrap
-    assert "fallback.hidden = true" in bootstrap
+    fallback = read("api-health-visibility.js")
+    assert "if (!authenticated) await visibility.installReadOnlyPublicFallback();" in bootstrap
+    assert 'document.addEventListener("health-board-refreshed"' in fallback
+    assert "ownerAuthenticated: false" in fallback
+    assert "detailedReady = true" in fallback
+    assert "fallback.hidden = true" in fallback
 
 
 def test_optional_lan_data_is_lazy_and_tickers_do_not_rewrite_all_rows_each_second():
