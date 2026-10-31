@@ -1,3 +1,12 @@
+## [1.26.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.26.2...1.26.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** bump follow-redirects ([#389](https://github.com/AlbanAndrieu/fastapi-sample/issues/389)) ([06b9c80](https://github.com/AlbanAndrieu/fastapi-sample/commit/06b9c80383c2cb01eff8487a4a40a4659930fdd9))
+* **deps:** bump the uv group across 1 directory with 2 updates ([#388](https://github.com/AlbanAndrieu/fastapi-sample/issues/388)) ([2d91bcb](https://github.com/AlbanAndrieu/fastapi-sample/commit/2d91bcb0ce3371a6106404a383cbd94819efe373))
+* **ui:** préserver Unlock diagnostics avant le chargement du tableau riche ([#383](https://github.com/AlbanAndrieu/fastapi-sample/issues/383)) ([5511725](https://github.com/AlbanAndrieu/fastapi-sample/commit/5511725bfd4ab4f4995de4d7189dc348ac87d8c0))
+
 ## [1.26.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.26.1...1.26.2) (2026-10-30)
 
 
