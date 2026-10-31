@@ -12,6 +12,7 @@ from nabla.api.health_probe_utils import (
     normalize_probe_error as _normalize_probe_error,
     probe_https_tls_trusted,
 )
+from nabla.api.sickz_cloudflare_edge import contains_cloudflare_default_deny
 from nabla.config_settings import (
     DD_AGENT_HOST,
     DD_TRACE_AGENT_PORT,
@@ -141,6 +142,18 @@ def probe_keycloak_well_known() -> dict[str, Any]:
     try:
         config = get_openid_config()
     except Exception as exc:
+        body = getattr(exc, "response_body", None)
+        if contains_cloudflare_default_deny(body.decode("utf-8", "replace") if isinstance(body, bytes) else str(exc)):
+            # Access blocks the anonymous observer before the origin: unknown, not an outage.
+            return {
+                "reachable": None,
+                "status_confirmed": False,
+                "severity": "warning",
+                "effective_state": "warn",
+                "http_status": getattr(exc, "response_code", None),
+                "public_probe_auth_mode": "cloudflare_access_blocked",
+                "warning": "⚠️ Cloudflare Access Default-Deny blocked Keycloak OpenID discovery; origin health is unverified.",
+            }
         return {"reachable": False, "error": _normalize_probe_error(str(exc))}
     if isinstance(config, dict) and config.get("issuer"):
         return {"reachable": True}
@@ -257,7 +270,7 @@ def probe_litellm_public_proxy() -> dict[str, Any]:
 
 
 def probe_pyroscope_server() -> dict[str, Any]:
-    """Probe the Pyroscope UI root independently from its Prometheus endpoint."""
+    """Probe Pyroscope readiness, keep the UI root as link, and check metrics separately."""
     if not PYROSCOPE_ENABLED:
         return {
             "reachable": None,
@@ -272,26 +285,20 @@ def probe_pyroscope_server() -> dict[str, Any]:
             "reason": "PYROSCOPE_ENDPOINT not configured",
         }
 
-    health_url = f"{base}/"
+    ui_url = f"{base}/"
+    ready_url = f"{base}/ready"
     metrics_url = f"{base}/metrics"
+    # The UI root answers 200 even when the metastore never became ready.
     try:
         with httpx.Client(timeout=3.0, follow_redirects=True) as http_client:
-            response = http_client.get(health_url)
-    except httpx.HTTPError as exc:
-        return {
-            "reachable": False,
-            "error": _normalize_probe_error(str(exc)),
-            "url": health_url,
-            "path": "/",
-            "metrics_url": metrics_url,
-            "metric_source": "prometheus",
-        }
+            response = http_client.get(ready_url)
     except Exception as exc:
         return {
             "reachable": False,
             "error": _normalize_probe_error(str(exc)),
-            "url": health_url,
-            "path": "/",
+            "url": ui_url,
+            "readiness_url": ready_url,
+            "path": "/ready",
             "metrics_url": metrics_url,
             "metric_source": "prometheus",
         }
@@ -299,14 +306,15 @@ def probe_pyroscope_server() -> dict[str, Any]:
     result: dict[str, Any] = {
         "reachable": response.is_success,
         "http_status": response.status_code,
-        "path": "/",
-        "url": health_url,
+        "path": "/ready",
+        "url": ui_url,
+        "readiness_url": ready_url,
         "metrics_url": metrics_url,
         "metric_source": "prometheus",
     }
     if not response.is_success:
         result["error"] = _normalize_probe_error(
-            f"Pyroscope root returned http_status={response.status_code}",
+            f"Pyroscope /ready returned http_status={response.status_code}: {response.text.strip()[:200]}",
         )
         return result
 

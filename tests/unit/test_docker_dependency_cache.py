@@ -8,16 +8,14 @@ import sys
 import tomllib
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 NORMALIZER = ROOT / "scripts/docker/normalize_dependency_metadata.py"
 
 
 def _project_lock_version(payload: dict) -> str:
-    return next(
-        package["version"]
-        for package in payload["package"]
-        if package["name"] == "fastapi-sample"
-    )
+    return next(package["version"] for package in payload["package"] if package["name"] == "fastapi-sample")
 
 
 def test_dependency_metadata_normalizer_removes_release_only_versions(
@@ -43,17 +41,14 @@ def test_dependency_metadata_normalizer_removes_release_only_versions(
     assert normalized_pyproject["tool"]["versioningit"]["default-version"] == "0.0.0"
     assert normalized_pyproject["tool"]["commitizen"]["version"] == "0.0.0"
     assert _project_lock_version(normalized_lock) == "0.0.0"
-    assert (
-        normalized_pyproject["project"]["dependencies"]
-        == original_pyproject["project"]["dependencies"]
-    )
+    assert normalized_pyproject["project"]["dependencies"] == original_pyproject["project"]["dependencies"]
     assert len(normalized_lock["package"]) == len(original_lock["package"])
 
 
 def test_release_image_version_is_injected_without_rewriting_dockerfile() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     release_workflow = (ROOT / ".github/workflows/release.yml").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     semantic_release = (ROOT / ".releaserc.yaml").read_text(encoding="utf-8")
     dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
@@ -65,3 +60,16 @@ def test_release_image_version_is_injected_without_rewriting_dockerfile() -> Non
     assert "APP_VERSION=${{ needs.build.outputs.tag }}" in release_workflow
     assert "ARG APP_VERSION" not in semantic_release
     assert '- "Dockerfile"' not in semantic_release
+
+
+def test_release_image_build_revision_is_the_checked_out_tag_commit() -> None:
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
+    )
+    steps = {step.get("name"): step for step in workflow["jobs"]["publish_container"]["steps"]}
+
+    assert steps["Checkout immutable release tag"]["with"]["ref"] == "${{ needs.build.outputs.tag }}"
+    assert 'revision="$(git rev-parse HEAD)"' in steps["Prepare immutable image tags and build secret"]["run"]
+    build_args = steps["Build and push release image"]["with"]["build-args"].splitlines()
+    assert "BUILD_REVISION=${{ steps.container_meta.outputs.revision }}" in build_args
+    assert 'ARG BUILD_REVISION=""' in (ROOT / "Dockerfile").read_text(encoding="utf-8")

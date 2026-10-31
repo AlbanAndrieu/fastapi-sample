@@ -19,6 +19,8 @@ class _Response:
 
 
 class _FakeClient(AbstractContextManager["_FakeClient"]):
+    requested: list[str] = []
+
     def __init__(self, responses: Iterator[_Response], **_: Any) -> None:
         self._responses = responses
 
@@ -33,12 +35,14 @@ class _FakeClient(AbstractContextManager["_FakeClient"]):
     ) -> None:
         return None
 
-    def get(self, _url: str) -> _Response:
+    def get(self, url: str) -> _Response:
+        self.requested.append(url)
         return next(self._responses)
 
 
 def _install_client(monkeypatch: Any, *responses: _Response) -> None:
     response_iter = iter(responses)
+    monkeypatch.setattr(_FakeClient, "requested", [])
     monkeypatch.setattr(
         integration_health.httpx,
         "Client",
@@ -52,28 +56,32 @@ def _install_client(monkeypatch: Any, *responses: _Response) -> None:
     )
 
 
-def test_pyroscope_uses_root_for_health_and_metrics_for_prometheus(monkeypatch: Any) -> None:
-    _install_client(monkeypatch, _Response(200, "Pyroscope"), _Response(200, "metric 1\n"))
+def test_pyroscope_uses_readiness_for_health_and_metrics_for_prometheus(monkeypatch: Any) -> None:
+    _install_client(monkeypatch, _Response(200, "ready"), _Response(200, "metric 1\n"))
 
     result = integration_health.probe_pyroscope_server()
 
+    assert _FakeClient.requested == ["http://172.17.0.24:4040/ready", "http://172.17.0.24:4040/metrics"]
     assert result["reachable"] is True
-    assert result["path"] == "/"
+    assert result["path"] == "/ready"
     assert result["url"] == "http://172.17.0.24:4040/"
+    assert result["readiness_url"] == "http://172.17.0.24:4040/ready"
     assert result["metrics_url"] == "http://172.17.0.24:4040/metrics"
     assert result["metric_source"] == "prometheus"
     assert result["metrics_available"] is True
     assert result["metrics_http_status"] == 200
 
 
-def test_pyroscope_root_404_is_not_reported_reachable(monkeypatch: Any) -> None:
-    _install_client(monkeypatch, _Response(404, "not found"))
+def test_pyroscope_metastore_not_ready_is_not_reported_reachable(monkeypatch: Any) -> None:
+    _install_client(monkeypatch, _Response(503, "Metastore not ready: terminated after 50 retries\n"))
 
     result = integration_health.probe_pyroscope_server()
 
+    assert _FakeClient.requested == ["http://172.17.0.24:4040/ready"]
     assert result["reachable"] is False
-    assert result["http_status"] == 404
-    assert result["path"] == "/"
+    assert result["http_status"] == 503
+    assert result["path"] == "/ready"
+    assert "Metastore not ready" in result["error"]
     assert "metrics_available" not in result
 
 

@@ -13,13 +13,16 @@
 
 ## Vue d'ensemble et ordre d'exécution
 
+Priorité propriétaire (31/10) : (1) recette navigateur Cloud avec SHA
+attesté, (2) Gatus/Prometheus ; le reste suit.
+
 | Priorité | Chantier | Dernière preuve vérifiable | Prochain jalon |
 | --- | --- | --- | --- |
 | **P0** | UI Cloud riche + OWNER, [PR #383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383) fusionnée le 30/10 | `just ui-quick` **37/37 PASS** au SHA `cb43c27b` sur TrueNAS et workstation ; L2 a modifié six JS lors du formatage | Revoir le diff, publier les corrections sur la PR, L1/L2/L3 sur le HEAD final |
 | **P0** | Recette navigateur | 31/10 Cloud `1.26.3` : `?ui_full=1` gèle le thread (boucle `MutationObserver` du drawer, cause prouvée par pile CDP) ; correctif validé par injection Chromium ; `build_revision` Cloud `null` | Déployer le correctif, rejouer les 5 modes Chromium sur l'image et attester le SHA |
 | **P0** | Qualité de `master` et [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355) | Sur `7fbd2f61` : 28 échecs pytest ; correctifs **1879 pytest + 35 Node PASS** et L2 PASS sur une branche de travail distincte, non équivalents à une preuve actuelle de `master` | Gate complète au HEAD candidat, puis deux runs master réussis avant clôture de #355 |
+| **P0** | Gatus / Prometheus | 85 sondes déclarées, **61 UP / 24 DOWN** historiques (26/10) ; `up{job="fastapi_sample"}=1` signalé le 30/10, 22/28 targets globalement UP | Comparer état et fraîcheur par service, confirmer auth scrape et corriger les exporters défaillants |
 | **P1** | OWNER mobile + TrueNAS Docker | Ancien build `0266f20d` refusé en étape 3/6 ; dernière recette réussie `fa13c08d` | Classer le journal privé, accepter un build 6/6 récent, puis session OWNER authentifiée en HTTPS |
-| **P1** | Gatus / Prometheus | 85 sondes déclarées, **61 UP / 24 DOWN** historiques (26/10) ; `up{job="fastapi_sample"}=1` signalé le 30/10, 22/28 targets globalement UP | Comparer état et fraîcheur par service, confirmer auth scrape et corriger les exporters défaillants |
 | **P1** | Cartes et graphe | UI et liens prévus dans le code, recette interactive non attestée | Navigation par ID canonique, filtres mobiles, états DNS/TCP/TLS/HTTP/auth/métriques et horodatage |
 | **P2** | Sécurité, intégrations et dépendances | Contrats, pilotes et tests partiels existants | Recettes RoutePolicy, traces, Renovate, DefectDojo, LiteLLM et documentation d'ownership |
 
@@ -111,6 +114,31 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   âge/staleness, statuts d'accès et parcours mobile/clavier.
 - [ ] **Exposition :** distinguer Cloudflare Access `302/403`, sonde
   outside-in, état LAN, API pfSense et perte réelle d'un workload.
+- [ ] **Sémantique santé TrueNAS (diagnostic 30/10, 20:30 UTC) :**
+  `sample` RUNNING/`in_sync`, `/health` 200, mais `/healthz` `degraded`
+  par le seul Keycloak (`403` Cloudflare Access Default-Deny, service
+  différé) ; Pyroscope `/` 200 alors que `/ready` répond 503 ;
+  `/v2/version` = 1.25.0 avec `build_revision=null` (`master` 1.26.0).
+  **CODED/TESTED (non commité, non déployé) :** Keycloak Default-Deny
+  classé `unknown`/warn, sonde Pyroscope sur `/ready` (révèle
+  « Metastore not ready »), argument Docker `BUILD_REVISION`, build arg
+  `FASTAPI_SAMPLE_BUILD_REVISION` dans `compose.yml` et, dans `release.yml`,
+  `BUILD_REVISION` = `git rev-parse HEAD` du tag extrait (`github.sha` est
+  le HEAD par défaut du dispatch, pas le tag). Restent : miroir
+  `apps/sample/compose.yml` et export du SHA par
+  `scripts/truenas/update-fastapi-sample.sh` (nabla-compose), gate L2/L3.
+  Preuve suivante : `/v2/version` avec SHA complet sur TrueNAS et sur
+  l'image GHCR de la prochaine release (label
+  `org.opencontainers.image.revision` = commit du tag), `/healthz` sans
+  Keycloak en échec, Pyroscope `/ready` 200 après réparation du metastore.
+- [ ] **Réconciliation TrueNAS (même diagnostic, owner
+  [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose)) :**
+  `unbound` requis `unknown` (timeout API pfSense `services`),
+  `uptime-kuma` public `502`, 3 `binding_conflict` (`hello-nginx` et
+  `sentry-edge` sur le même `nginx`, `redis` multiple), 41 `declared_only`
+  / 41 `observed_only` dont écarts de nom (`homeassistant`,
+  `elasticsearch`, `hermes`, `graylog`). Preuve suivante : bindings
+  uniques, noms alignés, `unbound` et `uptime-kuma` OK avec preuve fraîche.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable

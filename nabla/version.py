@@ -34,7 +34,8 @@ def resolve_release_version() -> str:
 
 def resolve_build_revision() -> str:
     """Prefer the shipped source SHA over a possibly stale Cloud env variable."""
-    return DEPLOYED_BUILD_SHA or os.getenv("BUILD_REVISION", os.getenv("GIT_SHA", "")).strip()
+    # An empty BUILD_REVISION baked by an unstamped image build must not hide GIT_SHA.
+    return DEPLOYED_BUILD_SHA or (os.getenv("BUILD_REVISION") or os.getenv("GIT_SHA", "")).strip()
 
 
 API_VERSION = os.getenv("API_VERSION", os.getenv("APP_PREFIX_VERSION", "v0"))
@@ -47,6 +48,6 @@ __all__ = (
     "BUILD_REVISION",
     "RELEASE_VERSION",
     "RUNTIME_VERSION",
-    "resolve_release_version",
     "resolve_build_revision",
+    "resolve_release_version",
 )

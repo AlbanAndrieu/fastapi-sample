@@ -9,7 +9,10 @@ FastAPI Radar is intentionally not installed and is not an MCP server.
 | --- | --- | --- |
 | FastAPI development | `uv run fastapi dev` | `http://127.0.0.1:8000` unless a port is supplied |
 | Repository development | `uv run uvicorn server_all:app --reload --host 0.0.0.0 --port 8080` | `http://127.0.0.1:8080` |
-| Docker Compose API | `docker compose up api` | `http://127.0.0.1:8080` |
+| Docker Compose development stack | `docker compose -f docker-compose.yaml up` (`api`, `db`, `redis`) | `http://127.0.0.1:8080` |
+| Docker Compose production-like image | `docker compose -f docker-compose.yaml up fastapi-sample` (profile `prod`) | `http://127.0.0.1:${FASTAPI_PORT:-8080}` |
+| Docker Compose observability | `docker compose -f docker-compose.yaml --profile observability up prometheus grafana` | Prometheus `:9090`, Grafana `:3000` (loopback) |
+| TrueNAS runtime | `compose.yml` (default Compose file here), deployed as the TrueNAS `sample` app | `http://127.0.0.1:8091` on the TrueNAS host |
 | Production container | Gunicorn loads `server_all:app` | port `8080` |
 | Python console script | `app` loads `server_app:app` | configured by `EXPOSE_HOST` and `EXPOSE_PORT` |
 

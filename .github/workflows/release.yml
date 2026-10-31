@@ -166,6 +166,13 @@ jobs:
           repository="ghcr.io/${owner_lc}/fastapi-sample"
           echo "version_tag=${repository}:${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
           echo "latest_tag=${repository}:latest" >> "${GITHUB_OUTPUT}"
+          # github.sha is the dispatch default-branch HEAD, not the checked-out release tag.
+          revision="$(git rev-parse HEAD)"
+          if [[ ! "${revision}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid release revision: ${revision}" >&2
+            exit 1
+          fi
+          echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
           printf '%s' "${READ_PACKAGE_TOKEN:-not-configured}" > /tmp/read-package-token
 
       - name: Build and push release image
@@ -175,6 +182,7 @@ jobs:
           target: production
           build-args: |
             APP_VERSION=${{ needs.build.outputs.tag }}
+            BUILD_REVISION=${{ steps.container_meta.outputs.revision }}
           push: true
           tags: |
             ${{ steps.container_meta.outputs.version_tag }}

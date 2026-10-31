@@ -35,7 +35,12 @@ def _response_contains_cloudflare_default_deny(response: httpx.Response) -> bool
     content_type = response.headers.get("content-type", "").casefold()
     if content_type and not any(marker in content_type for marker in ("text/", "html", "xhtml")):
         return False
-    text = unescape(response.text[:_MAX_EDGE_BODY_CHARS])
+    return contains_cloudflare_default_deny(response.text)
+
+
+def contains_cloudflare_default_deny(body: str) -> bool:
+    """Detect the Cloudflare account-level Default-Deny page in a bounded body."""
+    text = unescape(body[:_MAX_EDGE_BODY_CHARS])
     plain = re.sub(r"<[^>]+>", " ", text)
     normalized = re.sub(r"\s+", " ", plain).strip().casefold()
     normalized = normalized.replace(chr(0x2019), "'")

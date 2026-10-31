@@ -62,14 +62,18 @@ RUN --mount=type=secret,id=read-package-token,required=false \
 FROM python:3.13-slim-trixie AS production
 
 ARG APP_VERSION="dev"
+# Full git SHA of the build context, exposed by /v2/version as build_revision.
+ARG BUILD_REVISION=""
 
 LABEL name="fastapi-sample" \
       vendor="sample" \
       org.opencontainers.image.source="https://github.com/AlbanAndrieu/fastapi-sample" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="${APP_VERSION}"
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${BUILD_REVISION}"
 
 ENV FASTAPI_ENV=production \
+    BUILD_REVISION=${BUILD_REVISION} \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYSETUP_PATH=/code \

@@ -9,5 +9,6 @@
       "Bash(uv run *)"
     ]
   },
+  "sandbox": { "enabled": false },
   "enabledMcpjsonServers": ["fastapi-sample", "github", "vercel", "sentry"]
 }

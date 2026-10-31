@@ -292,8 +292,14 @@ Incident-specific forensic evidence and recovery procedures remain in
 - [ ] Keep failures in the optional RAG backend out of core app liveness.
 - [ ] **SearXNG integration**: first establish the authoritative Compose service
 - [ ] **MCP SDK and pfSense**: pin/review SDK API changes; retain private
-- [ ] **Compose/Docker consolidation**: current references indicate
-- [ ] Audit references across Makefile, justfile, mise, Helm and workflows.
-- [ ] Build/smoke canonical `Dockerfile` + `docker-compose.yaml` locally.
-- [ ] Remove obsolete files only after reference and rollback checks pass.
+- [ ] **Compose/Docker consolidation**: `docker-compose.yml` is merged into the
+  canonical `docker-compose.yaml` (default dev stack `api`/`db`/`redis`;
+  profiles `prod` and `observability`). CODED; `docker compose config` validated.
+- [x] Audit references across Makefile, justfile, mise, Helm and workflows
+  (only CODEOWNERS, `.semgrepignore` and the entry-points doc named the files).
+- [ ] Build/smoke canonical `Dockerfile` + `docker-compose.yaml` locally. `NOT_RUN`.
+- [x] Remove obsolete files only after reference and rollback checks pass:
+  `docker-compose.yml` removed. Owner decision: the tracked root `compose.yml`
+  is the primary TrueNAS Compose file (precedence by default); `build.sh` and
+  the Makefile select `docker-compose.yaml` explicitly.
 - [ ] **P2 merge evidence**: for every changed contract, record targeted test,
