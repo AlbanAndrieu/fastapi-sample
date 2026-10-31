@@ -15,9 +15,9 @@
 
 | Priorité | Chantier | Dernière preuve vérifiable | Prochain jalon |
 | --- | --- | --- | --- |
-| **P0** | UI Cloud riche + OWNER, [PR #383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383) Draft | `just ui-quick` **37/37 PASS** au SHA `cb43c27b` sur TrueNAS et workstation ; L2 a modifié six JS lors du formatage | Revoir le diff, publier les corrections sur la PR, L1/L2/L3 sur le HEAD final |
-| **P0** | Recette navigateur | `?ui_safe=1` fonctionne selon l'opérateur ; `?ui_full=1` restait sur Loading ; aucun SHA Cloud déployé attesté | Chromium Cloud public/safe/rich/OWNER et preuve SHA de déploiement |
-| **P0** | Qualité de `master` et [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355) | Sur `7fbd2f61` : 28 échecs pytest ; correctifs **1879 pytest + 35 Node PASS** et L2 PASS sur une branche de travail distincte, non équivalents à une preuve actuelle de `master` | Gate complète au HEAD candidat, puis deux runs `master` réussis avant clôture de #355 |
+| **P0** | UI Cloud riche + OWNER, [PR #383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383) fusionnée le 30/10 | `just ui-quick` **37/37 PASS** au SHA `cb43c27b` sur TrueNAS et workstation ; L2 a modifié six JS lors du formatage | Revoir le diff, publier les corrections sur la PR, L1/L2/L3 sur le HEAD final |
+| **P0** | Recette navigateur | 31/10 Cloud `1.26.3` : `?ui_full=1` gèle le thread (boucle `MutationObserver` du drawer, cause prouvée par pile CDP) ; correctif validé par injection Chromium ; `build_revision` Cloud `null` | Déployer le correctif, rejouer les 5 modes Chromium sur l'image et attester le SHA |
+| **P0** | Qualité de `master` et [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355) | Sur `7fbd2f61` : 28 échecs pytest ; correctifs **1879 pytest + 35 Node PASS** et L2 PASS sur une branche de travail distincte, non équivalents à une preuve actuelle de `master` | Gate complète au HEAD candidat, puis deux runs master réussis avant clôture de #355 |
 | **P1** | OWNER mobile + TrueNAS Docker | Ancien build `0266f20d` refusé en étape 3/6 ; dernière recette réussie `fa13c08d` | Classer le journal privé, accepter un build 6/6 récent, puis session OWNER authentifiée en HTTPS |
 | **P1** | Gatus / Prometheus | 85 sondes déclarées, **61 UP / 24 DOWN** historiques (26/10) ; `up{job="fastapi_sample"}=1` signalé le 30/10, 22/28 targets globalement UP | Comparer état et fraîcheur par service, confirmer auth scrape et corriger les exporters défaillants |
 | **P1** | Cartes et graphe | UI et liens prévus dans le code, recette interactive non attestée | Navigation par ID canonique, filtres mobiles, états DNS/TCP/TLS/HTTP/auth/métriques et horodatage |
@@ -46,14 +46,21 @@
   mesurer en vrai Chromium `/api`, `?ui_safe=1`, `?ui_full=1`,
   `?operator=1` et `?operator=1&ui_full=1` (avant/après session).
   Séparer `main_thread_unresponsive`, `ui_loading_without_content`
-  et `http_access_restricted`.
+  et `http_access_restricted`. **31/10 :** seul `?ui_full=1` est
+  `main_thread_unresponsive` sur `1.26.3` ; cause et correctif dans
+  [incidents](incidents.md). Reste : rejouer après déploiement, puis
+  exposer un SHA Cloud (`/v2/version` rend `build_revision: null`).
 - [ ] **Publication :** faire relire puis déployer via le circuit autorisé,
   sans merge ou déploiement automatique ; confirmer les interactions sur
   l'image déployée.
 - [ ] **Qualité master :** vérifier la présence sur `master` des correctifs
   aux 28 anciens échecs et exécuter la suite complète. Ne fermer
   [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355)
-  qu'après deux runs réels `master` consécutifs verts.
+  qu'après deux runs réels `master` consécutifs verts. **31/10 :** sur
+  `08f8f5f6` (1.26.3), 3 contrats échouaient (taille et fin de
+  `api-health.js` après #383, phrases de roadmap) ; corrigés sur
+  `fix/ui-full-drawer-observer-loop-20261031` avec 1884 pytest et
+  `just ui-quick` 40/40, L2 PASS. Reste : L3 et runs `master`.
 
 **Done P0 :** tableau riche interactif sans gel ; accès OWNER disponible
 sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
@@ -114,15 +121,17 @@ pour chaque service et refus WAN correct.
 ## Documentation et séquence de reprise
 
 1. [Guide local-first](../.agents/skills/local-first-quality/SKILL.md) :
-   `just agent-context ui` → `just ui-quick` → L2 → L3 ;
-   utiliser le skill FastAPI, **pas** les recettes `mise agent-loop`
-   propres à Compose.
+    `just agent-context ui` → `just ui-quick` → L2 → L3 ;
+    utiliser le skill FastAPI, **pas** les recettes `mise agent-loop`
+    propres à Compose.
 2. [Gel UI Cloud](runbooks/fastapi-cloud-api-ui-freeze-20261026.md) :
-   classifier navigateur, API et authentification.
+    classifier navigateur, API et authentification.
 3. [Recette Cloud/TrueNAS/OWNER](runbooks/fastapi-truenas-owner-acceptance-20261029.md) :
-   checkout isolé, contrôle sans secrets et GO manuel.
+    checkout isolé, contrôle sans secrets et GO manuel.
 4. [Incidents](incidents.md) : preuves datées ; [backlog](engineering-backlog.md) :
-   anciens travaux à requalifier, sans les promouvoir automatiquement en P0.
+    anciens travaux à requalifier, sans les promouvoir automatiquement en P0.
+5. [Roadmap avant consolidation](archive/2026-10-29/engineering-roadmap-before-consolidation.md) :
+    historique en lecture seule.
 
 **Responsabilités :** FastAPI = API, interface, sonde et DTO ;
 [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose) = déploiement
