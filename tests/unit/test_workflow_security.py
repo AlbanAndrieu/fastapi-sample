@@ -189,6 +189,8 @@ def test_pytest_steps_have_deadlines_and_explicit_failure_evidence() -> None:
     assert "timeout --signal=TERM --kill-after=30s 12m" in script
     assert "PYTEST_TIMEOUT" in script
     assert "PYTEST_KILLED" in script
+    assert "-vv --durations=10 -o faulthandler_timeout=90" in script
+    assert "-o faulthandler_timeout=60" in isolated["run"]
     assert "tail -n 180 pytest.log" in script
     assert "exit " in script
 

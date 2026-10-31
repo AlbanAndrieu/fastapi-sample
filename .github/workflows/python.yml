@@ -138,7 +138,7 @@ jobs:
             tests/unit/test_opencode_agent_contract.py
             tests/unit/test_workflow_security.py
           )
-          pytest_args=(-q --noconftest --disable-warnings --maxfail=1)
+          pytest_args=(-vv --noconftest --disable-warnings --maxfail=1 -o faulthandler_timeout=60)
           timeout --signal=TERM --kill-after=30s 6m env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
 
       - name: Save pre-commit environments
@@ -229,7 +229,7 @@ jobs:
         run: |
           started="${SECONDS}"
           set +e
-          timeout --signal=TERM --kill-after=30s 12m uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
+          timeout --signal=TERM --kill-after=30s 12m uv run --no-sync pytest -vv --durations=10 -o faulthandler_timeout=90 --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
           rc=$?
           set -e
           printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
