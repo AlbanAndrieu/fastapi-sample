@@ -149,3 +149,81 @@ def test_local_reusable_workflows_use_self_repository_syntax() -> None:
     actionlint = yaml.safe_load((ROOT / ".github" / "actionlint.yaml").read_text(encoding="utf-8"))
     ignores = actionlint["paths"][".github/workflows/**/*.{yml,yaml}"]["ignore"]
     assert any(pattern.startswith('reusable workflow call "\\$/') for pattern in ignores)
+
+
+def test_pypi_publisher_is_pinned_to_security_fixed_release() -> None:
+    """GHSA-5xjx-3w67-w9x9: both trusted publishers must use patched v1.14.3."""
+    release = (WORKFLOWS / "release.yml").read_text(encoding="utf-8")
+    patched = "pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3"
+    assert release.count("uses: " + patched) == 2
+    assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" not in release
+
+
+def test_every_runner_job_has_a_bounded_execution_budget() -> None:
+    """Reusable-workflow callers inherit their callee job timeouts."""
+    checked = 0
+    for workflow_path, content in _workflow_texts():
+        workflow = yaml.safe_load(content)
+        for job_name, job in workflow.get("jobs", {}).items():
+            if "uses" in job:
+                continue  # GitHub disallows timeout-minutes on reusable workflow callers.
+            assert "runs-on" in job, f"{workflow_path.name}/{job_name}: no runner"
+            budget = job.get("timeout-minutes")
+            assert type(budget) is int and 5 <= budget <= 60, (
+                f"{workflow_path.name}/{job_name}: timeout-minutes must be 5..60; got {budget!r}"
+            )
+            checked += 1
+    assert checked >= 20
+
+
+def test_pytest_steps_have_deadlines_and_explicit_failure_evidence() -> None:
+    python_ci = yaml.safe_load((WORKFLOWS / "python.yml").read_text(encoding="utf-8"))
+    preflight = python_ci["jobs"]["preflight"]["steps"]
+    build = python_ci["jobs"]["build"]["steps"]
+    audit = next(step for step in preflight if step.get("name", "").startswith("Lint and audit every"))
+    assert audit["timeout-minutes"] == 10
+    isolated = next(step for step in preflight if step.get("name") == "Run isolated quality-contract tests")
+    assert "timeout --signal=TERM --kill-after=30s 6m" in isolated["run"]
+    suite = next(step for step in build if step.get("name") == "Run repository pytest suite after dependency sync")
+    script = suite["run"]
+    assert "timeout --signal=TERM --kill-after=30s 12m" in script
+    assert "PYTEST_TIMEOUT" in script
+    assert "PYTEST_KILLED" in script
+    assert "tail -n 180 pytest.log" in script
+    assert "exit " in script
+
+
+def test_gnu_timeout_terminates_a_stalled_child() -> None:
+    """Behavioral smoke: timeout ends a sleeping process instead of hanging CI."""
+    import shutil
+    import subprocess
+    import sys
+
+    if shutil.which("timeout") is None:
+        import pytest
+
+        pytest.skip("GNU timeout is required by Ubuntu CI; not present on this host")
+    result = subprocess.run(
+        [
+            "timeout",
+            "--signal=TERM",
+            "--kill-after=1s",
+            "0.2s",
+            sys.executable,
+            "-c",
+            "import time; time.sleep(5)",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    assert result.returncode == 124
+
+
+def test_setup_python_pins_document_exact_verified_tag() -> None:
+    """Keep SHA and version comment in agreement so zizmor can audit them."""
+    pinned = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0"
+    matches = [line for _, text in _workflow_texts() for line in text.splitlines() if "uses: actions/setup-python@" in line]
+    assert len(matches) >= 6
+    assert all(pinned in line for line in matches)

@@ -31,6 +31,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: Fast deterministic quality gate
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       maintenance_only: ${{ steps.ci_scope.outputs.maintenance_only }}
       application: ${{ steps.ci_scope.outputs.application }}
@@ -71,7 +72,7 @@ jobs:
           fi
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -97,6 +98,7 @@ jobs:
           uv pip install --python .venv/bin/python pre-commit==4.6.2
 
       - name: Run agent CI preflight before project dependency sync
+        timeout-minutes: 20
         id: agent_preflight
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
@@ -110,6 +112,7 @@ jobs:
           printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
 
       - name: Lint and audit every GitHub workflow (actionlint, zizmor)
+        timeout-minutes: 10
         env:
           # zizmor online audits (archived-uses, known-vulnerable-actions).
           GH_TOKEN: ${{ github.token }}
@@ -136,7 +139,7 @@ jobs:
             tests/unit/test_workflow_security.py
           )
           pytest_args=(-q --noconftest --disable-warnings --maxfail=1)
-          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
+          timeout --signal=TERM --kill-after=30s 6m env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
@@ -157,6 +160,7 @@ jobs:
     if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.preflight.outputs.dependencies == 'true' }}
     name: Test dependencies and optionally build Python package
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     outputs:
       application_build_required: ${{ needs.preflight.outputs.build }}
     env:
@@ -190,7 +194,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -225,11 +229,16 @@ jobs:
         run: |
           started="${SECONDS}"
           set +e
-          uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
+          timeout --signal=TERM --kill-after=30s 12m uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
           rc=$?
           set -e
           printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
           if ((rc != 0)); then
+            if ((rc == 124)); then
+              echo "::error::PYTEST_TIMEOUT: tests exceeded the 12-minute limit; inspect pytest.log."
+            elif ((rc == 137)); then
+              echo "::error::PYTEST_KILLED: process received SIGKILL; inspect runner resources and timeout logs."
+            fi
             echo "::group::pytest failure · last 180 lines"
             tail -n 180 pytest.log
             echo "::endgroup::"
@@ -300,6 +309,7 @@ jobs:
     needs: build
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       PYTHON_VERSION: "3.13"
       REDIS_INTEGRATION_URL: redis://127.0.0.1:6379/15
@@ -341,7 +351,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -366,6 +376,7 @@ jobs:
     needs: build
     if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
