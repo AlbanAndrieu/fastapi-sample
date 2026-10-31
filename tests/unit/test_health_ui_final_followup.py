@@ -11,7 +11,10 @@ def test_final_followup_is_loaded_last() -> None:
     stylesheet = (ASSETS / "api.css").read_text(encoding="utf-8")
 
     assert 'from "./api-health-ui-final-followup.js"' in entrypoint
-    assert entrypoint.rstrip().endswith("void bootstrapHealthUi();")
+    # The lightweight entry listens for this event to keep the public fallback (#383).
+    assert entrypoint.rstrip().endswith(
+        'void bootstrapHealthUi().catch(() => {\n  document.dispatchEvent(new Event("health-board-bootstrap-failed"));\n});',
+    )
     # Final overrides must run after every other health-UI installer; only the
     # separate read-only public fallback (#378) may follow them.
     final_call = entrypoint.index("  installHealthUiFinalFollowup();")

@@ -1,5 +1,6 @@
 """Contracts for the health-board service detail drawer."""
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,7 +35,7 @@ def test_detail_drawer_reuses_existing_row_metadata_and_probe_evidence() -> None
     assert "dataset?.serviceName" in source
     assert "dataset?.semanticStatus" in source
     assert 'row.querySelectorAll(".service-probe")' in source
-    assert 'probe.getAttribute("aria-label") || probe.title' in source
+    assert re.search(r'probe\.getAttribute\("aria-label"\)\s*\|\|\s*probe\.title', source)
     assert "data-service-filter-target" in source
 
 

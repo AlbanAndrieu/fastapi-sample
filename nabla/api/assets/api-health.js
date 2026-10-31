@@ -31,8 +31,7 @@ import { installServiceProbePlanes } from "./api-service-probe-planes.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
-// Temporary read-only diagnostics restore the detailed probe dashboard without
-// granting the browser an owner identity or access to mutation endpoints.
+// Read-only diagnostics restore the probe dashboard without owner identity or mutations.
 async function bootstrapHealthUi() {
   const params = new URLSearchParams(window.location.search);
   // The public directory is the resilient default: even healthy /api and
@@ -94,9 +93,7 @@ async function bootstrapHealthUi() {
   if (!authenticated) await visibility.installReadOnlyPublicFallback();
 }
 
-// An import() resolves when the ESM module evaluates, even if the
-// asynchronous bootstrap rejects afterwards. Notify the lightweight entry
-// without leaking stack traces, credentials or internal diagnostic data.
+// import() resolves before this async bootstrap; notify the entry without error details.
 void bootstrapHealthUi().catch(() => {
   document.dispatchEvent(new Event("health-board-bootstrap-failed"));
 });

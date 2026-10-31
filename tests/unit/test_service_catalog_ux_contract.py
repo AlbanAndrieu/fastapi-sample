@@ -1,5 +1,6 @@
 """Offline contract for service diagnostics drawers and Gatus fleet coverage."""
 
+import re
 from pathlib import Path
 
 ASSETS = Path(__file__).resolve().parents[2] / "nabla/api/assets"
@@ -15,12 +16,12 @@ def test_drawer_links_only_observed_canonical_catalogue_rows() -> None:
     groups = read("api-service-groups.js")
     assert "fetchTopology()" in drawer
     assert "latestTopology = topology" in drawer
-    assert 'row.dataset.topologyId === id' in drawer
+    assert "row.dataset.topologyId === id" in drawer
     assert "renderRelations(drawer, row)" in drawer
     assert "Upstream / dependencies" in drawer
     assert "Downstream / dependents" in drawer
-    assert "openDrawer(target" in drawer
-    assert 'row.dataset.topologyId = String(node.id)' in groups
+    assert re.search(r"openDrawer\(\s*target", drawer)
+    assert "row.dataset.topologyId = String(node.id)" in groups
     assert "ID_PATTERN" in links
     assert "nodes.has(edge.source)" in links
     assert "nodes.has(edge.target)" in links
@@ -48,7 +49,7 @@ def test_gatus_probe_failure_does_not_claim_entire_fleet_is_green() -> None:
     assert "generated_at" in summary
     assert "snapshot_stale_or_missing_timestamp" in summary
     assert "synthetic?.truncated !== true" in summary
-    assert 'value === 0 || value === 1' in summary
+    assert "value === 0 || value === 1" in summary
     assert "fleet.down > 0" in card
     assert '"partial_coverage"' in card
     assert "fleet.observedServices" in drawer
@@ -65,8 +66,8 @@ def test_no_per_card_gatus_or_prometheus_network_calls() -> None:
     drawer = read("api-service-detail-drawer.js")
     for module in (summary, relations, cards):
         assert "fetch(" not in module
-    assert 'fetchHealthBoard()' in drawer
-    assert 'fetchTopology()' in drawer
+    assert "fetchHealthBoard()" in drawer
+    assert "fetchTopology()" in drawer
     assert "/api/v1/targets" not in drawer
     assert "/api/v1/endpoints/statuses" not in drawer
     assert "eval(" not in drawer

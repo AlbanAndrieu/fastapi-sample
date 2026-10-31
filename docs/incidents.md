@@ -11,11 +11,11 @@ Always separate these layers before declaring a platform or service DOWN:
 
 1. **network transport** — DNS/TCP/TLS reached the intended peer;
 2. **application/control plane** — the HTTP/API operation returned an acceptable
-   result;
+    result;
 3. **authentication/authorization** — credentials were actually evaluated;
 4. **workload state** — the application or VM/container is running;
 5. **dependency evidence** — provider telemetry may be unavailable without the
-   workload itself being unavailable.
+    workload itself being unavailable.
 
 A timeout, HTTP 404/502, provider API error or missing telemetry is evidence for
 one layer only. Do not collapse it into a global outage without corroboration.
@@ -293,6 +293,20 @@ OWNER handling or read-only permission has been checked. Its L1 test
 suite passed 37/37 at `cb43c27b`, while full quality and Chromium
 acceptance were still pending. No fix is yet accepted on an attested
 Cloud deployment SHA.
+
+**Runtime root cause (31 October, Cloud `1.26.3`)**
+
+Headless Chrome on `/api?ui_full=1` timed out every `evaluate` (8 s)
+while public, `ui_safe`, `operator` and `operator&ui_full` answered in
+under 20 ms. CDP `Debugger.pause` stacks all landed in
+`api-service-detail-drawer.js` `ensureDetailTrigger`, called from the
+`observeRows` `MutationObserver`. `classList.add` rewrites the `class`
+attribute even when the token is present, so each callback queued a new
+`class` mutation on the observed row: an endless microtask loop.
+Serving the guarded module through Playwright routing on the same Cloud
+page rendered 25 detail triggers, opened a drawer, and kept `evaluate`
+at 2-13 ms. Recurrence rule: in an observer callback, never write an
+attribute (including `classList.add`/`toggle`) without comparing first.
 
 **Recognition and closure**
 

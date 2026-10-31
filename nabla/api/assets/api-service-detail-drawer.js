@@ -1,8 +1,19 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { gatusCoverage, gatusCatalogueCoverage } from "./api-service-gatus-coverage.js";
+import {
+  EVIDENCE_GROUPS,
+  evidenceAdvice,
+  evidenceCounts,
+  evidenceGroup,
+  requestedServiceId,
+  sanitizedEvidence,
+  validServiceId,
+} from "./api-service-evidence-ux.js";
+import {
+  gatusCatalogueCoverage,
+  gatusCoverage,
+} from "./api-service-gatus-coverage.js";
 import { serviceRelations } from "./api-service-relations.js";
 import { fetchTopology } from "./api-topology-data.js";
-import { EVIDENCE_GROUPS, evidenceAdvice, evidenceCounts, evidenceGroup, requestedServiceId, sanitizedEvidence, validServiceId } from "./api-service-evidence-ux.js";
 
 const ROW_SELECTOR = "[data-service-filter-target]";
 const OBSERVED_CONTAINERS = [
@@ -91,8 +102,12 @@ function metadataEntries(row) {
     ["Local health", row.dataset.localState],
     ["Dependency health", row.dataset.dependencyState],
     ["Risk", row.dataset.riskState],
-    ["Downstream impact", Number(row.dataset.downstreamCount) > 0
-      ? row.dataset.downstreamCount : ""],
+    [
+      "Downstream impact",
+      Number(row.dataset.downstreamCount) > 0
+        ? row.dataset.downstreamCount
+        : "",
+    ],
     ["Change", row.dataset.healthChange],
   ];
   return entries.filter(([, value]) => String(value || "").trim());
@@ -102,22 +117,24 @@ function probeEntries(row) {
   return [...row.querySelectorAll(".service-probe")]
     .filter((probe) => probe.dataset.probeKind !== "issues")
     .map((probe) => ({
-    kind: probe.dataset.probeKind || "probe",
-    label:
-      probe.querySelector(".service-probe-label")?.textContent?.trim() ||
-      probe.dataset.probeKind ||
-      "Probe",
-    icon:
-      probe.querySelector(".service-probe-icon")?.textContent?.trim() || "•",
-    href: probe instanceof HTMLAnchorElement ? safeHttpUrl(probe.href) : null,
-    detail:
-      probe.getAttribute("aria-label") || probe.title || "No detail available",
-    tone:
-      [...probe.classList]
-        .find((name) => name.startsWith("service-probe--"))
-        ?.replace("service-probe--", "") || "unknown",
-    disabled: probe.dataset.probeDisabled === "true",
-  }));
+      kind: probe.dataset.probeKind || "probe",
+      label:
+        probe.querySelector(".service-probe-label")?.textContent?.trim() ||
+        probe.dataset.probeKind ||
+        "Probe",
+      icon:
+        probe.querySelector(".service-probe-icon")?.textContent?.trim() || "•",
+      href: probe instanceof HTMLAnchorElement ? safeHttpUrl(probe.href) : null,
+      detail:
+        probe.getAttribute("aria-label") ||
+        probe.title ||
+        "No detail available",
+      tone:
+        [...probe.classList]
+          .find((name) => name.startsWith("service-probe--"))
+          ?.replace("service-probe--", "") || "unknown",
+      disabled: probe.dataset.probeDisabled === "true",
+    }));
 }
 
 function drawerSignature(row) {
@@ -179,11 +196,18 @@ function ensureDrawer() {
     ?.addEventListener("click", () => {
       closeDrawer();
     });
-  drawer.querySelector("#service-detail-back")?.addEventListener("click", () => {
-    const previous = navigationTrail.pop();
-    const target = previous && matchingCatalogueRow(previous);
-    if (target) openDrawer(target, target.querySelector(":scope > .service-detail-trigger"), { recordTrail: false });
-  });
+  drawer
+    .querySelector("#service-detail-back")
+    ?.addEventListener("click", () => {
+      const previous = navigationTrail.pop();
+      const target = previous && matchingCatalogueRow(previous);
+      if (target)
+        openDrawer(
+          target,
+          target.querySelector(":scope > .service-detail-trigger"),
+          { recordTrail: false },
+        );
+    });
   document.body.appendChild(drawer);
   return drawer;
 }
@@ -211,10 +235,11 @@ function renderLink(drawer, row) {
   const key = catalogueRouteId(row);
   // Match only by stable catalog ID. A shared TrueNAS IP must never
   // assign another service's S3/Admin/WebUI URL to this card.
-  const service = (latestSnapshot?.homelab?.services || [])
-    .find((entry) => entry?.id === key);
-  const configured = safeHttpUrl(service?.url) ||
-    safeHttpUrl(row.dataset.serviceUrl);
+  const service = (latestSnapshot?.homelab?.services || []).find(
+    (entry) => entry?.id === key,
+  );
+  const configured =
+    safeHttpUrl(service?.url) || safeHttpUrl(row.dataset.serviceUrl);
   const internal = safeHttpUrl(service?.internal_endpoint_url);
 
   const heading = document.createElement("strong");
@@ -276,19 +301,22 @@ function renderExposurePolicy(drawer, row) {
   host?.replaceChildren();
   if (!host) return;
   const verdict = String(row.dataset.exposureVerdict || "unknown");
-  const summary = String(row.dataset.exposureSummary || "Exposure policy not verified");
+  const summary = String(
+    row.dataset.exposureSummary || "Exposure policy not verified",
+  );
   host.dataset.exposureVerdict = verdict;
   const status = document.createElement("strong");
   status.className = "service-detail-exposure-verdict";
   status.textContent = summary;
   // The /sickz badge already contains the policy rule and its observed
   // reason. Render that evidence as text instead of hiding it in a tooltip.
-  const reason = row.querySelector(
-    '.service-probe[data-probe-kind="policy"]'
-  )?.getAttribute("aria-label");
+  const reason = row
+    .querySelector('.service-probe[data-probe-kind="policy"]')
+    ?.getAttribute("aria-label");
   const explanation = document.createElement("p");
   explanation.className = "service-detail-exposure-reason";
-  explanation.textContent = reason ||
+  explanation.textContent =
+    reason ||
     "Policy evidence unavailable. Check /sickz; no network status is inferred.";
   const description = document.createElement("p");
   description.textContent =
@@ -304,18 +332,25 @@ function renderExposurePolicy(drawer, row) {
   const exposureRow = key && document.getElementById(`service-exposure-${key}`);
   sickzLink.href = exposureRow ? `#${exposureRow.id}` : "#sickz-checks";
   sickzLink.textContent = "Review /sickz outside-in evidence";
-  sickzLink.addEventListener("click", () => closeDrawer({ restoreFocus: false }));
+  sickzLink.addEventListener("click", () =>
+    closeDrawer({ restoreFocus: false }),
+  );
   host.append(status, explanation, description, sickzLink);
 }
 
 function renderEvidence(drawer, row) {
   const host = drawer.querySelector("#service-detail-evidence");
   if (!host) return;
-  const selectedId = catalogueRouteId(row) || String(row.dataset.serviceKey || "");
+  const selectedId =
+    catalogueRouteId(row) || String(row.dataset.serviceKey || "");
   const preserving = host.dataset.selectedService === selectedId;
   const existing = [...host.querySelectorAll(".service-detail-evidence-group")];
   const openCategories = new Set(
-    preserving ? existing.filter((group) => group.open).map((group) => group.dataset.group) : [],
+    preserving
+      ? existing
+          .filter((group) => group.open)
+          .map((group) => group.dataset.group)
+      : [],
   );
   const hadGroups = preserving && existing.length > 0;
   host.dataset.selectedService = selectedId;
@@ -330,56 +365,95 @@ function renderEvidence(drawer, row) {
   checkbox.addEventListener("change", () => {
     evidenceIssuesOnly = checkbox.checked;
     renderEvidence(drawer, row);
-    host.querySelector(".service-detail-issues-filter input")?.focus({ preventScroll: true });
+    host
+      .querySelector(".service-detail-issues-filter input")
+      ?.focus({ preventScroll: true });
   });
-  filter.append(checkbox, document.createTextNode(" Show failed and warning signals only"));
+  filter.append(
+    checkbox,
+    document.createTextNode(" Show failed and warning signals only"),
+  );
   const count = document.createElement("small");
-  count.textContent = counts.failed + " failed · " + counts.warning + " warning · " +
-    counts.info + " protected · " + counts.unknown + " unknown · " + counts.notRun + " not run";
+  count.textContent =
+    counts.failed +
+    " failed · " +
+    counts.warning +
+    " warning · " +
+    counts.info +
+    " protected · " +
+    counts.unknown +
+    " unknown · " +
+    counts.notRun +
+    " not run";
   host.append(filter, count);
   if (probes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
-    empty.textContent = "No probe evidence attached; service health is unverified.";
+    empty.textContent =
+      "No probe evidence attached; service health is unverified.";
     host.appendChild(empty);
     return;
   }
   const rank = { fail: 0, warn: 1, info: 2, unknown: 3, neutral: 4, ok: 5 };
-  const visible = probes.filter((probe) => !evidenceIssuesOnly ||
-    (!probe.disabled && ["fail", "warn"].includes(probe.tone)));
+  const visible = probes.filter(
+    (probe) =>
+      !evidenceIssuesOnly ||
+      (!probe.disabled && ["fail", "warn"].includes(probe.tone)),
+  );
   if (visible.length === 0) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
-    empty.textContent = "No failed or warning probes in the observed snapshot. Unknown or missing checks are not evidence of success.";
+    empty.textContent =
+      "No failed or warning probes in the observed snapshot. Unknown or missing checks are not evidence of success.";
     host.appendChild(empty);
     return;
   }
   // Prioritize families with confirmed failures across category boundaries.
   const categories = EVIDENCE_GROUPS.map((category, order) => ({
-    category, order,
-    grouped: visible.filter((probe) => evidenceGroup(probe) === category)
+    category,
+    order,
+    grouped: visible
+      .filter((probe) => evidenceGroup(probe) === category)
       .sort((left, right) => (rank[left.tone] ?? 2) - (rank[right.tone] ?? 2)),
-  })).filter((item) => item.grouped.length > 0)
+  }))
+    .filter((item) => item.grouped.length > 0)
     .sort((left, right) => {
-      const minRank = (group) => Math.min(...group.map((probe) =>
-        probe.disabled ? 3 : (rank[probe.tone] ?? 2)));
-      return minRank(left.grouped) - minRank(right.grouped) ||
-        left.order - right.order;
+      const minRank = (group) =>
+        Math.min(
+          ...group.map((probe) =>
+            probe.disabled ? 3 : (rank[probe.tone] ?? 2),
+          ),
+        );
+      return (
+        minRank(left.grouped) - minRank(right.grouped) ||
+        left.order - right.order
+      );
     });
   for (const { category, grouped } of categories) {
     const section = document.createElement("details");
     section.className = "service-detail-evidence-group";
     section.dataset.group = category;
-    section.open = evidenceIssuesOnly || openCategories.has(category) ||
-      (!hadGroups && grouped.some((probe) => ["fail", "warn"].includes(probe.tone)));
+    section.open =
+      evidenceIssuesOnly ||
+      openCategories.has(category) ||
+      (!hadGroups &&
+        grouped.some((probe) => ["fail", "warn"].includes(probe.tone)));
     const summary = document.createElement("summary");
-    const failures = grouped.filter((probe) => probe.tone === "fail" && !probe.disabled).length;
-    summary.textContent = category + " · " + grouped.length + " signals" +
+    const failures = grouped.filter(
+      (probe) => probe.tone === "fail" && !probe.disabled,
+    ).length;
+    summary.textContent =
+      category +
+      " · " +
+      grouped.length +
+      " signals" +
       (failures ? " · " + failures + " FAILED" : "");
     section.appendChild(summary);
     for (const probe of grouped) {
       const item = document.createElement("article");
-      item.className = "service-detail-probe service-detail-probe--" + (probe.disabled ? "unknown" : probe.tone);
+      item.className =
+        "service-detail-probe service-detail-probe--" +
+        (probe.disabled ? "unknown" : probe.tone);
       if (probe.disabled) item.dataset.disabled = "true";
       const heading = document.createElement("div");
       heading.className = "service-detail-probe-heading";
@@ -402,11 +476,17 @@ function renderEvidence(drawer, row) {
       heading.appendChild(labelWrap);
       const state = document.createElement("span");
       state.className = "service-detail-probe-state";
-      state.textContent = probe.disabled ? "NOT RUN" :
-        probe.tone === "ok" ? "UP" :
-        probe.tone === "fail" ? "FAILED" :
-        probe.tone === "warn" ? "WARNING" :
-        probe.tone === "info" ? "AUTH REQUIRED · EXPECTED" : "UNVERIFIED";
+      state.textContent = probe.disabled
+        ? "NOT RUN"
+        : probe.tone === "ok"
+          ? "UP"
+          : probe.tone === "fail"
+            ? "FAILED"
+            : probe.tone === "warn"
+              ? "WARNING"
+              : probe.tone === "info"
+                ? "AUTH REQUIRED · EXPECTED"
+                : "UNVERIFIED";
       heading.appendChild(state);
       const detail = document.createElement("p");
       detail.textContent = sanitizedEvidence(probe.detail);
@@ -434,14 +514,16 @@ function matchingCatalogueRow(id) {
     (row) =>
       row.dataset.topologyId === id ||
       row.dataset.serviceKey === id ||
-      row.dataset.serviceKey?.replace(/^albandrieu_/, "").replaceAll("_", "-") === id,
+      row.dataset.serviceKey
+        ?.replace(/^albandrieu_/, "")
+        .replaceAll("_", "-") === id,
   );
   // Never choose an arbitrary destination when multiple cards share an ID.
   if (candidates.length === 1) return candidates[0];
   // The health and external views may contain the same canonical identity.
   // Prefer the canonical grouped health service without guessing by name.
   const primary = candidates.filter((row) =>
-    row.closest("#health-services-groups")
+    row.closest("#health-services-groups"),
   );
   return primary.length === 1 ? primary[0] : null;
 }
@@ -455,20 +537,28 @@ function linkedCatalogueItem(entry, { status = "", type = "" } = {}) {
     link.type = "button";
     link.className = "service-detail-relation-link";
     link.addEventListener("click", () => {
-      openDrawer(target, target.querySelector(":scope > .service-detail-trigger"));
+      openDrawer(
+        target,
+        target.querySelector(":scope > .service-detail-trigger"),
+      );
     });
     link.setAttribute("aria-label", `View ${entry.name} service diagnostics`);
   }
-  link.textContent = target && entry.name === entry.id
-    ? displayName(target)
-    : entry.name;
+  link.textContent =
+    target && entry.name === entry.id ? displayName(target) : entry.name;
   wrap.appendChild(link);
   const detail = document.createElement("small");
-  const cardState = target ? `card: ${normalizedStatus(target)}` : "card not shown";
+  const cardState = target
+    ? `card: ${normalizedStatus(target)}`
+    : "card not shown";
   detail.textContent = [
-    type || entry.type, status, entry.required ? "required" : "",
+    type || entry.type,
+    status,
+    entry.required ? "required" : "",
     cardState,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
   wrap.appendChild(detail);
   return wrap;
 }
@@ -491,7 +581,7 @@ function renderRelations(drawer, row) {
     title.className = "service-detail-relation-group";
     title.textContent = label;
     host.appendChild(title);
-    items.forEach((item) => host.appendChild(linkedCatalogueItem(item)));
+    for (const item of items) host.appendChild(linkedCatalogueItem(item));
   }
   if (!found) {
     const empty = document.createElement("p");
@@ -510,15 +600,19 @@ function renderProbeSummary(drawer, row) {
   const failed = probes.filter((probe) => probe.tone === "fail").length;
   const warnings = probes.filter((probe) => probe.tone === "warn").length;
   const protectedCount = probes.filter((probe) => probe.tone === "info").length;
-  const unknown = probes.filter((probe) =>
-    !["ok", "fail", "warn", "info"].includes(probe.tone)
+  const unknown = probes.filter(
+    (probe) => !["ok", "fail", "warn", "info"].includes(probe.tone),
   ).length;
   const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
   const timestamp = latestSnapshot?.platform_metrics?.generated_at;
-  const observationTime = Number.isFinite(Date.parse(timestamp)) ? " · Metrics snapshot: " + new Date(timestamp).toLocaleString() : " · Metrics snapshot: unverified";
+  const observationTime = Number.isFinite(Date.parse(timestamp))
+    ? " · Metrics snapshot: " + new Date(timestamp).toLocaleString()
+    : " · Metrics snapshot: unverified";
   host.textContent = probes.length
-    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${protectedCount} auth expected · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` + observationTime
-    : "No direct probe evidence; this is not proof of service health." + observationTime;
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${protectedCount} auth expected · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` +
+      observationTime
+    : "No direct probe evidence; this is not proof of service health." +
+      observationTime;
   host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
 }
 
@@ -527,42 +621,67 @@ function renderGatusFleet(drawer, row) {
   const host = drawer.querySelector("#service-detail-gatus");
   if (!host || !section) return;
   host.replaceChildren();
-  const isGatus = row.dataset.serviceKey === "gatus" ||
+  const isGatus =
+    row.dataset.serviceKey === "gatus" ||
     row.dataset.topologyId === "gatus" ||
     row.dataset.serviceKey === "albandrieu_gatus";
   section.hidden = !isGatus;
   if (!isGatus) return;
   const fleet = gatusCoverage(latestSnapshot);
-  const ids = [...new Set([...document.querySelectorAll(
-    "#health-services-groups [data-service-filter-target]"
-  )].map((card) => catalogueRouteId(card)).filter(Boolean))];
+  const ids = [
+    ...new Set(
+      [
+        ...document.querySelectorAll(
+          "#health-services-groups [data-service-filter-target]",
+        ),
+      ]
+        .map((card) => catalogueRouteId(card))
+        .filter(Boolean),
+    ),
+  ];
   const catalogue = gatusCatalogueCoverage(latestSnapshot, ids);
   const coverageSummary = document.createElement("p");
   coverageSummary.className = "service-detail-coverage";
-  coverageSummary.textContent = catalogue.state === "observed"
-    ? "Catalogue sampled: " + catalogue.withSamples + "/" + catalogue.catalogueTotal +
-      " visible cards · " + catalogue.withoutSamples.length + " with no labelled sample. " +
-      "Gatus monitor configuration parity has not been verified."
-    : "Catalogue coverage unknown: " + catalogue.reason +
-      ". No monitor can be marked UP from this snapshot.";
+  coverageSummary.textContent =
+    catalogue.state === "observed"
+      ? "Catalogue sampled: " +
+        catalogue.withSamples +
+        "/" +
+        catalogue.catalogueTotal +
+        " visible cards · " +
+        catalogue.withoutSamples.length +
+        " with no labelled sample. " +
+        "Gatus monitor configuration parity has not been verified."
+      : "Catalogue coverage unknown: " +
+        catalogue.reason +
+        ". No monitor can be marked UP from this snapshot.";
   host.appendChild(coverageSummary);
   const totals = document.createElement("p");
   totals.className = "service-detail-empty";
-  totals.textContent = fleet.state !== "observed"
-    ? `Gatus coverage unavailable: ${fleet.reason}. No probes declared healthy.`
-    : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
+  totals.textContent =
+    fleet.state !== "observed"
+      ? `Gatus coverage unavailable: ${fleet.reason}. No probes declared healthy.`
+      : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
   host.appendChild(totals);
   if (fleet.state !== "observed") return;
   if (catalogue.withoutSamples.length) {
     const heading = document.createElement("strong");
     heading.className = "service-detail-relation-group";
-    heading.textContent = "Visible catalogue cards with no sampled monitor (" +
-      catalogue.withoutSamples.length + ")";
+    heading.textContent =
+      "Visible catalogue cards with no sampled monitor (" +
+      catalogue.withoutSamples.length +
+      ")";
     host.appendChild(heading);
     for (const id of catalogue.withoutSamples.slice(0, 25)) {
-      host.appendChild(linkedCatalogueItem({ id, name: id }, {
-        type: "No sample", status: "not proven monitored",
-      }));
+      host.appendChild(
+        linkedCatalogueItem(
+          { id, name: id },
+          {
+            type: "No sample",
+            status: "not proven monitored",
+          },
+        ),
+      );
     }
     if (catalogue.withoutSamples.length > 25) {
       const tail = document.createElement("p");
@@ -591,16 +710,25 @@ function renderGatusFleet(drawer, row) {
       continue;
     }
     entries.slice(0, 25).forEach((entry) => {
-      host.appendChild(linkedCatalogueItem(
-        { id: entry.id, name: entry.id },
-        { type: entry.type, status: [
-          status,
-          typeof entry.availability === "number"
-            ? "5m " + (entry.availability * 100).toFixed(0) + "%" : "",
-          typeof entry.durationMs === "number"
-            ? entry.durationMs.toFixed(0) + " ms" : "",
-        ].filter(Boolean).join(" · ") },
-      ));
+      host.appendChild(
+        linkedCatalogueItem(
+          { id: entry.id, name: entry.id },
+          {
+            type: entry.type,
+            status: [
+              status,
+              typeof entry.availability === "number"
+                ? "5m " + (entry.availability * 100).toFixed(0) + "%"
+                : "",
+              typeof entry.durationMs === "number"
+                ? entry.durationMs.toFixed(0) + " ms"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          },
+        ),
+      );
     });
     if (entries.length > 25) {
       const more = document.createElement("p");
@@ -668,7 +796,8 @@ function syncDrawerFromUrl() {
   const row = matchingCatalogueRow(id);
   if (row && (!activeRow || catalogueRouteId(activeRow) !== id)) {
     openDrawer(row, row.querySelector(":scope > .service-detail-trigger"), {
-      syncUrl: false, recordTrail: false,
+      syncUrl: false,
+      recordTrail: false,
     });
   }
 }
@@ -694,7 +823,11 @@ function openDrawer(row, trigger, { syncUrl = true, recordTrail = true } = {}) {
   if (back) back.hidden = navigationTrail.length === 0;
   if (syncUrl) updateServiceUrl(row);
   drawer.focus({ preventScroll: true });
-  document.dispatchEvent(new CustomEvent("service-detail-selected", { detail: { serviceId: catalogueRouteId(row) } }));
+  document.dispatchEvent(
+    new CustomEvent("service-detail-selected", {
+      detail: { serviceId: catalogueRouteId(row) },
+    }),
+  );
 }
 
 function closeDrawer({ restoreFocus = true, syncUrl = true } = {}) {
@@ -720,14 +853,28 @@ function closeDrawer({ restoreFocus = true, syncUrl = true } = {}) {
 
 function updateDetailTrigger(row, trigger) {
   const counts = evidenceCounts(probeEntries(row));
-  const text = counts.failed ? "Details · " + counts.failed + " failed"
-    : counts.warning ? "Details · " + counts.warning + " warning" : "Details";
+  const text = counts.failed
+    ? "Details · " + counts.failed + " failed"
+    : counts.warning
+      ? "Details · " + counts.warning + " warning"
+      : "Details";
   if (trigger.textContent !== text) trigger.textContent = text;
   const tone = counts.failed ? "fail" : counts.warning ? "warn" : "neutral";
   if (trigger.dataset.issues !== tone) trigger.dataset.issues = tone;
-  const title = "Open diagnostics for " + displayName(row) +
-    ": " + counts.failed + " failed, " + counts.warning + " warnings, " +
-    counts.info + " expected auth, " + counts.unknown + " unknown, " + counts.notRun + " not run";
+  const title =
+    "Open diagnostics for " +
+    displayName(row) +
+    ": " +
+    counts.failed +
+    " failed, " +
+    counts.warning +
+    " warnings, " +
+    counts.info +
+    " expected auth, " +
+    counts.unknown +
+    " unknown, " +
+    counts.notRun +
+    " not run";
   if (trigger.getAttribute("aria-label") !== title) {
     trigger.setAttribute("aria-label", title);
   }
@@ -735,9 +882,12 @@ function updateDetailTrigger(row, trigger) {
 
 function ensureDetailTrigger(row) {
   if (!(row instanceof HTMLElement)) return;
+  // classList.add rewrites "class" even when present, re-firing observeRows forever.
+  if (!row.classList.contains("health-row--detail-footer")) {
+    row.classList.add("health-row--detail-footer");
+  }
   const current = row.querySelector(":scope > .service-detail-trigger");
   if (current) {
-    row.classList.add("health-row--detail-footer");
     updateDetailTrigger(row, current);
     return;
   }
@@ -750,7 +900,6 @@ function ensureDetailTrigger(row) {
     event.stopPropagation();
     openDrawer(row, trigger);
   });
-  row.classList.add("health-row--detail-footer");
   row.appendChild(trigger);
 }
 
@@ -793,8 +942,10 @@ function observeRows() {
       });
       // Probe badges may arrive after initial row creation. Update the
       // existing trigger without changing its identity or losing focus.
-      const owner = mutation.target instanceof HTMLElement
-        ? mutation.target.closest(ROW_SELECTOR) : null;
+      const owner =
+        mutation.target instanceof HTMLElement
+          ? mutation.target.closest(ROW_SELECTOR)
+          : null;
       if (owner) ensureDetailTrigger(owner);
     }
     scheduleActiveRefresh();
@@ -838,28 +989,36 @@ function installKeyboardClose() {
 export function installServiceDetailDrawer() {
   // Reuse the same cached public topology and health snapshot as the board.
   // Do not request one provider endpoint per card or probe.
-  fetchTopology().then((topology) => {
-    latestTopology = topology;
-    scheduleActiveRefresh();
-  }).catch(() => {});
+  fetchTopology()
+    .then((topology) => {
+      latestTopology = topology;
+      scheduleActiveRefresh();
+    })
+    .catch(() => {});
   document.addEventListener("health-board-refreshed", () => {
     // Public-topology may initially return 401/403 before an owner session.
     // Retry only on board refresh and at most every two minutes, not per card.
-    if ((!latestTopology || !latestTopology.nodes?.length) &&
-        Date.now() >= nextTopologyRetryAt) {
+    if (
+      (!latestTopology || !latestTopology.nodes?.length) &&
+      Date.now() >= nextTopologyRetryAt
+    ) {
       nextTopologyRetryAt = Date.now() + 120000;
-      fetchTopology({ force: true }).then((topology) => {
-        latestTopology = topology;
-        scheduleActiveRefresh();
-      }).catch(() => {});
+      fetchTopology({ force: true })
+        .then((topology) => {
+          latestTopology = topology;
+          scheduleActiveRefresh();
+        })
+        .catch(() => {});
     }
-    fetchHealthBoard().then((snapshot) => {
-      latestSnapshot = snapshot;
-      scheduleActiveRefresh();
-    }).catch(() => {
-      latestSnapshot = null;
-      scheduleActiveRefresh();
-    });
+    fetchHealthBoard()
+      .then((snapshot) => {
+        latestSnapshot = snapshot;
+        scheduleActiveRefresh();
+      })
+      .catch(() => {
+        latestSnapshot = null;
+        scheduleActiveRefresh();
+      });
   });
   ensureDrawer();
   decorateRows();
