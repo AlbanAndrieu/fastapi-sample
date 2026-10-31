@@ -60,7 +60,18 @@
   `08f8f5f6` (1.26.3), 3 contrats échouaient (taille et fin de
   `api-health.js` après #383, phrases de roadmap) ; corrigés sur
   `fix/ui-full-drawer-observer-loop-20261031` avec 1884 pytest et
-  `just ui-quick` 40/40, L2 PASS. Reste : L3 et runs `master`.
+  `just ui-quick` 40/40, L2/L3 PASS sur le SHA de la PR. Reste : runs `master` au HEAD exact.
+
+- [ ] **CI bornée et sécurité Actions (31/10) :** le workflow
+  [master-red #65](https://github.com/AlbanAndrieu/fastapi-sample/actions/runs/41195829678)
+  a échoué sur Zizmor : deux usages de `pypa/gh-action-pypi-publish`
+  v1.14.2 vulnérable et six annotations `actions/setup-python` non exactes.
+  La branche `fix/ci-bounded-jobs-pypi-publish-20261031` corrige ces références
+  et borne les jobs via `timeout-minutes`, avec deadlines pour les suites
+  pytest et tests de contrat. **CODED** ; actionlint/Zizmor et gate L2/L3
+  sur le commit final restent à vérifier sans gaspillage de CI. Les timeouts
+  doivent donner un FAIL explicite, jamais un faux PASS. Après fusion,
+  vérifier un run `master` complet et ne clôturer #355 qu'avec preuves.
 
 **Done P0 :** tableau riche interactif sans gel ; accès OWNER disponible
 sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
