@@ -278,3 +278,91 @@ def test_publication_script_is_executable() -> None:
 )
 def test_publication_script_keeps_required_contract(token: str) -> None:
     assert token in SCRIPT.read_text(encoding="utf-8")
+
+
+
+def _resolve_shared_base(
+    cwd: Path, *, configured: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Source the same Bash helper used by all three gates in an isolated repo."""
+    helper = ROOT / "scripts/ci/quality-git.sh"
+    env = {**os.environ}
+    env.pop("QUALITY_BASE_REF", None)
+    if configured is not None:
+        env["QUALITY_BASE_REF"] = configured
+    return subprocess.run(
+        ["bash", "-c", 'source "$1"; quality_resolve_base_ref', "_", str(helper)],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+
+
+def test_shared_base_resolution_prioritizes_default_remote_and_override(
+    tmp_path: Path,
+) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "quality@example.invalid")
+    _git(tmp_path, "config", "user.name", "Quality Proof")
+    (tmp_path / "README.md").write_text("first\n", encoding="utf-8")
+    _git(tmp_path, "add", "README.md")
+    _git(tmp_path, "commit", "-m", "first")
+    first = _git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "README.md").write_text("second\n", encoding="utf-8")
+    _git(tmp_path, "commit", "-am", "second")
+    second = _git(tmp_path, "rev-parse", "HEAD")
+
+    fallback = _resolve_shared_base(tmp_path)
+    assert fallback.returncode == 0
+    assert fallback.stdout.strip() == "HEAD~1"
+
+    _git(tmp_path, "update-ref", "refs/remotes/origin/master", first)
+    _git(tmp_path, "update-ref", "refs/remotes/origin/main", second)
+    default_master = _resolve_shared_base(tmp_path)
+    assert default_master.returncode == 0
+    assert default_master.stdout.strip() == "origin/master"
+
+    _git(
+        tmp_path, "symbolic-ref",
+        "refs/remotes/origin/HEAD", "refs/remotes/origin/main",
+    )
+    declared = _resolve_shared_base(tmp_path)
+    assert declared.returncode == 0
+    assert declared.stdout.strip() == "origin/main"
+
+    _git(tmp_path, "checkout", "--detach", second)
+    detached = _resolve_shared_base(tmp_path)
+    assert detached.returncode == 0
+    assert detached.stdout.strip() == "origin/main"
+
+    override = _resolve_shared_base(tmp_path, configured=first)
+    assert override.returncode == 0
+    assert override.stdout.strip() == first
+
+
+def test_shared_base_rejects_invalid_explicit_reference(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "quality@example.invalid")
+    _git(tmp_path, "config", "user.name", "Quality Proof")
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    _git(tmp_path, "add", "README.md")
+    _git(tmp_path, "commit", "-m", "base")
+
+    result = _resolve_shared_base(tmp_path, configured="origin/missing")
+    assert result.returncode == 2
+    assert "QG_BASE_MISSING" in result.stderr
+    assert result.stdout == ""
+
+
+def test_three_quality_entrypoints_use_one_reference_policy() -> None:
+    helper = ROOT / "scripts/ci/quality-git.sh"
+    assert helper.is_file()
+    assert "quality_resolve_base_ref()" in helper.read_text(encoding="utf-8")
+    for name in ("agent-publish.sh", "agent-quality-gate.sh", "quality-gate.sh"):
+        script = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert "quality-git.sh" in script
+        assert 'BASE_REF="$(quality_resolve_base_ref)"' in script
+        assert "resolve_base_ref() {" not in script

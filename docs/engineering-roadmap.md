@@ -66,9 +66,10 @@
   [master-red #65](https://github.com/AlbanAndrieu/fastapi-sample/actions/runs/41195829678)
   a échoué sur Zizmor : deux usages de `pypa/gh-action-pypi-publish`
   v1.14.2 vulnérable et six annotations `actions/setup-python` non exactes.
-  La branche `fix/ci-bounded-jobs-pypi-publish-20261031` corrige ces références
-  et borne les jobs via `timeout-minutes`, avec deadlines pour les suites
-  pytest et tests de contrat. **CODED** ; actionlint/Zizmor et gate L2/L3
+  La [PR #391](https://github.com/AlbanAndrieu/fastapi-sample/pull/391)
+  est fusionnée : elle corrige ces références et borne les jobs via
+  `timeout-minutes`, avec deadlines pour les suites pytest et tests de contrat.
+  **CODED dans master** ; actionlint/Zizmor et gate L2/L3
   sur le commit final restent à vérifier sans gaspillage de CI. Les timeouts
   doivent donner un FAIL explicite, jamais un faux PASS. Après fusion,
   vérifier un run `master` complet et ne clôturer #355 qu'avec preuves.
@@ -106,6 +107,14 @@ authentifié, aucun voyant vert sans preuve fraîche, couverture explicable
 pour chaque service et refus WAN correct.
 
 ## P2 — Travaux différés après stabilisation
+
+- [ ] **Qualité locale / prépublication :** [PR #392](https://github.com/AlbanAndrieu/fastapi-sample/pull/392)
+  centralise l'exécution pytest bornée. Le même lot regroupe la résolution
+  Git `QUALITY_BASE_REF` des trois scripts de contrôle afin que le comportement
+  soit cohérent entre worktrees, HEAD détaché et pre-push. Tests Git isolés
+  écrits ; smoke Bash local exécuté. **L2/L3 sur SHA final NOT_RUN**.
+
+
 
 - [ ] **RoutePolicy/ASGI :** couvrir HTTP, WebSocket, MCP/A2A,
   PUBLIC/SERVICE/OWNER/INTERNAL ; valider JWKS/JWT, consommateurs et

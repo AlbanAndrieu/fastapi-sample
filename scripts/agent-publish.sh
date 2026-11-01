@@ -6,20 +6,9 @@ cd "${ROOT}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"
 
-resolve_base_ref() {
-    if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
-        printf '%s\n' "${QUALITY_BASE_REF}"
-    elif git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
-        git symbolic-ref --quiet --short refs/remotes/origin/HEAD
-    elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-        printf '%s\n' "origin/master"
-    elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-        printf '%s\n' "HEAD~1"
-    else
-        printf '%s\n' "HEAD"
-    fi
-}
-
+# Use one fail-closed Git comparison-base policy across the three gates.
+# shellcheck source=scripts/ci/quality-git.sh
+source "${SCRIPT_DIR}/ci/quality-git.sh"
 tool_version_or_fail() {
     local label="$1"
     shift
@@ -66,7 +55,7 @@ toolchain_fingerprint() {
     } | git hash-object --stdin
 }
 
-BASE_REF="$(resolve_base_ref)"
+BASE_REF="$(quality_resolve_base_ref)"
 if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
     printf '❌ QG_PUBLISH_BASE_MISSING: comparison base %s is unavailable\n' \
         "${BASE_REF}" >&2
