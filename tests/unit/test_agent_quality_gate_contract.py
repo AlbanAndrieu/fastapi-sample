@@ -408,8 +408,10 @@ def test_gate_lock_is_per_worktree_and_released_on_exit() -> None:
     text = (ROOT / "scripts/agent-quality-gate.sh").read_text(encoding="utf-8")
     helper = (ROOT / "scripts/ci/quality-lock.sh").read_text(encoding="utf-8")
     assert "git rev-parse --path-format=absolute --git-path agent-quality-gate.lock" in text
-    assert 'quality_lock_acquire "${GATE_LOCK_DIR}"' in text
-    assert "flock -n" in helper
+    assert 'quality_lock_run "${GATE_LOCK_DIR}"' in text
+    assert "QUALITY_GATE_LOCK_WORKER=1" in text
+    assert "unset QUALITY_GATE_LOCK_WORKER" in text
+    assert "flock -n -E 75 -o" in helper
     assert "QG_LOCK_LEGACY_DIR" in helper
     assert "QG_STALE_LOCK" not in text
 

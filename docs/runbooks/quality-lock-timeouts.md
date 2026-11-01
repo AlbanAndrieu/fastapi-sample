@@ -9,9 +9,10 @@ Ils ne désactivent aucun test, hook ou contrôle de sécurité.
 Chaque worktree détient un fichier de verrou sous son répertoire Git
 (`agent-quality-gate.lock`). `flock -n` retourne immédiatement
 `QG_LOCKED` (exit 75) si Claude Code, Codex ou un autre agent lance déjà
-la qualité dans **ce même worktree**. Le descripteur reste ouvert : le
-noyau libère le verrou à l'arrêt normal ou forcé, sans analyse du PID ni
-suppression du fichier. Utiliser un worktree différent par agent.
+la qualité dans **ce même worktree**. Le superviseur `flock -o` détient le descripteur et le ferme dans le
+processus de validation. Les processus enfants ne peuvent pas conserver
+le verrou après l'arrêt du processus principal. Le noyau libère le verrou
+sans analyse du PID ni suppression du fichier. Utiliser un worktree différent par agent.
 
 Prérequis : util-linux `flock` sur Linux. Son absence provoque
 `QG_LOCK_TOOL_MISSING` (exit 2), sans lancer la validation en parallèle.

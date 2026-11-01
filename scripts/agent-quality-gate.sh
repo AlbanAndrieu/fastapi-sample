@@ -6,6 +6,7 @@ cd "${ROOT}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"
 
+ORIGINAL_ARGS=("$@")
 MODE="check"
 PUBLISH=false
 CI_PREFLIGHT=false
@@ -119,16 +120,20 @@ if ! [[ "${PYTEST_MAXFAIL}" =~ ^[0-9]{1,6}$ ]]; then
 fi
 PYTEST_MAXFAIL=$((10#${PYTEST_MAXFAIL}))
 
-# Kernel-owned per-worktree lock: SIGKILL or crash releases it automatically.
-# The historical QUALITY_GATE_LOCK_DIR override remains accepted as a path.
+# The flock parent supervises the gate; its -o option closes the lock FD
+# in all workers, so orphaned child processes cannot retain a stale lock.
 # shellcheck source=scripts/ci/quality-lock.sh
 source "${SCRIPT_DIR}/ci/quality-lock.sh"
 # shellcheck source=scripts/ci/quality-timeout.sh
 source "${SCRIPT_DIR}/ci/quality-timeout.sh"
 GATE_LOCK_DIR="${QUALITY_GATE_LOCK_DIR:-$(git rev-parse --path-format=absolute --git-path agent-quality-gate.lock)}"
-if [[ "${MODE}" != "dependency" ]]; then
-    quality_lock_acquire "${GATE_LOCK_DIR}"
+if [[ "${MODE}" != "dependency" && "${QUALITY_GATE_LOCK_WORKER:-0}" != "1" ]]; then
+    quality_lock_run "${GATE_LOCK_DIR}" env QUALITY_GATE_LOCK_WORKER=1 \
+        bash "${SCRIPT_DIR}/agent-quality-gate.sh" "${ORIGINAL_ARGS[@]}"
+    exit $?
 fi
+# Never propagate the worker marker into hooks, subprocesses, or nested gates.
+unset QUALITY_GATE_LOCK_WORKER
 
 retain_failure_log() {
     local log="$1"
@@ -356,6 +361,12 @@ converge_precommit_fixes() {
             --files "${CHANGED_FILES[@]}" >"${log}" 2>&1
         rc=$?
         set -e
+        if ((rc == 124 || rc == 137)); then
+            printf '❌ QG_FIX_INTERRUPTED: pre-commit did not finish (exit %d).\n' "$rc" >&2
+            print_precommit_failure "${log}"
+            rm -f "${log}"
+            return "${rc}"
+        fi
         after="$(worktree_fingerprint)"
 
         if ((rc == 0)); then

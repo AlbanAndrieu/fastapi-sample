@@ -164,6 +164,8 @@ pour chaque service et refus WAN correct.
   `refactor/quality-lock-timeouts-20261101` utilise `flock` pour
   protéger chaque worktree sans PID réutilisable, et impose des délais
   aux contrôles locaux, tests et publication. Un timeout reste un échec.
+  Le superviseur `flock -o` empêche les subprocessus orphelins de
+  conserver le verrou après SIGKILL. Tests de régression ajoutés.
   Migration explicite des anciens verrous, sans effacement automatique.
   **CODED ; L2/L3 au SHA final à valider.**
 
