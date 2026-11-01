@@ -84,6 +84,16 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   avant toute nouvelle construction, puis obtenir un 6/6 et identifier
   l'image en service. Cette opération appartient à
   [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
+  **31/10, 14:11 UTC :** depuis le LAN, `172.17.0.24:8091` refuse la
+  connexion (hôte joignable sur 443/7000) ; `sample.albandrieu.com`
+  renvoie 302 Cloudflare Access sur tous les chemins. Côté Cloud, Keycloak
+  répond par la page challenge « Just a moment… » (403), distincte du
+  Default-Deny : elle reste `reachable: false`. Cause du `:8091` : l'App
+  TrueNAS `sample` a été supprimée, et `update-fastapi-sample.sh` échouait
+  en `app.update` (`ENOENT App sample does not exist`). Correctif
+  nabla-compose `fix/sample-update-creates-missing-app-20261031` :
+  `app.create` si l'App manque. Preuve suivante : script 6/6 sur TrueNAS,
+  `/health` 200 sur `:8091`, et challenge Keycloak classé.
 - [ ] **OWNER mobile :** vérifier depuis une source approuvée le bouton
   `Unlock diagnostics`, `authenticated=true`, la session HTTPS et
   le refus hors LAN/allowlist ; `readOnlyDiagnostics=true` n'est pas OWNER.
