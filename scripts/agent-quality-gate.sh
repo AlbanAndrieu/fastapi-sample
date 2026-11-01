@@ -568,6 +568,7 @@ QUALITY_CONTRACT_TESTS=(
     tests/unit/test_large_deletion_ack_contract.py
     tests/unit/test_opencode_agent_contract.py
     tests/unit/test_workflow_security.py
+    tests/unit/test_ci_pytest_bounded.py
 )
 
 if [[ "${CI_PREFLIGHT}" == true ]]; then

@@ -177,7 +177,7 @@ def test_package_publication_respects_private_classifier_and_least_privilege() -
     assert "environment: pypi" not in workflow
     assert workflow.count("id-token: write") == 2
     assert workflow.count("pypa/gh-action-pypi-publish@") == 2
-    assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" in workflow
+    assert "pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
     assert (
         workflow.count(

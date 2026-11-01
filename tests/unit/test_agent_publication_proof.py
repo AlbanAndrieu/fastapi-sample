@@ -280,9 +280,10 @@ def test_publication_script_keeps_required_contract(token: str) -> None:
     assert token in SCRIPT.read_text(encoding="utf-8")
 
 
-
 def _resolve_shared_base(
-    cwd: Path, *, configured: str | None = None
+    cwd: Path,
+    *,
+    configured: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Source the same Bash helper used by all three gates in an isolated repo."""
     helper = ROOT / "scripts/ci/quality-git.sh"
@@ -326,8 +327,10 @@ def test_shared_base_resolution_prioritizes_default_remote_and_override(
     assert default_master.stdout.strip() == "origin/master"
 
     _git(
-        tmp_path, "symbolic-ref",
-        "refs/remotes/origin/HEAD", "refs/remotes/origin/main",
+        tmp_path,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
     )
     declared = _resolve_shared_base(tmp_path)
     assert declared.returncode == 0

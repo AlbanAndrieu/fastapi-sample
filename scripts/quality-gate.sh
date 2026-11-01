@@ -53,7 +53,7 @@ fi
 
 # Reuse the same base selection as agent checks and publication.
 # shellcheck source=scripts/ci/quality-git.sh
-source "${ROOT}/scripts/ci/quality-git.sh"
+source "$(dirname -- "${BASH_SOURCE[0]}")/ci/quality-git.sh"
 BASE_REF="$(quality_resolve_base_ref)"
 echo "📐 Comparing changed files against ${BASE_REF}."
 

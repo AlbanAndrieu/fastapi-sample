@@ -37,8 +37,7 @@ def fake_timeout(tmp_path: Path, code: int) -> tuple[Path, Path]:
     args_log = tmp_path / "timeout-args.txt"
     command = bindir / "timeout"
     command.write_text(
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$MOCK_TIMEOUT_ARGS\"\n"
-        f"echo 'synthetic diagnostics' >&2\nexit {code}\n",
+        f"#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$MOCK_TIMEOUT_ARGS\"\necho 'synthetic diagnostics' >&2\nexit {code}\n",
         encoding="utf-8",
     )
     command.chmod(0o755)
@@ -65,7 +64,11 @@ def test_full_success_preserves_summary_timing_and_log(tmp_path: Path) -> None:
 
 def test_isolated_success_cleans_temporary_logs(tmp_path: Path) -> None:
     result = execute(
-        tmp_path, "isolated", sys.executable, "-c", "print('contracts passed')"
+        tmp_path,
+        "isolated",
+        sys.executable,
+        "-c",
+        "print('contracts passed')",
     )
     assert result.returncode == 0, result.stderr
     assert "isolated pytest contracts passed" in result.stdout
@@ -75,7 +78,10 @@ def test_isolated_success_cleans_temporary_logs(tmp_path: Path) -> None:
 
 def test_pytest_failure_does_not_get_suppressed(tmp_path: Path) -> None:
     result = execute(
-        tmp_path, "full", sys.executable, "-c",
+        tmp_path,
+        "full",
+        sys.executable,
+        "-c",
         "print('failing test'); raise SystemExit(3)",
     )
     assert result.returncode == 3
@@ -89,7 +95,9 @@ def test_pytest_failure_does_not_get_suppressed(tmp_path: Path) -> None:
     [(124, "PYTEST_TIMEOUT"), (137, "PYTEST_KILLED")],
 )
 def test_expected_fail_closed_diagnostics(
-    tmp_path: Path, exit_code: int, marker: str
+    tmp_path: Path,
+    exit_code: int,
+    marker: str,
 ) -> None:
     bindir, args_log = fake_timeout(tmp_path, exit_code)
     result = execute(
