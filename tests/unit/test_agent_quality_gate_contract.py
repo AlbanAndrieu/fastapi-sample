@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import stat
@@ -386,16 +387,13 @@ def _run_gate(tmp_path: Path, **env: str) -> subprocess.CompletedProcess[str]:
 def test_second_agent_gate_in_same_worktree_fails_fast(tmp_path: Path) -> None:
     """Claude Code and Codex must not run the gate concurrently in one checkout."""
     lock = tmp_path / "gate.lock"
-    lock.mkdir()
-    (lock / "pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
-
-    result = _run_gate(tmp_path)
-
-    assert result.returncode == 75
-    assert f"QG_LOCKED: another quality gate (pid {os.getpid()})" in result.stderr
-    assert "own git worktree" in result.stderr
-    # The live holder keeps its lock.
-    assert (lock / "pid").read_text(encoding="utf-8") == f"{os.getpid()}\n"
+    with lock.open("w", encoding="utf-8") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        result = _run_gate(tmp_path)
+        assert result.returncode == 75
+        assert "QG_LOCKED: another quality gate" in result.stderr
+        assert "separate Git worktree" in result.stderr
+        assert lock.exists()
 
 
 def test_gate_rejects_invalid_pytest_maxfail_before_locking(tmp_path: Path) -> None:
@@ -408,9 +406,12 @@ def test_gate_rejects_invalid_pytest_maxfail_before_locking(tmp_path: Path) -> N
 
 def test_gate_lock_is_per_worktree_and_released_on_exit() -> None:
     text = (ROOT / "scripts/agent-quality-gate.sh").read_text(encoding="utf-8")
+    helper = (ROOT / "scripts/ci/quality-lock.sh").read_text(encoding="utf-8")
     assert "git rev-parse --path-format=absolute --git-path agent-quality-gate.lock" in text
-    assert "trap release_gate_lock EXIT" in text
-    assert "QG_STALE_LOCK" in text
+    assert 'quality_lock_acquire "${GATE_LOCK_DIR}"' in text
+    assert "flock -n" in helper
+    assert "QG_LOCK_LEGACY_DIR" in helper
+    assert "QG_STALE_LOCK" not in text
 
 
 def test_claude_code_and_codex_share_one_policy_and_skill_tree() -> None:

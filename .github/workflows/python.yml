@@ -138,6 +138,7 @@ jobs:
             tests/unit/test_opencode_agent_contract.py
             tests/unit/test_workflow_security.py
             tests/unit/test_ci_pytest_bounded.py
+            tests/unit/test_quality_lock_timeout.py
           )
           pytest_args=(-vv --noconftest --disable-warnings --maxfail=1 -o faulthandler_timeout=60)
           bash scripts/ci/run-pytest-bounded.sh isolated env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"

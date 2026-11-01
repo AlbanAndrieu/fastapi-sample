@@ -47,7 +47,10 @@ Environment:
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  base-scoped acknowledgement file (default: .quality-gate-large-deletions)
   QUALITY_PYTEST_MAXFAIL           pytest --maxfail (default: 1; 0 reports every failure in one run)
-  QUALITY_GATE_LOCK_DIR            per-worktree lock (default: <git-dir>/agent-quality-gate.lock)
+  QUALITY_GATE_LOCK_DIR            per-worktree lock FILE (default: <git-dir>/agent-quality-gate.lock)
+  QUALITY_STEP_TIMEOUT_SECONDS     deadline per command (default: 900; max 3600)
+  QUALITY_PYTEST_TIMEOUT_SECONDS   local pytest deadline (default: 1800; max 3600)
+  QUALITY_PRECOMMIT_TIMEOUT_SECONDS pre-commit fix-pass deadline (default: 600; max 3600)
 EOF_HELP
         exit 0
         ;;
@@ -116,41 +119,15 @@ if ! [[ "${PYTEST_MAXFAIL}" =~ ^[0-9]{1,6}$ ]]; then
 fi
 PYTEST_MAXFAIL=$((10#${PYTEST_MAXFAIL}))
 
-# Claude Code and Codex may share a workstation, never one checkout: one gate per worktree.
+# Kernel-owned per-worktree lock: SIGKILL or crash releases it automatically.
+# The historical QUALITY_GATE_LOCK_DIR override remains accepted as a path.
+# shellcheck source=scripts/ci/quality-lock.sh
+source "${SCRIPT_DIR}/ci/quality-lock.sh"
+# shellcheck source=scripts/ci/quality-timeout.sh
+source "${SCRIPT_DIR}/ci/quality-timeout.sh"
 GATE_LOCK_DIR="${QUALITY_GATE_LOCK_DIR:-$(git rev-parse --path-format=absolute --git-path agent-quality-gate.lock)}"
-
-release_gate_lock() {
-    if [[ "$(cat -- "${GATE_LOCK_DIR}/pid" 2>/dev/null)" == "$$" ]]; then
-        rm -f -- "${GATE_LOCK_DIR}/pid"
-        rmdir -- "${GATE_LOCK_DIR}" 2>/dev/null || true
-    fi
-}
-
-acquire_gate_lock() {
-    local holder
-    if ! mkdir -- "${GATE_LOCK_DIR}" 2>/dev/null; then
-        holder="$(cat -- "${GATE_LOCK_DIR}/pid" 2>/dev/null || true)"
-        # A pid-less lock younger than one minute is a gate still starting up.
-        if { [[ "${holder}" =~ ^[0-9]+$ ]] && kill -0 "${holder}" 2>/dev/null; } ||
-            { [[ -z "${holder}" ]] && [[ -z "$(find "${GATE_LOCK_DIR}" -maxdepth 0 -mmin +1 2>/dev/null)" ]]; }; then
-            printf '❌ QG_LOCKED: another quality gate (pid %s) is running in this worktree.\n' "${holder:-starting}" >&2
-            printf '   Wait for it, or give each agent (Claude Code, Codex) its own git worktree.\n' >&2
-            exit 75
-        fi
-        printf '⚠️ QG_STALE_LOCK: reclaiming lock of dead gate pid %s\n' "${holder:-unknown}" >&2
-        rm -f -- "${GATE_LOCK_DIR}/pid"
-        rmdir -- "${GATE_LOCK_DIR}" 2>/dev/null || true
-        if ! mkdir -- "${GATE_LOCK_DIR}" 2>/dev/null; then
-            printf '❌ QG_LOCKED: another quality gate took the lock first.\n' >&2
-            exit 75
-        fi
-    fi
-    printf '%s\n' "$$" >"${GATE_LOCK_DIR}/pid"
-    trap release_gate_lock EXIT
-}
-
 if [[ "${MODE}" != "dependency" ]]; then
-    acquire_gate_lock
+    quality_lock_acquire "${GATE_LOCK_DIR}"
 fi
 
 retain_failure_log() {
@@ -212,7 +189,9 @@ run_compact() {
     local log
     local rc
     log="$(mktemp)"
-    if "$@" >"${log}" 2>&1; then
+    local budget="${QUALITY_STEP_TIMEOUT_SECONDS:-900}"
+    [[ "${label}" == *pytest* ]] && budget="${QUALITY_PYTEST_TIMEOUT_SECONDS:-1800}"
+    if quality_run_bounded "${budget}" "$@" >"${log}" 2>&1; then
         rm -f "${log}"
         printf '✅ %s\n' "${label}"
         return 0
@@ -231,7 +210,9 @@ run_compact_report() {
     local log
     local rc
     log="$(mktemp)"
-    if "$@" >"${log}" 2>&1; then
+    local budget="${QUALITY_STEP_TIMEOUT_SECONDS:-900}"
+    [[ "${label}" == *pytest* ]] && budget="${QUALITY_PYTEST_TIMEOUT_SECONDS:-1800}"
+    if quality_run_bounded "${budget}" "$@" >"${log}" 2>&1; then
         grep -E '^(WARNING |Code-size gate:)' "${log}" || true
         rm -f "${log}"
         printf '✅ %s\n' "${label}"
@@ -370,7 +351,8 @@ converge_precommit_fixes() {
         before="$(worktree_fingerprint)"
         log="$(mktemp)"
         set +e
-        PRE_COMMIT_COLOR=never uv run pre-commit run --hook-stage pre-commit \
+        quality_run_bounded "${QUALITY_PRECOMMIT_TIMEOUT_SECONDS:-600}" \
+            env PRE_COMMIT_COLOR=never uv run pre-commit run --hook-stage pre-commit \
             --files "${CHANGED_FILES[@]}" >"${log}" 2>&1
         rc=$?
         set -e
@@ -569,6 +551,7 @@ QUALITY_CONTRACT_TESTS=(
     tests/unit/test_opencode_agent_contract.py
     tests/unit/test_workflow_security.py
     tests/unit/test_ci_pytest_bounded.py
+    tests/unit/test_quality_lock_timeout.py
 )
 
 if [[ "${CI_PREFLIGHT}" == true ]]; then
