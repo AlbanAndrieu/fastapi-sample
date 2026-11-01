@@ -26,21 +26,30 @@ GATE = ROOT / "scripts" / "agent-quality-gate.sh"
     ],
 )
 def test_quality_log_tail_normalization(
-    configured: str | None, expected: str, rc: int
+    configured: str | None,
+    expected: str,
+    rc: int,
 ) -> None:
     """Exercise the exact Bash setup block from the tracked gate."""
     source = GATE.read_text(encoding="utf-8")
     block = source.split('LOG_TAIL="${QUALITY_LOG_TAIL:-20}"', maxsplit=1)[1]
-    block = 'LOG_TAIL="${QUALITY_LOG_TAIL:-20}"' + block.split(
-        'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"', maxsplit=1
-    )[0]
+    block = (
+        'LOG_TAIL="${QUALITY_LOG_TAIL:-20}"'
+        + block.split(
+            'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"',
+            maxsplit=1,
+        )[0]
+    )
     env = os.environ.copy()
     env.pop("QUALITY_LOG_TAIL", None)
     if configured is not None:
         env["QUALITY_LOG_TAIL"] = configured
     result = subprocess.run(
-        ["bash", "-c", 'set -euo pipefail\n' + block + '\nprintf "%s\\n" "$LOG_TAIL"'],
-        env=env, capture_output=True, text=True, check=False,
+        ["bash", "-c", "set -euo pipefail\n" + block + '\nprintf "%s\\n" "$LOG_TAIL"'],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == rc, result.stderr
     if rc == 0:
@@ -63,21 +72,30 @@ def test_quality_log_tail_normalization(
     ],
 )
 def test_quality_fix_passes_are_decimal_and_bounded(
-    configured: str | None, expected: str, rc: int
+    configured: str | None,
+    expected: str,
+    rc: int,
 ) -> None:
     """Convergence budget must not overflow or run an unbounded number of passes."""
     source = GATE.read_text(encoding="utf-8")
     marker = 'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"'
-    block = marker + source.split(marker, maxsplit=1)[1].split(
-        "\nresolve_base_ref() {", maxsplit=1
-    )[0]
+    block = (
+        marker
+        + source.split(marker, maxsplit=1)[1].split(
+            "\n# Use one fail-closed Git comparison-base policy",
+            maxsplit=1,
+        )[0]
+    )
     env = os.environ.copy()
     env.pop("QUALITY_FIX_PASSES", None)
     if configured is not None:
         env["QUALITY_FIX_PASSES"] = configured
     result = subprocess.run(
-        ["bash", "-c", 'set -euo pipefail\n' + block + '\nprintf "%s\\n" "$FIX_PASSES"'],
-        env=env, capture_output=True, text=True, check=False,
+        ["bash", "-c", "set -euo pipefail\n" + block + '\nprintf "%s\\n" "$FIX_PASSES"'],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == rc, result.stderr
     if rc == 0:

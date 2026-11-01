@@ -51,57 +51,10 @@ if [[ -f "${ROOT}/.editorconfig" ]]; then
     fi
 fi
 
-verified_commit_ref() {
-    git rev-parse --verify --quiet "${1}^{commit}" >/dev/null 2>&1
-}
-
-closest_remote_default_ref() {
-    local candidate distance best_ref="" best_distance=""
-    for candidate in origin/master origin/main; do
-        if ! verified_commit_ref "${candidate}"; then
-            continue
-        fi
-        distance="$(git rev-list --count "${candidate}...HEAD")"
-        if [[ -z "${best_distance}" || "${distance}" -lt "${best_distance}" ]]; then
-            best_ref="${candidate}"
-            best_distance="${distance}"
-        fi
-    done
-    if [[ -n "${best_ref}" ]]; then
-        printf '%s\n' "${best_ref}"
-    fi
-    return 0
-}
-
-resolve_base_ref() {
-    local configured origin_head candidate
-    configured="${QUALITY_BASE_REF:-}"
-    if [[ -n "${configured}" ]]; then
-        if ! verified_commit_ref "${configured}"; then
-            echo "❌ QUALITY_BASE_REF does not resolve to a commit: ${configured}" >&2
-            return 2
-        fi
-        printf '%s\n' "${configured}"
-        return
-    fi
-
-    if origin_head="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)" \
-        && verified_commit_ref "${origin_head}"; then
-        printf '%s\n' "${origin_head}"
-        return
-    fi
-
-    candidate="$(closest_remote_default_ref)"
-    if [[ -n "${candidate}" ]]; then
-        printf '%s\n' "${candidate}"
-    elif verified_commit_ref HEAD~1; then
-        printf '%s\n' "HEAD~1"
-    else
-        printf '%s\n' "HEAD"
-    fi
-}
-
-BASE_REF="$(resolve_base_ref)"
+# Reuse the same base selection as agent checks and publication.
+# shellcheck source=scripts/ci/quality-git.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/ci/quality-git.sh"
+BASE_REF="$(quality_resolve_base_ref)"
 echo "📐 Comparing changed files against ${BASE_REF}."
 
 mapfile -t CHANGED_FILES < <(

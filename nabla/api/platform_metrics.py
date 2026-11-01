@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import logging
 import math
 import re
@@ -10,6 +9,7 @@ from typing import Any
 
 import httpx
 
+from nabla.api.platform_health_diagnostics import utc_now as _utc_now
 from nabla.api.prometheus_query import query_vector, sample_value
 from nabla.settings.observability import HomelabPrometheusSettings
 
@@ -90,10 +90,6 @@ _UP_SIGNALS = (
     "pfsense_metrics_up",
     "prometheus_up",
 )
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _merge_binary(previous: float | None, value: float) -> float | None:

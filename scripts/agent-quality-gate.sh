@@ -104,21 +104,10 @@ else
         FIX_PASSES=20
     fi
 fi
-resolve_base_ref() {
-    if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
-        printf '%s\n' "${QUALITY_BASE_REF}"
-    elif git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
-        git symbolic-ref --quiet --short refs/remotes/origin/HEAD
-    elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-        printf '%s\n' "origin/master"
-    elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-        printf '%s\n' "HEAD~1"
-    else
-        printf '%s\n' "HEAD"
-    fi
-}
-
-BASE_REF="$(resolve_base_ref)"
+# Use one fail-closed Git comparison-base policy across the three gates.
+# shellcheck source=scripts/ci/quality-git.sh
+source "${SCRIPT_DIR}/ci/quality-git.sh"
+BASE_REF="$(quality_resolve_base_ref)"
 
 PYTEST_MAXFAIL="${QUALITY_PYTEST_MAXFAIL:-1}"
 if ! [[ "${PYTEST_MAXFAIL}" =~ ^[0-9]{1,6}$ ]]; then
@@ -579,6 +568,7 @@ QUALITY_CONTRACT_TESTS=(
     tests/unit/test_large_deletion_ack_contract.py
     tests/unit/test_opencode_agent_contract.py
     tests/unit/test_workflow_security.py
+    tests/unit/test_ci_pytest_bounded.py
 )
 
 if [[ "${CI_PREFLIGHT}" == true ]]; then

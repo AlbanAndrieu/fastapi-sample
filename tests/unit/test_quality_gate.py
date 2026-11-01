@@ -101,7 +101,7 @@ def test_quality_gate_rejects_invalid_explicit_base_ref(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 2
-    assert "QUALITY_BASE_REF does not resolve to a commit" in result.stderr
+    assert "QG_BASE_MISSING: QUALITY_BASE_REF is not a commit" in result.stderr
     assert not marker.exists()
 
 

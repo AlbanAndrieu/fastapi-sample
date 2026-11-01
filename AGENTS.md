@@ -279,6 +279,7 @@ Do not introduce Poetry-based workflows unless the repository explicitly require
 - Do not perform network, database, telemetry, or SDK initialization at module import time.
 - Never log credentials, tokens, or secret values.
 - Do not edit `.env`, `.env.local`, or `.env.secrets` unless explicitly requested.
+- Unlock Vaultwarden with `export BW_SESSION="$(bw-unlock)"` (dotfiles `bin/bw-unlock`, master password read from `pass`, never typed or printed; [runbook](https://github.com/AlbanAndrieu/nabla-yubikey/blob/master/docs/runbooks/vaultwarden-unlock.md)), then `bw lock`.
 
 ## Validation
 

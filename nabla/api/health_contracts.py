@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.engine import Engine
 
 from nabla.api.health_checks import check_postgres_sql, check_redis_ping
+from nabla.api.platform_health_diagnostics import utc_now as _timestamp
 from nabla.api.runtime_environment import runtime_mode
 from nabla.app_features import AppFeatures, disabled_subsystem_check
 from nabla.utils.environment import env_bool
@@ -44,10 +44,6 @@ _CLOUDFLARE_INVENTORY_FIELDS = frozenset(
         "tunnel_statuses",
     },
 )
-
-
-def _timestamp() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _readiness_failure_stage(check: dict[str, Any]) -> str | None:

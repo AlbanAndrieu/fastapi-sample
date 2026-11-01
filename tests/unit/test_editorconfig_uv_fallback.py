@@ -15,9 +15,13 @@ def _git(repo: Path, *args: str) -> None:
 
 
 def _make_repo(repo: Path) -> None:
-    (repo / "scripts").mkdir(parents=True)
+    (repo / "scripts" / "ci").mkdir(parents=True)
     (repo / "scripts" / "quality-gate.sh").write_text(
         GATE.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (repo / "scripts" / "ci" / "quality-git.sh").write_text(
+        (ROOT / "scripts" / "ci" / "quality-git.sh").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     (repo / ".editorconfig").write_text("root = true\n", encoding="utf-8")

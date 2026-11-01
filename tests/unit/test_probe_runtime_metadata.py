@@ -1,6 +1,6 @@
 """Probe-runtime metadata must describe evidence warm-up without extra I/O."""
 
-from nabla.api.health_routes import _probe_runtime_metadata
+from nabla.api.probe_runtime import probe_runtime_metadata as _probe_runtime_metadata
 
 
 def test_probe_runtime_metadata_reports_progress_and_priority_aware_cadence() -> None:

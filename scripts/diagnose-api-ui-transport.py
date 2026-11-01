@@ -4,6 +4,7 @@
 Only the pinned origins and fixed GET paths are allowed. No auth headers,
 cookies, response bodies, redirect following, or homelab secret material.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,7 +40,7 @@ def check(target: str) -> dict:
         state = "transport_unverified"
         try:
             with client.open(
-                Request(TARGETS[target] + path, method="GET", headers={"Accept": "application/json"}),
+                Request(TARGETS[target] + path, method="GET", headers={"Accept": "application/json"}),  # noqa: S310 - pinned origins
                 timeout=deadline_seconds,
             ) as response:
                 state = "http_" + str(response.status)
@@ -56,10 +57,14 @@ def check(target: str) -> dict:
                 state = "timeout"
         except (OSError, TimeoutError):
             state = "timeout_or_network_failure"
-        checks.append({
-            "path": path, "state": state, "deadline_seconds": deadline_seconds,
-            "elapsed_ms": min(round(1000 * (time.monotonic() - start)), 9999),
-        })
+        checks.append(
+            {
+                "path": path,
+                "state": state,
+                "deadline_seconds": deadline_seconds,
+                "elapsed_ms": min(round(1000 * (time.monotonic() - start)), 9999),
+            },
+        )
     return {"component": "api_ui_transport", "target": target, "requests": checks}
 
 

@@ -35,17 +35,19 @@ _METRICS_NEXT_CHECK = {
 # SSH is pinned to the approved TrueNAS LAN address. Never accept arbitrary
 # hosts or shell fragments from CLI arguments.
 TRUENAS_SSH_TARGET = re.compile(r"^[a-z_][a-z0-9_-]{0,31}@172[.]17[.]0[.]24$")
-_REMOTE_STATES = frozenset({
-    "unexpected_anonymous_metrics_access",
-    "metrics_key_unconfigured_or_gate_unavailable",
-    "key_configured_scraper_credentials_unverified",
-    "scrape_auth_accepted",
-    "scrape_credential_rejected",
-    "authenticated_gate_unavailable",
-    "authenticated_probe_unverified",
-    "metrics_origin_unverified",
-    "token_file_invalid_or_unreadable",
-})
+_REMOTE_STATES = frozenset(
+    {
+        "unexpected_anonymous_metrics_access",
+        "metrics_key_unconfigured_or_gate_unavailable",
+        "key_configured_scraper_credentials_unverified",
+        "scrape_auth_accepted",
+        "scrape_credential_rejected",
+        "authenticated_gate_unavailable",
+        "authenticated_probe_unverified",
+        "metrics_origin_unverified",
+        "token_file_invalid_or_unreadable",
+    },
+)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -120,7 +122,6 @@ def assess(anonymous: int | None, authorized: int | None, token_supplied: bool) 
     }
 
 
-
 # Categories are static: never return raw stderr, remote stdout or paths.
 _SSH_REMEDIATION = {
     "ssh_client_missing": "install_local_openssh_client",
@@ -136,7 +137,7 @@ _SSH_REMEDIATION = {
     "remote_python_unavailable": "verify_python3_in_remote_noninteractive_shell",
     "remote_report_invalid": "verify_remote_python_stdout_is_json_only",
     "remote_output_too_large": "review_remote_shell_startup_output_privately",
-    "remote_token_file_invalid_or_unreadable": "verify_remote_token_file_exists_and_permissions",
+    "remote_token_file_invalid_or_unreadable": "verify_remote_token_file_exists_and_permissions",  # nosec B105 -- diagnostic step label, not a credential
     "ssh_unavailable_or_report_invalid": "run_ssh_connectivity_preflight_locally",
 }
 
@@ -156,19 +157,16 @@ def ssh_failure(state: str) -> tuple[dict, int]:
 def classify_ssh_error(stderr: str, returncode: int) -> str:
     """Use only fixed SSH failure signatures; no untrusted diagnostic echo."""
     message = stderr.lower()[:8192]
-    if ("invalid option --" in message
-            or "unknown option" in message
-            or "bad configuration option" in message
-            or "usage: ssh " in message):
+    if "invalid option --" in message or "unknown option" in message or "bad configuration option" in message or "usage: ssh " in message:
         return "ssh_client_options_invalid"
-    if ("host key verification failed" in message
-            or "remote host identification has changed" in message
-            or "no " in message and "host key is known" in message):
+    if "host key verification failed" in message or "remote host identification has changed" in message or ("no " in message and "host key is known" in message):
         return "ssh_host_key_untrusted"
-    if ("permission denied (publickey" in message
-            or "permission denied (keyboard-interactive" in message
-            or "too many authentication failures" in message
-            or "authentication failed" in message):
+    if (
+        "permission denied (publickey" in message
+        or "permission denied (keyboard-interactive" in message
+        or "too many authentication failures" in message
+        or "authentication failed" in message
+    ):
         return "ssh_authentication_denied"
     if "connection refused" in message:
         return "ssh_connection_refused"
@@ -178,17 +176,74 @@ def classify_ssh_error(stderr: str, returncode: int) -> str:
         return "ssh_network_unreachable"
     if "could not resolve hostname" in message:
         return "ssh_name_resolution_failed"
-    if ("python3: command not found" in message
-            or "python3: not found" in message
-            or "python3: no such file or directory" in message):
+    if "python3: command not found" in message or "python3: not found" in message or "python3: no such file or directory" in message:
         return "remote_python_unavailable"
-    if ("kex_exchange_identification" in message
-            or "connection closed by" in message
-            or "connection reset by" in message
-            or "administratively prohibited" in message
-            or "this account is currently not available" in message):
+    if (
+        "kex_exchange_identification" in message
+        or "connection closed by" in message
+        or "connection reset by" in message
+        or "administratively prohibited" in message
+        or "this account is currently not available" in message
+    ):
         return "ssh_session_rejected"
     return "ssh_unavailable_or_report_invalid" if returncode == 255 else "remote_report_invalid"
+
+
+def _ssh_input_error(target: str, token_file: Path | None, port: int | None) -> str | None:
+    if not TRUENAS_SSH_TARGET.fullmatch(target) or (port is not None and not 1 <= port <= 65535):
+        return "ssh_target_invalid"
+    if token_file is not None and (not token_file.is_absolute() or "\x00" in str(token_file) or len(str(token_file)) > 256):
+        return "remote_token_path_invalid"
+    return None
+
+
+def _ssh_command(target: str, token_file: Path | None, port: int | None) -> list[str]:
+    remote_command = "python3 - --check"
+    if token_file is not None:
+        remote_command += " --token-file " + shlex.quote(str(token_file))
+    command = [
+        "ssh",
+        "-T",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "ConnectTimeout=7",
+        "-o",
+        "ServerAliveInterval=5",
+        "-o",
+        "ServerAliveCountMax=1",
+    ]
+    # Do not override Port from the user's existing OpenSSH config.
+    # An explicit --ssh-port intentionally takes precedence.
+    if port is not None:
+        command.extend(("-p", str(port)))
+    # The target is validated and cannot start with a dash.
+    command.extend((target, remote_command))
+    return command
+
+
+def _remote_token_rejected(returncode: int, payload: object) -> bool:
+    return (
+        returncode == 2
+        and isinstance(payload, dict)
+        and set(payload) == {"state", "scrape_authorized"}
+        and payload["state"] == "token_file_invalid_or_unreadable"
+        and payload["scrape_authorized"] is False
+    )
+
+
+def _remote_report_valid(payload: object) -> bool:
+    return (
+        isinstance(payload, dict)
+        and payload.get("state") in _METRICS_NEXT_CHECK
+        and payload.get("origin") == "truenas_loopback"
+        and payload.get("path") == "/metrics"
+        and type(payload.get("credentials_tested")) is bool
+        and type(payload.get("scrape_authorized")) is bool
+        and not any(payload.get(key) is not None and (type(payload[key]) is not int or not 100 <= payload[key] <= 599) for key in ("anonymous_http", "authenticated_http"))
+    )
 
 
 def ssh_status(target: str, token_file: Path | None = None, port: int | None = None) -> tuple[dict, int]:
@@ -200,36 +255,20 @@ def ssh_status(target: str, token_file: Path | None = None, port: int | None = N
     Unless a port is explicitly provided, honour the local OpenSSH
     configuration (including Port, ProxyJump and IdentityFile).
     """
-    if (not TRUENAS_SSH_TARGET.fullmatch(target)
-            or (port is not None and not 1 <= port <= 65535)):
-        return {"state": "ssh_target_invalid", "scrape_authorized": False}, 2
-    if token_file is not None and (
-        not token_file.is_absolute() or "\x00" in str(token_file)
-        or len(str(token_file)) > 256
-    ):
-        return {"state": "remote_token_path_invalid", "scrape_authorized": False}, 2
+    invalid = _ssh_input_error(target, token_file, port)
+    if invalid:
+        return {"state": invalid, "scrape_authorized": False}, 2
 
-    remote_command = "python3 - --check"
-    if token_file is not None:
-        remote_command += " --token-file " + shlex.quote(str(token_file))
-    command = [
-        "ssh", "-T", "-o", "BatchMode=yes",
-        "-o", "StrictHostKeyChecking=yes",
-        "-o", "ConnectTimeout=7",
-        "-o", "ServerAliveInterval=5",
-        "-o", "ServerAliveCountMax=1",
-    ]
-    # Do not override Port from the user's existing OpenSSH config.
-    # An explicit --ssh-port intentionally takes precedence.
-    if port is not None:
-        command.extend(("-p", str(port)))
-    # The target is validated and cannot start with a dash.
-    command.extend((target, remote_command))
+    command = _ssh_command(target, token_file, port)
     try:
         source = Path(__file__).read_text(encoding="utf-8")
         completed = subprocess.run(
-            command, input=source, capture_output=True, text=True,
-            timeout=20, check=False,
+            command,
+            input=source,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
         )
         if completed.returncode not in (0, 1, 2):
             return ssh_failure(classify_ssh_error(completed.stderr, completed.returncode))
@@ -239,27 +278,9 @@ def ssh_status(target: str, token_file: Path | None = None, port: int | None = N
             payload = json.loads(completed.stdout)
         except (ValueError, TypeError):
             return ssh_failure(classify_ssh_error(completed.stderr, completed.returncode))
-        if (
-            completed.returncode == 2
-            and isinstance(payload, dict)
-            and set(payload) == {"state", "scrape_authorized"}
-            and payload["state"] == "token_file_invalid_or_unreadable"
-            and payload["scrape_authorized"] is False
-        ):
+        if _remote_token_rejected(completed.returncode, payload):
             return ssh_failure("remote_token_file_invalid_or_unreadable")
-        if (
-            not isinstance(payload, dict)
-            or payload.get("state") not in _METRICS_NEXT_CHECK
-            or payload.get("origin") != "truenas_loopback"
-            or payload.get("path") != "/metrics"
-            or type(payload.get("credentials_tested")) is not bool
-            or type(payload.get("scrape_authorized")) is not bool
-            or any(
-                payload.get(key) is not None
-                and (type(payload[key]) is not int or not 100 <= payload[key] <= 599)
-                for key in ("anonymous_http", "authenticated_http")
-            )
-        ):
+        if not _remote_report_valid(payload):
             return ssh_failure("remote_report_invalid")
         approved = (
             completed.returncode == 0
@@ -280,9 +301,7 @@ def ssh_status(target: str, token_file: Path | None = None, port: int | None = N
             "state": payload["state"],
             "next_check": _METRICS_NEXT_CHECK[payload["state"]],
         }
-        return report, 0 if approved else (
-            1 if completed.returncode == 1 else 2
-        )
+        return report, 0 if approved else (1 if completed.returncode == 1 else 2)
     except FileNotFoundError:
         return ssh_failure("ssh_client_missing")
     except subprocess.TimeoutExpired:
@@ -296,10 +315,13 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--token-file", type=Path, help="Private scrape token file on the executing host (never logged)")
     parser.add_argument(
-        "--ssh-target", help="Run remotely as user@172.17.0.24 over verified SSH",
+        "--ssh-target",
+        help="Run remotely as user@172.17.0.24 over verified SSH",
     )
     parser.add_argument(
-        "--ssh-port", type=int, default=None,
+        "--ssh-port",
+        type=int,
+        default=None,
         help="Optional SSH port override; default uses local ~/.ssh/config",
     )
     args = parser.parse_args()
@@ -331,9 +353,7 @@ def main() -> int:
     print(json.dumps(outcome, sort_keys=True))
     if outcome["scrape_authorized"]:
         return 0
-    return 1 if outcome["state"] in {
-        "unexpected_anonymous_metrics_access", "scrape_credential_rejected"
-    } else 2
+    return 1 if outcome["state"] in {"unexpected_anonymous_metrics_access", "scrape_credential_rejected"} else 2
 
 
 if __name__ == "__main__":

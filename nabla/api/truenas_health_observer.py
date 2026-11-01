@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC, datetime
 import re
 import ssl
 import time
@@ -14,6 +13,10 @@ from typing import Any
 import sentry_sdk
 
 from nabla.api.external_probe_cache import get_or_refresh_probe, reset_probe_cache
+from nabla.api.platform_health_diagnostics import (
+    short_error as _short_error,
+    utc_now as _utc_now,
+)
 from nabla.api.provider_probe_policies import (
     TRUENAS_API_CACHE_POLICY as _CACHE_POLICY,
 )
@@ -41,15 +44,6 @@ _failure_report_state = _FailureReportState()
 def truenas_http_verify_ssl() -> bool:
     """Return the canonical validated TrueNAS TLS policy."""
     return TrueNASProviderSettings().verify_ssl
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-def _short_error(exc: BaseException) -> str:
-    message = str(exc).strip() or exc.__class__.__name__
-    return message[:240]
 
 
 def _configured_username() -> str:

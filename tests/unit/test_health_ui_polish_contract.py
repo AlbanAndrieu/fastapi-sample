@@ -67,10 +67,13 @@ def test_pfsense_is_required_and_service_help_uses_canonical_topology() -> None:
 
 def test_python_ci_keeps_success_output_short_and_failure_output_actionable() -> None:
     workflow = Path(".github/workflows/python.yml").read_text(encoding="utf-8")
+    runner = Path("scripts/ci/run-pytest-bounded.sh").read_text(encoding="utf-8")
 
     assert "--tb=short" in workflow
-    assert ">pytest.log 2>&1" in workflow
-    assert 'echo "::group::pytest failure · last 180 lines"' in workflow
-    assert "tail -n 180 pytest.log" in workflow
-    assert 'summary="$(tail -n 1 pytest.log)"' in workflow
-    assert '>>"${GITHUB_STEP_SUMMARY}"' in workflow
+    assert "bash scripts/ci/run-pytest-bounded.sh full" in workflow
+    assert 'log="pytest.log"' in runner
+    assert '"$@" >"${log}" 2>&1' in runner
+    assert 'echo "::group::pytest ${mode} failure · last 180 lines"' in runner
+    assert 'tail -n 180 "${log}"' in runner
+    assert 'summary="$(tail -n 1 "${log}")"' in runner
+    assert '>>"${GITHUB_STEP_SUMMARY}"' in runner

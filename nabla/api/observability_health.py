@@ -9,12 +9,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from nabla.api.platform_health_diagnostics import short_error as _short_error
 from nabla.settings.observability import LogfireProbeSettings
-
-
-def _short_error(exc: BaseException) -> str:
-    message = str(exc).strip() or exc.__class__.__name__
-    return message[:240]
 
 
 def check_logfire_connectivity() -> dict[str, Any]:

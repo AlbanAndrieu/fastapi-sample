@@ -66,9 +66,10 @@
   [master-red #65](https://github.com/AlbanAndrieu/fastapi-sample/actions/runs/41195829678)
   a échoué sur Zizmor : deux usages de `pypa/gh-action-pypi-publish`
   v1.14.2 vulnérable et six annotations `actions/setup-python` non exactes.
-  La branche `fix/ci-bounded-jobs-pypi-publish-20261031` corrige ces références
-  et borne les jobs via `timeout-minutes`, avec deadlines pour les suites
-  pytest et tests de contrat. **CODED** ; actionlint/Zizmor et gate L2/L3
+  La [PR #391](https://github.com/AlbanAndrieu/fastapi-sample/pull/391)
+  est fusionnée : elle corrige ces références et borne les jobs via
+  `timeout-minutes`, avec deadlines pour les suites pytest et tests de contrat.
+  **CODED dans master** ; actionlint/Zizmor et gate L2/L3
   sur le commit final restent à vérifier sans gaspillage de CI. Les timeouts
   doivent donner un FAIL explicite, jamais un faux PASS. Après fusion,
   vérifier un run `master` complet et ne clôturer #355 qu'avec preuves.
@@ -83,6 +84,16 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   avant toute nouvelle construction, puis obtenir un 6/6 et identifier
   l'image en service. Cette opération appartient à
   [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
+  **31/10, 14:11 UTC :** depuis le LAN, `172.17.0.24:8091` refuse la
+  connexion (hôte joignable sur 443/7000) ; `sample.albandrieu.com`
+  renvoie 302 Cloudflare Access sur tous les chemins. Côté Cloud, Keycloak
+  répond par la page challenge « Just a moment… » (403), distincte du
+  Default-Deny : elle reste `reachable: false`. Cause du `:8091` : l'App
+  TrueNAS `sample` a été supprimée, et `update-fastapi-sample.sh` échouait
+  en `app.update` (`ENOENT App sample does not exist`). Correctif
+  nabla-compose `fix/sample-update-creates-missing-app-20261031` :
+  `app.create` si l'App manque. Preuve suivante : script 6/6 sur TrueNAS,
+  `/health` 200 sur `:8091`, et challenge Keycloak classé.
 - [ ] **OWNER mobile :** vérifier depuis une source approuvée le bouton
   `Unlock diagnostics`, `authenticated=true`, la session HTTPS et
   le refus hors LAN/allowlist ; `readOnlyDiagnostics=true` n'est pas OWNER.
@@ -107,13 +118,26 @@ pour chaque service et refus WAN correct.
 
 ## P2 — Travaux différés après stabilisation
 
+- [ ] **Qualité locale / prépublication :** [PR #392](https://github.com/AlbanAndrieu/fastapi-sample/pull/392)
+  centralise l'exécution pytest bornée. Le même lot regroupe la résolution
+  Git `QUALITY_BASE_REF` des trois scripts de contrôle afin que le comportement
+  soit cohérent entre worktrees, HEAD détaché et pre-push. Tests Git isolés
+  écrits ; smoke Bash local exécuté. **L2/L3 sur SHA final NOT_RUN**.
+
+
+
 - [ ] **RoutePolicy/ASGI :** couvrir HTTP, WebSocket, MCP/A2A,
   PUBLIC/SERVICE/OWNER/INTERNAL ; valider JWKS/JWT, consommateurs et
   clients externes avant `OPS_ROUTE_POLICY_STRICT` ou changement Access.
 - [ ] **Observabilité transverse :** `traceparent` /
   `X-Nabla-Trace-ID` entre Site Alban et FastAPI ; réduire les
   duplications `platform_metrics.py`, `health_routes.py` et modules JS
-  avec tests de non-régression.
+  avec tests de non-régression. **01/11 CODED :** `utc_now`/`short_error`
+  uniques (`platform_health_diagnostics`, 6 copies retirées), warm-up des
+  sondes extrait dans `probe_runtime.py`, C901 de `health_routes.py`
+  corrigé (509 → 449 lignes). Restent : `health_routes.py` > 400 lignes,
+  `_short_error` volontairement réduit au nom de classe dans
+  `cloudflare_*`, modules JS ; preuve : L2/L3 sur le HEAD de la PR.
 - [ ] **Renovate / Helm :** aligner les références d'image
   `registry.gitlab.com` et `ghcr.io`, vérifier l'extraction
   `helmfile.yaml` dans un vrai Dependency Dashboard ; conserver
@@ -128,6 +152,13 @@ pour chaque service et refus WAN correct.
   `.quality-gate-large-deletions` quand le renommage prévu est fusionné.
   Renommer le script JS `diagnose-production-api-ui-freeze.mjs`
   uniquement si cela simplifie réellement la maintenance.
+  **01/11 CODED :** `scripts/` passe à 0 écart ruff (12 → 0 : 7 C901
+  découpés, S101, S310 justifiés sur origines figées) et 8 scripts
+  reformatés ; test ajouté pour `github-actions-usage.py`. La base Git
+  des gates est unifiée dans `scripts/ci/quality-git.sh` (#392), dont
+  les trois contrats de pin/runner rouges sur master sont corrigés.
+  Reste `diagnose-local-runtime-dependencies.py` (634 lignes) ;
+  preuve : L2/L3 sur le HEAD de #392.
 
 ## Documentation et séquence de reprise
 
