@@ -9,6 +9,8 @@ CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"
 # Use one fail-closed Git comparison-base policy across the three gates.
 # shellcheck source=scripts/ci/quality-git.sh
 source "${SCRIPT_DIR}/ci/quality-git.sh"
+# shellcheck source=scripts/ci/quality-timeout.sh
+source "${SCRIPT_DIR}/ci/quality-timeout.sh"
 tool_version_or_fail() {
     local label="$1"
     shift
@@ -89,7 +91,7 @@ if [[ -f "${PROOF_FILE}" ]] && [[ "$(cat "${PROOF_FILE}")" == "${PROOF_KEY}" ]];
     exit 0
 fi
 
-QUALITY_BASE_REF="${BASE_SHA}" bash scripts/agent-quality-gate.sh --publish
+quality_run_bounded "${QUALITY_PUBLISH_TIMEOUT_SECONDS:-2400}" env QUALITY_BASE_REF="${BASE_SHA}" bash scripts/agent-quality-gate.sh --publish
 
 scope_output="$(QUALITY_BASE_REF="${BASE_SHA}" bash "${CI_SCOPE_SCRIPT}")"
 printf '%s\n' "${scope_output}"
@@ -97,15 +99,15 @@ build="$(awk -F= '$1 == "build" { print $2; exit }' <<<"${scope_output}")"
 
 case "${build}" in
     true)
-        uv run --no-sync pylint \
+        quality_run_bounded "${QUALITY_STEP_TIMEOUT_SECONDS:-900}" uv run --no-sync pylint \
             --fail-under=9.5 \
             --disable=E1701,E0102,E1003 \
             server_app.py nabla
 
-        uv run --no-sync python -c \
+        quality_run_bounded "${QUALITY_STEP_TIMEOUT_SECONDS:-900}" uv run --no-sync python -c \
             "import nabla.main; assert nabla.main.app is not None"
 
-        uv build
+        quality_run_bounded "${QUALITY_STEP_TIMEOUT_SECONDS:-900}" uv build
         ;;
     false)
         echo "✅ QG_PUBLISH_BUILD_SKIPPED: no application build impact in this publication scope."
