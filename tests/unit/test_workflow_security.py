@@ -177,22 +177,26 @@ def test_every_runner_job_has_a_bounded_execution_budget() -> None:
 
 
 def test_pytest_steps_have_deadlines_and_explicit_failure_evidence() -> None:
-    python_ci = yaml.safe_load((WORKFLOWS / "python.yml").read_text(encoding="utf-8"))
-    preflight = python_ci["jobs"]["preflight"]["steps"]
-    build = python_ci["jobs"]["build"]["steps"]
+    workflow = yaml.safe_load((WORKFLOWS / "python.yml").read_text(encoding="utf-8"))
+    preflight = workflow["jobs"]["preflight"]["steps"]
+    build = workflow["jobs"]["build"]["steps"]
     audit = next(step for step in preflight if step.get("name", "").startswith("Lint and audit every"))
     assert audit["timeout-minutes"] == 10
     isolated = next(step for step in preflight if step.get("name") == "Run isolated quality-contract tests")
-    assert "timeout --signal=TERM --kill-after=30s 6m" in isolated["run"]
+    assert "bash scripts/ci/run-pytest-bounded.sh isolated env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in isolated["run"]
+    assert "-o faulthandler_timeout=60" in isolated["run"]
     suite = next(step for step in build if step.get("name") == "Run repository pytest suite after dependency sync")
     script = suite["run"]
-    assert "timeout --signal=TERM --kill-after=30s 12m" in script
-    assert "PYTEST_TIMEOUT" in script
-    assert "PYTEST_KILLED" in script
+    assert "bash scripts/ci/run-pytest-bounded.sh full uv run --no-sync pytest" in script
     assert "-vv --durations=10 -o faulthandler_timeout=90" in script
-    assert "-o faulthandler_timeout=60" in isolated["run"]
-    assert "tail -n 180 pytest.log" in script
-    assert "exit " in script
+    runner = (ROOT / "scripts/ci/run-pytest-bounded.sh").read_text(encoding="utf-8")
+    assert 'budget="12m"' in runner
+    assert 'budget="6m"' in runner
+    assert "timeout --signal=TERM --kill-after=30s" in runner
+    assert "PYTEST_TIMEOUT" in runner
+    assert "PYTEST_KILLED" in runner
+    assert "tail -n 180" in runner
+    assert 'exit "$${rc}"' in runner
 
 
 def test_gnu_timeout_terminates_a_stalled_child() -> None:

@@ -160,7 +160,7 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "Resolve and install locked project dependencies" in workflow
     assert "uv sync --frozen" in workflow
     assert "Run repository pytest suite after dependency sync" in workflow
-    assert "uv run --no-sync pytest -q --disable-warnings --maxfail=1" in workflow
+    assert "bash scripts/ci/run-pytest-bounded.sh full uv run --no-sync pytest" in workflow
     assert workflow.index("Run agent CI preflight before project dependency sync") < workflow.index(
         "Resolve and install locked project dependencies",
     )
