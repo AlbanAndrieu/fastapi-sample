@@ -11,9 +11,10 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 import time
 from typing import Any
+
+from nabla.api.platform_health_diagnostics import utc_now as _utc_now
 
 _DEFAULT_OPTIONAL_INTERVAL_SEC = 300.0
 _LOCAL_SUPPORT_INTERVAL_SEC = 120.0
@@ -33,10 +34,6 @@ class _ProbeEntry:
 
 
 _cache: dict[str, _ProbeEntry] = {}
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def configured_interval_seconds(probe_name: str) -> float:

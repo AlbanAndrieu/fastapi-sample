@@ -122,7 +122,12 @@ pour chaque service et refus WAN correct.
 - [ ] **Observabilité transverse :** `traceparent` /
   `X-Nabla-Trace-ID` entre Site Alban et FastAPI ; réduire les
   duplications `platform_metrics.py`, `health_routes.py` et modules JS
-  avec tests de non-régression.
+  avec tests de non-régression. **01/11 CODED :** `utc_now`/`short_error`
+  uniques (`platform_health_diagnostics`, 6 copies retirées), warm-up des
+  sondes extrait dans `probe_runtime.py`, C901 de `health_routes.py`
+  corrigé (509 → 449 lignes). Restent : `health_routes.py` > 400 lignes,
+  `_short_error` volontairement réduit au nom de classe dans
+  `cloudflare_*`, modules JS ; preuve : L2/L3 sur le HEAD de la PR.
 - [ ] **Renovate / Helm :** aligner les références d'image
   `registry.gitlab.com` et `ghcr.io`, vérifier l'extraction
   `helmfile.yaml` dans un vrai Dependency Dashboard ; conserver

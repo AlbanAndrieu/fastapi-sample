@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable
 from copy import deepcopy
-from datetime import UTC, datetime
 import logging
 import time
 from typing import Any
@@ -23,6 +22,10 @@ from nabla.api.health_board_enrichment import (
     annotate_pfsense_ingress_policy as _annotate_pfsense_ingress_policy,
     annotate_talos_vm_health as _annotate_talos_vm_health,
     annotate_truenas_ingress_policy as _annotate_truenas_ingress_policy,
+)
+from nabla.api.platform_health_diagnostics import (
+    short_error as _short_error,
+    utc_now as _utc_now,
 )
 from nabla.api.synthetic_probe_comparison import (
     compare_internal_probe_evidence,
@@ -45,17 +48,9 @@ _refresh_task: asyncio.Task[None] | None = None
 _last_refresh_error: str | None = None
 
 
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
 def _ttl_seconds() -> float:
     """Read the bounded cache TTL through the typed settings boundary."""
     return HealthRuntimeSettings().health_board_cache_ttl_seconds
-
-
-def _short_error(exc: BaseException) -> str:
-    return (str(exc).strip() or exc.__class__.__name__)[:240]
 
 
 async def build_extended_healthz(

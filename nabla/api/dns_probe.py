@@ -10,6 +10,8 @@ import dns.asyncresolver
 import dns.exception
 import dns.resolver
 
+from nabla.api.platform_health_diagnostics import short_error as _short_error
+
 _DNS_PROBE_TIMEOUT_SEC = 1.5
 _RESOLVER_LABELS = {
     "127.0.0.11": "Docker embedded DNS",
@@ -24,10 +26,6 @@ _RESOLVER_LABELS = {
 
 def _elapsed_ms(started: float) -> int:
     return max(0, round((time.perf_counter() - started) * 1000))
-
-
-def _short_error(exc: BaseException) -> str:
-    return (str(exc).strip() or exc.__class__.__name__)[:240]
 
 
 def _resolver_display(address: str) -> str:

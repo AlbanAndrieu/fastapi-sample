@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC, datetime
 import time
 from typing import Any
 
 import httpx
 
+from nabla.api.platform_health_diagnostics import utc_now as _utc_now
 from nabla.api.prometheus_query import query_vector, sample_value
 from nabla.settings.observability import HomelabPrometheusSettings
 
@@ -52,10 +52,6 @@ _RESOURCE_QUERIES = {
 _FLOW_QUERY = (
     "nabla:network_flow:pfsense_bytes_per_second or nabla:network_flow:pfsense_packets_per_second or nabla:telemetry:akvorado_inlet_up or nabla:telemetry:akvorado_outlet_up"
 )
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _resource_values(

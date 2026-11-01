@@ -8,9 +8,7 @@ route module. The public paths and response contracts intentionally remain uncha
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import os
-import time
 from typing import Annotated, Any
 
 import pyroscope
@@ -22,6 +20,8 @@ from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.owner_ui_session import owner_ui_authenticated
+from nabla.api.platform_health_diagnostics import utc_now
+from nabla.api.probe_runtime import probe_runtime_metadata
 from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
@@ -41,6 +41,7 @@ from nabla.utils.logger import logger
 
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
+_PRIVATE_NO_STORE_HEADERS = {**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"}
 
 
 def _legacy_homelab_http_enabled() -> bool:
@@ -48,70 +49,8 @@ def _legacy_homelab_http_enabled() -> bool:
     return os.getenv("HOMELAB_V1_HTTP_ENABLED", "true").strip().lower() == "true"
 
 
-_PROBE_RUNTIME_STARTED_AT = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-_PROBE_RUNTIME_STARTED_MONOTONIC = time.monotonic()
-
-
-def _nonnegative_int(value: object) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        return 0
-    return max(0, value)
-
-
-def _probe_scope_progress(summary: dict[str, Any], scope: str) -> tuple[int, int]:
-    scope_summary = summary.get(scope)
-    if not isinstance(scope_summary, dict):
-        return 0, 0
-    if scope_summary.get("enabled") is False:
-        return 0, 0
-    evidence = scope_summary.get("evidence")
-    evidence = evidence if isinstance(evidence, dict) else {}
-    return (
-        _nonnegative_int(scope_summary.get("eligible")),
-        _nonnegative_int(evidence.get("known")),
-    )
-
-
-def _probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
-    """Summarize rolling probe warm-up without scheduling any additional work."""
-    summary = payload.get("probe_summary")
-    summary = summary if isinstance(summary, dict) else {}
-    public_eligible, public_known = _probe_scope_progress(summary, "public")
-    internal_eligible, internal_known = _probe_scope_progress(summary, "internal")
-    eligible = public_eligible + internal_eligible
-    known = min(eligible, public_known + internal_known)
-    coverage = 100.0 if eligible == 0 else round((known / eligible) * 100, 1)
-
-    cadence_values: list[float] = []
-    for field in ("public_probe_results", "internal_services"):
-        rows = payload.get(field)
-        if not isinstance(rows, list):
-            continue
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            interval = row.get("probe_interval_seconds")
-            if isinstance(interval, bool) or not isinstance(interval, (int, float)):
-                continue
-            if interval > 0:
-                cadence_values.append(float(interval))
-
-    return {
-        "started_at": _PROBE_RUNTIME_STARTED_AT,
-        "uptime_seconds": round(
-            max(0.0, time.monotonic() - _PROBE_RUNTIME_STARTED_MONOTONIC),
-            3,
-        ),
-        "state": "ready" if known >= eligible else "warming",
-        "eligible_probe_slots": eligible,
-        "known_probe_slots": known,
-        "coverage_percent": coverage,
-        "estimated_full_cycle_seconds": (round(max(cadence_values), 3) if cadence_values else None),
-    }
-
-
-def _register_site_projection_routes(app: FastAPI) -> None:
-    """Register curated public labels and sanitized site/UI v2 projections."""
+def _register_site_catalog_routes(app: FastAPI) -> None:
+    """Register curated public labels and the sanitized site catalog v2."""
 
     @app.get(
         "/api/public-homelab/v1",
@@ -142,19 +81,19 @@ def _register_site_projection_routes(app: FastAPI) -> None:
     async def get_site_architecture_catalog(response: Response) -> SiteArchitectureCatalogV2:
         """Only the current verified Backstage v2 source, safely projected."""
 
-        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        response.headers.update(_PRIVATE_NO_STORE_HEADERS)
         try:
             return await fetch_site_catalog_v2()
         except SiteCatalogV2Unavailable as exc:
             raise HTTPException(
                 status_code=503,
                 detail="Authoritative catalog unavailable",
-                headers={
-                    **_NO_STORE_HEADERS,
-                    "X-Robots-Tag": "noindex, nofollow",
-                    "X-Nabla-Diagnostic-Stage": exc.stage,
-                },
+                headers={**_PRIVATE_NO_STORE_HEADERS, "X-Nabla-Diagnostic-Stage": exc.stage},
             ) from None
+
+
+def _register_site_status_routes(app: FastAPI) -> None:
+    """Register the machine site health v2 and the minimal public UI feed."""
 
     @app.get(
         "/api/site/health/v2",
@@ -165,7 +104,7 @@ def _register_site_projection_routes(app: FastAPI) -> None:
     )
     async def get_site_health_v2(request: Request, response: Response) -> SiteHealthV2:
         trace_id = verified_site_trace_id(request.headers.get("traceparent"))
-        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        response.headers.update(_PRIVATE_NO_STORE_HEADERS)
         if trace_id:
             response.headers["X-Nabla-Trace-ID"] = trace_id
             logger.info("site_health_v2", trace_id=trace_id)
@@ -188,7 +127,7 @@ def _register_site_projection_routes(app: FastAPI) -> None:
         """Temporary minimal UI feed. Raw diagnostics stay owner-only."""
         if not public_ui_services_enabled():
             raise HTTPException(status_code=404, detail="Not found")
-        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        response.headers.update(_PRIVATE_NO_STORE_HEADERS)
         try:
             return await get_public_ui_services(request)
         except SiteCatalogV2Unavailable:
@@ -201,7 +140,8 @@ def _register_site_projection_routes(app: FastAPI) -> None:
 
 def _register_homelab_catalog_routes(app: FastAPI) -> None:
     """Register declared catalog, topology and runtime inventory routes."""
-    _register_site_projection_routes(app)
+    _register_site_catalog_routes(app)
+    _register_site_status_routes(app)
 
     @app.get(
         "/api/homelab-services",
@@ -313,7 +253,7 @@ def _register_homelab_health_routes(app: FastAPI) -> None:
 
         response.headers.update(_NO_STORE_HEADERS)
         payload = dict(await build_homelab_health_payload())
-        payload["probe_runtime"] = _probe_runtime_metadata(payload)
+        payload["probe_runtime"] = probe_runtime_metadata(payload)
         return payload
 
     @app.get(
@@ -464,7 +404,7 @@ def _register_health_board_routes(app: FastAPI) -> None:
         return {
             "reset": True,
             "probe_keys": list(probe_keys),
-            "reset_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "reset_at": utc_now(),
         }
 
     @app.post(

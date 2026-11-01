@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 from nabla.api.catalog_resource_model import (
@@ -26,6 +25,7 @@ from nabla.api.homelab_declared import (
     fetch_declared_service_catalog,
 )
 from nabla.api.homelab_topology import fetch_homelab_topology
+from nabla.api.platform_health_diagnostics import short_error as _short_error, utc_now
 from nabla.integrations.truenas_client import build_truenas_adapter
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
@@ -34,11 +34,6 @@ _TRUENAS_MAX_ATTEMPTS = 3
 _RUNTIME_CACHE_LOCK = threading.Lock()
 _RUNTIME_CACHE: TrueNASRuntimeSnapshot | None = None
 _RUNTIME_CACHE_EXPIRES_AT = 0.0
-
-
-def _short_error(exc: BaseException) -> str:
-    """Return a bounded error suitable for the sanitized runtime snapshot."""
-    return (str(exc).strip() or exc.__class__.__name__)[:240]
 
 
 def _runtime_cache_ttl_seconds() -> float:
@@ -67,12 +62,7 @@ def runtime_snapshot_from_health_api(
     if not isinstance(apps, list):
         return None
 
-    timestamp = (
-        str(source.get("last_success_at") or "").strip()
-        or str(api_result.get("last_success_at") or "").strip()
-        or str(observed_at or "").strip()
-        or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    )
+    timestamp = str(source.get("last_success_at") or "").strip() or str(api_result.get("last_success_at") or "").strip() or str(observed_at or "").strip() or utc_now()
     return TrueNASRuntimeSnapshot(
         observed_at=timestamp,
         configured=True,
@@ -104,7 +94,7 @@ def _list_apps_with_reset_retry(adapter: Any) -> list[dict[str, Any]]:
 
 def observe_truenas_runtime() -> TrueNASRuntimeSnapshot:
     """Read app.query through the official client without exposing credentials."""
-    observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    observed_at = utc_now()
     adapter = build_truenas_adapter()
     if adapter is None:
         return TrueNASRuntimeSnapshot(
