@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import select
 import subprocess
 from pathlib import Path
 
@@ -44,6 +45,8 @@ def test_lock_rejects_contending_agent_and_recovers_after_kill(tmp_path: Path) -
     )
     try:
         assert parent.stdout is not None
+        readable, _, _ = select.select([parent.stdout], [], [], 3)
+        assert readable, "lock holder did not signal ready within 3 seconds"
         assert parent.stdout.readline().strip() == "ready"
         contender = _bash(LOCK, f'quality_lock_acquire "{lock}"')
         assert contender.returncode == 75
