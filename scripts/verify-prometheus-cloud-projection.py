@@ -31,7 +31,7 @@ def fetch_json(url: str, *, key: str = "") -> dict[str, Any]:
     if key and url.startswith(f"{CLOUD_ORIGIN}/"):
         headers["X-Diagnostics-Key"] = key
     opener = build_opener(ProxyHandler({}), NoRedirect())
-    request = Request(url, headers=headers)
+    request = Request(url, headers=headers)  # noqa: S310 - only the pinned LAN/Cloud origins are requested
     with opener.open(request, timeout=5) as response:
         payload = response.read(MAX_RESPONSE + 1)
     if len(payload) > MAX_RESPONSE:
@@ -64,19 +64,15 @@ def observed_up(payload: dict[str, Any]) -> dict[str, float]:
             continue
         job = labels["job"]
         current = float(value[1])
-        observed[job] = (
-            min(observed[job], current) if job in observed else current
-        )
+        observed[job] = min(observed[job], current) if job in observed else current
     return observed
 
 
-def compare(
-    lan: dict[str, float], board: dict[str, Any]
-) -> tuple[dict[str, str], bool]:
+def compare(lan: dict[str, float], board: dict[str, Any]) -> tuple[dict[str, str], bool]:
     """Do not mistake a healthy scrape for verified NetFlow delivery."""
     metrics = board.get("platform_metrics")
     if not isinstance(metrics, dict):
-        return {job: "cloud_snapshot_missing" for job in JOBS}, False
+        return dict.fromkeys(JOBS, "cloud_snapshot_missing"), False
     projected = metrics.get("exporter_jobs")
     if not isinstance(projected, dict):
         projected = {}
@@ -99,7 +95,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     parser.add_argument(
-        "--scope", choices=("lan", "both"), default="both",
+        "--scope",
+        choices=("lan", "both"),
+        default="both",
         help="lan checks Prometheus without requesting the protected Cloud snapshot",
     )
     args = parser.parse_args()
@@ -108,10 +106,7 @@ def main() -> int:
     query = urlencode({"query": QUERY})
     urls = [(f"{LAN_ORIGIN}/api/v1/query?{query}", "")]
     if args.scope == "both":
-        urls.append(
-            (f"{CLOUD_ORIGIN}/api/health-board",
-             os.getenv("DIAGNOSTICS_ACCESS_KEY", ""))
-        )
+        urls.append((f"{CLOUD_ORIGIN}/api/health-board", os.getenv("DIAGNOSTICS_ACCESS_KEY", "")))
     results: list[dict[str, Any]] = []
     for index, (url, key) in enumerate(urls):
         try:
@@ -124,12 +119,9 @@ def main() -> int:
                 print(
                     "CLOUD: authorization_denied; Akvorado projection=unverified. "
                     "Review diagnostics key, trusted CIDRs, Cloudflare Access "
-                    "and public-read policy. Do not bypass access controls."
+                    "and public-read policy. Do not bypass access controls.",
                 )
-                print(
-                    "CLOUD: diagnostics_key=" +
-                    ("configured" if key else "not_provided")
-                )
+                print("CLOUD: diagnostics_key=" + ("configured" if key else "not_provided"))
             return 1
     if args.scope == "lan":
         scrapes = observed_up(results[0])
@@ -137,16 +129,10 @@ def main() -> int:
         print("mode=LAN_ONLY cloud_projection=NOT_CHECKED")
         for job in JOBS:
             up = scrapes.get(job)
-            status = (
-                "scrape_up" if up == 1.0 else
-                "scrape_down" if up == 0.0 else "not_observed"
-            )
+            status = "scrape_up" if up == 1.0 else "scrape_down" if up == 0.0 else "not_observed"
             print(f"{job}: {status}")
             complete = complete and status == "scrape_up"
-        print(
-            "PASS: LAN scrapes only; Cloud NOT_CHECKED" if complete
-            else "INCOMPLETE: LAN targets; Cloud NOT_CHECKED"
-        )
+        print("PASS: LAN scrapes only; Cloud NOT_CHECKED" if complete else "INCOMPLETE: LAN targets; Cloud NOT_CHECKED")
         return 0 if complete else 1
     board = results[1]
     metrics = board.get("platform_metrics")
@@ -156,10 +142,7 @@ def main() -> int:
     statuses, complete = compare(observed_up(results[0]), board)
     for job in JOBS:
         print(f"{job}: {statuses[job]}")
-    print(
-        "NOTE: scrape UP proves Prometheus can collect metrics; it does not "
-        "confirm pfSense UDP flows, Kafka messages or ClickHouse writes."
-    )
+    print("NOTE: scrape UP proves Prometheus can collect metrics; it does not confirm pfSense UDP flows, Kafka messages or ClickHouse writes.")
     print("PASS: both target scrapes projected" if complete else "INCOMPLETE: telemetry projection")
     return 0 if complete else 1
 

@@ -71,6 +71,32 @@ def declared_checks(config: dict[str, Any]) -> tuple[list[dict[str, str]], list[
     return checks, warnings
 
 
+def _freshness_error(metrics: dict[str, Any], now: datetime) -> str | None:
+    try:
+        timestamp = datetime.fromisoformat(str(metrics.get("generated_at")).replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            raise ValueError("missing timezone")
+        age = (now - timestamp.astimezone(UTC)).total_seconds()
+    except (ValueError, TypeError, OverflowError):
+        return "timestamp_invalid"
+    return None if -60 <= age <= 180 else "snapshot_stale"
+
+
+def _synthetic_error(synthetic: object) -> str | None:
+    if not isinstance(synthetic, dict):
+        return "telemetry_missing"
+    if synthetic.get("truncated") is True:
+        return "truncated"
+    if synthetic.get("gatus_up") != 1 or isinstance(synthetic.get("gatus_up"), bool):
+        return "gatus_scrape_unverified"
+    if synthetic.get("state") != "observed":
+        return "rules_unverified"
+    services = synthetic.get("services", {})
+    if not isinstance(services, dict) or len(services) > MAX_MONITORS:
+        return "invalid_services"
+    return None
+
+
 def snapshot_state(snapshot: dict[str, Any] | None, now: datetime) -> tuple[str, dict[str, Any]]:
     """Do not classify successes or failures from stale/untrusted telemetry."""
     if not isinstance(snapshot, dict):
@@ -78,32 +104,35 @@ def snapshot_state(snapshot: dict[str, Any] | None, now: datetime) -> tuple[str,
     metrics = snapshot.get("platform_metrics", {})
     if not isinstance(metrics, dict):
         return "metrics_missing", {}
-    try:
-        timestamp = datetime.fromisoformat(str(metrics.get("generated_at")).replace("Z", "+00:00"))
-        if timestamp.tzinfo is None:
-            raise ValueError("missing timezone")
-        age = (now - timestamp.astimezone(UTC)).total_seconds()
-    except (ValueError, TypeError, OverflowError):
-        return "timestamp_invalid", {}
-    if not (-60 <= age <= 180):
-        return "snapshot_stale", {}
     synthetic = metrics.get("synthetic_probes", {})
-    if not isinstance(synthetic, dict):
-        return "telemetry_missing", {}
-    if synthetic.get("truncated") is True:
-        return "truncated", {}
-    if synthetic.get("gatus_up") != 1 or isinstance(synthetic.get("gatus_up"), bool):
-        return "gatus_scrape_unverified", {}
-    if synthetic.get("state") != "observed":
-        return "rules_unverified", {}
-    services = synthetic.get("services", {})
-    if not isinstance(services, dict) or len(services) > MAX_MONITORS:
-        return "invalid_services", {}
-    return "observed", services
+    error = _freshness_error(metrics, now) or _synthetic_error(synthetic)
+    if error:
+        return error, {}
+    return "observed", synthetic.get("services", {})
+
+
+def _probe_outcome(probe: object) -> str:
+    success = probe.get("success") if isinstance(probe, dict) else None
+    if isinstance(success, bool) or not isinstance(success, (int, float)) or not math.isfinite(success) or success not in (0, 1):
+        return "no_sample"
+    return "up" if success == 1 else "down"
+
+
+def _unexpected_series(services: dict[str, Any], configured: set[tuple[str, str]]) -> list[dict[str, str]]:
+    unexpected: list[dict[str, str]] = []
+    for service_id, probes in services.items():
+        if not isinstance(service_id, str) or not ID_RE.fullmatch(service_id) or not isinstance(probes, dict):
+            continue
+        for protocol in sorted(set(probes) & set(PROTOCOLS.values())):
+            if (service_id, protocol) not in configured:
+                unexpected.append({"service_id": service_id, "protocol": protocol})
+    return unexpected
 
 
 def reconcile(
-    config: dict[str, Any], snapshot: dict[str, Any] | None, *,
+    config: dict[str, Any],
+    snapshot: dict[str, Any] | None,
+    *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Correlate each declared monitor with a bounded protocol-level sample."""
@@ -118,33 +147,17 @@ def reconcile(
     ambiguous = {key for key, count in pair_counts.items() if count > 1}
     for service_id, protocol in sorted(ambiguous):
         warnings.append(f"ambiguous_series:{service_id}:{protocol}")
-    groups: dict[str, list[dict[str, str]]] = {
-        "up": [], "down": [], "no_sample": [], "unverified": []
-    }
+    groups: dict[str, list[dict[str, str]]] = {"up": [], "down": [], "no_sample": [], "unverified": []}
     for check in checks:
         service = services.get(check["service_id"], {})
         probe = service.get(check["protocol"], {}) if isinstance(service, dict) else {}
-        success = probe.get("success") if isinstance(probe, dict) else None
         if state != "observed" or (check["service_id"], check["protocol"]) in ambiguous:
             outcome = "unverified"
-        elif (isinstance(success, bool) or not isinstance(success, (int, float))
-              or not math.isfinite(success) or success not in (0, 1)):
-            outcome = "no_sample"
-        elif success == 1:
-            outcome = "up"
         else:
-            outcome = "down"
+            outcome = _probe_outcome(probe)
         groups[outcome].append(check)
     configured = {(check["service_id"], check["protocol"]) for check in checks}
-    unexpected: list[dict[str, str]] = []
-    if state == "observed":
-        for service_id, probes in services.items():
-            if (not isinstance(service_id, str) or not ID_RE.fullmatch(service_id)
-                    or not isinstance(probes, dict)):
-                continue
-            for protocol in sorted(set(probes) & set(PROTOCOLS.values())):
-                if (service_id, protocol) not in configured:
-                    unexpected.append({"service_id": service_id, "protocol": protocol})
+    unexpected = _unexpected_series(services, configured) if state == "observed" else []
     return {
         "state": state,
         "declared_count": len(checks),
@@ -169,9 +182,7 @@ def main() -> int:
     except (OSError, ValueError, yaml.YAMLError, json.JSONDecodeError) as exc:
         parser.exit(2, f"Invalid local evidence: {type(exc).__name__}\n")
     print(json.dumps(result, indent=2, sort_keys=True))
-    complete = (result["state"] == "observed" and not result["checks"]["down"]
-                and not result["checks"]["no_sample"] and not result["warnings"]
-                and not result["unmatched_observed"])
+    complete = result["state"] == "observed" and not result["checks"]["down"] and not result["checks"]["no_sample"] and not result["warnings"] and not result["unmatched_observed"]
     return 0 if complete else 1
 
 

@@ -60,10 +60,13 @@ def _safe_probe_wave_checked_at(value: Any) -> str | None:
     """Only a validated homelab probe timestamp can identify a distinct wave."""
     if not isinstance(value, str) or len(value) > 32:
         return None
-    if re.fullmatch(
-        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z",
-        value,
-    ) is None:
+    if (
+        re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z",
+            value,
+        )
+        is None
+    ):
         return None
     try:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -96,16 +99,8 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
     summary = _object(homelab.get("probe_summary"))
     cache = _object(homelab.get("probe_cache"))
     state = _allowed_text(board.get("state"), {"fresh", "stale", "pending"})
-    internal_ids = {
-        row["id"]
-        for row in _rows(homelab.get("internal_services"))
-        if isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS
-    }
-    garage_rows = {
-        row["id"]: row
-        for row in _rows(homelab.get("services"))
-        if isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS
-    }
+    internal_ids = {row["id"] for row in _rows(homelab.get("internal_services")) if isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS}
+    garage_rows = {row["id"]: row for row in _rows(homelab.get("services")) if isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS}
     garage: dict[str, dict[str, Any]] = {}
     for service_id in sorted(_GARAGE_IDS):
         row = garage_rows.get(service_id, {})
@@ -161,12 +156,7 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
     # Even a fresh/origin envelope can repeat the very same cached homelab
     # wave. Only the actual homelab checked_at is suitable as a wave identity:
     # the health-board generated_at may advance without new probes.
-    candidates = [
-        cycle
-        for cycle in cycles
-        if cycle["board_state"] == "fresh"
-        and cycle["probe_cache_source"] == "origin"
-    ]
+    candidates = [cycle for cycle in cycles if cycle["board_state"] == "fresh" and cycle["probe_cache_source"] == "origin"]
     origin: list[dict[str, Any]] = []
     seen_waves: set[datetime] = set()
     duplicate_origin_envelopes = 0
@@ -193,10 +183,7 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
         for field in _TIMING_FIELDS[1:]
     }
     garage_lan = [all(cycle["garage"][key]["lan_observed"] and cycle["garage"][key]["internal_state"] == "ok" for key in _GARAGE_IDS) for cycle in origin]
-    pending_phase_totals = {
-        phase: sum(cycle["public"]["deadline_phase_counts"].get(phase) or 0 for cycle in origin)
-        for phase in _DEADLINE_PHASES
-    }
+    pending_phase_totals = {phase: sum(cycle["public"]["deadline_phase_counts"].get(phase) or 0 for cycle in origin) for phase in _DEADLINE_PHASES}
     return {
         "total_snapshots": len(cycles),
         "fresh_envelopes": sum(cycle["board_state"] == "fresh" for cycle in cycles),
@@ -234,6 +221,23 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _parse_snapshot(line_number: int, line: str) -> dict[str, Any] | None:
+    """Return one bounded JSON object, or None after reporting why it was rejected."""
+    if len(line.encode("utf-8")) > _MAX_LINE_BYTES:
+        reason = "JSON input too large"
+    else:
+        try:
+            snapshot = json.loads(line)
+        except json.JSONDecodeError:
+            reason = "invalid JSON"
+        else:
+            if isinstance(snapshot, dict):
+                return snapshot
+            reason = "expected JSON object"
+    print(f"line {line_number}: {reason}", file=sys.stderr)
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -253,16 +257,8 @@ def main() -> int:
     for line_number, line in enumerate(sys.stdin, start=1):
         if not line.strip():
             continue
-        if len(line.encode("utf-8")) > _MAX_LINE_BYTES:
-            print(f"line {line_number}: JSON input too large", file=sys.stderr)
-            return 2
-        try:
-            snapshot = json.loads(line)
-        except json.JSONDecodeError:
-            print(f"line {line_number}: invalid JSON", file=sys.stderr)
-            return 2
-        if not isinstance(snapshot, dict):
-            print(f"line {line_number}: expected JSON object", file=sys.stderr)
+        snapshot = _parse_snapshot(line_number, line)
+        if snapshot is None:
             return 2
         summary = summarize(snapshot)
         if args.aggregate:

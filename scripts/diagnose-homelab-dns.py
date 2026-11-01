@@ -4,6 +4,7 @@
 Compare direct pfSense/Unbound answers to the operating system resolver.
 This does not prove HTTP, TLS, Cloudflare Access or FastAPI application health.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,9 +36,7 @@ def lookup(command: list[str], timeout: float) -> tuple[list[str] | None, str]:
     if not shutil.which(command[0]):
         return None, f"{command[0]} unavailable"
     try:
-        result = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
-        )
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
         return None, "timeout"
     except OSError:
@@ -47,9 +46,7 @@ def lookup(command: list[str], timeout: float) -> tuple[list[str] | None, str]:
     return ipv4_answers(result.stdout), "queried"
 
 
-def classify_internal(
-    direct: list[str] | None, system: list[str] | None, expected: str
-) -> str:
+def classify_internal(direct: list[str] | None, system: list[str] | None, expected: str) -> str:
     if direct is None or system is None:
         return "unverified"
     if expected not in direct:
@@ -57,7 +54,6 @@ def classify_internal(
     if expected not in system:
         return "system_resolver_mismatch"
     return "matched"
-
 
 
 def link_ipv4_servers(output: str) -> list[str]:
@@ -117,6 +113,63 @@ def resolver_context(vantage: str, interface: str, resolver: str) -> str:
     )
 
 
+def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    try:
+        ipaddress.IPv4Address(args.resolver)
+        ipaddress.IPv4Address(args.expected_internal_ip)
+    except ipaddress.AddressValueError:
+        parser.error("resolver and expected internal IP must be IPv4")
+    if not 0 < args.timeout <= 10:
+        parser.error("timeout must be in (0, 10] seconds")
+    if not 0 < args.system_timeout <= 20:
+        parser.error("system-timeout must be in (0, 20] seconds")
+    if args.slow_system_ms <= 0:
+        parser.error("slow-system-ms must be positive")
+
+
+def _compare_resolvers(label: str, host: str, args: argparse.Namespace) -> tuple[list[str] | None, list[str] | None, float]:
+    """Resolve once through pfSense directly and once through host NSS."""
+    # `+short` prints A answers only; an empty result is not proof of a
+    # specific DNS failure mode (NXDOMAIN/SERVFAIL require a separate dig).
+    direct_start = time.perf_counter()
+    direct, direct_reason = lookup(
+        ["dig", f"@{args.resolver}", host, "A", "+short", "+tries=1", "+time=2"],
+        args.timeout,
+    )
+    direct_ms = (time.perf_counter() - direct_start) * 1000
+    system_start = time.perf_counter()
+    system, system_reason = lookup(["getent", "ahostsv4", host], args.system_timeout)
+    system_ms = (time.perf_counter() - system_start) * 1000
+    direct_elapsed = f"{direct_ms:.1f}ms" if direct is not None else "unavailable"
+    print(
+        f"{label}: pfSense={direct if direct is not None else 'NOT_RUN'} "
+        f"({direct_reason}, {direct_elapsed}); "
+        f"system={system if system is not None else 'NOT_RUN'} "
+        f"({system_reason}, {system_ms:.1f}ms)",
+    )
+    return direct, system, system_ms
+
+
+def _print_internal_diagnosis(
+    outcome: str,
+    direct_internal: list[str] | None,
+    system_internal: list[str] | None,
+    expected_ip: str,
+) -> None:
+    if system_internal is None:
+        if direct_internal is not None and expected_ip in direct_internal:
+            print(
+                "DIAGNOSIS: direct pfSense DNS works, but host NSS/getent "
+                "could not resolve the internal name. "
+                "Check /etc/nsswitch.conf hosts, /etc/resolv.conf, "
+                "and per-link resolver routing on THIS host.",
+            )
+        else:
+            print("DIAGNOSIS: direct pfSense or system DNS evidence is missing.")
+    elif outcome == "matched_slow":
+        print("WARNING: host resolver returned the expected internal IP, but NSS lookup was slow; inspect resolver routing and retries.")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vantage", choices=("workstation", "truenas"), required=True)
@@ -131,91 +184,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--resolver-context", action="store_true")
     parser.add_argument("--interface", default=None)
     args = parser.parse_args(argv)
-    try:
-        ipaddress.IPv4Address(args.resolver)
-        ipaddress.IPv4Address(args.expected_internal_ip)
-    except ipaddress.AddressValueError:
-        parser.error("resolver and expected internal IP must be IPv4")
-    if not 0 < args.timeout <= 10:
-        parser.error("timeout must be in (0, 10] seconds")
-    if not 0 < args.system_timeout <= 20:
-        parser.error("system-timeout must be in (0, 20] seconds")
-    if args.slow_system_ms <= 0:
-        parser.error("slow-system-ms must be positive")
-    print(
-        f"Observer={args.vantage}; DNS server={args.resolver}; "
-        f"expected internal A={args.expected_internal_ip} (declared)"
-    )
+    _validate_args(parser, args)
+    print(f"Observer={args.vantage}; DNS server={args.resolver}; expected internal A={args.expected_internal_ip} (declared)")
     results: dict[str, tuple[list[str] | None, list[str] | None]] = {}
     system_elapsed_ms: dict[str, float] = {}
     for label, host in (("internal", args.internal_name), ("public", args.public_name)):
-        # `+short` prints A answers only; an empty result is not proof of a
-        # specific DNS failure mode (NXDOMAIN/SERVFAIL require a separate dig).
-        direct_start = time.perf_counter()
-        direct, direct_reason = lookup(
-            ["dig", f"@{args.resolver}", host, "A", "+short", "+tries=1", "+time=2"],
-            args.timeout,
-        )
-        direct_ms = (time.perf_counter() - direct_start) * 1000
-        system_start = time.perf_counter()
-        system, system_reason = lookup(
-            ["getent", "ahostsv4", host], args.system_timeout
-        )
-        system_ms = (time.perf_counter() - system_start) * 1000
-        system_elapsed_ms[label] = system_ms
+        direct, system, system_elapsed_ms[label] = _compare_resolvers(label, host, args)
         results[label] = direct, system
-        direct_elapsed = f"{direct_ms:.1f}ms" if direct is not None else "unavailable"
-        system_elapsed = f"{system_ms:.1f}ms"
-        print(
-            f"{label}: pfSense={direct if direct is not None else 'NOT_RUN'} "
-            f"({direct_reason}, {direct_elapsed}); "
-            f"system={system if system is not None else 'NOT_RUN'} "
-            f"({system_reason}, {system_elapsed})"
-        )
     direct_internal, system_internal = results["internal"]
-    outcome = classify_internal(
-        direct_internal, system_internal, args.expected_internal_ip
-    )
+    outcome = classify_internal(direct_internal, system_internal, args.expected_internal_ip)
     if outcome == "matched" and system_elapsed_ms["internal"] > args.slow_system_ms:
         outcome = "matched_slow"
     print(f"Internal DNS comparison={outcome}")
-    if system_internal is None:
-        if direct_internal is not None and args.expected_internal_ip in direct_internal:
-            print(
-                "DIAGNOSIS: direct pfSense DNS works, but host NSS/getent "
-                "could not resolve the internal name. "
-                "Check /etc/nsswitch.conf hosts, /etc/resolv.conf, "
-                "and per-link resolver routing on THIS host."
-            )
-        else:
-            print("DIAGNOSIS: direct pfSense or system DNS evidence is missing.")
-    elif outcome == "matched_slow":
-        print(
-            "WARNING: host resolver returned the expected internal IP, "
-            "but NSS lookup was slow; inspect resolver routing and retries."
-        )
+    _print_internal_diagnosis(outcome, direct_internal, system_internal, args.expected_internal_ip)
     if args.resolver_context and outcome != "matched":
-        interface = args.interface or (
-            "eno1" if args.vantage == "workstation" else "br0"
-        )
-        if (
-            not all(c.isalnum() or c in "_.:-" for c in interface)
-            or len(interface) > 32
-        ):
+        interface = args.interface or ("eno1" if args.vantage == "workstation" else "br0")
+        if not all(c.isalnum() or c in "_.:-" for c in interface) or len(interface) > 32:
             parser.error("Invalid interface")
         print(resolver_context(args.vantage, interface, args.resolver))
-    print(
-        "Public DNS A values can change behind Cloudflare; "
-        "no fixed public IP is required."
-    )
+    print("Public DNS A values can change behind Cloudflare; no fixed public IP is required.")
     print("DNS answers do not prove TCP, TLS, HTTP/API, WebSocket or origin health.")
-    if args.strict and (
-        outcome != "matched"
-        or any(
-            direct is None or not direct or system is None or not system
-            for direct, system in results.values()
-        )
-    ):
+    if args.strict and (outcome != "matched" or any(direct is None or not direct or system is None or not system for direct, system in results.values())):
         return 1
     return 0
 

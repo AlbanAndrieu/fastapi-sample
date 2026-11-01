@@ -142,6 +142,13 @@ pour chaque service et refus WAN correct.
   `.quality-gate-large-deletions` quand le renommage prévu est fusionné.
   Renommer le script JS `diagnose-production-api-ui-freeze.mjs`
   uniquement si cela simplifie réellement la maintenance.
+  **01/11 CODED :** `scripts/` passe à 0 écart ruff (12 → 0 : 7 C901
+  découpés, S101, S310 justifiés sur origines figées) et 8 scripts
+  reformatés ; test ajouté pour `github-actions-usage.py`. Restent :
+  doublon `resolve_base_ref` entre `agent-publish.sh` et
+  `agent-quality-gate.sh` (contrats texte, à traiter après #392) et
+  `diagnose-local-runtime-dependencies.py` (634 lignes) ; preuve :
+  L2/L3 sur le HEAD de la PR.
 
 ## Documentation et séquence de reprise
 
