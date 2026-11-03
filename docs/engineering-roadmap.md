@@ -177,8 +177,8 @@ pour chaque service et refus WAN correct.
   `100 %` n'est pas garanti par une seule durée de rotation.
   Voir [runbook Cloud](runbooks/cloud-probe-evidence-coverage.md).
   **Reste :** validation locale L1/L2/L3 au HEAD exact, diagnostic des
-  16 warnings sur données réelles, Redis partagé optionnel avec contrôle
-  d'accès, puis recette du déploiement (SHA et mesures).
+  16 warnings sur données réelles, activation/validation du Redis partagé
+  public (opt-in, jamais LAN), puis recette du déploiement (SHA et mesures).
 - [ ] **Fédération TrueNAS → Cloud :** concevoir un transport d'agrégats
   signés, horodatés et autorisés. Aucun accès LAN direct depuis Cloud,
   aucune publication d'IP privée ni état vert sans preuve d'origine.

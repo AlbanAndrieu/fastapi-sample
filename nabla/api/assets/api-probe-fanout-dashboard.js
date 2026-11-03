@@ -464,7 +464,7 @@ function observationText(row) {
   const next = finiteNumber(row?.next_probe_in_seconds, Number.NaN);
   const parts = [];
   const observedAt = String(row?.probe_observed_at || "").trim();
-  if (/^\\d{4}-\\d{2}-\\d{2}T/.test(observedAt)) {
+  if (/^\d{4}-\d{2}-\d{2}T/.test(observedAt)) {
     parts.push(`observed ${observedAt.slice(0, 25)}`);
   }
   if (Number.isFinite(age)) parts.push(`${humanSeconds(age)} ago`);

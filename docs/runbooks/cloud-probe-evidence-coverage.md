@@ -29,9 +29,9 @@ Les données brutes d'une matrice protégée nécessitent l'autorisation OWNER.
 
 1. Vérifier le SHA et la version effectivement en service.
 2. Examiner `/api/homelab/probes` depuis une session autorisée : `probe_summary.public.unobserved_slots`, `estimated_full_cycle_seconds`, `probe_runtime.estimate_source`.
-3. Capturer une suite d'observations à intervalle régulier, sur le **même worker** si possible. Vérifier que chaque ID quitte `unobserved_slots` ou justifier son exclusion.
+3. Capturer une suite d'observations à intervalle régulier. Si Redis est désactivé, conserver le même worker si possible ; sinon la couverture varie d'un worker à l'autre. Vérifier que chaque ID quitte `unobserved_slots` ou justifier son exclusion.
 4. Regrouper chaque warning par `error_kind`, `http_status`, `public_probe_auth_mode` et `public_probe_verification`. Corriger la cause, ne pas modifier artificiellement les états.
-5. Si le runtime est répliqué, mettre en place un stockage Redis partagé **opt-in**, TTL borné et clés par scope, avant d'annoncer une couverture consolidée. Réutiliser uniquement des preuves nettoyées ; ne pas copier les secrets ni les cibles LAN vers Cloud.
+5. Si le runtime est répliqué, configurer `REDIS_URL` et activer explicitement `HOMELAB_PUBLIC_PROBE_EVIDENCE_REDIS_ENABLED=true`. Définir `HOMELAB_PROBE_EVIDENCE_NAMESPACE` (identifiant alphanumérique, `_` ou `-`) pour isoler les déploiements. Les seuls champs partagés sont des diagnostics publics nettoyés ; TTL maximal 3600 s. Le backend continue en mémoire si Redis est absent ou inaccessible. Vérifier `probe_summary.public.evidence_storage` et `probe_runtime.evidence_storage`. Il n'existe **aucune** fédération automatique des données LAN.
 6. Pour fédérer TrueNAS, exporter un résumé autorisé avec heure, source, staleness et signature ; contrôler l'accès côté Cloud. Ne jamais activer les connexions LAN depuis le runtime Cloud.
 
 **Critère d'acceptation :** chaque cible éligible a une observation exploitable

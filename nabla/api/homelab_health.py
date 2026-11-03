@@ -21,6 +21,10 @@ from nabla.api.homelab_probe_evidence import (
     evidence_summary,
     merge_probe_evidence,
 )
+from nabla.api.homelab_probe_evidence_redis import (
+    read_public_probe_evidence,
+    write_public_probe_evidence,
+)
 from nabla.api.homelab_probe_policy import (
     HEALTH_CACHE_TTL_SEC as _HEALTH_CACHE_TTL_SEC,
     INTERNAL_PROBE_TIMEOUT_SEC as _INTERNAL_PROBE_TIMEOUT_SEC,
@@ -199,6 +203,7 @@ def _finalize_scope(
     limit: int,
     enabled: bool,
     checked_at: str,
+    shared_entries: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Merge retained evidence and attach sampling metadata to one probe scope."""
     merged = (
@@ -207,6 +212,7 @@ def _finalize_scope(
             current_results=results,
             eligible_services=candidates,
             checked_at=checked_at,
+            shared_entries=shared_entries,
         )
         if enabled
         else []
@@ -313,6 +319,9 @@ async def build_homelab_health_payload(
         )
 
         checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        shared_public_entries, shared_read_ok = await read_public_probe_evidence(
+            public_candidates
+        )
         public_results = _finalize_scope(
             "public",
             public_results,
@@ -321,6 +330,13 @@ async def build_homelab_health_payload(
             limit=_MAX_PUBLIC_PROBES_PER_REFRESH,
             enabled=True,
             checked_at=checked_at,
+            shared_entries=shared_public_entries,
+        )
+        shared_write_ok = await write_public_probe_evidence(
+            public_results, checked_at
+        )
+        public_summary["evidence_storage"] = (
+            "redis_shared" if shared_read_ok and shared_write_ok else "process_memory"
         )
         internal_results = _finalize_scope(
             "internal",

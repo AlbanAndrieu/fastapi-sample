@@ -82,6 +82,11 @@ def probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     cadence_values = _probe_cadence_values(payload)
     candidate_estimate = _eligible_cycle_estimate(summary)
     observed_estimate = max(cadence_values) if cadence_values else None
+    public_summary = summary.get("public")
+    shared_public = (
+        isinstance(public_summary, dict)
+        and public_summary.get("evidence_storage") == "redis_shared"
+    )
 
     return {
         "started_at": _PROBE_RUNTIME_STARTED_AT,
@@ -108,5 +113,7 @@ def probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
             else "unavailable"
         ),
         "refresh_model": "on_request",
-        "evidence_storage": "process_memory",
+        "evidence_storage": (
+            "public_redis_internal_memory" if shared_public else "process_memory"
+        ),
     }
