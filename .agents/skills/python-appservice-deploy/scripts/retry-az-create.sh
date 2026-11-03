@@ -33,20 +33,20 @@ TRANSIENT='Connection reset|Connection aborted|ConnectionError|Read timed out|Ba
 
 for attempt in 1 2 3; do
     # Run show silently; on failure, run create and capture stderr.
-    if err=$({ eval "$SHOW_CMD -o none 2>/dev/null" || eval "$CREATE_CMD -o none"; } 2>&1); then
+    if err=$({ eval "${SHOW_CMD} -o none 2>/dev/null" || eval "${CREATE_CMD} -o none"; } 2>&1); then
         exit 0
     fi
 
-    if ! echo "$err" | grep -qE "$TRANSIENT"; then
-        echo "$err" >&2
+    if ! echo "${err}" | grep -qE "${TRANSIENT}"; then
+        echo "${err}" >&2
         exit 1
     fi
 
-    if [ "$attempt" -eq 3 ]; then
-        echo "$err" >&2
+    if [ "${attempt}" -eq 3 ]; then
+        echo "${err}" >&2
         echo "ARM frontend is returning transient errors — please retry in a few minutes." >&2
         exit 1
     fi
 
-    sleep "$([ "$attempt" -eq 1 ] && echo 5 || echo 15)"
+    sleep "$([ "${attempt}" -eq 1 ] && echo 5 || echo 15)"
 done

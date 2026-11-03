@@ -62,9 +62,9 @@ This distinction matters when reading the flow graph: a hostname can resolve
 through pfSense/Unbound while the eventual destination is Cloudflare, the
 pfSense WAN address, or a direct LAN address.
 
-### `sample.albandrieu.com`
+### `fastapi-sample.albandrieu.com`
 
-On the workstation, `sample.albandrieu.com` resolves to Cloudflare anycast
+On the workstation, `fastapi-sample.albandrieu.com` resolves to Cloudflare anycast
 addresses. The workstation routes those addresses through its default gateway
 (`172.17.0.1`) and reaches the Cloudflare edge. A `302` to the Cloudflare Access
 login page plus the `Cloudflare-Access` authentication challenge confirms that
@@ -100,8 +100,8 @@ Check the system resolver and route independently of the application's cached
 health evidence:
 
 ```bash
-getent ahostsv4 sample.albandrieu.com
-ip route get "$(getent ahostsv4 sample.albandrieu.com | awk 'NR==1 {print $1}')"
+getent ahostsv4 fastapi-sample.albandrieu.com
+ip route get "$(getent ahostsv4 fastapi-sample.albandrieu.com | awk 'NR==1 {print $1}')"
 
 dig +short @172.17.0.1 truenas.albandrieu.com A
 ip route get 82.66.4.247

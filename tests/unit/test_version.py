@@ -4,7 +4,16 @@ from fastapi.testclient import TestClient
 
 from nabla import __version__
 from nabla.main import app
-from nabla.version import API_VERSION, resolve_release_version
+from nabla.version import API_VERSION, resolve_build_revision, resolve_release_version
+
+
+def test_empty_baked_build_revision_falls_back_to_git_sha(monkeypatch):
+    # Unstamped Docker builds bake BUILD_REVISION="" into the image environment.
+    monkeypatch.setattr("nabla.version.DEPLOYED_BUILD_SHA", "")
+    monkeypatch.setenv("BUILD_REVISION", "")
+    monkeypatch.setenv("GIT_SHA", "c" * 40)
+
+    assert resolve_build_revision() == "c" * 40
 
 
 def test_release_version_environment_override(monkeypatch):

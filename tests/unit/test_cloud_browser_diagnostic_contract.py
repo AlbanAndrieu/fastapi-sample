@@ -44,7 +44,7 @@ def test_browser_diagnostic_is_async_and_handles_unresponsive_main_thread():
 def test_browser_targets_are_pinned_to_cloud_access_and_lan():
     script = source("scripts/diagnose-api-ui-freeze.py")
     assert '"cloud": "https://fastapi-sample.fastapicloud.dev/api"' in script
-    assert '"staging": "https://sample.albandrieu.com/api"' in script
+    assert '"staging": "https://fastapi-sample.albandrieu.com/api"' in script
     assert '"truenas": "http://172.17.0.24:8091/api"' in script
     assert "if target not in TARGETS:" in script
     assert "urlsplit(response.url).netloc == origin" in script

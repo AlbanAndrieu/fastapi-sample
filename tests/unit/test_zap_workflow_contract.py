@@ -23,9 +23,9 @@ def test_zap_scans_authorized_production_web_and_openapi_surfaces() -> None:
 
     assert "zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25" in workflow_text
     assert "zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d" in workflow_text
-    assert dast_env["TRUENAS_ROOT_URL"] == "https://sample.albandrieu.com/"
-    assert dast_env["TRUENAS_API_URL"] == "https://sample.albandrieu.com/api"
-    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://sample.albandrieu.com/openapi.json"
+    assert dast_env["TRUENAS_ROOT_URL"] == "https://fastapi-sample.albandrieu.com/"
+    assert dast_env["TRUENAS_API_URL"] == "https://fastapi-sample.albandrieu.com/api"
+    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://fastapi-sample.albandrieu.com/openapi.json"
     assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
     assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
     assert workflow_text.count("format: openapi") == 2

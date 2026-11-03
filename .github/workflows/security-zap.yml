@@ -23,16 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      TRUENAS_ROOT_URL: https://sample.albandrieu.com/
-      TRUENAS_API_URL: https://sample.albandrieu.com/api
-      TRUENAS_OPENAPI_URL: https://sample.albandrieu.com/openapi.json
+      TRUENAS_ROOT_URL: https://fastapi-sample.albandrieu.com/
+      TRUENAS_API_URL: https://fastapi-sample.albandrieu.com/api
+      TRUENAS_OPENAPI_URL: https://fastapi-sample.albandrieu.com/openapi.json
       CLOUD_API_URL: https://fastapi-sample.fastapicloud.dev/api
       CLOUD_OPENAPI_URL: https://fastapi-sample.fastapicloud.dev/openapi.json
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       ZAP_AUTH_HEADER: CF-Access-Client-Id
       ZAP_AUTH_HEADER_VALUE: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-      ZAP_AUTH_HEADER_SITE: sample.albandrieu.com
+      ZAP_AUTH_HEADER_SITE: fastapi-sample.albandrieu.com
 
     steps:
       - name: Checkout exact source SHA and ZAP policy
@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
 
           if [[ -z "${CF_ACCESS_CLIENT_ID}" || -z "${CF_ACCESS_CLIENT_SECRET}" ]]; then
-            echo "::error::Cloudflare Access service-token secrets are required to scan sample.albandrieu.com behind Access."
+            echo "::error::Cloudflare Access service-token secrets are required to scan fastapi-sample.albandrieu.com behind Access."
             exit 1
           fi
 

@@ -20,15 +20,15 @@
 
 set -euo pipefail
 
-INPUT="${1:-$(basename "$PWD")}"
+INPUT="${1:-$(basename "${PWD}")}"
 
 # Lowercase, replace non-[a-z0-9] with '-', collapse repeats, trim hyphens.
-SLUG=$(echo "$INPUT" \
+SLUG=$(echo "${INPUT}" \
     | tr '[:upper:]' '[:lower:]' \
     | sed -E 's/[^a-z0-9]+/-/g; s/-+/-/g; s/^-//; s/-$//')
 
 # Fallback if the slug ended up empty (e.g. folder was only symbols).
-if [ -z "$SLUG" ]; then
+if [ -z "${SLUG}" ]; then
     SLUG="app"
 fi
 
@@ -42,19 +42,19 @@ fi
 
 # Reserve 9 chars for "-XXXXXXXX" so the total stays <= 40.
 MAX_SLUG_LEN=31
-if [ ${#SLUG} -gt $MAX_SLUG_LEN ]; then
-    SLUG=$(echo "$SLUG" | cut -c1-$MAX_SLUG_LEN | sed -E 's/-$//')
+if [ ${#SLUG} -gt ${MAX_SLUG_LEN} ]; then
+    SLUG=$(echo "${SLUG}" | cut -c1-${MAX_SLUG_LEN} | sed -E 's/-$//')
 fi
 
 NAME="${SLUG}-${SUFFIX}"
 
 # Ensure the name starts with a letter (Azure requirement). Prefix 'a' if not.
-case "$NAME" in
+case "${NAME}" in
     [a-z]*) ;;
     *) NAME="a${NAME}";;
 esac
 
 # Final length guard.
-NAME=$(echo "$NAME" | cut -c1-40 | sed -E 's/-$//')
+NAME=$(echo "${NAME}" | cut -c1-40 | sed -E 's/-$//')
 
-echo "$NAME"
+echo "${NAME}"

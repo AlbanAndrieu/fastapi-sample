@@ -175,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--vantage", choices=("workstation", "truenas"), required=True)
     parser.add_argument("--resolver", default="172.17.0.1")
     parser.add_argument("--internal-name", default="sample.int.albandrieu.com")
-    parser.add_argument("--public-name", default="sample.albandrieu.com")
+    parser.add_argument("--public-name", default="fastapi-sample.albandrieu.com")
     parser.add_argument("--expected-internal-ip", default="172.17.0.24")
     parser.add_argument("--timeout", type=float, default=3.0)
     parser.add_argument("--system-timeout", type=float, default=10.0)

@@ -9,9 +9,7 @@
       "kind": "security-app",
       "category": "security",
       "sourcePath": "apps/2fauth/compose.yml",
-      "securityFunctions": [
-        "protect"
-      ],
+      "securityFunctions": ["protect"],
       "runtime": {
         "provider": "truenas-app",
         "appId": "twofactor-auth"
@@ -62,16 +60,11 @@
       "presentationRole": "service",
       "criticality": "medium",
       "status": "planned",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "akvorado-console",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
@@ -87,23 +80,16 @@
       "presentationRole": "support",
       "criticality": "high",
       "status": "planned",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "akvorado-inlet",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:31057/api/v0/healthcheck",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -115,16 +101,11 @@
       "presentationRole": "support",
       "criticality": "high",
       "status": "planned",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "akvorado-orchestrator",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -136,23 +117,16 @@
       "presentationRole": "support",
       "criticality": "high",
       "status": "planned",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "akvorado-outlet",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:31058/api/v0/healthcheck",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -168,9 +142,7 @@
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:12345/-/healthy",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "🧬"
     },
@@ -189,9 +161,7 @@
         "provider": "truenas-app",
         "appId": "autokuma",
         "containerService": "autokuma",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -206,9 +176,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "autoxpose",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
@@ -224,16 +192,12 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "bichon",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "monitoring": {
         "type": "port",
         "target": "tcp://172.17.0.24:15630",
-        "conditions": [
-          "[CONNECTED] == true"
-        ]
+        "conditions": ["[CONNECTED] == true"]
       }
     },
     {
@@ -245,16 +209,11 @@
       "description": "Scheduled/manual security asset and relationship ingestion into Neo4j for attack-path and blast-radius analysis.",
       "presentationRole": "support",
       "criticality": "low",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "cartography",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -268,10 +227,7 @@
       "description": "Internal ClamAV/clamd service. The .int URL is the private DNS identity; functional health remains a TCP/3310 probe.",
       "presentationRole": "support",
       "criticality": "high",
-      "securityFunctions": [
-        "protect",
-        "detect"
-      ]
+      "securityFunctions": ["protect", "detect"]
     },
     {
       "id": "clickhouse",
@@ -286,9 +242,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "clickhouse",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "⚡"
     },
@@ -327,10 +281,7 @@
       "category": "security",
       "sourcePath": "apps/crowdsec/compose.yml",
       "status": "planned",
-      "securityFunctions": [
-        "detect",
-        "respond"
-      ],
+      "securityFunctions": ["detect", "respond"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "crowdsec"
@@ -347,23 +298,16 @@
       "description": "Lightweight threat-intelligence workbench for extracting IoCs and checking reputation across OSINT, CTI, and EDR engines.",
       "presentationRole": "service",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "cyberbro",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:5100/",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -376,17 +320,11 @@
       "description": "Central normalized security-finding aggregation, deduplication, triage and remediation workflow.",
       "presentationRole": "service",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect",
-        "respond"
-      ],
+      "securityFunctions": ["identify", "detect", "respond"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "defectdojo",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -402,17 +340,11 @@
       "sourcePath": "apps/defectdojo/compose.yml",
       "presentationRole": "support",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect",
-        "respond"
-      ],
+      "securityFunctions": ["identify", "detect", "respond"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "defectdojo-uwsgi",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -426,9 +358,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "defectdojo-celerybeat",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -442,9 +372,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "defectdojo-initializer",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -458,9 +386,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "defectdojo-celeryworker",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -473,16 +399,11 @@
       "description": "CycloneDX SBOM component inventory and software supply-chain vulnerability analysis platform.",
       "presentationRole": "service",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "dependency-track",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -498,16 +419,11 @@
       "sourcePath": "apps/dependency-track/compose.yml",
       "presentationRole": "support",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "dependency-track-api",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -529,9 +445,7 @@
       "description": "Restricted read-only Docker Engine API boundary for repository automation.",
       "presentationRole": "support",
       "criticality": "high",
-      "securityFunctions": [
-        "protect"
-      ],
+      "securityFunctions": ["protect"],
       "lifecycle": {
         "phase": "bootstrap-runtime",
         "priority": 0
@@ -539,9 +453,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "docker-socket-proxy",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -581,18 +493,13 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "docling",
-        "networks": [
-          "intranet",
-          "traefik_network"
-        ]
+        "networks": ["intranet", "traefik_network"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:5001/ready",
         "url": "http://172.17.0.24:5001/metrics",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -607,11 +514,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "doco-cd",
-        "networks": [
-          "default",
-          "intranet",
-          "secrets-backend"
-        ]
+        "networks": ["default", "intranet", "secrets-backend"]
       },
       "monitoring": {
         "type": "port",
@@ -631,9 +534,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "dozzle",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "monitoring": {
         "type": "port",
@@ -670,16 +571,11 @@
       "description": "OWASP DSOMM assessment UI. Assessment state is browser/YAML evidence; automated baseline results are supporting evidence, not an authoritative maturity verdict.",
       "presentationRole": "service",
       "criticality": "low",
-      "securityFunctions": [
-        "govern",
-        "identify"
-      ],
+      "securityFunctions": ["govern", "identify"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "dsomm",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -697,16 +593,11 @@
       "description": "Manual pinned Tweag dsomm-baseline runner that inventories automatable GitHub evidence and writes CSV reports for later human review in DSOMM.",
       "presentationRole": "support",
       "criticality": "low",
-      "securityFunctions": [
-        "govern",
-        "identify"
-      ],
+      "securityFunctions": ["govern", "identify"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "dsomm-baseline",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "status": "planned"
     },
@@ -719,9 +610,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "elasticsearch",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "icon": "🔎"
     },
@@ -741,7 +630,7 @@
       "name": "FastAPI Sample",
       "kind": "api",
       "category": "development",
-      "sourcePath": "apps/sample/compose.yml",
+      "sourcePath": "apps/fastapi-sample/compose.yml",
       "description": "FastAPI Sample service with FastAPI Cloud production and TrueNAS staging environments.",
       "presentationRole": "support",
       "criticality": "medium",
@@ -754,7 +643,7 @@
         },
         {
           "name": "staging",
-          "url": "https://sample.albandrieu.com/api",
+          "url": "https://fastapi-sample.albandrieu.com/api",
           "external": true,
           "cloudflareTunnel": true
         }
@@ -762,18 +651,12 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "fastapi-sample",
-        "networks": [
-          "intranet",
-          "sample-observer",
-          "traefik_network"
-        ]
+        "networks": ["intranet", "sample-observer", "traefik_network"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:8091/health",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -787,9 +670,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "garage",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "icon": "🪣"
     },
@@ -816,9 +697,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "webui",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "icon": "🖥️"
     },
@@ -833,9 +712,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "gatus",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -851,9 +728,7 @@
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:30037/api/health",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "📈"
     },
@@ -870,10 +745,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "graylog",
-        "networks": [
-          "intranet",
-          "nabla-security"
-        ]
+        "networks": ["intranet", "nabla-security"]
       },
       "icon": "🪵"
     },
@@ -912,9 +784,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "nginx",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "monitoring": {
         "type": "port",
@@ -935,9 +805,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "homarr",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -950,9 +818,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "homarr-sync",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -967,10 +833,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "homeassistant",
-        "networks": [
-          "iot_macvlan",
-          "traefik"
-        ]
+        "networks": ["iot_macvlan", "traefik"]
       }
     },
     {
@@ -987,9 +850,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "influxdb",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -1010,17 +871,12 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "joplin",
-        "networks": [
-          "intranet",
-          "traefik_network"
-        ]
+        "networks": ["intranet", "traefik_network"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:22300/api/ping",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -1036,9 +892,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "kafka",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1056,16 +910,12 @@
         "provider": "truenas-app",
         "appId": "kafka",
         "containerService": "kafka-exporter",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:9308/metrics",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -1081,9 +931,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "keycloak",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
@@ -1099,9 +947,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "kibana",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "icon": "📊"
     },
@@ -1125,10 +971,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "langflow",
-        "networks": [
-          "intranet",
-          "traefik_network"
-        ]
+        "networks": ["intranet", "traefik_network"]
       },
       "icon": "🔗"
     },
@@ -1150,9 +993,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "langfuse-web",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "🖥️"
     },
@@ -1165,9 +1006,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "langfuse-worker",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "⚙️"
     },
@@ -1214,9 +1053,7 @@
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:3100/ready",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "🧾"
     },
@@ -1229,16 +1066,11 @@
       "description": "Model Context Protocol bridge exposing Cyberbro observable-analysis tools to MCP-capable clients such as LiteLLM.",
       "presentationRole": "support",
       "criticality": "low",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "mcp-cyberbro",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1259,9 +1091,7 @@
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:9009/ready",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "📐"
     },
@@ -1274,9 +1104,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "minio",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "🪣"
     },
@@ -1293,9 +1121,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "mongo",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "🍃"
     },
@@ -1322,16 +1148,11 @@
       "description": "Analytical graph store for Cartography attack-path, privilege-chain and blast-radius queries; not an authoritative CMDB.",
       "presentationRole": "support",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "neo4j-security",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1349,15 +1170,11 @@
       "description": "Network and infrastructure source of truth for IPAM, prefixes, VLANs, devices, VMs and interfaces; x-nabla remains authoritative for application/service identity.",
       "presentationRole": "service",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify"
-      ],
+      "securityFunctions": ["identify"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "netbox",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1376,9 +1193,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "netbox-housekeeping",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -1392,9 +1207,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "netbox-worker",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -1409,9 +1222,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "nexus",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "monitoring": {
         "type": "port",
@@ -1503,9 +1314,7 @@
       "presentationRole": "support",
       "criticality": "high",
       "status": "disabled",
-      "securityFunctions": [
-        "protect"
-      ],
+      "securityFunctions": ["protect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "op-connect-api"
@@ -1526,9 +1335,7 @@
       "presentationRole": "support",
       "criticality": "high",
       "status": "disabled",
-      "securityFunctions": [
-        "protect"
-      ],
+      "securityFunctions": ["protect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "op-connect-sync"
@@ -1569,9 +1376,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "openhands",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1588,10 +1393,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "openrag-backend",
-        "networks": [
-          "intranet",
-          "traefik_network"
-        ]
+        "networks": ["intranet", "traefik_network"]
       },
       "icon": "📚"
     },
@@ -1604,10 +1406,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "openrag-frontend",
-        "networks": [
-          "intranet",
-          "traefik_network"
-        ]
+        "networks": ["intranet", "traefik_network"]
       },
       "icon": "🔍"
     },
@@ -1624,9 +1423,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "opensearch",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "🔎"
     },
@@ -1643,9 +1440,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "dashboards",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "📊"
     },
@@ -1674,9 +1469,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "opensearch-security",
-        "networks": [
-          "nabla-security"
-        ]
+        "networks": ["nabla-security"]
       },
       "icon": "🛡️"
     },
@@ -1689,9 +1482,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "opensearch-security-exporter",
-        "networks": [
-          "nabla-security"
-        ]
+        "networks": ["nabla-security"]
       },
       "icon": "📡"
     },
@@ -1704,10 +1495,7 @@
       "description": "One-shot repository and upstream dependency security-posture scanner. Results are evidence, not a service criticality score.",
       "presentationRole": "support",
       "criticality": "low",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "scorecard"
@@ -1747,16 +1535,11 @@
       "description": "External pfSense firewall running the lightweight CrowdSec remediation component.",
       "presentationRole": "core",
       "criticality": "critical",
-      "securityFunctions": [
-        "protect",
-        "respond"
-      ],
+      "securityFunctions": ["protect", "respond"],
       "monitoring": {
         "type": "http",
         "target": "https://home.albandrieu.com:10443/api/v2/system/version",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "🔥"
     },
@@ -1773,9 +1556,7 @@
       "monitoring": {
         "type": "port",
         "target": "tcp://172.17.0.24:9945",
-        "conditions": [
-          "[CONNECTED] == true"
-        ]
+        "conditions": ["[CONNECTED] == true"]
       },
       "icon": "📡"
     },
@@ -1828,9 +1609,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "pihole",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
@@ -1849,9 +1628,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "pihole-dns-sync",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -1866,9 +1643,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "pihole-exporter",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1886,16 +1661,11 @@
       "description": "Repository-managed Plumber frontend replacing the legacy root plumber-platform submodule deployment model.",
       "presentationRole": "service",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "protect"
-      ],
+      "securityFunctions": ["identify", "protect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "plumber",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -1911,16 +1681,11 @@
       "sourcePath": "apps/plumber/compose.yml",
       "presentationRole": "support",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "protect"
-      ],
+      "securityFunctions": ["identify", "protect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "plumber-api",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -1934,9 +1699,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "plumber-worker",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -1970,9 +1733,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "postgres_exporter",
-        "networks": [
-          "default"
-        ]
+        "networks": ["default"]
       },
       "monitoring": {
         "type": "port",
@@ -2006,16 +1767,12 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "prometheus",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:9090/-/ready",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "📊"
     },
@@ -2032,9 +1789,7 @@
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:9093/-/ready",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -2069,9 +1824,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "redis",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "icon": "🔴"
     },
@@ -2085,16 +1838,11 @@
       "description": "Agentless network discovery and continuously updated topology documentation backed by the shared PostgreSQL service.",
       "presentationRole": "service",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "scanopy",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -2111,10 +1859,7 @@
       "description": "Privileged agentless scanner used by Scanopy to discover hosts, ports, containers, and network topology.",
       "presentationRole": "support",
       "criticality": "medium",
-      "securityFunctions": [
-        "identify",
-        "detect"
-      ],
+      "securityFunctions": ["identify", "detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "scanopy-daemon"
@@ -2133,16 +1878,12 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "scrutiny",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:31054/api/health",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       }
     },
     {
@@ -2154,9 +1895,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "scrutiny-collector",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     },
     {
@@ -2181,10 +1920,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "sentry-web",
-        "networks": [
-          "intranet",
-          "sentry"
-        ]
+        "networks": ["intranet", "sentry"]
       },
       "monitoring": {
         "type": "http",
@@ -2206,9 +1942,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "sentry-clickhouse",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -2227,10 +1961,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "nginx",
-        "networks": [
-          "intranet",
-          "sentry"
-        ]
+        "networks": ["intranet", "sentry"]
       },
       "monitoring": {
         "type": "http",
@@ -2248,10 +1979,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "relay",
-        "networks": [
-          "intranet",
-          "sentry"
-        ]
+        "networks": ["intranet", "sentry"]
       }
     },
     {
@@ -2266,10 +1994,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "snuba-api",
-        "networks": [
-          "intranet",
-          "sentry"
-        ]
+        "networks": ["intranet", "sentry"]
       }
     },
     {
@@ -2283,10 +2008,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "taskbroker",
-        "networks": [
-          "intranet",
-          "sentry"
-        ]
+        "networks": ["intranet", "sentry"]
       }
     },
     {
@@ -2300,10 +2022,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "sentry-taskworker",
-        "networks": [
-          "intranet",
-          "sentry"
-        ]
+        "networks": ["intranet", "sentry"]
       }
     },
     {
@@ -2330,9 +2049,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "squid",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       },
       "monitoring": {
         "type": "port",
@@ -2346,9 +2063,7 @@
       "kind": "ids",
       "category": "security",
       "sourcePath": "apps/suricata/compose.yml",
-      "securityFunctions": [
-        "detect"
-      ],
+      "securityFunctions": ["detect"],
       "lifecycle": {
         "phase": "platform-services",
         "priority": 40
@@ -2392,11 +2107,7 @@
       "criticality": "critical",
       "runtime": {
         "provider": "truenas-vm",
-        "instances": [
-          "taloscp01",
-          "taloswk01",
-          "taloswk02"
-        ]
+        "instances": ["taloscp01", "taloswk01", "taloswk02"]
       },
       "monitoring": {
         "type": "provider",
@@ -2421,9 +2132,7 @@
       "monitoring": {
         "type": "http",
         "target": "http://172.17.0.24:3200/ready",
-        "conditions": [
-          "[STATUS] == 200"
-        ]
+        "conditions": ["[STATUS] == 200"]
       },
       "icon": "⏱️"
     },
@@ -2443,9 +2152,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "traefik",
-        "networks": [
-          "traefik_network"
-        ]
+        "networks": ["traefik_network"]
       },
       "icon": "🚦"
     },
@@ -2487,9 +2194,7 @@
       "description": "Self-hosted Bitwarden-compatible password and secret vault.",
       "presentationRole": "service",
       "criticality": "high",
-      "securityFunctions": [
-        "protect"
-      ],
+      "securityFunctions": ["protect"],
       "lifecycle": {
         "phase": "foundation",
         "priority": 10,
@@ -2498,11 +2203,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "vaultwarden",
-        "networks": [
-          "default",
-          "secrets-backend",
-          "traefik_network"
-        ]
+        "networks": ["default", "secrets-backend", "traefik_network"]
       }
     },
     {
@@ -2514,16 +2215,11 @@
       "description": "Legacy Doco-CD compatibility adapter for Vaultwarden secret retrieval.",
       "presentationRole": "support",
       "criticality": "medium",
-      "securityFunctions": [
-        "protect"
-      ],
+      "securityFunctions": ["protect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "bitwarden-api",
-        "networks": [
-          "default",
-          "secrets-backend"
-        ]
+        "networks": ["default", "secrets-backend"]
       }
     },
     {
@@ -2556,10 +2252,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "wazuh-forwarder",
-        "networks": [
-          "default",
-          "nabla-security"
-        ]
+        "networks": ["default", "nabla-security"]
       },
       "icon": "🔁"
     },
@@ -2581,9 +2274,7 @@
       "kind": "security-manager",
       "category": "security",
       "sourcePath": "apps/wazuh/compose.yml",
-      "securityFunctions": [
-        "detect"
-      ],
+      "securityFunctions": ["detect"],
       "runtime": {
         "provider": "truenas-app",
         "containerService": "wazuh.manager"
@@ -2602,9 +2293,7 @@
       "runtime": {
         "provider": "truenas-app",
         "containerService": "wordpress",
-        "networks": [
-          "intranet"
-        ]
+        "networks": ["intranet"]
       }
     }
   ],
@@ -2615,9 +2304,7 @@
       "type": "hostedBy",
       "strength": "required",
       "description": "Compose workload is hosted by the Docker runtime on TrueNAS.",
-      "evidence": [
-        "apps/2fauth/compose.yml:2fauth.x-nabla.runtime.appId"
-      ]
+      "evidence": ["apps/2fauth/compose.yml:2fauth.x-nabla.runtime.appId"]
     },
     {
       "source": "aistor",
@@ -2635,9 +2322,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "The Akvorado console queries flow history from the shared ClickHouse service.",
-      "evidence": [
-        "apps/akvorado/config/akvorado.yaml:clickhousedb"
-      ]
+      "evidence": ["apps/akvorado/config/akvorado.yaml:clickhousedb"]
     },
     {
       "source": "akvorado-console",
@@ -2665,9 +2350,7 @@
       "type": "routesTo",
       "strength": "required",
       "description": "Decoded IPFIX/NetFlow records are published to the dedicated Akvorado Kafka topic.",
-      "evidence": [
-        "apps/akvorado/config/akvorado.yaml:kafka.topic"
-      ]
+      "evidence": ["apps/akvorado/config/akvorado.yaml:kafka.topic"]
     },
     {
       "source": "akvorado-orchestrator",
@@ -2675,9 +2358,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Akvorado manages and queries its dedicated schema in the shared ClickHouse service.",
-      "evidence": [
-        "apps/akvorado/config/akvorado.yaml:clickhousedb"
-      ]
+      "evidence": ["apps/akvorado/config/akvorado.yaml:clickhousedb"]
     },
     {
       "source": "akvorado-orchestrator",
@@ -2695,9 +2376,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Akvorado uses the shared Kafka broker for its dedicated flow topic.",
-      "evidence": [
-        "apps/akvorado/config/akvorado.yaml:kafka"
-      ]
+      "evidence": ["apps/akvorado/config/akvorado.yaml:kafka"]
     },
     {
       "source": "akvorado-outlet",
@@ -2705,9 +2384,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Enriched network-flow records are persisted in the dedicated Akvorado ClickHouse database.",
-      "evidence": [
-        "apps/akvorado/config/akvorado.yaml:clickhousedb"
-      ]
+      "evidence": ["apps/akvorado/config/akvorado.yaml:clickhousedb"]
     },
     {
       "source": "akvorado-outlet",
@@ -2725,9 +2402,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Akvorado Outlet consumes the dedicated flow topic from shared Kafka.",
-      "evidence": [
-        "apps/akvorado/config/akvorado.yaml:kafka"
-      ]
+      "evidence": ["apps/akvorado/config/akvorado.yaml:kafka"]
     },
     {
       "source": "alloy",
@@ -2745,9 +2420,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Alloy forwards collected security logs to Loki.",
-      "evidence": [
-        "apps/grafana/config/alloy.alloy:loki.write"
-      ]
+      "evidence": ["apps/grafana/config/alloy.alloy:loki.write"]
     },
     {
       "source": "alloy",
@@ -2755,9 +2428,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Alloy remote-writes collected OTLP metrics to Mimir.",
-      "evidence": [
-        "apps/grafana/config/alloy.alloy:prometheus.remote_write"
-      ]
+      "evidence": ["apps/grafana/config/alloy.alloy:prometheus.remote_write"]
     },
     {
       "source": "alloy",
@@ -2765,9 +2436,7 @@
       "type": "dependsOn",
       "strength": "optional",
       "description": "Alloy tails pfSense log files when they are mounted on the TrueNAS host.",
-      "evidence": [
-        "apps/grafana/compose.yml:PFSENSE_LOG_DIR"
-      ]
+      "evidence": ["apps/grafana/compose.yml:PFSENSE_LOG_DIR"]
     },
     {
       "source": "alloy",
@@ -2775,9 +2444,7 @@
       "type": "dependsOn",
       "strength": "optional",
       "description": "Alloy tails Suricata JSON logs when available.",
-      "evidence": [
-        "apps/grafana/compose.yml:SURICATA_LOG_DIR"
-      ]
+      "evidence": ["apps/grafana/compose.yml:SURICATA_LOG_DIR"]
     },
     {
       "source": "alloy",
@@ -2785,9 +2452,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Alloy forwards collected OTLP traces to Tempo.",
-      "evidence": [
-        "apps/grafana/config/alloy.alloy:otelcol.exporter.otlp"
-      ]
+      "evidence": ["apps/grafana/config/alloy.alloy:otelcol.exporter.otlp"]
     },
     {
       "source": "autokuma",
@@ -2805,9 +2470,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "AutoKuma reconciles generated monitors into Uptime Kuma.",
-      "evidence": [
-        "apps/autokuma/compose.yml:AUTOKUMA__KUMA__URL"
-      ]
+      "evidence": ["apps/autokuma/compose.yml:AUTOKUMA__KUMA__URL"]
     },
     {
       "source": "autoxpose",
@@ -2854,9 +2517,7 @@
       "target": "neo4j-security",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/cartography/compose.yml:NEO4J_URL"
-      ]
+      "evidence": ["apps/cartography/compose.yml:NEO4J_URL"]
     },
     {
       "source": "clickhouse",
@@ -2947,9 +2608,7 @@
       "target": "defectdojo-api",
       "type": "consumesApi",
       "strength": "required",
-      "evidence": [
-        "apps/defectdojo/compose.yml:DD_UWSGI_HOST"
-      ]
+      "evidence": ["apps/defectdojo/compose.yml:DD_UWSGI_HOST"]
     },
     {
       "source": "defectdojo",
@@ -2976,27 +2635,21 @@
       "target": "postgresql",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/defectdojo/compose.yml:DD_DATABASE_URL"
-      ]
+      "evidence": ["apps/defectdojo/compose.yml:DD_DATABASE_URL"]
     },
     {
       "source": "defectdojo-api",
       "target": "redis",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/defectdojo/compose.yml:DD_CELERY_BROKER_URL"
-      ]
+      "evidence": ["apps/defectdojo/compose.yml:DD_CELERY_BROKER_URL"]
     },
     {
       "source": "defectdojo-celerybeat",
       "target": "defectdojo-api",
       "type": "partOf",
       "strength": "required",
-      "evidence": [
-        "apps/defectdojo/compose.yml:defectdojo-celerybeat"
-      ]
+      "evidence": ["apps/defectdojo/compose.yml:defectdojo-celerybeat"]
     },
     {
       "source": "defectdojo-celerybeat",
@@ -3023,18 +2676,14 @@
       "target": "postgresql",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/defectdojo/compose.yml:DD_DATABASE_URL"
-      ]
+      "evidence": ["apps/defectdojo/compose.yml:DD_DATABASE_URL"]
     },
     {
       "source": "defectdojo-worker",
       "target": "defectdojo-api",
       "type": "partOf",
       "strength": "required",
-      "evidence": [
-        "apps/defectdojo/compose.yml:defectdojo-celeryworker"
-      ]
+      "evidence": ["apps/defectdojo/compose.yml:defectdojo-celeryworker"]
     },
     {
       "source": "defectdojo-worker",
@@ -3051,9 +2700,7 @@
       "target": "dependency-track-api",
       "type": "consumesApi",
       "strength": "required",
-      "evidence": [
-        "apps/dependency-track/compose.yml:API_BASE_URL"
-      ]
+      "evidence": ["apps/dependency-track/compose.yml:API_BASE_URL"]
     },
     {
       "source": "dependency-track",
@@ -3080,9 +2727,7 @@
       "target": "postgresql",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/dependency-track/compose.yml:ALPINE_DATABASE_URL"
-      ]
+      "evidence": ["apps/dependency-track/compose.yml:ALPINE_DATABASE_URL"]
     },
     {
       "source": "docker",
@@ -3090,9 +2735,7 @@
       "type": "hostedBy",
       "strength": "required",
       "description": "Docker runtime is hosted on the TrueNAS platform.",
-      "evidence": [
-        "apps/homarr/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/homarr/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "docker-socket-proxy",
@@ -3100,9 +2743,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "The proxy consumes the local Docker Engine API and exposes an allowlisted subset to trusted clients.",
-      "evidence": [
-        "docker-compose.yml:/var/run/docker.sock:ro"
-      ]
+      "evidence": ["docker-compose.yml:/var/run/docker.sock:ro"]
     },
     {
       "source": "docker-socket-proxy",
@@ -3140,9 +2781,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Prometheus scrapes Docling Serve OpenTelemetry metrics from /metrics.",
-      "evidence": [
-        "apps/docling/compose.yml:docling.x-nabla.monitoring.url"
-      ]
+      "evidence": ["apps/docling/compose.yml:docling.x-nabla.monitoring.url"]
     },
     {
       "source": "docling",
@@ -3150,9 +2789,7 @@
       "type": "exposedBy",
       "strength": "optional",
       "description": "Traefik exposes Docling only on the private *.int.albandrieu.com namespace.",
-      "evidence": [
-        "apps/docling/compose.yml:traefik.http.routers.docling"
-      ]
+      "evidence": ["apps/docling/compose.yml:traefik.http.routers.docling"]
     },
     {
       "source": "doco-cd",
@@ -3220,9 +2857,7 @@
       "type": "automates",
       "strength": "optional",
       "description": "Baseline output helps pre-fill evidence for the DSOMM assessment but cannot replace manual assessment activities.",
-      "evidence": [
-        "apps/dsomm/compose.yml:DSOMM_BASELINE_OUTPUT"
-      ]
+      "evidence": ["apps/dsomm/compose.yml:DSOMM_BASELINE_OUTPUT"]
     },
     {
       "source": "elasticsearch",
@@ -3249,10 +2884,10 @@
       "target": "cloudflared",
       "type": "exposedBy",
       "strength": "optional",
-      "description": "The TrueNAS staging endpoint sample.albandrieu.com is exposed through Cloudflare Access and an outbound-established Cloudflare Tunnel; production FastAPI Cloud remains independent.",
+      "description": "The TrueNAS staging endpoint fastapi-sample.albandrieu.com is exposed through Cloudflare Access and an outbound-established Cloudflare Tunnel; production FastAPI Cloud remains independent.",
       "evidence": [
-        "docs/dns-ingress-ownership.md:sample.albandrieu.com",
-        "apps/sample/README.md:Cloudflare Access"
+        "docs/dns-ingress-ownership.md:fastapi-sample.albandrieu.com",
+        "apps/fastapi-sample/README.md:Cloudflare Access"
       ]
     },
     {
@@ -3262,7 +2897,7 @@
       "strength": "required",
       "description": "Compose workload is hosted by the Docker runtime on TrueNAS.",
       "evidence": [
-        "apps/sample/compose.yml:fastapi-sample.x-nabla.runtime.containerService"
+        "apps/fastapi-sample/compose.yml:fastapi-sample.x-nabla.runtime.containerService"
       ]
     },
     {
@@ -3272,7 +2907,7 @@
       "strength": "required",
       "description": "TrueNAS staging uses the always-on shared PostgreSQL service; Supabase remains a separate cloud integration and must not overload the local POSTGRES_* identity.",
       "evidence": [
-        "apps/sample/README.md:Local PostgreSQL staging policy"
+        "apps/fastapi-sample/README.md:Local PostgreSQL staging policy"
       ]
     },
     {
@@ -3282,7 +2917,7 @@
       "strength": "optional",
       "description": "FastAPI Sample uses the shared Redis service for L2 probe caches and runtime heartbeat aggregation.",
       "evidence": [
-        "apps/sample/compose.yml:/mnt/cpool/secrets/runtime/sample/.env.secrets:REDIS_URL"
+        "apps/fastapi-sample/compose.yml:/mnt/cpool/secrets/runtime/sample/.env.secrets:REDIS_URL"
       ]
     },
     {
@@ -3292,7 +2927,7 @@
       "strength": "optional",
       "description": "Traefik exposes the local FastAPI Sample endpoint on the trusted internal hostname.",
       "evidence": [
-        "apps/sample/compose.yml:traefik.http.routers.fastapi-sample"
+        "apps/fastapi-sample/compose.yml:traefik.http.routers.fastapi-sample"
       ]
     },
     {
@@ -3322,9 +2957,7 @@
       "type": "exposedBy",
       "strength": "required",
       "description": "Cloudflare Tunnel forwards garage-admin.albandrieu.com through cloudflared directly to Garage Admin :3903.",
-      "evidence": [
-        "docs/dns-ingress-ownership.md:Garage exposure boundary"
-      ]
+      "evidence": ["docs/dns-ingress-ownership.md:Garage exposure boundary"]
     },
     {
       "source": "garage-admin",
@@ -3332,9 +2965,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "Garage Admin :3903 is the administration API of the Garage object-storage service.",
-      "evidence": [
-        "apps/garage/garage.toml:[admin] api_bind_addr=:3903"
-      ]
+      "evidence": ["apps/garage/garage.toml:[admin] api_bind_addr=:3903"]
     },
     {
       "source": "garage-webui",
@@ -3342,9 +2973,7 @@
       "type": "exposedBy",
       "strength": "required",
       "description": "Cloudflare Tunnel forwards garage.albandrieu.com through cloudflared directly to the Garage WebUI :3909 origin.",
-      "evidence": [
-        "docs/dns-ingress-ownership.md:Garage exposure boundary"
-      ]
+      "evidence": ["docs/dns-ingress-ownership.md:Garage exposure boundary"]
     },
     {
       "source": "garage-webui",
@@ -3393,9 +3022,7 @@
       "type": "consumesApi",
       "strength": "optional",
       "description": "Grafana queries Loki for logs.",
-      "evidence": [
-        "apps/grafana/config/grafana-datasources.yml"
-      ]
+      "evidence": ["apps/grafana/config/grafana-datasources.yml"]
     },
     {
       "source": "grafana",
@@ -3403,9 +3030,7 @@
       "type": "consumesApi",
       "strength": "optional",
       "description": "Grafana queries Mimir for metrics.",
-      "evidence": [
-        "apps/grafana/config/grafana-datasources.yml"
-      ]
+      "evidence": ["apps/grafana/config/grafana-datasources.yml"]
     },
     {
       "source": "grafana",
@@ -3413,9 +3038,7 @@
       "type": "consumesApi",
       "strength": "optional",
       "description": "Grafana queries Tempo for distributed traces.",
-      "evidence": [
-        "apps/grafana/config/grafana-datasources.yml"
-      ]
+      "evidence": ["apps/grafana/config/grafana-datasources.yml"]
     },
     {
       "source": "graylog",
@@ -3433,9 +3056,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Graylog stores application configuration and metadata in the shared MongoDB service.",
-      "evidence": [
-        "apps/graylog/compose.yml:GRAYLOG_MONGODB_URI"
-      ]
+      "evidence": ["apps/graylog/compose.yml:GRAYLOG_MONGODB_URI"]
     },
     {
       "source": "graylog",
@@ -3443,9 +3064,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Graylog stores log indices in the shared OpenSearch 2.x security cluster.",
-      "evidence": [
-        "apps/graylog/compose.yml:GRAYLOG_ELASTICSEARCH_HOSTS"
-      ]
+      "evidence": ["apps/graylog/compose.yml:GRAYLOG_ELASTICSEARCH_HOSTS"]
     },
     {
       "source": "haproxy-exporter",
@@ -3473,9 +3092,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Prometheus scrapes HAProxy metrics from this exporter.",
-      "evidence": [
-        "apps/prometheus/prometheus.yml:job_name=haproxy"
-      ]
+      "evidence": ["apps/prometheus/prometheus.yml:job_name=haproxy"]
     },
     {
       "source": "hello-nginx",
@@ -3493,9 +3110,7 @@
       "type": "consumesApi",
       "strength": "optional",
       "description": "Homarr discovers and manages containers through the read-only Docker socket proxy.",
-      "evidence": [
-        "apps/homarr/compose.yml:DOCKER_HOSTNAMES"
-      ]
+      "evidence": ["apps/homarr/compose.yml:DOCKER_HOSTNAMES"]
     },
     {
       "source": "homarr",
@@ -3523,9 +3138,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "Reconciles generated application desired state through the Homarr OpenAPI endpoints.",
-      "evidence": [
-        "apps/homarr/sync.py:/api/apps"
-      ]
+      "evidence": ["apps/homarr/sync.py:/api/apps"]
     },
     {
       "source": "homeassistant",
@@ -3563,9 +3176,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Joplin persists notes, users and synchronization state in the shared PostgreSQL service.",
-      "evidence": [
-        "apps/joplin/compose.yml:POSTGRES_HOST"
-      ]
+      "evidence": ["apps/joplin/compose.yml:POSTGRES_HOST"]
     },
     {
       "source": "joplin",
@@ -3573,9 +3184,7 @@
       "type": "exposedBy",
       "strength": "required",
       "description": "Traefik exposes Joplin only through the private joplin.int.albandrieu.com hostname.",
-      "evidence": [
-        "apps/joplin/compose.yml:traefik.http.routers.joplin"
-      ]
+      "evidence": ["apps/joplin/compose.yml:traefik.http.routers.joplin"]
     },
     {
       "source": "kafka",
@@ -3603,9 +3212,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Exporter queries broker/topic and consumer-group state from the co-located Kafka App.",
-      "evidence": [
-        "apps/kafka/compose.yml:--kafka.server=kafka:9092"
-      ]
+      "evidence": ["apps/kafka/compose.yml:--kafka.server=kafka:9092"]
     },
     {
       "source": "kafka-exporter",
@@ -3613,9 +3220,7 @@
       "type": "observedBy",
       "strength": "required",
       "description": "Prometheus scrapes Kafka topic/group lag and membership metrics.",
-      "evidence": [
-        "apps/prometheus/prometheus.yml:job_name=kafka_exporter"
-      ]
+      "evidence": ["apps/prometheus/prometheus.yml:job_name=kafka_exporter"]
     },
     {
       "source": "keycloak",
@@ -3633,9 +3238,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Keycloak stores realm, client and identity state in the shared PostgreSQL service.",
-      "evidence": [
-        "apps/keycloak/compose.yml:KC_DB_URL"
-      ]
+      "evidence": ["apps/keycloak/compose.yml:KC_DB_URL"]
     },
     {
       "source": "keycloak",
@@ -3643,9 +3246,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Prometheus scrapes Keycloak metrics from the private management interface.",
-      "evidence": [
-        "apps/keycloak/compose.yml:KC_METRICS_ENABLED"
-      ]
+      "evidence": ["apps/keycloak/compose.yml:KC_METRICS_ENABLED"]
     },
     {
       "source": "kibana",
@@ -3663,9 +3264,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Kibana queries Elasticsearch for indexed data and saved objects.",
-      "evidence": [
-        "apps/elasticsearch/compose.yml:ELASTICSEARCH_HOSTS"
-      ]
+      "evidence": ["apps/elasticsearch/compose.yml:ELASTICSEARCH_HOSTS"]
     },
     {
       "source": "kubernetes",
@@ -3703,9 +3302,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "The OpenRAG Langflow runtime accesses the shared OpenSearch service.",
-      "evidence": [
-        "apps/langflow/compose.yml:OPENSEARCH_HOST"
-      ]
+      "evidence": ["apps/langflow/compose.yml:OPENSEARCH_HOST"]
     },
     {
       "source": "langfuse-web",
@@ -3713,9 +3310,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Langfuse Web reads and writes analytical event data in ClickHouse.",
-      "evidence": [
-        "apps/langfuse/compose.yml:CLICKHOUSE_URL"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:CLICKHOUSE_URL"]
     },
     {
       "source": "langfuse-web",
@@ -3733,9 +3328,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "The web application is a runtime workload of the logical Langfuse platform.",
-      "evidence": [
-        "apps/langfuse/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "langfuse-web",
@@ -3753,9 +3346,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Langfuse Web stores transactional application data in PostgreSQL.",
-      "evidence": [
-        "apps/langfuse/compose.yml:DATABASE_URL"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:DATABASE_URL"]
     },
     {
       "source": "langfuse-web",
@@ -3763,9 +3354,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Langfuse Web uses Redis-backed queues and shared asynchronous state.",
-      "evidence": [
-        "apps/langfuse/compose.yml:REDIS_HOST"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:REDIS_HOST"]
     },
     {
       "source": "langfuse-worker",
@@ -3773,9 +3362,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Langfuse Worker stores analytical event data in ClickHouse.",
-      "evidence": [
-        "apps/langfuse/compose.yml:CLICKHOUSE_URL"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:CLICKHOUSE_URL"]
     },
     {
       "source": "langfuse-worker",
@@ -3793,9 +3380,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "The worker is a runtime workload of the logical Langfuse platform.",
-      "evidence": [
-        "apps/langfuse/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "langfuse-worker",
@@ -3814,9 +3399,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Langfuse Worker stores transactional application data in PostgreSQL.",
-      "evidence": [
-        "apps/langfuse/compose.yml:DATABASE_URL"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:DATABASE_URL"]
     },
     {
       "source": "langfuse-worker",
@@ -3824,9 +3407,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Langfuse Worker uses Redis for queues and asynchronous processing.",
-      "evidence": [
-        "apps/langfuse/compose.yml:REDIS_HOST"
-      ]
+      "evidence": ["apps/langfuse/compose.yml:REDIS_HOST"]
     },
     {
       "source": "languagetool",
@@ -3865,9 +3446,7 @@
       "type": "routesTo",
       "strength": "optional",
       "description": "LiteLLM exposes Cyberbro threat-intelligence tools through its MCP gateway.",
-      "evidence": [
-        "apps/litellm/config.yaml:mcp_servers.cyberbro"
-      ]
+      "evidence": ["apps/litellm/config.yaml:mcp_servers.cyberbro"]
     },
     {
       "source": "litellm",
@@ -3875,9 +3454,7 @@
       "type": "routesTo",
       "strength": "required",
       "description": "LiteLLM routes local model and embedding requests to Ollama runtimes.",
-      "evidence": [
-        "apps/litellm/config.yaml:model_list"
-      ]
+      "evidence": ["apps/litellm/config.yaml:model_list"]
     },
     {
       "source": "litellm",
@@ -3885,9 +3462,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "LiteLLM enables its Prometheus callback and budget metrics.",
-      "evidence": [
-        "apps/litellm/config.yaml:callbacks.prometheus"
-      ]
+      "evidence": ["apps/litellm/config.yaml:callbacks.prometheus"]
     },
     {
       "source": "litellm",
@@ -3895,9 +3470,7 @@
       "type": "dependsOn",
       "strength": "optional",
       "description": "LiteLLM can use Redis for its response cache.",
-      "evidence": [
-        "apps/litellm/config.yaml:cache_params.redis_url"
-      ]
+      "evidence": ["apps/litellm/config.yaml:cache_params.redis_url"]
     },
     {
       "source": "loki",
@@ -3915,9 +3488,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "Cyberbro MCP submits observables to the Cyberbro HTTP API and retrieves analysis results.",
-      "evidence": [
-        "apps/cyberbro/compose.yml:CYBERBRO_URL"
-      ]
+      "evidence": ["apps/cyberbro/compose.yml:CYBERBRO_URL"]
     },
     {
       "source": "mcp-cyberbro",
@@ -3935,9 +3506,7 @@
       "type": "providesApi",
       "strength": "optional",
       "description": "LiteLLM can consume this streamable HTTP MCP endpoint as an upstream MCP server.",
-      "evidence": [
-        "apps/litellm/config.yaml:mcp_servers.cyberbro"
-      ]
+      "evidence": ["apps/litellm/config.yaml:mcp_servers.cyberbro"]
     },
     {
       "source": "mimir",
@@ -3975,9 +3544,7 @@
       "type": "hostedBy",
       "strength": "required",
       "description": "Compose workload is hosted by the Docker runtime on TrueNAS.",
-      "evidence": [
-        "apps/n8n/compose.yml:n8n.x-nabla.runtime.containerService"
-      ]
+      "evidence": ["apps/n8n/compose.yml:n8n.x-nabla.runtime.containerService"]
     },
     {
       "source": "n8n",
@@ -3985,9 +3552,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "n8n is configured with PostgreSQL credentials for workflow persistence.",
-      "evidence": [
-        "apps/n8n/compose.yml:DB_POSTGRESDB_USER"
-      ]
+      "evidence": ["apps/n8n/compose.yml:DB_POSTGRESDB_USER"]
     },
     {
       "source": "n8n",
@@ -3995,9 +3560,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "n8n exposes metrics for Prometheus scraping.",
-      "evidence": [
-        "apps/n8n/compose.yml:prometheus.scrape"
-      ]
+      "evidence": ["apps/n8n/compose.yml:prometheus.scrape"]
     },
     {
       "source": "n8n",
@@ -4005,9 +3568,7 @@
       "type": "dependsOn",
       "strength": "optional",
       "description": "n8n is configured with Redis credentials for queue-backed execution.",
-      "evidence": [
-        "apps/n8n/compose.yml:N8N_REDIS_PASSWORD"
-      ]
+      "evidence": ["apps/n8n/compose.yml:N8N_REDIS_PASSWORD"]
     },
     {
       "source": "n8n",
@@ -4015,9 +3576,7 @@
       "type": "exposedBy",
       "strength": "optional",
       "description": "Traefik routes HTTPS traffic to n8n.",
-      "evidence": [
-        "apps/n8n/compose.yml:traefik.http.routers.n8n"
-      ]
+      "evidence": ["apps/n8n/compose.yml:traefik.http.routers.n8n"]
     },
     {
       "source": "neo4j-security",
@@ -4044,18 +3603,14 @@
       "target": "postgresql",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/netbox/compose.yml:DB_HOST"
-      ]
+      "evidence": ["apps/netbox/compose.yml:DB_HOST"]
     },
     {
       "source": "netbox",
       "target": "redis",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/netbox/compose.yml:REDIS_HOST"
-      ]
+      "evidence": ["apps/netbox/compose.yml:REDIS_HOST"]
     },
     {
       "source": "netbox-housekeeping",
@@ -4072,9 +3627,7 @@
       "target": "netbox",
       "type": "partOf",
       "strength": "required",
-      "evidence": [
-        "apps/netbox/compose.yml:netbox-housekeeping"
-      ]
+      "evidence": ["apps/netbox/compose.yml:netbox-housekeeping"]
     },
     {
       "source": "netbox-worker",
@@ -4091,9 +3644,7 @@
       "target": "netbox",
       "type": "partOf",
       "strength": "required",
-      "evidence": [
-        "apps/netbox/compose.yml:netbox-worker"
-      ]
+      "evidence": ["apps/netbox/compose.yml:netbox-worker"]
     },
     {
       "source": "nexus",
@@ -4131,9 +3682,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "ntopng stores historical flow data in the existing ClickHouse service.",
-      "evidence": [
-        "apps/ntopng/compose.yml:CLICKHOUSE_HOST"
-      ]
+      "evidence": ["apps/ntopng/compose.yml:CLICKHOUSE_HOST"]
     },
     {
       "source": "ntopng",
@@ -4171,9 +3720,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Ollama is marked for Prometheus scraping.",
-      "evidence": [
-        "apps/ollama/compose.yml:prometheus.scrape"
-      ]
+      "evidence": ["apps/ollama/compose.yml:prometheus.scrape"]
     },
     {
       "source": "ollama",
@@ -4181,9 +3728,7 @@
       "type": "exposedBy",
       "strength": "optional",
       "description": "Traefik routes the internal Ollama endpoint.",
-      "evidence": [
-        "apps/ollama/compose.yml:traefik.http.routers.ollama"
-      ]
+      "evidence": ["apps/ollama/compose.yml:traefik.http.routers.ollama"]
     },
     {
       "source": "op-connect-api",
@@ -4211,9 +3756,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "Sync and API form the 1Password Connect deployment.",
-      "evidence": [
-        "apps/opconnect/compose.yml"
-      ]
+      "evidence": ["apps/opconnect/compose.yml"]
     },
     {
       "source": "openclaw-sandbox",
@@ -4251,9 +3794,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "OpenRAG sends document conversion requests to the repository-managed Docling Serve API.",
-      "evidence": [
-        "apps/openrag/compose.yml:DOCLING_SERVE_URL"
-      ]
+      "evidence": ["apps/openrag/compose.yml:DOCLING_SERVE_URL"]
     },
     {
       "source": "openrag-backend",
@@ -4261,9 +3802,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "OpenRAG backend invokes the shared Langflow service.",
-      "evidence": [
-        "apps/openrag/compose.yml:LANGFLOW_URL"
-      ]
+      "evidence": ["apps/openrag/compose.yml:LANGFLOW_URL"]
     },
     {
       "source": "openrag-backend",
@@ -4271,9 +3810,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "OpenRAG backend stores and retrieves indexed content through OpenSearch.",
-      "evidence": [
-        "apps/openrag/compose.yml:OPENSEARCH_HOST"
-      ]
+      "evidence": ["apps/openrag/compose.yml:OPENSEARCH_HOST"]
     },
     {
       "source": "openrag-frontend",
@@ -4291,9 +3828,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Frontend collective health checks the shared global Langflow service.",
-      "evidence": [
-        "apps/openrag/compose.yml:LANGFLOW_HOST"
-      ]
+      "evidence": ["apps/openrag/compose.yml:LANGFLOW_HOST"]
     },
     {
       "source": "openrag-frontend",
@@ -4301,9 +3836,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "The OpenRAG frontend talks to the OpenRAG backend.",
-      "evidence": [
-        "apps/openrag/compose.yml:OPENRAG_BACKEND_HOST"
-      ]
+      "evidence": ["apps/openrag/compose.yml:OPENRAG_BACKEND_HOST"]
     },
     {
       "source": "opensearch",
@@ -4331,9 +3864,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "OpenSearch Dashboards queries the OpenRAG OpenSearch cluster.",
-      "evidence": [
-        "apps/opensearch/compose.yml:OPENSEARCH_HOSTS"
-      ]
+      "evidence": ["apps/opensearch/compose.yml:OPENSEARCH_HOSTS"]
     },
     {
       "source": "opensearch-exporter",
@@ -4361,9 +3892,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Prometheus scrapes metrics from the OpenSearch exporter.",
-      "evidence": [
-        "apps/prometheus/prometheus.yml:job_name=opensearch"
-      ]
+      "evidence": ["apps/prometheus/prometheus.yml:job_name=opensearch"]
     },
     {
       "source": "opensearch-security",
@@ -4421,9 +3950,7 @@
       "type": "exposedBy",
       "strength": "required",
       "description": "Cloudflare Tunnel forwards open-webui.albandrieu.com through cloudflared directly to the published :31028 origin; Traefik is not in this path.",
-      "evidence": [
-        "apps/openwebui/compose.yml:ports"
-      ]
+      "evidence": ["apps/openwebui/compose.yml:ports"]
     },
     {
       "source": "openwebui",
@@ -4452,9 +3979,7 @@
       "type": "consumesApi",
       "strength": "optional",
       "description": "Open WebUI agents can invoke the Open Terminal tool API.",
-      "evidence": [
-        "apps/openwebui/compose.yml:x-nabla.relations[2]"
-      ]
+      "evidence": ["apps/openwebui/compose.yml:x-nabla.relations[2]"]
     },
     {
       "source": "openwebui",
@@ -4462,9 +3987,7 @@
       "type": "consumesApi",
       "strength": "optional",
       "description": "Open WebUI can delegate web search to the SearXNG integration.",
-      "evidence": [
-        "apps/openwebui/compose.yml:x-nabla.relations[1]"
-      ]
+      "evidence": ["apps/openwebui/compose.yml:x-nabla.relations[1]"]
     },
     {
       "source": "openwebui-pipelines",
@@ -4502,9 +4025,7 @@
       "type": "observedBy",
       "strength": "required",
       "description": "Prometheus scrapes the pfSense exporter.",
-      "evidence": [
-        "apps/prometheus/prometheus.yml:job_name=pfsense_exporter"
-      ]
+      "evidence": ["apps/prometheus/prometheus.yml:job_name=pfsense_exporter"]
     },
     {
       "source": "pfsense-unbound",
@@ -4553,9 +4074,7 @@
       "type": "automates",
       "strength": "required",
       "description": "DNS Sync reconciles private service records through the Pi-hole API.",
-      "evidence": [
-        "apps/pihole/compose.yml:PIHOLE_URL=http://pihole"
-      ]
+      "evidence": ["apps/pihole/compose.yml:PIHOLE_URL=http://pihole"]
     },
     {
       "source": "pihole-exporter",
@@ -4573,9 +4092,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "The exporter reads Pi-hole runtime statistics.",
-      "evidence": [
-        "apps/pihole/compose.yml:PIHOLE_HOSTNAME=pihole"
-      ]
+      "evidence": ["apps/pihole/compose.yml:PIHOLE_HOSTNAME=pihole"]
     },
     {
       "source": "plumber",
@@ -4592,9 +4109,7 @@
       "target": "plumber-api",
       "type": "consumesApi",
       "strength": "required",
-      "evidence": [
-        "apps/plumber/compose.yml:API_DOMAIN"
-      ]
+      "evidence": ["apps/plumber/compose.yml:API_DOMAIN"]
     },
     {
       "source": "plumber-api",
@@ -4611,18 +4126,14 @@
       "target": "postgresql",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/plumber/compose.yml:JOBS_DB_HOST"
-      ]
+      "evidence": ["apps/plumber/compose.yml:JOBS_DB_HOST"]
     },
     {
       "source": "plumber-api",
       "target": "redis",
       "type": "storesIn",
       "strength": "required",
-      "evidence": [
-        "apps/plumber/compose.yml:JOBS_REDIS_HOST"
-      ]
+      "evidence": ["apps/plumber/compose.yml:JOBS_REDIS_HOST"]
     },
     {
       "source": "plumber-worker",
@@ -4639,9 +4150,7 @@
       "target": "plumber-api",
       "type": "partOf",
       "strength": "required",
-      "evidence": [
-        "apps/plumber/compose.yml:plumber-worker"
-      ]
+      "evidence": ["apps/plumber/compose.yml:plumber-worker"]
     },
     {
       "source": "portracker",
@@ -4669,9 +4178,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "The exporter queries the shared PostgreSQL service.",
-      "evidence": [
-        "apps/postgres/compose.yml:DATA_SOURCE_NAME"
-      ]
+      "evidence": ["apps/postgres/compose.yml:DATA_SOURCE_NAME"]
     },
     {
       "source": "prometheus",
@@ -4689,9 +4196,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Prometheus remote-writes collected metrics to Mimir for durable storage.",
-      "evidence": [
-        "apps/prometheus/prometheus.yml:remote_write"
-      ]
+      "evidence": ["apps/prometheus/prometheus.yml:remote_write"]
     },
     {
       "source": "prometheus-alertmanager",
@@ -4719,9 +4224,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Grafana queries Pyroscope as a profiling data source.",
-      "evidence": [
-        "apps/pyroscope/compose.yml:TCP/4040"
-      ]
+      "evidence": ["apps/pyroscope/compose.yml:TCP/4040"]
     },
     {
       "source": "pyroscope",
@@ -4759,9 +4262,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Scanopy stores topology, inventory, and discovery history in its dedicated scanopy database on the shared PostgreSQL service.",
-      "evidence": [
-        "apps/scanopy/compose.yml:SCANOPY_DATABASE_URL"
-      ]
+      "evidence": ["apps/scanopy/compose.yml:SCANOPY_DATABASE_URL"]
     },
     {
       "source": "scanopy",
@@ -4769,9 +4270,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "Scanopy consumes discovery data from its integrated daemon.",
-      "evidence": [
-        "apps/scanopy/compose.yml:SCANOPY_INTEGRATED_DAEMON_URL"
-      ]
+      "evidence": ["apps/scanopy/compose.yml:SCANOPY_INTEGRATED_DAEMON_URL"]
     },
     {
       "source": "scanopy-daemon",
@@ -4799,9 +4298,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "Scrutiny stores SMART history in the shared InfluxDB service.",
-      "evidence": [
-        "apps/scrutiny/compose.yml:SCRUTINY_WEB_INFLUXDB_HOST"
-      ]
+      "evidence": ["apps/scrutiny/compose.yml:SCRUTINY_WEB_INFLUXDB_HOST"]
     },
     {
       "source": "scrutiny-collector",
@@ -4819,9 +4316,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "The collector posts SMART inventory and metrics to the Scrutiny web/API service.",
-      "evidence": [
-        "apps/scrutiny/compose.yml:COLLECTOR_API_ENDPOINT"
-      ]
+      "evidence": ["apps/scrutiny/compose.yml:COLLECTOR_API_ENDPOINT"]
     },
     {
       "source": "sentry",
@@ -4839,9 +4334,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Sentry publishes and consumes event streams through shared Kafka.",
-      "evidence": [
-        "apps/sentry/compose.yml:SENTRY_EVENTSTREAM"
-      ]
+      "evidence": ["apps/sentry/compose.yml:SENTRY_EVENTSTREAM"]
     },
     {
       "source": "sentry",
@@ -4849,9 +4342,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Sentry application metadata is stored in the dedicated sentry PostgreSQL database.",
-      "evidence": [
-        "apps/sentry/compose.yml:SENTRY_POSTGRES_HOST=172.17.0.24"
-      ]
+      "evidence": ["apps/sentry/compose.yml:SENTRY_POSTGRES_HOST=172.17.0.24"]
     },
     {
       "source": "sentry",
@@ -4859,9 +4350,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Sentry uses the shared Redis database 3.",
-      "evidence": [
-        "apps/sentry/compose.yml:SENTRY_REDIS_HOST=redis"
-      ]
+      "evidence": ["apps/sentry/compose.yml:SENTRY_REDIS_HOST=redis"]
     },
     {
       "source": "sentry",
@@ -4869,9 +4358,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Sentry queries event data through Snuba.",
-      "evidence": [
-        "apps/sentry/compose.yml:SNUBA=http://snuba-api:1218"
-      ]
+      "evidence": ["apps/sentry/compose.yml:SNUBA=http://snuba-api:1218"]
     },
     {
       "source": "sentry-clickhouse",
@@ -4899,9 +4386,7 @@
       "type": "routesTo",
       "strength": "required",
       "description": "The Sentry edge routes application traffic to Sentry web.",
-      "evidence": [
-        "apps/sentry/config/nginx.conf:sentry_upstream"
-      ]
+      "evidence": ["apps/sentry/config/nginx.conf:sentry_upstream"]
     },
     {
       "source": "sentry-edge",
@@ -4909,9 +4394,7 @@
       "type": "routesTo",
       "strength": "required",
       "description": "The Sentry edge routes ingestion traffic through Relay.",
-      "evidence": [
-        "apps/sentry/config/nginx.conf:relay_upstream"
-      ]
+      "evidence": ["apps/sentry/config/nginx.conf:relay_upstream"]
     },
     {
       "source": "sentry-relay",
@@ -4929,9 +4412,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Relay publishes processing traffic to shared Kafka.",
-      "evidence": [
-        "apps/sentry/compose.yml:RELAY_KAFKA_BROKER_URL=kafka:9092"
-      ]
+      "evidence": ["apps/sentry/compose.yml:RELAY_KAFKA_BROKER_URL=kafka:9092"]
     },
     {
       "source": "sentry-relay",
@@ -4939,9 +4420,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Relay uses the shared Redis service.",
-      "evidence": [
-        "/mnt/cpool/sentry/.env.secrets:RELAY_REDIS_URL"
-      ]
+      "evidence": ["/mnt/cpool/sentry/.env.secrets:RELAY_REDIS_URL"]
     },
     {
       "source": "sentry-relay",
@@ -4969,9 +4448,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Snuba consumes Sentry event streams from shared Kafka.",
-      "evidence": [
-        "apps/sentry/compose.yml:DEFAULT_BROKERS=kafka:9092"
-      ]
+      "evidence": ["apps/sentry/compose.yml:DEFAULT_BROKERS=kafka:9092"]
     },
     {
       "source": "sentry-snuba-api",
@@ -4979,9 +4456,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Snuba uses the shared Redis service for runtime state.",
-      "evidence": [
-        "apps/sentry/compose.yml:REDIS_HOST=redis"
-      ]
+      "evidence": ["apps/sentry/compose.yml:REDIS_HOST=redis"]
     },
     {
       "source": "sentry-snuba-api",
@@ -4989,9 +4464,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Snuba reads and writes Sentry analytical state in ClickHouse.",
-      "evidence": [
-        "apps/sentry/compose.yml:CLICKHOUSE_HOST=sentry-clickhouse"
-      ]
+      "evidence": ["apps/sentry/compose.yml:CLICKHOUSE_HOST=sentry-clickhouse"]
     },
     {
       "source": "sentry-taskbroker",
@@ -5029,9 +4502,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Taskworker receives RPC work from Taskbroker.",
-      "evidence": [
-        "apps/sentry/compose.yml:--rpc-host=taskbroker:50051"
-      ]
+      "evidence": ["apps/sentry/compose.yml:--rpc-host=taskbroker:50051"]
     },
     {
       "source": "sonarqube",
@@ -5049,9 +4520,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "SonarQube persists application state in the existing PostgreSQL service.",
-      "evidence": [
-        "apps/sonarqube/compose.yml:SONAR_JDBC_URL"
-      ]
+      "evidence": ["apps/sonarqube/compose.yml:SONAR_JDBC_URL"]
     },
     {
       "source": "squid",
@@ -5069,9 +4538,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Grafana Alloy tails Suricata JSON logs for Loki ingestion.",
-      "evidence": [
-        "apps/grafana/config/alloy.alloy:loki.source.file"
-      ]
+      "evidence": ["apps/grafana/config/alloy.alloy:loki.source.file"]
     },
     {
       "source": "suricata",
@@ -5079,9 +4546,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "CrowdSec consumes Suricata event logs for behavioral decisions.",
-      "evidence": [
-        "apps/crowdsec/acquis.d/security.yaml"
-      ]
+      "evidence": ["apps/crowdsec/acquis.d/security.yaml"]
     },
     {
       "source": "suricata",
@@ -5109,9 +4574,7 @@
       "type": "observedBy",
       "strength": "optional",
       "description": "Prometheus scrapes Sybase database metrics from this exporter.",
-      "evidence": [
-        "apps/prometheus/prometheus.yml:job_name=sybase"
-      ]
+      "evidence": ["apps/prometheus/prometheus.yml:job_name=sybase"]
     },
     {
       "source": "sybase-exporter",
@@ -5119,9 +4582,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "The exporter queries Sybase ASE through the FreeTDS driver.",
-      "evidence": [
-        "apps/sybase-exporter/compose.yml:SYBASE_DATA_SOURCE_NAME"
-      ]
+      "evidence": ["apps/sybase-exporter/compose.yml:SYBASE_DATA_SOURCE_NAME"]
     },
     {
       "source": "talos",
@@ -5211,9 +4672,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "Wazuh Dashboard is a runtime workload of the Wazuh security platform.",
-      "evidence": [
-        "apps/wazuh/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "wazuh-dashboard",
@@ -5231,9 +4690,7 @@
       "type": "consumesApi",
       "strength": "required",
       "description": "Wazuh Dashboard consumes the Wazuh Manager API.",
-      "evidence": [
-        "apps/wazuh/compose.yml:WAZUH_API_URL"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:WAZUH_API_URL"]
     },
     {
       "source": "wazuh-forwarder",
@@ -5251,9 +4708,7 @@
       "type": "storesIn",
       "strength": "required",
       "description": "The forwarder replicates Wazuh alerts into the shared OpenSearch 2.x security cluster.",
-      "evidence": [
-        "apps/wazuh/config/logstash/wazuh-opensearch.conf"
-      ]
+      "evidence": ["apps/wazuh/config/logstash/wazuh-opensearch.conf"]
     },
     {
       "source": "wazuh-forwarder",
@@ -5261,9 +4716,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "The forwarder is an integration workload of the Wazuh security platform.",
-      "evidence": [
-        "apps/wazuh/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "wazuh-forwarder",
@@ -5271,9 +4724,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "The forwarder reads Wazuh alert files produced by Wazuh Manager.",
-      "evidence": [
-        "apps/wazuh/compose.yml:wazuh_logs"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:wazuh_logs"]
     },
     {
       "source": "wazuh-indexer",
@@ -5291,9 +4742,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "Wazuh Indexer is a runtime workload of the Wazuh security platform.",
-      "evidence": [
-        "apps/wazuh/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "wazuh-manager",
@@ -5311,9 +4760,7 @@
       "type": "partOf",
       "strength": "required",
       "description": "Wazuh Manager is a runtime workload of the Wazuh security platform.",
-      "evidence": [
-        "apps/wazuh/compose.yml:x-nabla.relations[0]"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:x-nabla.relations[0]"]
     },
     {
       "source": "wazuh-manager",
@@ -5321,9 +4768,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "Wazuh Manager indexes security events in the Wazuh Indexer.",
-      "evidence": [
-        "apps/wazuh/compose.yml:INDEXER_URL"
-      ]
+      "evidence": ["apps/wazuh/compose.yml:INDEXER_URL"]
     },
     {
       "source": "wordpress",
@@ -5341,9 +4786,7 @@
       "type": "dependsOn",
       "strength": "required",
       "description": "WordPress stores application state in PostgreSQL through PG4WP.",
-      "evidence": [
-        "apps/wordpress/compose.yml:WORDPRESS_DB_HOST=postgres:5432"
-      ]
+      "evidence": ["apps/wordpress/compose.yml:WORDPRESS_DB_HOST=postgres:5432"]
     }
   ]
 }
