@@ -335,6 +335,8 @@ function captureStateChanges(rows) {
 }
 
 function errorCategory(row) {
+  const canonical = String(row?.diagnostic_category || "");
+  if (/^[A-Z_]{2,32}$/.test(canonical)) return canonical;
   const state = stateLabel(row);
   const kind = String(
     row?.error_kind || row?.probe_refresh_error || row?.error || "",
@@ -367,8 +369,8 @@ function errorCategory(row) {
     kind.includes("refused")
   )
     return "TCP";
-  if (row?.application_error === true || kind.includes("application"))
-    return "APP";
+  if (row?.application_error || kind.includes("application"))
+    return "APPLICATION";
   if (
     kind.includes("config") ||
     kind.includes("missing") ||
@@ -380,6 +382,8 @@ function errorCategory(row) {
   if (state !== "ok" && (row?.http_status || kind.includes("http")))
     return "HTTP";
   if (row?.probe_refresh_error) return "REFRESH";
+  if (state === "warn") return "UNCLASSIFIED_WARNING";
+  if (state === "fail") return "UNKNOWN_FAILURE";
   return "";
 }
 

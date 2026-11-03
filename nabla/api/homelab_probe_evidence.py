@@ -8,6 +8,7 @@ import time
 from typing import Any, Literal
 
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_diagnostics import classify_probe_diagnostic
 from nabla.api.homelab_probe_phase_tracker import DEADLINE_PHASES
 from nabla.api.homelab_probe_policy import (
     HEALTH_CACHE_TTL_SEC,
@@ -77,6 +78,7 @@ def _annotated(
         row["state"] = "warn"
         row["reachable"] = None
         row["warning"] = "⚠️ Last probe evidence is stale; current service reachability is not confirmed."
+    row["diagnostic_category"] = classify_probe_diagnostic(row)
     return row
 
 

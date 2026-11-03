@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
 from typing import Any
@@ -55,7 +56,9 @@ def _safe_row(row: dict[str, Any]) -> dict[str, Any]:
     safe = {}
     for field in _FIELDS:
         value = row.get(field)
-        if value is None or isinstance(value, (bool, int, float)):
+        if value is None or isinstance(value, (bool, int)):
+            safe[field] = value
+        elif isinstance(value, float) and math.isfinite(value):
             safe[field] = value
         elif isinstance(value, str) and len(value) <= 128:
             safe[field] = value
@@ -107,7 +110,7 @@ async def write_public_probe_evidence(
     client = _client()
     if client is None:
         return False
-    writes = []
+    commands: list[tuple[str, str]] = []
     for row in rows:
         service_id = row.get("id")
         if not isinstance(service_id, str) or row.get("probe_source") != "origin":
@@ -121,16 +124,20 @@ async def write_public_probe_evidence(
             "observed_at": checked_at,
             "row": _safe_row(row),
         }
-        writes.append(
-            client.set(
-                key,
-                json.dumps(envelope, sort_keys=True, separators=(",", ":")),
-                ex=int(MAX_PROBE_EVIDENCE_RETENTION_SEC),
-            )
+        commands.append(
+            (key, json.dumps(envelope, sort_keys=True, separators=(",", ":")))
         )
     try:
-        if writes:
-            await asyncio.wait_for(asyncio.gather(*writes), timeout=_IO_BUDGET_SECONDS)
+        if commands:
+            await asyncio.wait_for(
+                asyncio.gather(
+                    *(
+                        client.set(key, value, ex=int(MAX_PROBE_EVIDENCE_RETENTION_SEC))
+                        for key, value in commands
+                    )
+                ),
+                timeout=_IO_BUDGET_SECONDS,
+            )
         return True
     except Exception as exc:
         logger.warning("public_probe_shared_write_failed", exception_type=type(exc).__name__)
