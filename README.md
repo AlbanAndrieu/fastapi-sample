@@ -790,17 +790,17 @@ fastapi-sample:8080
 
 ```text
 Internet
-   |
-   v
+  |
+  v
 Cloudflare Access
-   |
-   v
+  |
+  v
 Cloudflare Tunnel
-   |
-   v
+  |
+  v
 http://172.17.0.24:8091
-   |
-   v
+  |
+  v
 fastapi-sample:8080
 ```
 
