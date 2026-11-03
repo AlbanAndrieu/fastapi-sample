@@ -136,3 +136,25 @@ def estimated_probe_interval_seconds(
         return None
     rounds = max(1, math.ceil(len(remainder) / slots))
     return HEALTH_CACHE_TTL_SEC * rounds
+
+
+def estimated_full_cycle_seconds(
+    eligible_services: list[HomelabService],
+    *,
+    limit: int,
+) -> float | None:
+    """Minimum rotation span for ALL eligible services, not only observed rows.
+
+    This is a capacity estimate. Windows are request-driven, so it is not a
+    deadline or proof that any unobserved service will be checked on time.
+    """
+    unique = _unique_services(eligible_services)
+    if not unique or limit <= 0:
+        return None
+    if len(unique) <= limit:
+        return HEALTH_CACHE_TTL_SEC
+    fixed, remainder = _probe_partitions(unique, limit)
+    rotating_slots = limit - len(fixed)
+    if rotating_slots <= 0:
+        return None
+    return HEALTH_CACHE_TTL_SEC * math.ceil(len(remainder) / rotating_slots)

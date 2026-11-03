@@ -169,6 +169,20 @@ pour chaque service et refus WAN correct.
   Migration explicite des anciens verrous, sans effacement automatique.
   **CODED ; L2/L3 au SHA final à valider.**
 
+- [ ] **Couverture des sondes Cloud (03/11, CODED) :** PR
+  `fix/cloud-probe-evidence-coverage-20261103` : estimation sur tous les
+  candidats, liste des emplacements sans preuve, catégories distinctes
+  Cloudflare Access/auth/DNS/TLS/timeouts, horodatage et diagnostic UI.
+  Le moteur reste **déclenché par les requêtes**, cache par worker :
+  `100 %` n'est pas garanti par une seule durée de rotation.
+  Voir [runbook Cloud](runbooks/cloud-probe-evidence-coverage.md).
+  **Reste :** validation locale L1/L2/L3 au HEAD exact, diagnostic des
+  16 warnings sur données réelles, activation/validation du Redis partagé
+  public (opt-in, jamais LAN), puis recette du déploiement (SHA et mesures).
+- [ ] **Fédération TrueNAS → Cloud :** concevoir un transport d'agrégats
+  signés, horodatés et autorisés. Aucun accès LAN direct depuis Cloud,
+  aucune publication d'IP privée ni état vert sans preuve d'origine.
+
 ## Documentation et séquence de reprise
 
 1. [Guide local-first](../.agents/skills/local-first-quality/SKILL.md) :
