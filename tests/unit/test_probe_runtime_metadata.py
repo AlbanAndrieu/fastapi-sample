@@ -63,3 +63,37 @@ def test_probe_runtime_metadata_excludes_disabled_scope_and_reports_ready() -> N
     assert metadata["known_probe_slots"] == 2
     assert metadata["coverage_percent"] == 100.0
     assert metadata["estimated_full_cycle_seconds"] == 30.0
+
+
+def test_cycle_estimate_prefers_all_eligible_candidates_over_sampled_rows() -> None:
+    payload = {
+        "probe_summary": {
+            "public": {
+                "enabled": True, "eligible": 28,
+                "evidence": {"known": 19},
+                "estimated_full_cycle_seconds": 270.0,
+            },
+            "internal": {"enabled": False, "eligible": 86},
+        },
+        "public_probe_results": [{"probe_interval_seconds": 30.0}],
+        "internal_services": [],
+    }
+    metadata = _probe_runtime_metadata(payload)
+    assert metadata["estimated_full_cycle_seconds"] == 270.0
+    assert metadata["estimate_source"] == "eligible_catalog"
+    assert metadata["refresh_model"] == "on_request"
+    assert metadata["evidence_storage"] == "process_memory"
+    assert metadata["coverage_percent"] == 67.9
+
+
+def test_incomplete_candidate_estimates_are_not_claimed_complete() -> None:
+    payload = {
+        "probe_summary": {
+            "public": {"enabled": True, "eligible": 28},
+            "internal": {"enabled": True, "eligible": 86},
+        },
+        "public_probe_results": [{"probe_interval_seconds": 120.0}],
+    }
+    metadata = _probe_runtime_metadata(payload)
+    assert metadata["estimate_source"] == "observed_rows"
+    assert metadata["estimated_full_cycle_seconds"] == 120.0

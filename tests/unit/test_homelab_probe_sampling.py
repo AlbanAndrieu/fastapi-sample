@@ -353,3 +353,38 @@ def test_curated_public_cards_exclude_private_garage_apis() -> None:
     assert '"gatus": "Gatus"' in source
     assert '"garage-webui": "Garage Web UI"' in source
     assert '"garage-admin": "Garage Admin API"' not in source
+
+
+def test_cycle_estimate_includes_never_observed_priority_overflow() -> None:
+    services = [
+        _service(f"service-{index}", 22000 + index, priority=index if index < 12 else None)
+        for index in range(28)
+    ]
+    assert homelab_probe_policy.estimated_full_cycle_seconds(services, limit=12) == 270.0
+    assert homelab_probe_policy.estimated_full_cycle_seconds(services[:2], limit=12) == 30.0
+    assert homelab_probe_policy.estimated_full_cycle_seconds(services, limit=0) is None
+
+
+def test_scope_summary_identifies_missing_evidence_without_lan_endpoints() -> None:
+    candidates = [_service(f"service-{i}", 24000 + i) for i in range(3)]
+    homelab_probe_evidence.reset_probe_evidence()
+    try:
+        summary: dict = {}
+        merged = homelab_health._finalize_scope(
+            "internal",
+            [{"id": candidates[0].service_id, "state": "ok", "reachable": True}],
+            summary,
+            candidates=candidates,
+            limit=12,
+            enabled=True,
+            checked_at="2026-11-03T20:00:00Z",
+        )
+        assert len(merged) == 1
+        assert summary["estimated_full_cycle_seconds"] == 30.0
+        assert {item["id"] for item in summary["unobserved_slots"]} == {
+            "service-1", "service-2"
+        }
+        assert all("host" not in item and "port" not in item for item in summary["unobserved_slots"])
+        assert summary["evidence"]["known"] == 1
+    finally:
+        homelab_probe_evidence.reset_probe_evidence()

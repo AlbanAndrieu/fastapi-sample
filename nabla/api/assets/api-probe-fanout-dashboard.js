@@ -48,7 +48,31 @@ function probeRows(data) {
         probe_scope: "public",
       }))
     : [];
-  return [...internal, ...publicRows];
+  const current = [...internal, ...publicRows];
+  const present = new Set(current.map((row) => `${row.probe_scope}:${row.id}`));
+  const unobserved = (scope, scopeSummary) => {
+    const slots = Array.isArray(scopeSummary?.unobserved_slots)
+      ? scopeSummary.unobserved_slots
+      : [];
+    return slots
+      .filter((item) => item?.id && !present.has(`${scope}:${item.id}`))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        probe_interval_seconds: item.probe_interval_seconds,
+        probe_scope: scope,
+        probe_source: "unobserved",
+        state: "unknown",
+        reachable: null,
+      }));
+  };
+  return [
+    ...current,
+    ...unobserved("public", data?.probe_summary?.public),
+    ...(data?.internal_probes_enabled === true
+      ? unobserved("LAN", data?.probe_summary?.internal)
+      : []),
+  ];
 }
 
 function scopeMetrics(summary, enabled = true) {
@@ -215,11 +239,11 @@ function runtimeWarmupDetail(data) {
   const uptime = finiteNumber(runtime?.uptime_seconds, Number.NaN);
   if (Number.isFinite(uptime)) {
     const startedAt = String(runtime?.started_at || "").trim();
-    return `scheduler uptime ${humanSeconds(uptime)}${startedAt ? ` · started ${startedAt}` : ""}`;
+    return `probe worker uptime ${humanSeconds(uptime)}${startedAt ? ` · started ${startedAt}` : ""}`;
   }
 
   if (browserWarmupObservedAt == null) browserWarmupObservedAt = Date.now();
-  return `visible in this tab for ${humanSeconds((Date.now() - browserWarmupObservedAt) / 1000)}`;
+  return `backend uptime unavailable · visible in this tab for ${humanSeconds((Date.now() - browserWarmupObservedAt) / 1000)}`;
 }
 
 function warmupPhase(model) {
@@ -247,8 +271,11 @@ function warmupText(data, model) {
   }
 
   const estimate = estimatedWarmupSeconds(data, model);
+  const estimateSource = data?.probe_runtime?.estimate_source;
   const estimateText = estimate
-    ? ` · longest priority-aware cadence ≈${humanSeconds(estimate)}`
+    ? estimateSource === "eligible_catalog"
+      ? ` · minimum full rotation ≈${humanSeconds(estimate)} (only if each API window refreshes)`
+      : ` · longest observed cadence ≈${humanSeconds(estimate)} (not a full-cycle estimate)`
     : "";
   const runtimeDetail = runtimeWarmupDetail(data);
   if (model.coverage >= 100) {
@@ -313,6 +340,20 @@ function errorCategory(row) {
     row?.error_kind || row?.probe_refresh_error || row?.error || "",
   ).toLowerCase();
   if (state === "deadline" || row?.timed_out === true) return "DEADLINE";
+  if (row?.probe_source === "unobserved") return "NO_EVIDENCE";
+  if (row?.probe_stale === true) return "STALE";
+  if (row?.cloudflare_service_token_rejected === true) return "AUTH_FAILED";
+  if (
+    row?.public_probe_verification === "access_protected_origin_unverified" ||
+    row?.public_probe_auth_mode === "cloudflare_access_blocked" ||
+    row?.cloudflare_access_signal === true ||
+    row?.cloudflare_default_deny === true
+  ) return "ACCESS_PROTECTED";
+  if (
+    row?.public_probe_verification === "origin_unverified" ||
+    row?.public_probe_verification === "authenticated_origin_unverified"
+  ) return "ORIGIN_UNVERIFIED";
+  if (kind.includes("timeout") || kind.includes("timed out")) return "TIMEOUT";
   if (kind.includes("dns") || kind.includes("getaddrinfo")) return "DNS";
   if (
     kind.includes("tls") ||
@@ -334,6 +375,8 @@ function errorCategory(row) {
     kind.includes("not_configured")
   )
     return "CONFIG";
+  if (row?.origin_reached === true && row?.http_status >= 500)
+    return "ORIGIN_ERROR";
   if (state !== "ok" && (row?.http_status || kind.includes("http")))
     return "HTTP";
   if (row?.probe_refresh_error) return "REFRESH";
@@ -412,15 +455,23 @@ function targetHtml(row) {
 }
 
 function observationText(row) {
+  if (row?.probe_source === "unobserved") {
+    const cadence = finiteNumber(row?.probe_interval_seconds, Number.NaN);
+    return `No retained evidence in this worker${Number.isFinite(cadence) ? ` · rotation interval ≈${humanSeconds(cadence)}` : ""}`;
+  }
   const age = finiteNumber(row?.probe_age_seconds, Number.NaN);
   const interval = finiteNumber(row?.probe_interval_seconds, Number.NaN);
   const next = finiteNumber(row?.next_probe_in_seconds, Number.NaN);
   const parts = [];
+  const observedAt = String(row?.probe_observed_at || "").trim();
+  if (/^\\d{4}-\\d{2}-\\d{2}T/.test(observedAt)) {
+    parts.push(`observed ${observedAt.slice(0, 25)}`);
+  }
   if (Number.isFinite(age)) parts.push(`${humanSeconds(age)} ago`);
   if (Number.isFinite(interval)) {
     parts.push(`cadence ≈${humanSeconds(interval)}`);
   }
-  if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);
+  if (Number.isFinite(next)) parts.push(`next eligible ≈${humanSeconds(next)} (requires refresh)`);
   if (Number.isFinite(age) && Number.isFinite(interval) && interval > 0) {
     parts.push(`freshness ${(age / interval).toFixed(1)}x cadence`);
   }
@@ -432,6 +483,9 @@ function rowDetail(row) {
   if (row?.http_status) parts.push(`HTTP ${row.http_status}`);
   if (row?.latency_ms != null) parts.push(`${row.latency_ms} ms`);
   if (row?.error_kind) parts.push(row.error_kind);
+  if (row?.public_probe_verification) {
+    parts.push(`origin verification: ${row.public_probe_verification}`);
+  }
   if (row?.probe_refresh_error) {
     parts.push(`refresh: ${row.probe_refresh_error}`);
   } else if (row?.error) {
@@ -573,7 +627,8 @@ function ensureDashboard() {
     </div>
     <div id="probe-dashboard-latest"></div>
     <div id="probe-dashboard-previous"></div>
-    <p class="probe-dashboard-note">Coverage counts eligible probe slots, not catalog services: one service may have both a public and LAN probe. Disabled or unconfigured targets are excluded from the eligible denominator. The server keeps the 12-per-scope bounded scheduler and 30-second snapshot cache.</p>
+    <div id="probe-dashboard-unobserved"></div>
+    <p class="probe-dashboard-note">Coverage counts eligible probe slots, not catalog services. Disabled LAN targets are excluded. Probes run only when API snapshots refresh (maximum 12 per scope per 30-second window). Evidence is process-local, not shared between workers; rotation estimates are not deadlines. Access-protected does not prove that an origin is healthy.</p>
     </div>
   `;
   legacySummary.insertAdjacentElement("beforebegin", root);
@@ -702,6 +757,7 @@ function renderDashboard(data) {
   const scopes = document.getElementById("probe-dashboard-scopes");
   const latest = document.getElementById("probe-dashboard-latest");
   const previous = document.getElementById("probe-dashboard-previous");
+  const unobserved = document.getElementById("probe-dashboard-unobserved");
   if (
     !coverage ||
     !health ||
@@ -709,7 +765,8 @@ function renderDashboard(data) {
     !warmup ||
     !scopes ||
     !latest ||
-    !previous
+    !previous ||
+    !unobserved
   ) {
     return;
   }
@@ -744,6 +801,13 @@ function renderDashboard(data) {
     previousRows,
     true,
     true,
+  );
+  unobserved.innerHTML = groupHtml(
+    "Eligible without evidence",
+    "No current or retained observation in this worker. A rotation estimate is not a guaranteed execution deadline.",
+    visibleRows.filter((row) => row?.probe_source === "unobserved"),
+    false,
+    false,
   );
   renderActivity(
     `${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms · showing ${visibleRows.length}/${model.rows.length} rows`,

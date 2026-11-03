@@ -30,7 +30,7 @@ def test_probe_dashboard_separates_latest_and_retained_evidence() -> None:
     assert 'row?.probe_source === "memory"' in javascript
     assert "Latest rotating wave" in javascript
     assert "Retained previous evidence" in javascript
-    assert "probe_observed_at" not in javascript  # age/cadence are the operator-facing fields
+    assert "probe_observed_at" in javascript  # display UTC observation timestamp
     assert "probe_age_seconds" in javascript
     assert "probe_interval_seconds" in javascript
     assert "next_probe_in_seconds" in javascript
@@ -43,8 +43,8 @@ def test_probe_dashboard_exposes_coverage_health_and_runtime_warmup() -> None:
     assert "healthy coverage" in javascript
     assert "Evidence warm-up" in javascript
     assert "probe_runtime" in javascript
-    assert "scheduler uptime" in javascript
-    assert "longest priority-aware cadence" in javascript
+    assert "probe worker uptime" in javascript
+    assert "minimum full rotation" in javascript
     assert "Excluded from coverage denominator" in javascript
     assert "eligible probe slots" in javascript
     assert "probe-coverage-segment--${kind}" in javascript
@@ -108,3 +108,16 @@ def test_probe_dashboard_treats_protected_matrix_as_auth_flow() -> None:
     assert "window.prompt" in dashboard
     assert "aggregate probe health remains visible" in dashboard
     assert "Raw probe matrix is not available on this deployment" in dashboard
+
+
+def test_probe_dashboard_identifies_protected_access_and_missing_slots() -> None:
+    javascript = DASHBOARD.read_text(encoding="utf-8")
+    assert 'row?.cloudflare_service_token_rejected === true' in javascript
+    assert '"AUTH_FAILED"' in javascript
+    assert '"ACCESS_PROTECTED"' in javascript
+    assert '"ORIGIN_UNVERIFIED"' in javascript
+    assert '"TIMEOUT"' in javascript
+    assert '"NO_EVIDENCE"' in javascript
+    assert 'unobserved_slots' in javascript
+    assert "Eligible without evidence" in javascript
+    assert "not deadlines" in javascript
