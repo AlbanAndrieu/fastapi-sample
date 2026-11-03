@@ -14,7 +14,6 @@ import os
 import re
 from typing import Any
 
-from nabla.api.external_probe_cache_redis import resolve_redis_client
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import MAX_PROBE_EVIDENCE_RETENTION_SEC
 from nabla.utils.environment import env_bool
@@ -43,6 +42,15 @@ def _key(service_id: str) -> str | None:
         return None
     digest = hashlib.sha256(service_id.encode("utf-8")).hexdigest()
     return f"{_KEY_PREFIX}{namespace}:{digest}"
+
+
+def resolve_redis_client() -> Any | None:
+    """Import Redis integration only after the opt-in; core API stays usable."""
+    try:
+        from nabla.api.external_probe_cache_redis import resolve_redis_client as resolver
+    except (ImportError, RuntimeError):
+        return None
+    return resolver()
 
 
 def _client() -> Any | None:

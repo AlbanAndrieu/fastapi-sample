@@ -28,7 +28,13 @@ def classify_probe_diagnostic(row: dict[str, Any]) -> str | None:
     kind = str(row.get("error_kind") or row.get("error") or "").lower()
     if "timeout" in kind or "timed out" in kind:
         return "TIMEOUT"
-    if "dns" in kind or "getaddrinfo" in kind or row.get("dns_state") == "fail":
+    if (
+        "dns" in kind
+        or "getaddrinfo" in kind
+        or "nameresolution" in kind
+        or "name resolution" in kind
+        or row.get("dns_state") == "fail"
+    ):
         return "DNS"
     if any(term in kind for term in ("tls", "ssl", "certificate")):
         return "TLS"

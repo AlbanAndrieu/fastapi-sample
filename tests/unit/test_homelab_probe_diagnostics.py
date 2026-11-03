@@ -11,7 +11,7 @@ from nabla.api.homelab_probe_diagnostics import classify_probe_diagnostic
         ({"state": "warn", "cloudflare_default_deny": True, "http_status": 403}, "ACCESS_PROTECTED"),
         ({"state": "warn", "cloudflare_service_token_rejected": True}, "AUTH_FAILED"),
         ({"state": "warn", "public_probe_verification": "origin_unverified"}, "ORIGIN_UNVERIFIED"),
-        ({"state": "fail", "error_kind": "NameResolutionError"}, "UNKNOWN_FAILURE"),
+        ({"state": "fail", "error_kind": "NameResolutionError"}, "DNS"),
         ({"state": "fail", "error_kind": "dns_lookup"}, "DNS"),
         ({"state": "fail", "error_kind": "ssl_certificate"}, "TLS"),
         ({"state": "fail", "error_kind": "ConnectTimeout"}, "TIMEOUT"),
