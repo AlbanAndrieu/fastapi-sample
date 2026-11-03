@@ -32,3 +32,19 @@ os.environ["STATSIG_API_KEY"] = ""
 
 # Security tests retain the fail-closed baseline unless a test opts in.
 os.environ["HOMELAB_PUBLIC_DIAGNOSTICS_READONLY"] = "false"
+
+# Git hooks export GIT_DIR/GIT_INDEX_FILE: tests that build throwaway repositories
+# would otherwise write into the real checkout's index. List: git rev-parse --local-env-vars.
+for key in (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_DIR",
+    "GIT_GRAFT_FILE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_PREFIX",
+    "GIT_SHALLOW_FILE",
+    "GIT_WORK_TREE",
+):
+    os.environ.pop(key, None)
