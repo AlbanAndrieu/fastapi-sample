@@ -74,6 +74,11 @@
         <article class="op-stat"><span>Mémoire du conteneur</span><strong id="home-memory">—</strong><small>Mémoire active · MiB</small><div class="op-mini-chart" id="home-memory-history" aria-label="Historique mémoire"></div></article>
         <article class="op-stat"><span>Débit réseau du conteneur</span><strong id="home-network">—</strong><small>RX + TX · KiB/s · pas une latence</small><div class="op-mini-chart" id="home-network-history" aria-label="Historique réseau"></div></article>
       </div>
+      <article class="op-panel op-correlation" aria-labelledby="home-correlation-heading">
+        <div class="op-panel-heading"><h3 id="home-correlation-heading">Corrélation CPU ↔ latence HTTP</h3><p id="home-correlation-summary">En attente de six mesures synchronisées</p></div>
+        <div id="home-correlation-chart" class="op-chart" role="img" aria-label="Corrélation inconnue"><p class="op-chart-empty">Aucun nuage de points fabriqué.</p></div>
+        <p class="op-correlation-footnote">Paires de mesures réelles à moins de 30 s d'écart, obtenues dans cet onglet. Une corrélation ne prouve pas une causalité.</p>
+      </article>
       <div class="op-section-heading op-secondary-heading">
         <div><p class="op-section-kicker">04 / Sécurité et dépendances</p><h2>Contrôles vérifiés</h2></div>
         <a class="op-link" href="/api?ui_full=1">Diagnostics complets</a>

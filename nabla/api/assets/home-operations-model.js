@@ -213,3 +213,33 @@ export function sparklinePath(history, width = 420, height = 108) {
     return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
   }).join(" ");
 }
+
+export function appendAlignedPair(pairs, cpu, latency, maxSkewMs = 30000) {
+  const x = finite(cpu?.cpuCores);
+  const y = finite(latency?.valueMs);
+  const cpuAt = Date.parse(cpu?.observedAt);
+  const latencyAt = Date.parse(latency?.observedAt);
+  if (x === null || y === null || x < 0 || y < 0 ||
+      !Number.isFinite(cpuAt) || !Number.isFinite(latencyAt) ||
+      Math.abs(cpuAt - latencyAt) > maxSkewMs) return pairs.slice(-MAX_HISTORY);
+  const key = cpu.observedAt + "|" + latency.observedAt;
+  const updated = pairs.filter((item) => item.key !== key);
+  updated.push({ key, cpu: x, httpMs: y, at: Math.max(cpuAt, latencyAt) });
+  updated.sort((a, b) => a.at - b.at);
+  return updated.slice(-MAX_HISTORY);
+}
+
+export function pearsonCorrelation(pairs, minSamples = 6) {
+  if (!Array.isArray(pairs) || pairs.length < minSamples) return null;
+  const n = pairs.length;
+  const xs = pairs.map((item) => finite(item.cpu));
+  const ys = pairs.map((item) => finite(item.httpMs));
+  if (xs.some((item) => item === null) || ys.some((item) => item === null)) return null;
+  const avgX = xs.reduce((sum, item) => sum + item, 0) / n;
+  const avgY = ys.reduce((sum, item) => sum + item, 0) / n;
+  const cov = xs.reduce((sum, item, i) => sum + (item - avgX) * (ys[i] - avgY), 0);
+  const varX = xs.reduce((sum, item) => sum + (item - avgX) ** 2, 0);
+  const varY = ys.reduce((sum, item) => sum + (item - avgY) ** 2, 0);
+  if (varX <= 0 || varY <= 0) return null;
+  return Math.max(-1, Math.min(1, cov / Math.sqrt(varX * varY)));
+}

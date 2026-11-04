@@ -1,4 +1,6 @@
 import {
+  appendAlignedPair,
+  pearsonCorrelation,
   appendObservation,
   projectFleet,
   projectLatency,
@@ -11,6 +13,7 @@ import {
 const ROOT = document.getElementById("home-operations");
 const INTERVAL_MS = 30000;
 const SERIES = Object.create(null);
+let CORRELATION_PAIRS = [];
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
 
@@ -140,7 +143,7 @@ function privateBoard(board) {
     put("home-security-summary", "—");
     put("home-security-detail", "Pas de preuve actuelle");
     target?.replaceChildren();
-    return;
+    return latency;
   }
   const policy = security.policyCounts;
   put("home-security-summary", security.policyObserved ?
@@ -166,6 +169,7 @@ function privateBoard(board) {
     return li;
   });
   target.replaceChildren(...entries);
+  return latency;
 }
 
 function privateResources(snapshot) {
@@ -173,7 +177,7 @@ function privateResources(snapshot) {
   if (!resources) {
     put("home-resource-source", "Prometheus / cAdvisor · aucune donnée fraîche");
     for (const id of ["home-cpu", "home-memory", "home-network"]) put(id, "—");
-    return;
+    return null;
   }
   put("home-resource-source", resources.source + " · " + resources.observedAt);
   metric("home-cpu", resources.cpuCores, 3, " c");
@@ -184,6 +188,53 @@ function privateResources(snapshot) {
     ["memory", resources.observedAt, resources.memoryMiB, "home-memory-history", "Mémoire en MiB"],
     ["network", resources.observedAt, resources.networkKiBs, "home-network-history", "Débit réseau KiB/s"],
   ]) observe(name, at, value, target, label);
+  return resources;
+}
+
+function correlation(cpu, latency) {
+  CORRELATION_PAIRS = appendAlignedPair(CORRELATION_PAIRS, cpu, latency);
+  const node = element("home-correlation-chart");
+  if (!node) return;
+  const r = pearsonCorrelation(CORRELATION_PAIRS);
+  if (r === null) {
+    put("home-correlation-summary",
+      CORRELATION_PAIRS.length + "/6 mesures synchronisées · corrélation inconnue");
+    const empty = document.createElement("p");
+    empty.className = "op-chart-empty";
+    empty.textContent = "Six paires CPU/HTTP valides sont nécessaires.";
+    node.replaceChildren(empty);
+    node.setAttribute("aria-label", "Corrélation non mesurée");
+    return;
+  }
+  put("home-correlation-summary", "r = " + r.toFixed(2) +
+    " · n = " + CORRELATION_PAIRS.length + " paires · association, pas causalité");
+  const width = 420, height = 108, pad = 18;
+  const xs = CORRELATION_PAIRS.map((point) => point.cpu);
+  const ys = CORRELATION_PAIRS.map((point) => point.httpMs);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rx = Math.max(0.00001, maxX - minX);
+  const ry = Math.max(0.00001, maxY - minY);
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 420 108");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "CPU en cœurs contre durée HTTP en ms, " +
+    CORRELATION_PAIRS.length + " observations, corrélation " + r.toFixed(2));
+  const axes = document.createElementNS(NS, "path");
+  axes.setAttribute("d", "M18 10 L18 90 L410 90");
+  axes.setAttribute("class", "op-scatter-axis");
+  svg.append(axes);
+  for (const point of CORRELATION_PAIRS) {
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", String(pad + (point.cpu - minX) / rx * (width - 2 * pad)));
+    dot.setAttribute("cy", String(height - pad - (point.httpMs - minY) / ry * (height - 2 * pad)));
+    dot.setAttribute("r", "3.5");
+    dot.setAttribute("class", "op-scatter-dot");
+    svg.append(dot);
+  }
+  node.replaceChildren(svg);
+  node.setAttribute("aria-label", "Corrélation CPU / HTTP : " + r.toFixed(2));
 }
 
 async function fetchJSON(url, timeout = 6500) {
@@ -238,15 +289,16 @@ async function refresh() {
       fetchJSON("/api/topology-telemetry", 6000),
     ]);
     clearPrivate();
+    let latency = null;
     if (boardResult.status === "fulfilled" &&
         boardResult.value?.state === "fresh") {
-      privateBoard(boardResult.value);
+      latency = privateBoard(boardResult.value);
     } else {
       status("Diagnostics détaillés absents ou périmés", "warn");
     }
-    if (telemetryResult.status === "fulfilled") {
-      privateResources(telemetryResult.value);
-    }
+    const resources = telemetryResult.status === "fulfilled"
+      ? privateResources(telemetryResult.value) : null;
+    correlation(resources, latency);
     const board = boardResult.status === "fulfilled" ? boardResult.value : null;
     put("home-observed", board?.generated_at && board?.state === "fresh" ?
       "Mesuré : " + board.generated_at :

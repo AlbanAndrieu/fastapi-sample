@@ -50,9 +50,13 @@ démarrage du processus.
 - La courbe ne commence qu'après **deux snapshots datés distincts**.
 - Les courbes sont **locales à l'onglet**, limitées à 24 points, sans persistance.
   Ne pas les présenter comme des historiques Prometheus.
-- Pour une vraie corrélation, consulter les **mêmes fenêtres temporelles**
-  de Prometheus (rate CPU, mémoire, débit, erreurs, latence) et Gatus.
-  Ne pas déduire de causalité d'une coïncidence de courbes.
+- Le nuage de points CPU/HTTP requiert au moins **six paires** réelles,
+  à 30 secondes au plus d'écart. Un coefficient de Pearson n'est affiché
+  que si les deux variables présentent une variance mesurable.
+- Pour une étude de causalité ou une corrélation sur plus longue période,
+  consulter les **mêmes fenêtres temporelles** de Prometheus (rate CPU,
+  mémoire, débit, erreurs, latence) et Gatus. Ne pas déduire de causalité
+  d'une coïncidence de courbes.
 
 ## Validation locale (sans CI ni déploiement)
 
