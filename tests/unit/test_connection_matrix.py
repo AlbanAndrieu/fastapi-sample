@@ -117,3 +117,46 @@ def test_connection_categories_remain_bounded_and_actionable() -> None:
     assert rows["fastapi_cloud"]["diagnostic_category"] == "access_protected"
     assert rows["dns_sample"]["diagnostic_category"] == "nxdomain"
     assert "token" not in str(report).lower()
+
+
+def test_truenas_sample_runtime_and_probe_evidence_are_independent() -> None:
+    report = build_connection_matrix(
+        {
+            "checked_at": "2026-11-04T17:00:00Z",
+            "truenas_runtime_stale": False,
+            "services": [
+                {"id": "sample", "runtime_state": "RUNNING", "state": "ok"}
+            ],
+            "public_probe_results": [
+                {"id": "sample", "state": "warn", "http_status": 403,
+                 "probe_source": "origin", "probe_stale": False}
+            ],
+            "internal_services": [],
+        },
+        {"configured": True, "state": "healthy",
+         "exporter_jobs": {"fastapi_sample": 1.0}},
+        {"state": "not_executed"},
+    )
+    rows = _rows(report)
+    assert rows["fastapi_truenas_runtime"]["state"] == "ok"
+    assert rows["fastapi_truenas_public"]["state"] == "warn"
+    assert rows["fastapi_truenas_lan"]["state"] == "unknown"
+    assert rows["scrape_fastapi_sample"]["state"] == "ok"
+
+
+def test_stale_sample_runtime_cannot_claim_container_healthy() -> None:
+    report = build_connection_matrix(
+        {
+            "truenas_runtime_stale": True,
+            "services": [{"id": "sample", "runtime_state": "RUNNING"}],
+            "internal_services": [
+                {"id": "sample", "state": "ok", "probe_stale": True,
+                 "probe_source": "memory"}
+            ],
+        },
+        {},
+        {"state": "not_executed"},
+    )
+    rows = _rows(report)
+    assert rows["fastapi_truenas_runtime"]["state"] == "unknown"
+    assert rows["fastapi_truenas_lan"]["state"] == "unknown"

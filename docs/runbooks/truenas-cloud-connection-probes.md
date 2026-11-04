@@ -8,6 +8,7 @@ constats indépendants, et **non** une disponibilité globale :
 | Connexion | Source | Interprétation |
 | --- | --- | --- |
 | API TrueNAS | WebSocket API observer | Authentification et méthodes de gestion ; un refus ne prouve pas un hôte arrêté |
+| Application FastAPI sur TrueNAS | App/containers `sample` ou `fastapi-sample` + résultats de sondes publiques/LAN | Runtime, HTTP/HTTPS et LAN séparés ; un scrape exporter UP ne les remplace pas |
 | HTTPS/TCP TrueNAS | Sondes directes, HAProxy/WAN selon le runtime | Transport distinct de l'API et du runtime applicatif |
 | Prometheus API | Requête PromQL fixe depuis TrueNAS | Succès de requête, indépendamment des enregistrements disponibles |
 | FastAPI Sample / TrueNAS / Gatus / Cloudflare exporter | Règles Prometheus | UP = scraping réussi, PAS un service applicatif sain |

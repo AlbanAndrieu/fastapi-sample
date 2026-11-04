@@ -97,6 +97,81 @@ def _truenas_rows(homelab: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+_SAMPLE_IDS = frozenset({"sample", "fastapi-sample"})
+
+
+def _sample_probe_row(
+    homelab: dict[str, Any],
+    *,
+    scope: str,
+    label: str,
+) -> dict[str, Any]:
+    results = homelab.get(scope)
+    candidates = [
+        row for row in results
+        if isinstance(row, dict) and row.get("id") in _SAMPLE_IDS
+    ] if isinstance(results, list) else []
+    observed = [
+        row for row in candidates
+        if row.get("probe_source") in {"origin", "memory"}
+        and row.get("probe_stale") is not True
+    ]
+    # Multiple ambiguous observations never establish positive health.
+    if len(observed) != 1:
+        state, status, source = "unknown", None, None
+    else:
+        source = observed[0].get("probe_source")
+        status = observed[0].get("http_status")
+        raw_state = observed[0].get("state")
+        state = raw_state if raw_state in {"ok", "warn", "fail"} else "unknown"
+    return _row(
+        "fastapi_truenas_" + ("lan" if scope == "internal_services" else "public"),
+        label, state, "truenas_service_probe",
+        "Last direct/retained transport probe; this does not establish application readiness"
+        if state != "unknown" else
+        "No recent direct service probe; not equivalent to exporter scrape status",
+        observed_at=observed[0].get("probe_observed_at") if source else None,
+        status=status,
+    )
+
+
+def _sample_app_rows(homelab: dict[str, Any]) -> list[dict[str, Any]]:
+    services = homelab.get("services")
+    matches = [
+        row for row in services
+        if isinstance(row, dict) and row.get("id") in _SAMPLE_IDS
+    ] if isinstance(services, list) else []
+    app = matches[0] if len(matches) == 1 else {}
+    runtime_state = str(
+        app.get("runtime_primary_container_state") or app.get("runtime_state") or ""
+    ).upper()
+    stale = homelab.get("truenas_runtime_stale") is True
+    state = (
+        "unknown" if stale or not app else
+        "ok" if runtime_state in {"RUNNING", "HEALTHY"} else
+        "warn" if runtime_state in {"STOPPED", "EXITED", "FAILED", "CRASHED"} else
+        "unknown"
+    )
+    return [
+        _row(
+            "fastapi_truenas_runtime", "FastAPI Sample TrueNAS container runtime",
+            state, "truenas_app_query",
+            "TrueNAS reports a running container; HTTP/API readiness must be tested separately"
+            if state == "ok" else
+            "Container status absent, stale or not running; do not infer API outage",
+            observed_at=homelab.get("checked_at") if not stale else None,
+        ),
+        _sample_probe_row(
+            homelab, scope="public_probe_results",
+            label="FastAPI Sample TrueNAS HTTPS transport",
+        ),
+        _sample_probe_row(
+            homelab, scope="internal_services",
+            label="FastAPI Sample TrueNAS LAN transport",
+        ),
+    ]
+
+
 def _prometheus_rows(metrics: dict[str, Any]) -> list[dict[str, Any]]:
     state = metrics.get("state")
     configured = metrics.get("configured") is True
@@ -228,6 +303,7 @@ def build_connection_matrix(
     """Return one bounded inventory of independent connection/evidence states."""
     rows = [
         *_truenas_rows(_data(homelab)),
+        *_sample_app_rows(_data(homelab)),
         *_prometheus_rows(_data(platform_metrics)),
         *_cloudflare_rows(_data(homelab)),
         *_external_rows(_data(external)),
