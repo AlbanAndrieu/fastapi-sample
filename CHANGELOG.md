@@ -1,3 +1,17 @@
+# [1.27.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.26.3...1.27.0) (2026-11-04)
+
+
+### Bug Fixes
+
+* **ci:** corriger Zizmor et borner les jobs/tests pour éviter les blocages ([#391](https://github.com/AlbanAndrieu/fastapi-sample/issues/391)) ([409df90](https://github.com/AlbanAndrieu/fastapi-sample/commit/409df908c060187bfca38b976ce0f927cf2422f5))
+* **probes:** qualifier les warnings et fiabiliser la couverture Cloud ([#394](https://github.com/AlbanAndrieu/fastapi-sample/issues/394)) ([3dc9058](https://github.com/AlbanAndrieu/fastapi-sample/commit/3dc9058cab7c0e393aab16457522b8b8bbc9965f))
+* **ui:** stop the detail-drawer MutationObserver loop freezing ?ui_full=1 [skip ci] ([#390](https://github.com/AlbanAndrieu/fastapi-sample/issues/390)) ([5f6b6ff](https://github.com/AlbanAndrieu/fastapi-sample/commit/5f6b6fffba97b47b512a94512a29016f843305ff))
+
+
+### Features
+
+* **truenas:** runtime Compose TrueNAS dans le dépôt et gates pre-push hermétiques ([#395](https://github.com/AlbanAndrieu/fastapi-sample/issues/395)) ([a9a831f](https://github.com/AlbanAndrieu/fastapi-sample/commit/a9a831f42263db1add39accc81fb8961399080a5)), closes [#393](https://github.com/AlbanAndrieu/fastapi-sample/issues/393)
+
 ## [1.26.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.26.2...1.26.3) (2026-10-31)
 
 
