@@ -51,3 +51,18 @@ def test_main_dashboard_uses_existing_endpoint_contracts_without_direct_promql()
     assert "localStorage" not in script
     assert "Chart(" not in script
     assert "Math.random" not in script
+
+
+def test_operations_home_is_standalone_and_has_a_local_only_csp() -> None:
+    markup = (ROOT / "templates/index.html").read_text(encoding="utf-8")
+    router = (ROOT / "nabla/routes.py").read_text(encoding="utf-8")
+    assert '<html lang="fr">' in markup
+    assert '{% extends "base.html" %}' not in markup
+    assert 'src="/api/assets/home-operations.js"' in markup
+    assert 'href="/api/assets/home-operations.css"' in markup
+    assert "cdn.jsdelivr.net" not in markup
+    assert "unpkg.com" not in markup
+    assert "Content-Security-Policy" in router
+    assert "script-src 'self'" in router
+    assert "connect-src 'self'" in router
+    assert "frame-ancestors 'none'" in router

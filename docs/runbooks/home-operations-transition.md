@@ -86,3 +86,11 @@ git diff --check master...HEAD
 **À différer** : historiques serveur Prometheus `query_range`, p95 de latence
 HTTP et corrélation erreurs/CPU. Nécessitent une fenêtre, une politique
 de fraîcheur et des limites de cardinalité validées avant ajout.
+
+## Livraison légère de l'accueil
+
+Le template `/` est un HTML autonome et n'hérite plus de `base.html`.
+Il charge seulement des ressources CSS/JS locales, sans Chart.js,
+Plotly, HTMX, DaisyUI ou Tailwind CDN. La réponse est `no-store`
+et comporte une CSP limitant les scripts et connexions au même domaine,
+avec `frame-ancestors 'none'`.

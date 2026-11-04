@@ -214,3 +214,10 @@ test("repeated CPU or HTTP sample cannot inflate the correlation sample count", 
     Array.from({ length: 6 }, (_, i) => ({ cpu: i === 0 ? 1e300 : i, httpMs: 100 + i })),
   ), null);
 });
+
+test("standalone home imports no remote CDN or inline script", () => {
+  const root = readFileSync(new URL("../../templates/index.html", import.meta.url), "utf8");
+  assert.match(root, /<html lang="fr">/);
+  assert.match(root, /src="\/api\/assets\/home-operations.js"/);
+  assert.doesNotMatch(root, /\{% extends|https:\/\/|cdn\.jsdelivr|unpkg|chart\.js/i);
+});

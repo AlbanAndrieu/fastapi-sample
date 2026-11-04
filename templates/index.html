@@ -1,7 +1,15 @@
-{% extends "base.html" %}
-{% block title %}FastAPI Sample · Operations Overview{% endblock %}
-{% block content %}
-<link rel="stylesheet" href="/api/assets/home-operations.css">
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="FastAPI Sample : tableau de bord d'observabilité et de sécurité basé sur des mesures vérifiées.">
+  <title>FastAPI Sample · Operations Overview</title>
+  <link rel="stylesheet" href="/api/assets/home-operations.css">
+  <script type="module" src="/api/assets/home-operations.js"></script>
+</head>
+<body>
 <main id="home-operations" class="op-root" lang="fr">
   <header class="op-head">
     <div class="op-heading">
@@ -91,5 +99,5 @@
     <span>Les graphiques n'inventent aucune mesure et n'utilisent pas de données météo.</span>
   </footer>
 </main>
-<script type="module" src="/api/assets/home-operations.js"></script>
-{% endblock %}
+</body>
+</html>

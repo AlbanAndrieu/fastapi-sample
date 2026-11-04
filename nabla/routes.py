@@ -91,7 +91,20 @@ def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
             request,
             "index.html",
             {"database_enabled": database},
-            headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"},
+            headers={
+    "Cache-Control": "private, no-store, max-age=0",
+    "Pragma": "no-cache",
+    "X-Robots-Tag": "noindex, nofollow",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
+        "img-src 'self'; font-src 'self'; "
+        "base-uri 'none'; form-action 'none'; "
+        "frame-ancestors 'none'; object-src 'none'"
+    ),
+},
         )
 
 
