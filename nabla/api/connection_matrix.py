@@ -103,6 +103,10 @@ def _prometheus_rows(metrics: dict[str, Any]) -> list[dict[str, Any]]:
         ("gatus", "Gatus scrape"),
     ):
         up = jobs.get(job)
+        if job == "gatus" and up is None:
+            # Preserve the already-observed Gatus up signal even when a
+            # service-exporter recording rule is not yet deployed.
+            up = _data(metrics.get("synthetic_probes")).get("gatus_up")
         state = "ok" if up == 1 else "fail" if up == 0 else "unknown"
         rows.append(_row(
             "scrape_" + job, label, state, "prometheus_recording_rule",
@@ -120,17 +124,31 @@ def _cloudflare_rows(homelab: dict[str, Any]) -> list[dict[str, Any]]:
     confirmed = cf.get("status_confirmed") is True and cf.get("stale") is not True
     tunnels = cf.get("tunnels")
     tunnel_items = tunnels if isinstance(tunnels, list) else []
-    unhealthy = sum(
-        str(item.get("status") or "").lower() in {"down", "degraded"}
+    statuses = [
+        str(item.get("status") or "").lower()
         for item in tunnel_items if isinstance(item, dict)
+    ]
+    healthy = sum(value == "healthy" for value in statuses)
+    attention = sum(value in {"down", "degraded", "inactive"} for value in statuses)
+    tunnel_state = (
+        "unknown" if not confirmed
+        else "ok" if healthy and not attention and len(statuses) == healthy
+        else "warn"
     )
     return [
         _row(
-            "cloudflare_tunnels", "Cloudflare Tunnel inventory",
-            "ok" if confirmed and unhealthy == 0 else "warn" if confirmed else "unknown",
+            "cloudflare_tunnels", "Cloudflare Tunnel control-plane inventory",
+            "ok" if confirmed else "unknown",
             "cloudflare_control_plane",
-            f"Inventory observed; {unhealthy} tunnel(s) degraded/down. Not a check of a specific route"
+            "Tunnel inventory confirmed; this does not verify any particular route"
             if confirmed else "Control-plane inventory unavailable or stale; edge status unknown",
+        ),
+        _row(
+            "cloudflare_tunnel_runtime", "Cloudflare Tunnel reported lifecycle",
+            tunnel_state,
+            "cloudflare_tunnel_inventory",
+            f"{healthy} healthy, {attention} inactive/degraded/down of {len(statuses)} observed; origin unverified"
+            if confirmed else "No confirmed, fresh tunnel lifecycle evidence",
         ),
         _row(
             "cloudflare_access", "Cloudflare Access policies",

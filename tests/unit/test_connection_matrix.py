@@ -49,6 +49,7 @@ def test_healthy_scrape_does_not_mask_down_origin_or_access_protection() -> None
     assert rows["fastapi_cloud"]["state"] == "warn"
     assert rows["dns_sample"]["state"] == "ok"
     assert rows["cloudflare_tunnels"]["state"] == "ok"
+    assert rows["cloudflare_tunnel_runtime"]["state"] == "ok"
     assert "not origin" in rows["scrape_fastapi_sample"]["detail"].lower() or "not established" in rows["scrape_fastapi_sample"]["detail"].lower()
     assert sum(report["counts"].values()) == len(report["rows"])
     assert "172.17" not in str(report)
@@ -66,4 +67,30 @@ def test_missing_telemetry_and_unexecuted_cloud_probes_are_unknown() -> None:
     assert rows["fastapi_cloud"]["state"] == "unknown"
     assert rows["dns_sample"]["state"] == "unknown"
     assert rows["cloudflare_tunnels"]["state"] == "unknown"
+    assert rows["cloudflare_tunnel_runtime"]["state"] == "unknown"
     assert report["external_probe_state"] == "not_executed"
+
+
+def test_inactive_tunnel_inventory_is_not_misreported_healthy() -> None:
+    report = build_connection_matrix(
+        {"cloudflare": {
+            "status_confirmed": True, "stale": False,
+            "tunnels": [{"status": "inactive"}],
+            "access_observer_state": "ok",
+        }},
+        {"state": "not_configured", "configured": False},
+        {"state": "not_executed"},
+    )
+    rows = _rows(report)
+    assert rows["cloudflare_tunnels"]["state"] == "ok"
+    assert rows["cloudflare_tunnel_runtime"]["state"] == "warn"
+
+
+def test_gatus_raw_up_fallback_is_telemetry_only() -> None:
+    report = build_connection_matrix(
+        {}, {"state": "degraded", "configured": True,
+             "synthetic_probes": {"gatus_up": 1.0}}, {"state": "not_executed"},
+    )
+    row = _rows(report)["scrape_gatus"]
+    assert row["state"] == "ok"
+    assert "application readiness" in row["detail"]
