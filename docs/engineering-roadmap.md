@@ -177,6 +177,18 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   `/sickz` mis en cache ou limité, `PFSENSE_AUTHENTICATED_PROBES_ENABLED`
   aligné sur la politique WAN, Tavily/OVH verts, `*.int` refusés au
   frontal WAN hors exceptions revues.
+  **CODED/TESTED L1 (non déployé) :** (a) cache `/sickz` 60 s single-flight
+  (`nabla/api/sickz_cache.py`, purge avec `/api/health-board/cache/reset`) ;
+  (c) sonde Tavily via `GET /usage` (`nabla/api/tavily_health.py`) ;
+  (e) page challenge Cloudflare classée `warn`/non vérifiée pour Keycloak et
+  LiteLLM ; skill `fastapi-cloud` et doc pfSense alignés sur
+  `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` côté Cloud. Restent opérateur
+  (runbook nabla-compose `docs/runbooks/2026-11-04-probe-remediation.md`) :
+  apply des routes Tunnel, Service Auth Access, bypass Vaultwarden par
+  chemins, exception WAF, OVH, variable pfSense Cloud, Graylog/Lidarr/Homarr,
+  décision Joplin. Preuve suivante : déploiement Cloud au SHA de cette PR,
+  `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz` sans
+  `Query is invalid.`.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable

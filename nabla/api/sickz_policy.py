@@ -273,7 +273,7 @@ def _classify_service(
         if reachable:
             return (
                 "fail",
-                "external=false but the endpoint is reachable from FastAPI Cloud; it should not be exposed externally.",
+                "external=false but the endpoint is reachable from the external probe; it should not be exposed externally.",
             )
         return "ok", "external=false and the endpoint is not reachable from the external probe."
 
