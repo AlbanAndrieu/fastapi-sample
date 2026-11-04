@@ -234,6 +234,17 @@ pour chaque service et refus WAN correct.
   présente aussi les catégories de diagnostic dans les cartes.
   Voir [runbook de connexion](runbooks/truenas-cloud-connection-probes.md).
 
+- [ ] **P1 — Remplacer la démonstration météo de `/` (04/11, CODED) :**
+  page `Operations Overview` sans base PostgreSQL ; sondes et sécurité
+  depuis le health-board ; CPU/mémoire/débit cAdvisor depuis la topologie ;
+  latence HTTP mesurée sans prétention de RTT ; courbes de l'onglet uniquement.
+  `/demo/sensors` conserve les anciens diagrammes en démo explicite ;
+  génération synthétique retirée du startup. Accès propriétaire requis
+  pour les informations détaillées, anonymes limités au répertoire public.
+  **Reste :** valider les contrats route HTML/JS, Node 22, pytest et L2/L3,
+  comparer le rendering desktop/mobile et vérifier TrueNAS/CLOUD.
+  Voir [runbook](runbooks/home-operations-transition.md).
+
 ## Documentation et séquence de reprise
 
 1. [Guide local-first](../.agents/skills/local-first-quality/SKILL.md) :

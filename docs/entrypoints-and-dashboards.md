@@ -43,6 +43,35 @@ The project-level [`.mcp.json`](../.mcp.json) and
 `http://127.0.0.1:8080/mcp`. Start the API first; neither configuration starts
 a second dashboard process.
 
+## Transition de l'écran principal : observabilité réelle
+
+| Chemin | Rôle | Données |
+| --- | --- | --- |
+| `/` | **Operations Overview** (vue légère, sans PostgreSQL) | `/api/ui/services` pour les comptes publics limités ; sondes, sécurité et ressources uniquement lorsque la session OWNER est authentifiée |
+| `/api` | Catalogue, graphiques et diagnostic détaillé | Probes et services via l'API de diagnostic existante |
+| `/api/topology` | Topologie des services | Source déclarative + télémétrie quand disponible |
+| `/demo/sensors` | Ancienne démonstration, si le module DB est installé | Température, humidité et pression **synthétiques uniquement** |
+| `/api/health-board` | Agrégat de santé mis en cache | Réutilise les sondes existantes |
+| `/api/topology-telemetry` | Ressources cAdvisor et NetFlow (si configurés) | Cache Prometheus ; disponibilité distincte du service |
+
+La page `/` n'interroge pas la base de notes et ne démarre pas le générateur
+de mesures météo. Les anciens endpoints `/stream`, `/chart-data`,
+`/charts` et `/sensor-data` restent des contrats de démonstration.
+Aucune requête Prometheus, TrueNAS ni Cloudflare n'est déclenchée directement
+depuis le JavaScript de la page. Elle réutilise les caches serveur.
+
+La session OWNER est vérifiée via `GET /api/ui/session` avant de charger
+`/api/health-board` et `/api/topology-telemetry`.
+Les visiteurs anonymes reçoivent **uniquement** la projection déjà exposée
+par `/api/ui/services`. Sans preuve fraîche, tous les services sont inconnus.
+
+CPU = cœurs réellement consommés, mémoire = MiB actifs, réseau = RX + TX
+en KiB/s ; la sonde HTTP mesure une durée de requête **et non** le RTT IP.
+Les courbes conservent au maximum 24 observations **dans l'onglet courant**.
+Elles n'utilisent ni valeurs fictives ni historique Prometheus inventé.
+
+Détails : [Runbook de transition de l'accueil](runbooks/home-operations-transition.md).
+
 ## Docker Compose dashboards
 
 The repository Compose file also publishes independent development services:
