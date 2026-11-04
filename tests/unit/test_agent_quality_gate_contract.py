@@ -316,9 +316,9 @@ def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> N
     assert "workflow_dispatch:" in triggers
     assert "127.0.0.1" not in workflow_text
     assert "uvicorn" not in workflow_text
-    assert dast_env["TRUENAS_ROOT_URL"] == "https://sample.albandrieu.com/"
-    assert dast_env["TRUENAS_API_URL"] == "https://sample.albandrieu.com/api"
-    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://sample.albandrieu.com/openapi.json"
+    assert dast_env["TRUENAS_ROOT_URL"] == "https://fastapi-sample.albandrieu.com/"
+    assert dast_env["TRUENAS_API_URL"] == "https://fastapi-sample.albandrieu.com/api"
+    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://fastapi-sample.albandrieu.com/openapi.json"
     assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
     assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
     assert "CF-Access-Client-Id" in workflow_text

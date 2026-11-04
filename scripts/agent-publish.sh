@@ -104,7 +104,11 @@ case "${build}" in
             --disable=E1701,E0102,E1003 \
             server_app.py nabla
 
-        quality_run_bounded "${QUALITY_STEP_TIMEOUT_SECONDS:-900}" uv run --no-sync python -c \
+        # Same non-secret defaults as tests/conftest.py: a worktree has no local .env.
+        quality_run_bounded "${QUALITY_STEP_TIMEOUT_SECONDS:-900}" env \
+            OAUTH_TOKEN_SECRET="${OAUTH_TOKEN_SECRET:-mocked-oauth-token-secret}" \
+            METRICS_ENABLED="${METRICS_ENABLED:-false}" \
+            uv run --no-sync python -c \
             "import nabla.main; assert nabla.main.app is not None"
 
         quality_run_bounded "${QUALITY_STEP_TIMEOUT_SECONDS:-900}" uv build

@@ -16,7 +16,7 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 
 TARGETS = {
     "cloud": "https://fastapi-sample.fastapicloud.dev",
-    "staging": "https://sample.albandrieu.com",
+    "staging": "https://fastapi-sample.albandrieu.com",
     "truenas": "http://172.17.0.24:8091",
 }
 PATHS = ("/api", "/api/ui/session", "/api/ui/services")

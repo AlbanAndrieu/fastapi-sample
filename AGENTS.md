@@ -93,8 +93,14 @@ appliance recovery, Cloudflare Tunnel/Access operational routing and
 self-hosted Sentry deployment/ingestion. `fastapi-sample` owns only its
 application observers, cache/fan-out, health semantics, Sentry SDK/DSN
 selection, logging and tests. Keep dated app incidents in `docs/incidents.md`.
-Do not duplicate appliance shell commands or infrastructure route snapshots in
-FastAPI docs; link to the `nabla-compose` runbooks. Retain existing application
+Owner decision (2026-10-30): the repository-root `compose.yml` is the primary
+Compose file for the TrueNAS runtime and the `FastAPI Sample on TrueNAS`
+section of `README.md` is its runbook. `nabla-compose` consumes both through
+its `apps/fastapi-sample` submodule (2026-10-31: `apps/sample` removed), so
+there is no second copy to keep aligned. Local development uses `docker-compose.yaml`, always
+selected with `-f` because `compose.yml` takes precedence. Apart from that
+exception, do not duplicate appliance shell commands or infrastructure route
+snapshots in FastAPI docs; link to the `nabla-compose` runbooks. Retain existing application
 documentation paths as compatibility entries when splitting ownership.
 Do not move operational scripts back into this application repository.
 
@@ -194,7 +200,10 @@ must remain Draft until it is green.
 
 Before changing behavior, inspect the relevant files:
 
-- `README.md` — concise project quick start and canonical runtime entry points
+- `README.md` — project quick start, canonical runtime entry points and the
+  TrueNAS runbook (`FastAPI Sample on TrueNAS`)
+- `compose.yml` — TrueNAS runtime Compose file (default in this directory)
+- `docker-compose.yaml` — local development and production-like Compose stack
 - `pyproject.toml` — Python version, dependencies, and tool configuration
 - `nabla/config_settings.py` — application settings
 - `nabla/main.py` — FastAPI application

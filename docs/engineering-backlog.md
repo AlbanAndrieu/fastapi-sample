@@ -41,7 +41,7 @@ Incident-specific forensic evidence and recovery procedures remain in
 - [ ] **P1 RBAC et traitement asynchrone** : attacher le jeton de service à une identité non-superuser ne disposant de l'écriture que sur le produit/engagement `fastapi-sample` ; ID fixe hors Git, parser exact contrôlé depuis l'instance, `test_title` stable, `auto_create_context=false`, `close_old_findings=false`. Ajouter un suivi en lecture seule `GET /api/v2/tests/{id}/` jusqu'à `Processed` ou `Failed`; un 200/201/202 d'upload n'est pas une preuve de findings ingérés.
 - [ ] **P1 Acceptation LAN-only et pare-feu** : vérifier le split DNS Pi-hole/Unbound, le TLS Host/SNI Traefik, les routes et bindings `172.17.0.24:31085`, les ACL inter-VLAN et les éventuels NAT/HAProxy WAN (y compris accès direct par IP+Host forgé). Défense en profondeur : accès API limité aux IPs des importateurs et aucun DNS/Cloudflare Tunnel public DefectDojo. **NON PROUVÉ en live dans cette PR** ; le pin réseau n'est pas la preuve d'une ACL pfSense.
 - [ ] **Gates d'acceptation** : tests vrais `trivy`, `betterleaks`, `semgrep`, `nuclei`, ZAP selon mode, rapports présents/non tronqués, import DefectDojo HTTP 2xx suivi du job asynchrone et dédup, preuve de `Critical=0` et secrets=0 sur HEAD exact. Aucun contournement des diagnostics ou scanning de sous-domaines `*.albandrieu.com` non autorisés.
-- [ ] **P2 DAST / couverture** : coordonner site `www.albanandrieu.com`, API Cloud `fastapi-sample.fastapicloud.dev` et staging `sample.albandrieu.com` uniquement derrière contrôle explicite. DAST passif, scope strict, chemins dangereux exclus, plafonds temps/RPS, scans plus complets `master` ou déclenchement manuel plutôt qu'un par PR ; compléter Semgrep, ZAP, Nuclei selon lacunes réelles plutôt que les dupliquer.
+- [ ] **P2 DAST / couverture** : coordonner site `www.albanandrieu.com`, API Cloud `fastapi-sample.fastapicloud.dev` et staging `fastapi-sample.albandrieu.com` uniquement derrière contrôle explicite. DAST passif, scope strict, chemins dangereux exclus, plafonds temps/RPS, scans plus complets `master` ou déclenchement manuel plutôt qu'un par PR ; compléter Semgrep, ZAP, Nuclei selon lacunes réelles plutôt que les dupliquer.
 
 ## P0/P1 — Validation JWT Cloudflare et WebSocket ASGI (PR #353)
 
@@ -292,8 +292,14 @@ Incident-specific forensic evidence and recovery procedures remain in
 - [ ] Keep failures in the optional RAG backend out of core app liveness.
 - [ ] **SearXNG integration**: first establish the authoritative Compose service
 - [ ] **MCP SDK and pfSense**: pin/review SDK API changes; retain private
-- [ ] **Compose/Docker consolidation**: current references indicate
-- [ ] Audit references across Makefile, justfile, mise, Helm and workflows.
-- [ ] Build/smoke canonical `Dockerfile` + `docker-compose.yaml` locally.
-- [ ] Remove obsolete files only after reference and rollback checks pass.
+- [ ] **Compose/Docker consolidation**: `docker-compose.yml` is merged into the
+  canonical `docker-compose.yaml` (default dev stack `api`/`db`/`redis`;
+  profiles `prod` and `observability`). CODED; `docker compose config` validated.
+- [x] Audit references across Makefile, justfile, mise, Helm and workflows
+  (only CODEOWNERS, `.semgrepignore` and the entry-points doc named the files).
+- [ ] Build/smoke canonical `Dockerfile` + `docker-compose.yaml` locally. `NOT_RUN`.
+- [x] Remove obsolete files only after reference and rollback checks pass:
+  `docker-compose.yml` removed. Owner decision: the tracked root `compose.yml`
+  is the primary TrueNAS Compose file (precedence by default); `build.sh` and
+  the Makefile select `docker-compose.yaml` explicitly.
 - [ ] **P2 merge evidence**: for every changed contract, record targeted test,

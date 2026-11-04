@@ -31,7 +31,7 @@ except ImportError:
 
 TARGETS = {
     "cloud": "https://fastapi-sample.fastapicloud.dev/api",
-    "staging": "https://sample.albandrieu.com/api",
+    "staging": "https://fastapi-sample.albandrieu.com/api",
     "truenas": "http://172.17.0.24:8091/api",
 }
 ALLOWED = {

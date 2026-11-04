@@ -10,6 +10,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 GATE = ROOT / "scripts" / "agent-quality-gate.sh"
+# The gate sources this file for quality_run_bounded, which run_compact calls.
+BOUNDED = ROOT / "scripts" / "ci" / "quality-timeout.sh"
 
 
 @pytest.mark.parametrize("report", [False, True])
@@ -35,7 +37,7 @@ def test_compact_failure_preserves_exit_and_opt_in_log(
     directory = tmp_path / "failure logs"
     if retain:
         env["QUALITY_FAILURE_LOG_DIR"] = str(directory)
-    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + f"\n{selected} sample bash -c 'printf \"first\\nsecond\\n\"; exit 17'\n"
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + BOUNDED.read_text(encoding="utf-8") + functions + f"\n{selected} sample bash -c 'printf \"first\\nsecond\\n\"; exit 17'\n"
     result = subprocess.run(
         ["bash", "-c", script],
         env=env,
@@ -66,7 +68,7 @@ def test_compact_success_does_not_retain_log(tmp_path: Path) -> None:
     )
     directory = tmp_path / "quality logs"
     env = {**os.environ, "QUALITY_FAILURE_LOG_DIR": str(directory)}
-    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + "\nrun_compact success bash -c 'echo ok'\n"
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + BOUNDED.read_text(encoding="utf-8") + functions + "\nrun_compact success bash -c 'echo ok'\n"
     result = subprocess.run(
         ["bash", "-c", script],
         env=env,
@@ -99,7 +101,7 @@ def test_failure_logs_refuse_unsafe_directory(tmp_path: Path, unsafe: str) -> No
         target.mkdir()
         directory.symlink_to(target, target_is_directory=True)
     env = {**os.environ, "QUALITY_FAILURE_LOG_DIR": str(directory)}
-    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + BOUNDED.read_text(encoding="utf-8") + functions + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
     result = subprocess.run(
         ["bash", "-c", script],
         env=env,
@@ -141,7 +143,7 @@ def test_failure_log_owner_guard_is_enforced_without_masking_failure(
         "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
         "QUALITY_FAILURE_LOG_DIR": str(directory),
     }
-    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + BOUNDED.read_text(encoding="utf-8") + functions + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
     result = subprocess.run(
         ["bash", "-c", script],
         env=env,

@@ -90,7 +90,7 @@ elle doit toujours rejeter une identité absente/non vérifiée.
 **Décision du 18 octobre 2026** : hostname unique `ops.albandrieu.com`
 pour l'interface propriétaire. Ce domaine n'est pas provisionné à ce stade.
 La surface publique `https://fastapi-sample.fastapicloud.dev` (production)
-et `https://sample.albandrieu.com` (staging via Access) ne doivent jamais
+et `https://fastapi-sample.albandrieu.com` (staging via Access) ne doivent jamais
 devenir des contournements de l'interface privée.
 
 ### Frontière de routage
@@ -120,7 +120,7 @@ Les credentials de sondes restent côté FastAPI/TrueNAS et dans le coffre.
     l'application `ops`, `iss`, dates et `sub`/identité autorisée
     comparés avec la politique allowlist configurée côté serveur.
 2. Éviter la réutilisation accidentelle de l'audience Access existante
-    de `sample.albandrieu.com`; une assertion valable pour une autre app
+    de `fastapi-sample.albandrieu.com`; une assertion valable pour une autre app
     ne donne aucun droit sur `ops`.
 3. Refuser l'absence de configuration `OPS_ACCESS_AUD`,
     `OPS_ACCESS_ISSUER`, identité autorisée, JWKS invalide, jeton expiré,
@@ -277,6 +277,6 @@ La PR a désormais du **code** mais n'active aucun déploiement :
 - `nabla/api/public_homelab_dto.py` + `GET /api/public-homelab/v1` implémentent déjà la projection explicitement allowlist `{version:1,services:[{id,label,category}]}`, vide par défaut. Les anciens catalogues riches et `/api/public-topology` ne doivent plus servir de DTO public.
 - `nabla/cloudflare_ops_access.py` valide RS256, JWKS tenant, `iss`, `aud`, `exp/iat/nbf`, `sub` allowlist et rejette Service Tokens ; `nabla/asgi_transport_guard.py` protège le transport WebSocket ; `/a2a` est déclaré owner HTTP. Sans configuration Access authentique, ces routes restent fermées.
 - Tests locaux JWT/ASGI ajoutés, **suite complète non exécutée sur le HEAD**. Les montages HTTP réellement enregistrés, les reverse proxies, le site Vercel et l'authentification MFA/Tunnel doivent encore être audités avec preuves négatives.
-- La configuration d'identité nécessite **des valeurs déployées hors Git** : `OPS_ACCESS_ISSUER` (URL tenant Cloudflare), `OPS_ACCESS_AUD` (audience application `ops`) et `OPS_ACCESS_OWNER_SUBJECTS` (sujets utilisateur explicitement acceptés). Il ne faut jamais copier l'audience de `sample.albandrieu.com`, ni mettre un Service Token dans le navigateur.
+- La configuration d'identité nécessite **des valeurs déployées hors Git** : `OPS_ACCESS_ISSUER` (URL tenant Cloudflare), `OPS_ACCESS_AUD` (audience application `ops`) et `OPS_ACCESS_OWNER_SUBJECTS` (sujets utilisateur explicitement acceptés). Il ne faut jamais copier l'audience de `fastapi-sample.albandrieu.com`, ni mettre un Service Token dans le navigateur.
 
 **Coordination scans** : `fastapi-sample/scripts/security/run_security_scans.py` prépare Trivy JSON (incluant lockfiles), SBOM CycloneDX, Betterleaks, Semgrep sur master et DAST ZAP/Nuclei sur demande. `import_defectdojo.py` importe via API LAN restreinte, sans exposer Dojo au WAN. La génération utilisateur/password UI et Vaultwarden reste à réaliser dans `nabla-compose` PR #263. Semgrep est SAST sur sources Git et ne scanne pas des URL ; ZAP/Nuclei sont les DAST autorisés pour les FQDN explicitement listés.

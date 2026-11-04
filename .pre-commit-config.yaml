@@ -57,7 +57,7 @@ repos:
       - id: check-useless-excludes
 
   - repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
-    rev: v0.9.0
+    rev: v0.10.0
     hooks:
       - id: pre-commit-update
         # Dependency updates rewrite this config and conflict with Prettier.
@@ -171,7 +171,7 @@ repos:
           )$
 
   - repo: https://github.com/pre-commit/pre-commit.git
-    rev: v4.6.2
+    rev: v4.7.0
     hooks:
       - id: validate_manifest
         name: "🤖 manifest · Validate manifest scripts"
@@ -192,12 +192,12 @@ repos:
 
     ### Python Tools ###
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.7
+    rev: v0.17.3
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -231,7 +231,7 @@ repos:
     #             ccds/hook_utils/.*|
     #         )$
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: "0.26"
+    rev: "v0.27"
     hooks:
       - id: validate-pyproject
         name: "🐍 python · Validate pyproject.toml"
@@ -241,7 +241,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.12.13
+    rev: 0.13.6
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -273,7 +273,7 @@ repos:
 
     ### Shell ###
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.13.1-1
+    rev: v3.14.1-1
     hooks:
       # Choose one of:
       - id: shfmt # native (requires Go to build)
@@ -330,7 +330,7 @@ repos:
 
     ### SQL ###
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 4.3.0
+    rev: 4.5.0
     hooks:
       - id: sqlfluff-fix
         name: "📊 SQL · Attempts to fix rule violations."
@@ -364,7 +364,7 @@ repos:
 
     ### Javascript & Web Tools ###
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.5.12"
+    rev: "v2.6.4"
     hooks:
       - id: biome-check
         name: "🟨 javascript · Lint, format, and safe fixes with Biome"
@@ -422,7 +422,7 @@ repos:
 
     ### Data & Config Validation ###
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.38.0
+    rev: 0.39.0
     hooks:
       - id: check-github-workflows
         name: "🧩 github-actions · Validate gh workflow files"
@@ -435,7 +435,7 @@ repos:
       - id: actionlint
         name: "🧩 github-actions · Lint workflows (actionlint)"
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: v1.30.1
+    rev: v1.31.1
     hooks:
       - id: zizmor
         name: "🔒 github-actions · Audit workflow security (zizmor)"
@@ -542,7 +542,7 @@ repos:
     #         - "@commitlint/config-conventional"
     #         - conventional-changelog-conventionalcommits
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.17.0
+    rev: v4.19.3
     hooks:
       - id: commitizen
         name: "🌳 git · Validate commit message"

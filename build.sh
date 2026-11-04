@@ -50,6 +50,17 @@ python setup.py version
 
 pytest --cache-clear --setup-show tests/test_nabla_version.py
 
+# Build the container images from the local Compose stack. compose.yml is the
+# TrueNAS runtime file and takes precedence in this directory, so select
+# docker-compose.yaml explicitly. The "prod" profile adds the production-like
+# fastapi-sample image (fastapi-sample:local) to the default api service.
+COMPOSE_FILE_PATH="${WORKING_DIR}/docker-compose.yaml"
+echo -e "${cyan} docker compose -f ${COMPOSE_FILE_PATH} --profile prod build ${NC}"
+if ! docker compose -f "${COMPOSE_FILE_PATH}" --profile prod build; then
+  echo -e "${red} docker compose build failed (${COMPOSE_FILE_PATH}) ${NC}" >&2
+  exit 1
+fi
+
 #echo -e "${cyan} python setup.py sdist bdist_wheel ${NC}"
 #python setup.py sdist bdist_wheel
 #echo -e "${magenta} twine upload dist/* ${NC}"
