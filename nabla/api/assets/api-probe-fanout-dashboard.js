@@ -14,6 +14,7 @@ const ERROR_EVENT = "homelab-probes:error";
 const DASHBOARD_ID = "truenas-probe-dashboard";
 
 let lastPayload = null;
+let lastConnectionMatrix = null;
 let browserWarmupObservedAt = null;
 let browserWarmupCompletedInSeconds = null;
 let refreshInFlight = false;
@@ -573,6 +574,37 @@ function groupHtml(
   );
 }
 
+function connectionMatrixHtml(report) {
+  const rows = Array.isArray(report?.rows) ? report.rows : [];
+  if (!rows.length) return "";
+  const content = rows.map((row) => {
+    const state = ["ok", "warn", "fail"].includes(row?.state)
+      ? row.state : "unknown";
+    const observed = String(row?.observed_at || "").trim();
+    const provenance = [row?.source || "unverified", observed].filter(Boolean).join(" · ");
+    return (
+      `<div class="probe-dashboard-row probe-dashboard-row--${state}">` +
+      '<div class="probe-dashboard-row-main">' +
+      `<strong>${escapeText(row?.label || row?.id || "Connection")}</strong>` +
+      `<span class="probe-state-badge probe-state-badge--${state}">${escapeText(state)}</span>` +
+      (row?.http_status ? `<span class="probe-source-badge">HTTP ${escapeText(row.http_status)}</span>` : "") +
+      "</div>" +
+      `<div class="probe-dashboard-detail">${escapeText(row?.detail || "No evidence")}</div>` +
+      `<div class="probe-dashboard-timing">${escapeText(provenance)}</div>` +
+      "</div>"
+    );
+  }).join("");
+  const counts = report?.counts || {};
+  const total = rows.length;
+  return (
+    '<details class="probe-dashboard-group" open>' +
+    `<summary>Infrastructure connections · ${total} · ${finiteNumber(counts.ok)} observed OK · ${finiteNumber(counts.fail)} failed</summary>` +
+    '<p>Independent layers: Prometheus scrapes, TrueNAS API/TCP/HTTPS, Cloudflare Tunnel/Access/DNS and FastAPI Cloud. DNS or scrape UP does not establish origin readiness.</p>' +
+    `<div class="probe-dashboard-rows">${content}</div>` +
+    "</details>"
+  );
+}
+
 function ensureDashboard() {
   const legacySummary = document.getElementById("truenas-probe-summary");
   const legacyDetails = document.getElementById("truenas-probe-details");
@@ -626,6 +658,7 @@ function ensureDashboard() {
       <p id="probe-dashboard-warmup">Probe evidence has not loaded yet.</p>
     </div>
     <div class="probe-dashboard-scopes" id="probe-dashboard-scopes"></div>
+    <div id="probe-dashboard-connections"></div>
     <div class="probe-dashboard-legend">
       <span>● healthy</span><span>▲ warning</span><span>■ failed</span><span>◌ stale</span><span>· not observed</span>
     </div>
@@ -743,6 +776,11 @@ function clarifyRuntimeTimeout(data) {
 function renderDashboard(data) {
   const root = ensureDashboard();
   if (!root) return;
+  if (data?.connection_matrix?.rows) {
+    // The aggregate health-board contains the matrix; an authorized raw
+    // /api/homelab/probes refresh must not erase that previously known context.
+    lastConnectionMatrix = data.connection_matrix;
+  }
   const model = progressModel(data);
   if (data !== lastPayload) captureStateChanges(model.rows);
   lastPayload = data;
@@ -759,6 +797,7 @@ function renderDashboard(data) {
   const bar = document.getElementById("probe-dashboard-progress-bar");
   const warmup = document.getElementById("probe-dashboard-warmup");
   const scopes = document.getElementById("probe-dashboard-scopes");
+  const connections = document.getElementById("probe-dashboard-connections");
   const latest = document.getElementById("probe-dashboard-latest");
   const previous = document.getElementById("probe-dashboard-previous");
   const unobserved = document.getElementById("probe-dashboard-unobserved");
@@ -786,6 +825,7 @@ function renderDashboard(data) {
   scopes.innerHTML =
     scopeCard("public HTTPS", "🌐", model.publicScope) +
     scopeCard("LAN/TCP", "🏠", model.internalScope);
+  if (connections) connections.innerHTML = connectionMatrixHtml(lastConnectionMatrix);
 
   const visibleRows = model.rows.filter(matchesOperatorFilter);
   const latestRows = visibleRows.filter(

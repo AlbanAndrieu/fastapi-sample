@@ -48,5 +48,23 @@ async def query_vector(
         params={"query": expression},
         headers={"Accept": "application/json"},
     )
+    # A Cloudflare Access 302 is not a successful Prometheus query, even
+    # though raise_for_status() does not reject redirects.
+    if 300 <= response.status_code < 400:
+        raise httpx.HTTPStatusError(
+            "Prometheus query redirected (possible Cloudflare Access)",
+            request=response.request,
+            response=response,
+        )
     response.raise_for_status()
-    return vector_result(response.json())
+    payload = response.json()
+    result = payload.get("data") if isinstance(payload, dict) else None
+    if (
+        not isinstance(payload, dict)
+        or payload.get("status") != "success"
+        or not isinstance(result, dict)
+        or result.get("resultType") != "vector"
+        or not isinstance(result.get("result"), list)
+    ):
+        raise ValueError("Prometheus returned an invalid instant-vector result")
+    return vector_result(payload)

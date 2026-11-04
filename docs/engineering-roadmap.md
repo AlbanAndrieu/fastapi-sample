@@ -220,6 +220,18 @@ pour chaque service et refus WAN correct.
   signés, horodatés et autorisés. Aucun accès LAN direct depuis Cloud,
   aucune publication d'IP privée ni état vert sans preuve d'origine.
 
+- [ ] **P1 — Connexions TrueNAS ↔ Cloud, Prometheus et Cloudflare (04/11, CODED) :**
+  projection des couches distinctes dans le health-board et le dashboard.
+  Depuis `FASTAPI_RUNTIME_MODE=homelab` uniquement, vérification HTTPS de
+  `fastapi-sample.fastapicloud.dev/api/ui/session` et résolution publique A
+  via Cloudflare DoH (récursif, **pas** l'API DNS de la zone). Appels fixes,
+  simultanés, bornés et mis en cache 90 s. Prometheus : distinguer redirection
+  Access, 401/403, 429, timeout, connexion et réponse invalide, sans transformer
+  un scrape UP en disponibilité applicative.
+  **Restent :** tests ciblés et L2/L3 sur SHA final, recette runtime TrueNAS,
+  confirmation des métriques et des voies d'accès, validation DNS/Tunnel.
+  Voir [runbook de connexion](runbooks/truenas-cloud-connection-probes.md).
+
 ## Documentation et séquence de reprise
 
 1. [Guide local-first](../.agents/skills/local-first-quality/SKILL.md) :
