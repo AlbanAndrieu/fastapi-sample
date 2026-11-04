@@ -52,9 +52,14 @@ export function projectFleet(payload) {
   };
 }
 
-export function projectProbes(board) {
-  if (board?.state !== "fresh" ||
-      (finite(board.age_seconds) !== null && board.age_seconds > MAX_AGE_SECONDS)) return null;
+function freshBoard(board, nowMs = Date.now()) {
+  return board?.state === "fresh" &&
+    (finite(board.age_seconds) === null || board.age_seconds <= MAX_AGE_SECONDS) &&
+    hasFreshTimestamp(board.generated_at, nowMs);
+}
+
+export function projectProbes(board, nowMs = Date.now()) {
+  if (!freshBoard(board, nowMs)) return null;
   const homelab = record(board.homelab);
   const summary = record(homelab.probe_summary);
   let eligible = 0;
@@ -119,8 +124,8 @@ export function projectResources(payload, nowMs = Date.now()) {
   };
 }
 
-export function projectLatency(board) {
-  if (board?.state !== "fresh") return null;
+export function projectLatency(board, nowMs = Date.now()) {
+  if (!freshBoard(board, nowMs)) return null;
   const rows = record(board.homelab).public_probe_results;
   if (!Array.isArray(rows)) return null;
   const candidates = rows.filter((row) =>
@@ -136,8 +141,8 @@ export function projectLatency(board) {
   };
 }
 
-export function projectSecurity(board) {
-  if (board?.state !== "fresh") return null;
+export function projectSecurity(board, nowMs = Date.now()) {
+  if (!freshBoard(board, nowMs)) return null;
   const homelab = record(board.homelab);
   const connections = record(homelab.connection_matrix).rows;
   const byId = new Map(

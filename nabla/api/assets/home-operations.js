@@ -209,6 +209,7 @@ async function refresh() {
   const button = element("home-refresh");
   if (button) button.disabled = true;
   status("Lecture des observations mises en cache…");
+  try {
   const [publicResult, sessionResult] = await Promise.allSettled([
     fetchJSON("/api/ui/services"),
     fetchJSON("/api/ui/session", 3500),
@@ -251,8 +252,14 @@ async function refresh() {
       "Mesuré : " + board.generated_at :
       "Preuve propriétaire indisponible · aucune santé supposée");
   }
-  if (button) button.disabled = false;
-  active = false;
+  } catch {
+    clearPublic();
+    clearPrivate();
+    status("Impossible de confirmer les mesures", "unknown");
+  } finally {
+    if (button) button.disabled = false;
+    active = false;
+  }
 }
 
 if (ROOT) {
