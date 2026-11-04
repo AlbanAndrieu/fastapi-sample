@@ -15,6 +15,7 @@ const DASHBOARD_ID = "truenas-probe-dashboard";
 
 let lastPayload = null;
 let lastConnectionMatrix = null;
+let lastConnectionMeta = { state: "unknown", ageSeconds: null };
 let browserWarmupObservedAt = null;
 let browserWarmupCompletedInSeconds = null;
 let refreshInFlight = false;
@@ -574,12 +575,23 @@ function groupHtml(
   );
 }
 
-function connectionMatrixHtml(report) {
+function connectionMatrixHtml(report, meta = lastConnectionMeta) {
   const rows = Array.isArray(report?.rows) ? report.rows : [];
   if (!rows.length) return "";
+  const generated = Date.parse(String(report?.generated_at || ""));
+  const measuredAge = Number.isFinite(generated) ? (Date.now() - generated) / 1000 : Number.NaN;
+  const sourceAge = finiteNumber(meta?.ageSeconds, Number.NaN);
+  const age = Math.max(
+    Number.isFinite(measuredAge) ? measuredAge : 0,
+    Number.isFinite(sourceAge) ? sourceAge : 0,
+  );
+  // Do not keep a green badge after the health-board snapshot expires.
+  const stale = meta?.state === "stale" || age > 180;
   const content = rows.map((row) => {
-    const state = ["ok", "warn", "fail"].includes(row?.state)
-      ? row.state : "unknown";
+    const state = stale
+      ? "unknown"
+      : ["ok", "warn", "fail"].includes(row?.state)
+        ? row.state : "unknown";
     const observed = String(row?.observed_at || "").trim();
     const provenance = [row?.source || "unverified", observed].filter(Boolean).join(" · ");
     return (
@@ -596,10 +608,13 @@ function connectionMatrixHtml(report) {
   }).join("");
   const counts = report?.counts || {};
   const total = rows.length;
+  const freshness = stale
+    ? `STALE snapshot ≈${humanSeconds(age)} old · historical state only`
+    : `health-board ${meta?.state || "unknown"} · evidence age ≈${humanSeconds(age)}`;
   return (
     '<details class="probe-dashboard-group" open>' +
-    `<summary>Infrastructure connections · ${total} · ${finiteNumber(counts.ok)} observed OK · ${finiteNumber(counts.fail)} failed</summary>` +
-    '<p>Independent layers: Prometheus scrapes, TrueNAS API/TCP/HTTPS, Cloudflare Tunnel/Access/DNS and FastAPI Cloud. DNS or scrape UP does not establish origin readiness.</p>' +
+    `<summary>Infrastructure connections · ${total} · ${stale ? "historical / unverified" : `${finiteNumber(counts.ok)} observed OK · ${finiteNumber(counts.fail)} failed`}</summary>` +
+    `<p>${escapeText(freshness)} · Independent layers: Prometheus scrapes, TrueNAS API/TCP/HTTPS, Cloudflare Tunnel/Access/DNS and FastAPI Cloud. DNS or scrape UP does not establish origin readiness.</p>` +
     `<div class="probe-dashboard-rows">${content}</div>` +
     "</details>"
   );
@@ -776,10 +791,18 @@ function clarifyRuntimeTimeout(data) {
 function renderDashboard(data) {
   const root = ensureDashboard();
   if (!root) return;
-  if (data?.connection_matrix?.rows) {
-    // The aggregate health-board contains the matrix; an authorized raw
-    // /api/homelab/probes refresh must not erase that previously known context.
+  if (data?.probe_snapshot_source === "health-board") {
+    // A new aggregate replaces earlier evidence, including an explicit
+    // missing/timeout result. Raw /api/homelab/probes cannot erase it.
+    lastConnectionMatrix = data?.connection_matrix?.rows
+      ? data.connection_matrix : null;
+    lastConnectionMeta = {
+      state: data?.health_board_state || "unknown",
+      ageSeconds: data?.health_board_age_seconds ?? null,
+    };
+  } else if (data?.connection_matrix?.rows) {
     lastConnectionMatrix = data.connection_matrix;
+    lastConnectionMeta = { state: "fresh", ageSeconds: 0 };
   }
   const model = progressModel(data);
   if (data !== lastPayload) captureStateChanges(model.rows);

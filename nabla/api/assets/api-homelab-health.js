@@ -28,6 +28,8 @@ function publishAggregateProbeSnapshot(snapshot) {
     dispatchProbeEvent(PROBE_UPDATE_EVENT, {
       ...homelab,
       probe_snapshot_source: "health-board",
+      health_board_state: snapshot?.state || "unknown",
+      health_board_age_seconds: snapshot?.age_seconds ?? null,
     });
   }
   return homelab;
