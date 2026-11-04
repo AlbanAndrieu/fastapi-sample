@@ -1,388 +1,90 @@
-<!doctype html>
-{% extends 'base.html' %} {% block content %}
-<header class="border-b border-[#333333]">
-  <nav class="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4 sm:px-6">
-    <a class="text-lg font-semibold text-white no-underline hover:opacity-90" href="/">Sensor Dashboard</a>
-    <div class="ml-auto flex gap-2">
-      <a
-        class="rounded-md px-4 py-2 text-sm font-medium text-[#888888] no-underline transition-colors hover:bg-[#111111] hover:text-white"
-        href="/api"
-        >API</a
-      >
+{% extends "base.html" %}
+{% block title %}FastAPI Sample · Operations Overview{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/api/assets/home-operations.css">
+<main id="home-operations" class="op-root" lang="fr">
+  <header class="op-head">
+    <div class="op-heading">
+      <p class="op-eyebrow">FastAPI Sample <span aria-hidden="true">/</span> Operations Overview</p>
+      <h1>Observabilité &amp; sécurité</h1>
+      <p class="op-subtitle">Sondes, disponibilité, exposition et consommation de ressources. Données observées uniquement.</p>
     </div>
-  </nav>
-</header>
-<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-  <div class="mb-6 flex flex-col gap-2 text-sm text-[#888888] sm:flex-row sm:items-center sm:justify-between">
-    <span>API version</span>
-    <span class="font-mono font-semibold text-white">{{ request.app.version }}</span>
+    <div class="op-actions">
+      <a class="op-link" href="/api">Catalogue de services</a>
+      <a class="op-link" href="/api/topology">Topologie</a>
+      {% if database_enabled %}<a class="op-link op-link-subtle" href="/demo/sensors">Démo historique</a>{% endif %}
+      <button class="op-button" type="button" id="home-refresh">Actualiser</button>
+    </div>
+  </header>
+  <div class="op-strip" role="status" aria-live="polite">
+    <span class="op-led" id="home-connection-led" aria-hidden="true"></span>
+    <span id="home-connection">Chargement des observations…</span>
+    <span class="op-strip-right" id="home-observed">Aucune preuve récupérée</span>
   </div>
-  <div class="mb-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-    <div>
-      <h1
-        class="mb-2 bg-gradient-to-r from-white to-[#888888] bg-clip-text text-4xl font-bold text-transparent lg:text-5xl"
-      >
-        Sensor Dashboard
-      </h1>
-      <p class="text-lg text-[#888888]">Real-time environmental monitoring with Plotly and Chart.js</p>
+  <section class="op-section" aria-labelledby="home-fleet-heading" id="home-fleet">
+    <div class="op-section-heading">
+      <div><p class="op-section-kicker">01 / Vue d'ensemble</p><h2 id="home-fleet-heading">État des services</h2></div>
+      <span class="op-provenance" id="home-fleet-source">Catalogue public vérifié · chargement</span>
     </div>
-
-    <div class="flex items-center gap-4">
-      <div class="dash-panel min-w-[200px]">
-        <div class="border-b border-[#333333] px-4 py-3">
-          <div class="text-xs font-medium text-[#888888]">Connection</div>
-          <div class="text-lg font-semibold text-white" id="connection-status">Connecting...</div>
-          <div class="mt-2 flex items-center gap-2">
-            <div class="loading loading-ring loading-sm text-[#888888]" id="connection-indicator"></div>
-            <span class="text-xs text-[#888888]">SSE stream</span>
-          </div>
-        </div>
+    <div class="op-stat-grid">
+      <article class="op-stat"><span>Services déclarés</span><strong id="home-services">—</strong><small>Inventaire, pas une preuve de santé</small></article>
+      <article class="op-stat op-stat-ok"><span>Observés OK</span><strong id="home-ok">—</strong><small>Vérifications fraîches</small></article>
+      <article class="op-stat op-stat-warn"><span>Avertissements</span><strong id="home-warn">—</strong><small>Service dégradé ou accès limité</small></article>
+      <article class="op-stat op-stat-fail"><span>Échecs confirmés</span><strong id="home-fail">—</strong><small>Sans confondre panne et télémétrie</small></article>
+      <article class="op-stat op-stat-unknown"><span>Non confirmés</span><strong id="home-unknown">—</strong><small>Preuves absentes ou périmées</small></article>
+    </div>
+    <div class="op-panel op-distribution">
+      <div class="op-panel-heading"><h3>Répartition des états</h3><p>Pourcentage des services déclarés</p></div>
+      <div class="op-meter" id="home-fleet-meter" role="img" aria-label="Aucune répartition vérifiée">
+        <span class="op-meter-pending">En attente des données</span>
       </div>
-    </div>
-  </div>
-  <div class="dash-panel mb-6">
-    <div class="border-b border-[#333333] px-4 py-4 sm:px-6">
-      <div class="mb-1 flex items-center gap-2">
-        <span class="rounded border border-[#333333] bg-[#0a0a0a] px-2 py-0.5 text-xs font-medium text-[#cccccc]"
-          >Notes</span
-        >
-        <h2 class="text-lg font-semibold text-white">Current notes</h2>
+      <div class="op-meter-legend">
+        <span><i class="op-dot op-dot-ok"></i> OK</span>
+        <span><i class="op-dot op-dot-warn"></i> Avertissement</span>
+        <span><i class="op-dot op-dot-fail"></i> Échec</span>
+        <span><i class="op-dot op-dot-unknown"></i> Inconnu</span>
       </div>
     </div>
-    <div class="px-4 py-4 sm:px-6">
-      <div id="notes">{% include "notes.html" %}</div>
-
-      <div class="mt-6 border-t border-[#333333] pt-6">
-        <h3 class="mb-3 text-base font-semibold text-white">Note manager</h3>
-        <form
-          class="flex flex-col gap-3 sm:flex-row sm:items-end"
-          hx-post="/notes/add"
-          hx-target="#notes-list"
-          hx-swap="outerHTML"
-        >
-          <input class="dash-input" type="text" name="title" placeholder="Title" required />
-          <button class="dash-btn shrink-0" type="submit">Add</button>
-        </form>
-
-        <div class="mt-4" id="notes-list" hx-get="/notes/" hx-trigger="load" hx-swap="outerHTML"></div>
-      </div>
+  </section>
+  <section class="op-section" aria-labelledby="home-evidence-heading">
+    <div class="op-section-heading">
+      <div><p class="op-section-kicker">02 / Fiabilité des preuves</p><h2 id="home-evidence-heading">Couverture des sondes</h2></div>
+      <span class="op-provenance">Source : health-board · accès propriétaire</span>
     </div>
-  </div>
-
-  <div class="dash-panel mb-6">
-    <div class="border-b border-[#333333] px-4 py-4 sm:px-6">
-      <div class="flex items-center gap-2">
-        <span class="rounded border border-[#333333] bg-[#0a0a0a] px-2 py-0.5 text-xs font-medium text-[#cccccc]"
-          >Live</span
-        >
-        <h2 class="text-lg font-semibold text-white">Current readings</h2>
-      </div>
+    <div id="home-locked" class="op-panel op-locked">
+      <div><strong>Diagnostics détaillés protégés</strong><p>Les métriques d'infrastructure ne sont chargées que depuis une session propriétaire autorisée. Aucun accès automatique aux données du LAN.</p></div>
+      <a href="/api?operator=1" class="op-link">Accès propriétaire / API</a>
     </div>
-    <div class="px-4 py-4 sm:px-6">
-      <div hx-ext="sse" sse-connect="/stream">
-        <!-- Sensor data updater
-          hx-trigger="load once" -->
-        <div
-          id="sensor-display"
-          hx-get="/sensor-data"
-          hx-target="#sensor-display"
-          hx-trigger="sse:sensor_update"
-          hx-swap="innerHTML"
-        ></div>
+    <div id="home-operator-detail" hidden>
+      <div class="op-stat-grid op-stat-grid-3">
+        <article class="op-stat"><span>Couverture des preuves</span><strong id="home-coverage">—</strong><small id="home-coverage-detail">Aucune preuve</small></article>
+        <article class="op-stat"><span>Sondes réellement saines</span><strong id="home-healthy-coverage">—</strong><small>Sur toutes les sondes éligibles</small></article>
+        <article class="op-stat"><span>Contrôles de sécurité</span><strong id="home-security-summary">—</strong><small id="home-security-detail">Vérification en attente</small></article>
       </div>
+      <div class="op-dashboard-grid">
+        <article class="op-panel"><div class="op-panel-heading"><h3>Historique des preuves</h3><p>Observations depuis l'ouverture de cette page</p></div><div id="home-probes-history" class="op-chart" role="img" aria-label="Historique des preuves non disponible"><p class="op-chart-empty">Deux instantanés distincts sont nécessaires.</p></div></article>
+        <article class="op-panel"><div class="op-panel-heading"><h3>Latence des sondes HTTP</h3><p>Durée totale de vérification, pas RTT réseau pur</p></div><div id="home-latency-history" class="op-chart" role="img" aria-label="Historique de latence non disponible"><p class="op-chart-empty">Aucune latence mesurée.</p></div></article>
+      </div>
+      <div class="op-section-heading op-secondary-heading">
+        <div><p class="op-section-kicker">03 / Capacité</p><h2>CPU, mémoire et trafic réseau</h2></div>
+        <span class="op-provenance" id="home-resource-source">Prometheus / cAdvisor · en attente</span>
+      </div>
+      <div class="op-stat-grid op-stat-grid-3">
+        <article class="op-stat"><span>CPU du conteneur</span><strong id="home-cpu">—</strong><small>Cœurs CPU · pas un taux d'utilisation</small><div class="op-mini-chart" id="home-cpu-history" aria-label="Historique CPU"></div></article>
+        <article class="op-stat"><span>Mémoire du conteneur</span><strong id="home-memory">—</strong><small>Mémoire active · MiB</small><div class="op-mini-chart" id="home-memory-history" aria-label="Historique mémoire"></div></article>
+        <article class="op-stat"><span>Débit réseau du conteneur</span><strong id="home-network">—</strong><small>RX + TX · KiB/s · pas une latence</small><div class="op-mini-chart" id="home-network-history" aria-label="Historique réseau"></div></article>
+      </div>
+      <div class="op-section-heading op-secondary-heading">
+        <div><p class="op-section-kicker">04 / Sécurité et dépendances</p><h2>Contrôles vérifiés</h2></div>
+        <a class="op-link" href="/api?ui_full=1">Diagnostics complets</a>
+      </div>
+      <div class="op-panel"><ul id="home-security-checks" class="op-check-list" aria-live="polite"><li>En attente des contrôles.</li></ul></div>
     </div>
-  </div>
-
-  <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
-    <div class="xl:col-span-2">
-      <div class="dash-panel">
-        <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
-          <h3 class="text-base font-semibold text-white">Multi-metric time series</h3>
-        </div>
-        <div class="px-2 pb-2 pt-2 sm:px-4">
-          <div id="timeseries-chart"></div>
-        </div>
-      </div>
-    </div>
-    <!-- Detailed time series chart -->
-    <!-- HTMX chart data fetcher -->
-    <!-- sse-swap="sensor_update"-->
-    <div hx-ext="sse" sse-connect="/stream">
-      <div id="chart-data" hx-get="/chart-data" hx-target="#chart-data" hx-trigger="sse:sensor_update">
-        <div class="flex items-center justify-center py-6 text-[#888888]">
-          <div class="loading loading-spinner loading-lg text-[#888888]"></div>
-          <span class="ml-4">Connecting to sensors…</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="xl:col-span-2">
-      <div class="dash-panel divide-y divide-[#333333]">
-        <div class="px-4 py-3 sm:px-6">
-          <h3 class="text-base font-semibold text-white">Temperature</h3>
-          <div class="h-48 pt-2">
-            <canvas id="tempChart"></canvas>
-          </div>
-        </div>
-        <div class="px-4 py-3 sm:px-6">
-          <h3 class="text-base font-semibold text-white">Humidity</h3>
-          <div class="h-48 pt-2">
-            <canvas id="humidityChart"></canvas>
-          </div>
-        </div>
-        <div class="px-4 py-3 sm:px-6">
-          <h3 class="text-base font-semibold text-white">Pressure</h3>
-          <div class="h-48 pt-2">
-            <canvas id="pressureChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
-    <div class="dash-panel">
-      <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
-        <h3 class="text-base font-semibold text-white">Status distribution</h3>
-      </div>
-      <div class="px-2 py-2">
-        <div id="status-chart"></div>
-      </div>
-    </div>
-
-    <div class="dash-panel">
-      <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
-        <h3 class="text-base font-semibold text-white">Sensor correlations</h3>
-      </div>
-      <div class="px-2 py-4">
-        <div id="correlation-chart"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="dash-panel mb-4">
-    <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
-      <h3 class="text-base font-semibold text-white">Anomaly detection</h3>
-    </div>
-    <div class="px-2 py-2">
-      <div id="anomaly-chart"></div>
-    </div>
-  </div>
-
-  <!-- Charts updater -->
-  <div
-    hx-get="/charts"
-    hx-trigger="load, every {{ charts_refresh_interval_seconds }}s"
-    hx-target="#chart-updates"
-    hx-swap="innerHTML"
-  >
-    <div id="chart-updates"></div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  const dashboardRefreshSeconds = {{ dashboard_refresh_interval_seconds }};
-  if (dashboardRefreshSeconds > 0) {
-    window.setTimeout(() => window.location.reload(), dashboardRefreshSeconds * 1000);
-  }
-
-  // The server advertises SSE retry timing; this value documents the active stream cadence.
-  document.documentElement.dataset.sseStreamInterval = "{{ sse_stream_interval_seconds }}";
-
-  let tempChart, humidityChart, pressureChart;
-
-  // Initialize charts
-  function initCharts(tempData, humidityData, pressureData, labels) {
-    const tempCanvas = document.getElementById("tempChart");
-    const humidityCanvas = document.getElementById("humidityChart");
-    const pressureCanvas = document.getElementById("pressureChart");
-
-    if (!tempCanvas || !humidityCanvas || !pressureCanvas) {
-      console.error("Chart canvases not found");
-      return;
-    }
-
-    const tempCtx = tempCanvas.getContext("2d");
-    tempChart = new Chart(tempCtx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            data: tempData,
-            borderColor: "rgb(99, 102, 241)",
-            backgroundColor: "rgba(99, 102, 241, 0.1)",
-            borderWidth: 2,
-            fill: true,
-            tension: 0.4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: false,
-            grid: { color: "#333333" },
-            ticks: { color: "#888888" },
-            border: { color: "#333333" },
-          },
-          x: { display: false },
-        },
-      },
-    });
-
-    const humidityCtx = humidityCanvas.getContext("2d");
-    humidityChart = new Chart(humidityCtx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            data: humidityData,
-            borderColor: "rgb(16, 185, 129)",
-            backgroundColor: "rgba(16, 185, 129, 0.1)",
-            borderWidth: 2,
-            fill: true,
-            tension: 0.4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: false,
-            grid: { color: "#333333" },
-            ticks: { color: "#888888" },
-            border: { color: "#333333" },
-          },
-          x: { display: false },
-        },
-      },
-    });
-
-    const pressureCtx = pressureCanvas.getContext("2d");
-    pressureChart = new Chart(pressureCtx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            data: pressureData,
-            borderColor: "rgb(239, 68, 68)",
-            backgroundColor: "rgba(239, 68, 68, 0.1)",
-            borderWidth: 2,
-            fill: true,
-            tension: 0.4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: {
-            beginAtZero: false,
-            grid: { color: "#333333" },
-            ticks: { color: "#888888" },
-            border: { color: "#333333" },
-          },
-          x: { display: false },
-        },
-      },
-    });
-  }
-
-  // Single SSE event handler for sensor data
-  document.body.addEventListener("htmx:sseMessage", function (e) {
-    if (e.detail.type === "sensor_update") {
-      const data = JSON.parse(e.detail.data);
-      console.log(data);
-      // Update sensor display
-      const statusClass =
-        data.status === "normal" ? "badge-success" : data.status === "warning" ? "badge-warning" : "badge-error";
-
-      const html = `
-      <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
-          <div class="text-xs font-medium text-[#888888]">Temperature</div>
-          <div class="text-xl font-semibold text-[#3B82F6]">${data.temperature}°C</div>
-          <div class="text-xs text-[#888888]">Real-time</div>
-        </div>
-        <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
-          <div class="text-xs font-medium text-[#888888]">Humidity</div>
-          <div class="text-xl font-semibold text-[#10B981]">${data.humidity}%</div>
-          <div class="text-xs text-[#888888]">Relative</div>
-        </div>
-        <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4 sm:col-span-2">
-          <div class="text-xs font-medium text-[#888888]">Pressure</div>
-          <div class="text-xl font-semibold text-[#8B5CF6]">${data.pressure} hPa</div>
-          <div class="text-xs text-[#888888]">Real-time</div>
-        </div>
-      </div>
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div class="font-bold text-white badge ${statusClass}">${data.status.toUpperCase()}</div>
-        <div class="text-sm text-[#888888]">${new Date(data.timestamp).toLocaleTimeString()}</div>
-      </div>
-      `;
-
-      // document.getElementById("sensor-display").innerHTML = html;
-
-      // Trigger chart update
-      // htmx.ajax("GET", "/chart-data", "#chart-data");
-    }
-  });
-
-  // Update charts when HTMX swaps chart data
-  document.body.addEventListener("htmx:afterSwap", function (e) {
-    if (e.target.id === "chart-data") {
-      const dataElement = e.target.querySelector("[data-temp]") || e.target;
-
-      if (!dataElement.dataset.temp) {
-        console.error("No temp data found");
-        return;
-      }
-
-      try {
-        const tempData = JSON.parse(dataElement.dataset.temp);
-        const humidityData = JSON.parse(dataElement.dataset.humidity);
-        const pressureData = JSON.parse(dataElement.dataset.pressure);
-        const labels = JSON.parse(dataElement.dataset.labels);
-
-        if (tempChart && humidityChart && pressureChart && labels) {
-          tempChart.data.datasets[0].data = tempData;
-          tempChart.data.labels = labels;
-          tempChart.update("none");
-
-          humidityChart.data.datasets[0].data = humidityData;
-          humidityChart.data.labels = labels;
-          humidityChart.update("none");
-
-          pressureChart.data.datasets[0].data = pressureData;
-          pressureChart.data.labels = labels;
-          pressureChart.update("none");
-        } else {
-          initCharts(tempData, humidityData, pressureData, labels);
-        }
-      } catch (error) {
-        console.error("JSON parse error:", error);
-      }
-    }
-  });
-  document.body.addEventListener("htmx:sseOpen", function () {
-    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm dash-loading-ok";
-    document.getElementById("connection-status").textContent = "Connected";
-  });
-
-  document.body.addEventListener("htmx:sseError", function () {
-    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm dash-loading-err";
-    document.getElementById("connection-status").textContent = "Disconnected";
-  });
-</script>
+  </section>
+  <footer class="op-footer">
+    <span>État inconnu ≠ panne. État d'un exporter ≠ disponibilité applicative.</span>
+    <span>Les graphiques n'inventent aucune mesure et n'utilisent pas de données météo.</span>
+  </footer>
+</main>
+<script type="module" src="/api/assets/home-operations.js"></script>
 {% endblock %}

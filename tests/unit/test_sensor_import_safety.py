@@ -16,7 +16,8 @@ def test_sensor_demo_objects_are_not_constructed_at_module_import() -> None:
     assert "def initialize_sensor_demo()" in source
 
 
-def test_sensor_demo_initialization_is_owned_by_application_lifespan() -> None:
+def test_sensor_demo_is_lazy_and_not_started_on_production_lifespan() -> None:
     source = LIFESPAN.read_text(encoding="utf-8")
 
-    assert "initialize_sensor_demo()" in source
+    assert "initialize_sensor_demo()" not in source
+    assert "Do not synthesize environmental data" in source

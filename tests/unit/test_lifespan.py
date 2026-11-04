@@ -100,7 +100,7 @@ async def test_lifespan_releases_resources_after_normal_shutdown(monkeypatch) ->
     resources["redis"].aclose.assert_awaited_once()
     resources["db_pool"].close.assert_called_once()
     lifecycle.initialize_demo_feature_flags.assert_called_once_with()
-    lifecycle.initialize_sensor_demo.assert_called_once_with()
+    lifecycle.initialize_sensor_demo.assert_not_called()
     lifecycle.close_mcp_clients.assert_awaited_once()
     assert resources["stopped"] == {"system-metrics", "redis-event-listener"}
 

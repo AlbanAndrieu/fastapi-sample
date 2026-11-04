@@ -18,7 +18,7 @@ from nabla.app_features import AppFeatures
 from nabla.main import app as production_app
 from nabla.main import mcp, mcp_app
 
-DATABASE_PATHS = {"/auth/jwt/login", "/notes/", "/users/me", "/"}
+DATABASE_PATHS = {"/auth/jwt/login", "/notes/", "/users/me", "/demo/sensors"}
 MCP_PATHS = {"/v1/mcp/ops/servers"}
 RAG_PATHS = {"/run", "/private/ops/ai/bababou/search"}
 
@@ -98,7 +98,7 @@ def test_minimal_app_omits_disabled_subsystem_routes() -> None:
     assert app.state.features == AppFeatures.minimal()
     assert app.state.mcp is None
     assert app.state.mcp_app is None
-    assert {"/livez", "/readyz", "/healthz", "/api/homelab/status"} <= paths
+    assert {"/", "/livez", "/readyz", "/healthz", "/api/homelab/status"} <= paths
     assert paths.isdisjoint(DATABASE_PATHS | MCP_PATHS | RAG_PATHS)
     assert not any(isinstance(route, Mount) and route.path == "" for route in app.routes)
 

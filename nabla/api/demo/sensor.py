@@ -110,15 +110,16 @@ class DashboardMetrics:
 metrics = DashboardMetrics()
 
 
-@router.get("/", response_class=HTMLResponse, operation_id="sensor_dashboard")
+@router.get("/demo/sensors", response_class=HTMLResponse, operation_id="sensor_dashboard")
 @limiter.limit("100/second")
 def dashboard(request: Request):
-    """Main dashboard with real-time Plotly charts"""
+    """Explicit legacy synthetic-sensor demo; never the production root."""
     metrics.track_request()
-    logger.info(f"Dashboard accessed from {request.client.host}")
+    _sensor_source()
+    logger.info("Legacy demo dashboard accessed")
     return templates.TemplateResponse(
         request,
-        "index.html",
+        "sensor_demo.html",
         {
             "dashboard_refresh_interval_seconds": DASHBOARD_REFRESH_INTERVAL_SECONDS,
             "charts_refresh_interval_seconds": CHARTS_REFRESH_INTERVAL_SECONDS,
