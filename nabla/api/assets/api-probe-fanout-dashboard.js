@@ -600,6 +600,7 @@ function connectionMatrixHtml(report, meta = lastConnectionMeta) {
       `<strong>${escapeText(row?.label || row?.id || "Connection")}</strong>` +
       `<span class="probe-state-badge probe-state-badge--${state}">${escapeText(state)}</span>` +
       (row?.http_status ? `<span class="probe-source-badge">HTTP ${escapeText(row.http_status)}</span>` : "") +
+      (row?.diagnostic_category ? `<span class="probe-error-badge">${escapeText(row.diagnostic_category)}</span>` : "") +
       "</div>" +
       `<div class="probe-dashboard-detail">${escapeText(row?.detail || "No evidence")}</div>` +
       `<div class="probe-dashboard-timing">${escapeText(provenance)}</div>` +

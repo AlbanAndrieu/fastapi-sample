@@ -230,6 +230,8 @@ pour chaque service et refus WAN correct.
   un scrape UP en disponibilité applicative.
   **Restent :** tests ciblés et L2/L3 sur SHA final, recette runtime TrueNAS,
   confirmation des métriques et des voies d'accès, validation DNS/Tunnel.
+  La [PR #396](https://github.com/AlbanAndrieu/fastapi-sample/pull/396)
+  présente aussi les catégories de diagnostic dans les cartes.
   Voir [runbook de connexion](runbooks/truenas-cloud-connection-probes.md).
 
 ## Documentation et séquence de reprise

@@ -94,3 +94,26 @@ def test_gatus_raw_up_fallback_is_telemetry_only() -> None:
     row = _rows(report)["scrape_gatus"]
     assert row["state"] == "ok"
     assert "application readiness" in row["detail"]
+
+
+def test_connection_categories_remain_bounded_and_actionable() -> None:
+    report = build_connection_matrix(
+        {"truenas": {"api": {
+            "reachable": False, "phase": "authentication", "stage": "missing_api_key"
+        }}},
+        {"state": "telemetry_unavailable", "configured": True,
+         "error_kind": "authentication_rejected", "http_status": 403},
+        {"state": "observed",
+         "cloud": {"state": "warn", "category": "access_protected",
+                   "http_status": 302},
+         "cloudflare_public_dns": {
+             "sample.albandrieu.com": {"state": "fail", "category": "nxdomain"},
+         }},
+    )
+    rows = _rows(report)
+    assert rows["truenas_api"]["diagnostic_category"] == "truenas_auth"
+    assert rows["prometheus_query"]["diagnostic_category"] == "authentication_rejected"
+    assert rows["prometheus_query"]["http_status"] == 403
+    assert rows["fastapi_cloud"]["diagnostic_category"] == "access_protected"
+    assert rows["dns_sample"]["diagnostic_category"] == "nxdomain"
+    assert "token" not in str(report).lower()

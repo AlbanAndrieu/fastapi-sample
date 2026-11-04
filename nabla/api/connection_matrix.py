@@ -10,6 +10,16 @@ from typing import Any
 
 from nabla.api.platform_health_diagnostics import utc_now
 
+_DIAGNOSTIC_CATEGORIES = frozenset({
+    "access_protected", "rate_limited", "http_failure", "http_rejected",
+    "origin_unverified", "probe_timeout", "probe_error",
+    "unexpected_content", "unexpected_json", "nxdomain", "no_a_answer",
+    "dns_rcode_error", "invalid_dns_payload", "public_dns_observed",
+    "anonymous_api_observed", "access_redirect", "authentication_rejected",
+    "timeout", "connection_failed", "invalid_response", "query_failed",
+    "truenas_auth", "truenas_access", "tunnel_attention",
+})
+
 
 def _data(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
@@ -18,6 +28,7 @@ def _data(value: Any) -> dict[str, Any]:
 def _row(
     identifier: str, label: str, state: str, source: str, detail: str,
     *, observed_at: str | None = None, status: int | None = None,
+    category: str | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "id": identifier,
@@ -29,6 +40,8 @@ def _row(
     }
     if type(status) is int:
         result["http_status"] = status
+    if category in _DIAGNOSTIC_CATEGORIES:
+        result["diagnostic_category"] = category
     return result
 
 
@@ -40,6 +53,12 @@ def _truenas_rows(homelab: dict[str, Any]) -> list[dict[str, Any]]:
     observed_at = homelab.get("checked_at")
 
     api_reachable = api.get("reachable")
+    api_category = (
+        "truenas_auth"
+        if api.get("phase") == "authentication" else
+        "truenas_access"
+        if api.get("stage") == "source_allowlist" else None
+    )
     api_state = (
         "ok" if api_reachable is True else
         "warn" if api_reachable is False else "unknown"
@@ -67,7 +86,7 @@ def _truenas_rows(homelab: dict[str, Any]) -> list[dict[str, Any]]:
              "API reachable; management method results require separate checks"
              if api_state == "ok" else
              "API not confirmed; does not prove appliance outage",
-             observed_at=observed_at),
+             observed_at=observed_at, category=api_category),
         _row("truenas_lan", "TrueNAS LAN TCP", lan_state,
              "truenas_internal_tcp", lan_detail, observed_at=observed_at),
         _row("truenas_https", "TrueNAS HTTPS / HAProxy", https_state,
@@ -87,6 +106,8 @@ def _prometheus_rows(metrics: dict[str, Any]) -> list[dict[str, Any]]:
     )
     jobs = _data(metrics.get("exporter_jobs"))
     observed_at = metrics.get("generated_at")
+    query_error = metrics.get("error_kind")
+    query_http = metrics.get("http_status")
     rows = [
         _row("prometheus_query", "Prometheus instant-query API", query_state,
              "prometheus_query", (
@@ -94,7 +115,8 @@ def _prometheus_rows(metrics: dict[str, Any]) -> list[dict[str, Any]]:
                  if query_state == "ok" else
                  "Query not confirmed; check credentials, Access policy and network"
                  if configured else "Prometheus URL not configured on this runtime"
-             ), observed_at=observed_at)
+             ), observed_at=observed_at, status=query_http,
+             category=query_error)
     ]
     for job, label in (
         ("fastapi_sample", "FastAPI Sample scrape"),
@@ -149,6 +171,7 @@ def _cloudflare_rows(homelab: dict[str, Any]) -> list[dict[str, Any]]:
             "cloudflare_tunnel_inventory",
             f"{healthy} healthy, {attention} inactive/degraded/down of {len(statuses)} observed; origin unverified"
             if confirmed else "No confirmed, fresh tunnel lifecycle evidence",
+            category="tunnel_attention" if confirmed and tunnel_state == "warn" else None,
         ),
         _row(
             "cloudflare_access", "Cloudflare Access policies",
@@ -173,7 +196,8 @@ def _external_rows(external: dict[str, Any]) -> list[dict[str, Any]]:
              "Anonymous API JSON contract verified; authentication not implied"
              if cloud.get("origin_verified") is True else
              "Public endpoint not verified; protected responses and transport failures are distinct",
-             observed_at=observed_at, status=cloud.get("http_status"))
+             observed_at=observed_at, status=cloud.get("http_status"),
+             category=cloud.get("category"))
     ]
     dns = _data(external.get("cloudflare_public_dns"))
     for hostname, identifier in (
@@ -191,6 +215,7 @@ def _external_rows(external: dict[str, Any]) -> list[dict[str, Any]]:
             if state == "ok" else
             "Public DoH lookup unconfirmed or negative; inspect DNS without inferring origin health",
             observed_at=observed_at, status=item.get("http_status"),
+            category=item.get("category"),
         ))
     return rows
 

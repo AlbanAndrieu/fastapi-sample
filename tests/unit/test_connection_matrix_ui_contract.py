@@ -36,3 +36,10 @@ def test_connection_matrix_warnings_do_not_age_into_false_green() -> None:
     assert 'meta?.state === "stale" || age > 180' in dashboard
     assert 'const state = stale' in dashboard
     assert 'historical / unverified' in dashboard
+
+
+def test_connection_diagnostic_categories_have_visible_badges() -> None:
+    script = (ROOT / "nabla/api/assets/api-probe-fanout-dashboard.js").read_text()
+    assert "row?.diagnostic_category" in script
+    assert "probe-error-badge" in script
+    assert "escapeText(row.diagnostic_category)" in script
