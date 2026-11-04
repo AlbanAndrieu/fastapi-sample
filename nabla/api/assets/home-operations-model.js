@@ -222,9 +222,16 @@ export function appendAlignedPair(pairs, cpu, latency, maxSkewMs = 30000) {
   if (x === null || y === null || x < 0 || y < 0 ||
       !Number.isFinite(cpuAt) || !Number.isFinite(latencyAt) ||
       Math.abs(cpuAt - latencyAt) > maxSkewMs) return pairs.slice(-MAX_HISTORY);
+  // A reused scrape or HTTP observation must not inflate sample size.
+  if (pairs.some((item) =>
+    item.cpuAt === cpu.observedAt || item.httpAt === latency.observedAt
+  )) return pairs.slice(-MAX_HISTORY);
   const key = cpu.observedAt + "|" + latency.observedAt;
-  const updated = pairs.filter((item) => item.key !== key);
-  updated.push({ key, cpu: x, httpMs: y, at: Math.max(cpuAt, latencyAt) });
+  const updated = pairs.slice();
+  updated.push({
+    key, cpu: x, httpMs: y, at: Math.max(cpuAt, latencyAt),
+    cpuAt: cpu.observedAt, httpAt: latency.observedAt,
+  });
   updated.sort((a, b) => a.at - b.at);
   return updated.slice(-MAX_HISTORY);
 }
@@ -240,6 +247,9 @@ export function pearsonCorrelation(pairs, minSamples = 6) {
   const cov = xs.reduce((sum, item, i) => sum + (item - avgX) * (ys[i] - avgY), 0);
   const varX = xs.reduce((sum, item) => sum + (item - avgX) ** 2, 0);
   const varY = ys.reduce((sum, item) => sum + (item - avgY) ** 2, 0);
-  if (varX <= 0 || varY <= 0) return null;
-  return Math.max(-1, Math.min(1, cov / Math.sqrt(varX * varY)));
+  if (!Number.isFinite(cov) || !Number.isFinite(varX) ||
+      !Number.isFinite(varY) || varX <= 0 || varY <= 0) return null;
+  const coefficient = cov / Math.sqrt(varX * varY);
+  return Number.isFinite(coefficient)
+    ? Math.max(-1, Math.min(1, coefficient)) : null;
 }

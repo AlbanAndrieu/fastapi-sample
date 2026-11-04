@@ -198,3 +198,19 @@ test("correlation never pairs measurements with 30+ seconds skew", () => {
     Array.from({ length: 6 }, (_, index) => ({ cpu: 0, httpMs: index + 1 })),
   ), null);
 });
+
+test("repeated CPU or HTTP sample cannot inflate the correlation sample count", () => {
+  const initial = appendAlignedPair([], {
+    cpuCores: 0.4, observedAt: AT,
+  }, {
+    valueMs: 50, observedAt: "2026-11-04T17:29:40Z",
+  });
+  assert.equal(appendAlignedPair(initial, {
+    cpuCores: 0.4, observedAt: AT,
+  }, {
+    valueMs: 70, observedAt: "2026-11-04T17:29:42Z",
+  }).length, 1);
+  assert.equal(pearsonCorrelation(
+    Array.from({ length: 6 }, (_, i) => ({ cpu: i === 0 ? 1e300 : i, httpMs: 100 + i })),
+  ), null);
+});
