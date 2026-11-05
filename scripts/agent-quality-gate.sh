@@ -338,11 +338,11 @@ done
 
 if [[ "${MODE}" != "fix" && "${agent_gate_changed}" == true ]]; then
     run_compact "agent gate shell formatting" \
-        uv run pre-commit run shfmt --files scripts/agent-quality-gate.sh
+        uv run prek run shfmt --files scripts/agent-quality-gate.sh
     run_compact "agent gate shell lint" \
-        uv run pre-commit run shell-lint --files scripts/agent-quality-gate.sh
+        uv run prek run shell-lint --files scripts/agent-quality-gate.sh
     run_compact "agent gate shell style" \
-        uv run pre-commit run bashate --files scripts/agent-quality-gate.sh
+        uv run prek run bashate --files scripts/agent-quality-gate.sh
 fi
 
 converge_precommit_fixes() {
@@ -357,12 +357,12 @@ converge_precommit_fixes() {
         log="$(mktemp)"
         set +e
         quality_run_bounded "${QUALITY_PRECOMMIT_TIMEOUT_SECONDS:-600}" \
-            env PRE_COMMIT_COLOR=never uv run pre-commit run --hook-stage pre-commit \
+            env PREK_COLOR=never uv run prek run --hook-stage pre-commit \
             --files "${CHANGED_FILES[@]}" >"${log}" 2>&1
         rc=$?
         set -e
         if ((rc == 124 || rc == 137)); then
-            printf '❌ QG_FIX_INTERRUPTED: pre-commit did not finish (exit %d).\n' "$rc" >&2
+            printf '❌ QG_FIX_INTERRUPTED: pre-commit did not finish (exit %d).\n' "${rc}" >&2
             print_precommit_failure "${log}"
             rm -f "${log}"
             return "${rc}"

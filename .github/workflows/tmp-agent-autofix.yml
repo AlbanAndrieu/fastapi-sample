@@ -31,11 +31,11 @@ jobs:
           enable-cache: false
           python-version: "3.13"
 
-      - name: Install minimal pre-commit runtime
+      - name: Install minimal prek runtime
         shell: bash
         run: |
           uv venv --python 3.13
-          uv pip install --python .venv/bin/python pre-commit==4.6.2
+          uv pip install --python .venv/bin/python prek==0.5.10
 
       - name: Converge deterministic hooks
         shell: bash
@@ -49,7 +49,7 @@ jobs:
           fi
           for pass in 1 2 3; do
             set +e
-            uv run pre-commit run --hook-stage pre-commit --files "${files[@]}" --show-diff-on-failure
+            uv run prek run --hook-stage pre-commit --files "${files[@]}" --show-diff-on-failure
             rc=$?
             set -e
             if ((rc == 0)); then

@@ -21,14 +21,14 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
 cd "${ROOT}"
 
 PRE_COMMIT_CMD=()
-if [[ -x "${ROOT}/.venv/bin/pre-commit" ]]; then
-    PRE_COMMIT_CMD=("${ROOT}/.venv/bin/pre-commit")
-elif command -v pre-commit >/dev/null 2>&1; then
-    PRE_COMMIT_CMD=(pre-commit)
-elif command -v uv >/dev/null 2>&1 && uv run --no-sync pre-commit --version >/dev/null 2>&1; then
-    PRE_COMMIT_CMD=(uv run --no-sync pre-commit)
+if [[ -x "${ROOT}/.venv/bin/prek" ]]; then
+    PRE_COMMIT_CMD=("${ROOT}/.venv/bin/prek")
+elif command -v prek >/dev/null 2>&1; then
+    PRE_COMMIT_CMD=(prek)
+elif command -v uv >/dev/null 2>&1 && uv run --no-sync prek --version >/dev/null 2>&1; then
+    PRE_COMMIT_CMD=(uv run --no-sync prek)
 else
-    echo "❌ pre-commit is required in the project environment or PATH."
+    echo "❌ prek is required in the project environment or PATH."
     echo "   Run 'mise run hooks' after syncing the development environment."
     exit 2
 fi
