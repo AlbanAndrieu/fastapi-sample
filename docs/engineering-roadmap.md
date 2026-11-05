@@ -185,10 +185,16 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` côté Cloud. Restent opérateur
   (runbook nabla-compose `docs/runbooks/2026-11-04-probe-remediation.md`) :
   apply des routes Tunnel, Service Auth Access, bypass Vaultwarden par
-  chemins, exception WAF, OVH, variable pfSense Cloud, Graylog/Lidarr/Homarr,
-  décision Joplin. Preuve suivante : déploiement Cloud au SHA de cette PR,
-  `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz` sans
-  `Query is invalid.`.
+  chemins, OVH, Graylog/Lidarr/Homarr/bitcoind, déploiement TrueNAS de
+  dependency-track, netbox, scanopy, joplin, ntopng et plumber, migration
+  canonique Home Assistant. Preuve suivante : déploiement Cloud au SHA de
+  cette PR, `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz`
+  sans `Query is invalid.`.
+  **05/11 :** `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` appliqué sur Cloud
+  (constaté : `transport_only`, `telemetry_disabled`) ; smoke de production
+  aligné sur ce contrat. Décision propriétaire : **pas d'exception WAF** ;
+  Keycloak/LiteLLM restent `warn` (`edge_block=challenge`) depuis Cloud, la
+  preuve de santé vient de l'observateur TrueNAS LAN.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable
