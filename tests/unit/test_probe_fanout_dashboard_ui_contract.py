@@ -121,3 +121,13 @@ def test_probe_dashboard_identifies_protected_access_and_missing_slots() -> None
     assert 'unobserved_slots' in javascript
     assert "Eligible without evidence" in javascript
     assert "not deadlines" in javascript
+
+
+def test_probe_dashboard_disambiguates_rotation_absence_and_worker_uptime() -> None:
+    javascript = DASHBOARD.read_text(encoding="utf-8")
+    assert "counts may overlap" in javascript
+    assert "excluded from denominator" in javascript
+    assert "not worker age" in javascript
+    assert 'if (row?.probe_source === "unobserved") return "not_executed";' in javascript
+    assert "Not executed / no retained evidence" in javascript
+    assert 'operatorFilter.state === "unknown" && state === "not_executed"' in javascript
