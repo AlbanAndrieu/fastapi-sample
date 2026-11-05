@@ -258,6 +258,8 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     from nabla.api.homelab_health import build_homelab_health_payload
     from nabla.api.homelab_health_evidence import prepare_homelab_reconciliation_context
     from nabla.api.platform_metrics import fetch_platform_metrics
+    from nabla.api.connection_matrix import build_connection_matrix
+    from nabla.api.external_connection_probes import fetch_external_connection_probes
 
     services = await fetch_homelab_services()
     reconciliation_task = asyncio.create_task(
@@ -283,7 +285,18 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     )
     homelab = _annotate_truenas_ingress_policy(homelab, runtime)
     healthz = _annotate_talos_vm_health(healthz, homelab)
-    platform_metrics = await fetch_platform_metrics()
+    platform_metrics, external_connections = await asyncio.gather(
+        fetch_platform_metrics(),
+        fetch_external_connection_probes(),
+    )
+    # Derive separate connection-layer evidence without a second provider
+    # query or trusting a green scrape as application health.
+    homelab = {
+        **homelab,
+        "connection_matrix": build_connection_matrix(
+            homelab, platform_metrics, external_connections
+        ),
+    }
     internal_probe_comparison = compare_internal_probe_evidence(
         homelab,
         platform_metrics,

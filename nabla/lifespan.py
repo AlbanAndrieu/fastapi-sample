@@ -17,8 +17,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from nabla.api.db.database import database, db_pool, init_db
 from nabla.api.demo.demo import initialize_demo_feature_flags
 from nabla.api.demo.models import init_db as init_db_sensor_reading
-from nabla.api.demo.models import recent_readings
-from nabla.api.demo.sensor import initialize_sensor_demo, metrics
+from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.runtime_topology import runtime_topology_heartbeat
 from nabla.app_features import AppFeatures
@@ -217,7 +216,8 @@ def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], A
             else:
                 logger.warning("startup_dependency_skipped dependency=postgres critical=false reason=feature_disabled")
             initialize_demo_feature_flags()
-            initialize_sensor_demo()
+            # Do not synthesize environmental data at application startup.
+            # The explicit /demo/sensors path initializes the legacy fixture.
             if selected.mcp:
                 resources.push_async_callback(close_mcp_clients)
                 await initialize_mcp_clients()
@@ -226,13 +226,12 @@ def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], A
             resources.push_async_callback(_cancel_background_tasks, background_tasks)
             _start_background_workers(selected, redis_client, background_tasks)
 
-            logger.info("🚀 Sensor Dashboard started")
-            logger.info(f"Initial sensor readings: {len(recent_readings)}")
+            logger.info("🚀 Operations Overview started; synthetic sensor demo is lazy")
             logger.info("Debug mode: %s", getattr(app, "debug", False))
 
             yield
 
-            logger.info("📊 Sensor Dashboard shutting down")
+            logger.info("📊 Operations Overview shutting down")
             logger.info(
                 f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
             )

@@ -225,6 +225,28 @@ def _summary(values: dict[str, float | None]) -> dict[str, Any]:
     }
 
 
+def _prometheus_query_failure(exc: httpx.HTTPError | ValueError) -> dict[str, Any]:
+    """Return a bounded cause; never log or expose Access response bodies."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status in {301, 302, 303, 307, 308}:
+            kind = "access_redirect"
+        elif status in {401, 403}:
+            kind = "authentication_rejected"
+        elif status == 429:
+            kind = "rate_limited"
+        else:
+            kind = "http_failure"
+        return {"error_kind": kind, "http_status": status}
+    if isinstance(exc, httpx.TimeoutException):
+        return {"error_kind": "timeout"}
+    if isinstance(exc, httpx.ConnectError):
+        return {"error_kind": "connection_failed"}
+    if isinstance(exc, ValueError):
+        return {"error_kind": "invalid_response"}
+    return {"error_kind": "query_failed"}
+
+
 def _state(values: dict[str, float | None]) -> str:
     if any(values.get(name) is None for name in _METRICS):
         return "degraded"
@@ -281,7 +303,7 @@ async def fetch_platform_metrics(
             "state": "telemetry_unavailable",
             "configured": True,
             "source": "prometheus",
-            "error_kind": "query_failed",
+            **_prometheus_query_failure(exc),
             "exception_type": type(exc).__name__,
             "metrics": {},
             "synthetic_probes": _synthetic_summary(state="telemetry_unavailable"),

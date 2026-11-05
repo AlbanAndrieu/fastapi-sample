@@ -13,13 +13,10 @@ from prometheus_client.openmetrics.exposition import (
     CONTENT_TYPE_LATEST,
     generate_latest,
 )
-from sqlmodel import select
 from starlette.routing import Mount
 
-from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
 from nabla.api.owner_ui_session import register_owner_ui_session_routes
-from nabla.api.notes.models import Note
 from nabla.api.runtime_environment import runtime_mode
 from nabla.api.topology_telemetry import fetch_topology_telemetry
 from nabla.api.topology_ui import render_topology_page
@@ -80,23 +77,42 @@ def _register_topology_dashboard(app: FastAPI) -> None:
         )
 
 
-def _register_notes_dashboard(app: FastAPI) -> None:
-    """Register the PostgreSQL-backed notes dashboard at the site root."""
+def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
+    """Serve the light operations shell without fetching PostgreSQL or probes.
+
+    Browser telemetry is loaded from existing public/OWNER endpoints only.
+    The sensor demonstration remains available at /demo/sensors.
+    """
 
     @app.get("/", response_class=HTMLResponse, operation_id="root_dashboard")
     @limiter.limit("100/second")
-    def dashboard(request: Request):
-        session = SessionLocal()
-        notes = session.exec(select(Note)).all()
-        return templates.TemplateResponse(request, "index.html", {"notes": notes})
+    def dashboard(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            {"database_enabled": database},
+            headers={
+    "Cache-Control": "private, no-store, max-age=0",
+    "Pragma": "no-cache",
+    "X-Robots-Tag": "noindex, nofollow",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
+        "img-src 'self'; font-src 'self'; "
+        "base-uri 'none'; form-action 'none'; "
+        "frame-ancestors 'none'; object-src 'none'"
+    ),
+},
+        )
 
 
 def register_routes(app: FastAPI, *, database: bool = True) -> None:
     """Register all application routes; DB-backed pages require ``database``."""
     _register_api_assets(app)
 
-    if database:
-        _register_notes_dashboard(app)
+    _register_operations_dashboard(app, database=database)
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
