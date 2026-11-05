@@ -223,10 +223,18 @@ def test_note_templates_only_call_registered_routes(template, expected_routes):
     assert _routed_calls(_hx_calls(html)) == expected_routes
 
 
-def test_index_notes_calls_registered_routes(test_app):
-    html = test_app.get("/").text
+def test_sensor_demo_notes_calls_registered_routes(test_app):
+    # #396 moved the notes widget from the production root to the legacy
+    # /demo/sensors page; the HTMX calls must still target registered routes.
+    html = test_app.get("/demo/sensors").text
 
     note_calls = {(method, path) for method, path in _hx_calls(html) if path.startswith("/notes")}
 
     assert note_calls == {("GET", "/notes/"), ("POST", "/notes/add")}
     assert _routed_calls(note_calls) == {("GET", "/notes/"), ("POST", "/notes/add")}
+
+
+def test_production_root_does_not_embed_notes_widget(test_app):
+    html = test_app.get("/").text
+
+    assert not [path for _method, path in _hx_calls(html) if path.startswith("/notes")]

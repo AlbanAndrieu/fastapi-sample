@@ -149,11 +149,12 @@ jobs:
           }' /tmp/homelab-health.json
           echo "::endgroup::"
 
-          # Pull requests probe the already-deployed production revision, not
-          # the candidate head. During this cutover only, accept the legacy
-          # transport-only contract or the authenticated steady-state contract.
-          # Post-deploy smoke is stricter: KeyAuth is enabled and a confirmed
-          # authentication rejection must fail the deployment smoke.
+          # FastAPI Cloud is a transport-only pfSense observer: WAN TCP/10443
+          # only accepts PFSENSE_ADMIN_WAN (nabla-compose
+          # docs/pfsense-wan-exposure-roadmap.md) and authenticated pfSense
+          # probes run on the TrueNAS LAN observer. Both smokes accept that
+          # explicit transport-only contract; an authenticated run must still
+          # succeed, and a confirmed authentication rejection fails the smoke.
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             jq -e '
               (
@@ -191,6 +192,17 @@ jobs:
             ' /tmp/healthz.json >/dev/null
           else
             jq -e '
+              (
+                .checks.pfsense.credential_mode == "disabled" and
+                .checks.pfsense.authenticated_probes_enabled == false and
+                .checks.pfsense.observation_mode == "transport_only" and
+                .checks.pfsense.skipped == true and
+                .checks.pfsense.reachable == null and
+                .checks.pfsense.status_confirmed == false and
+                .checks.pfsense.state == "unknown" and
+                .checks.pfsense.degraded == false and
+                .checks.pfsense.vantage_point == "fastapi_cloud"
+              ) or
               .checks.pfsense.credential_mode == "dedicated_posture" and
               (
                 (
@@ -231,7 +243,7 @@ jobs:
                 (.pfsense.dns.security_filters | type == "array" and length > 0) and
                 (.pfsense.dns.ingress_block | type == "object") and
                 (.pfsense.dns.ingress_block.state as $state |
-                  ["clear", "blocked", "attribution_unavailable", "telemetry_stale", "telemetry_unavailable"] | index($state) != null) and
+                  ["clear", "blocked", "attribution_unavailable", "telemetry_stale", "telemetry_unavailable", "telemetry_disabled"] | index($state) != null) and
                 (if .pfsense.dns.ingress_block.state == "telemetry_stale" then
                   .pfsense.dns.ingress_block.stale == true and
                   .pfsense.dns.ingress_block.attribution_available == false and
@@ -248,6 +260,11 @@ jobs:
                       .pfsense.dns.ingress_block.cache_layer == "redis"
                     )
                   )
+                elif .pfsense.dns.ingress_block.state == "telemetry_disabled" then
+                  .pfsense.dns.ingress_block.telemetry_available == false and
+                  .pfsense.dns.ingress_block.attribution_available == false and
+                  .pfsense.dns.ingress_block.control_path.mode == "disabled" and
+                  $healthz[0].checks.pfsense.credential_mode == "disabled"
                 elif .pfsense.dns.ingress_block.state == "telemetry_unavailable" then
                   .pfsense.dns.ingress_block.telemetry_available == false and
                   (.pfsense.dns.ingress_block.failure_stage | type == "string" and length > 0) and
@@ -264,15 +281,20 @@ jobs:
               )
             ' /tmp/homelab-health.json >/dev/null
           else
-            jq -e '
+            jq -e --slurpfile healthz /tmp/healthz.json '
               (.pfsense.dns.security_filters | type == "array" and length > 0) and
               (.pfsense.dns.ingress_block | type == "object") and
               (.pfsense.dns.ingress_block.state as $state |
-                ["clear", "blocked", "attribution_unavailable", "telemetry_stale", "telemetry_unavailable"] | index($state) != null) and
+                ["clear", "blocked", "attribution_unavailable", "telemetry_stale", "telemetry_unavailable", "telemetry_disabled"] | index($state) != null) and
               (if .pfsense.dns.ingress_block.state == "telemetry_stale" then
                 .pfsense.dns.ingress_block.stale == true and
                 .pfsense.dns.ingress_block.attribution_available == false and
                 (.pfsense.dns.ingress_block.last_success_at | type == "string" and length > 0)
+              elif .pfsense.dns.ingress_block.state == "telemetry_disabled" then
+                .pfsense.dns.ingress_block.telemetry_available == false and
+                .pfsense.dns.ingress_block.attribution_available == false and
+                .pfsense.dns.ingress_block.control_path.mode == "disabled" and
+                $healthz[0].checks.pfsense.credential_mode == "disabled"
               elif .pfsense.dns.ingress_block.state == "telemetry_unavailable" then
                 .pfsense.dns.ingress_block.telemetry_available == false and
                 (.pfsense.dns.ingress_block.failure_stage | type == "string" and length > 0) and
