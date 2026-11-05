@@ -1,3 +1,10 @@
+## [1.28.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.28.0...1.28.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **deps:** bump oauthlib ([#398](https://github.com/AlbanAndrieu/fastapi-sample/issues/398)) ([cfe5c73](https://github.com/AlbanAndrieu/fastapi-sample/commit/cfe5c73b057a3531b0ddafb7b675eb4c5b3d828d))
+
 # [1.28.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.27.0...1.28.0) (2026-11-05)
 
 
