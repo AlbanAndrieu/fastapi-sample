@@ -195,6 +195,14 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   aligné sur ce contrat. Décision propriétaire : **pas d'exception WAF** ;
   Keycloak/LiteLLM restent `warn` (`edge_block=challenge`) depuis Cloud, la
   preuve de santé vient de l'observateur TrueNAS LAN.
+  **05/11 (suite) :** sonde OVH désactivée par défaut
+  (`OVH_API_PROBE_ENABLED=true` pour la réactiver) et SDK `ovh` importé
+  paresseusement (le runtime minimal `uv sync --no-default-groups` ne
+  démarrait pas) ; LiteLLM n'est plus publié sur Internet : sonde ignorée
+  par défaut, URL LAN sur TrueNAS (`compose.yml`). Preuve suivante : CI
+  « Validate minimal FastAPI Cloud runtime » verte, `/healthz` Cloud sans
+  `openstack_me` ni `litellm` en échec, `litellm` `reachable=true` sur
+  TrueNAS.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable
