@@ -37,9 +37,9 @@ from nabla.api.integration_health import (
     probe_litellm_public_proxy,
     probe_pyroscope_server,
     probe_sentry_reachable,
-    probe_tavily_search,
     probe_unleash_client_features,
 )
+from nabla.api.tavily_health import probe_tavily_search
 from nabla.api.probe_budget import ProbeBudget
 from nabla.config_settings import REDIS_URL, get_settings
 

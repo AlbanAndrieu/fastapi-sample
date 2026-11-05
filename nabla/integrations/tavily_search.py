@@ -20,6 +20,11 @@ def _tavily_api_key() -> str | None:
     )
 
 
+def tavily_api_key() -> str | None:
+    """Return the configured Tavily key for authenticated health probes."""
+    return _tavily_api_key()
+
+
 def is_tavily_api_configured() -> bool:
     """Return True when ``TAVILY_API_KEY`` is available from env or settings."""
     return _tavily_api_key() is not None

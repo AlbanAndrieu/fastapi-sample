@@ -148,6 +148,47 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   / 41 `observed_only` dont écarts de nom (`homeassistant`,
   `elasticsearch`, `hermes`, `graylog`). Preuve suivante : bindings
   uniques, noms alignés, `unbound` et `uptime-kuma` OK avec preuve fraîche.
+- [ ] **Comparaison des sondes Cloud / TrueNAS / local (04/11, 19:10–19:20 UTC,
+  `v0+1.27.0`, `build_revision=null` partout) :** lecture seule, GET
+  séquentiels. **TrueNAS `NOT_RUN`** depuis un conteneur cloud :
+  `sample.int` sans DNS public, `sample.albandrieu.com` → 302 Access
+  (attendu), `fastapi-sample.albandrieu.com` sans enregistrement DNS. Vue
+  indirecte via Cloud : App `sample` RUNNING/`in_sync`, image
+  `fastapi-sample:local`, **aucune sonde HTTP** de cette instance.
+  Cloud : `/readyz` ready, `/healthz` et `/api/homelab/health` `degraded`,
+  cache 30 s (froid 3–6,5 s, chaud ≈0,7 s). Constats à traiter :
+  (a) `/sickz` public, sans cache ni limite SlowAPI, ≈68 groupes sondés par
+  requête, 8,6–11 s de bout en bout (fan-out 8 s puis enrichissement
+  séquentiel ≤6 s) ; (b) posture pfSense Cloud en `ConnectTimeout` alors que
+  WAN 10443 est volontairement fermé à Cloud (nabla-compose) : phase de
+  6,1 s à chaque tentative d'origine (demi-ouverture, au plus toutes les
+  900 s), 27 ms quand le disjoncteur la supprime ; Service Token refusé
+  par Access pour adguardhome, affine, freshrss et keycloak ; joplin sans
+  DNS (déclaré `external=true`) ; (c) sonde Tavily avec
+  la requête `"."` rejetée (`Query is invalid.`) ; (d) OVH `openstack_me` :
+  credential inexistant côté Cloud (rotation opérateur) ; (e) depuis l'egress
+  Cloud, Keycloak reçoit le challenge Cloudflare (403) et LiteLLM 403 sur
+  les trois chemins, alors que `/health/liveliness` répond 200 depuis un
+  autre egress externe ; (f) owner nabla-compose : `hello.int` (200) et
+  `s3.int` (403 S3) joignables depuis Internet via l'IP WAN, sans Cloudflare,
+  Vaultwarden en bypass Access « Everyone » sur tout le hostname, Homarr
+  CRASHED, Graylog/Lidarr STOPPED (Lidarr avec ingress tunnel). Preuve
+  suivante : même campagne depuis le LAN (TrueNAS `:8091` + workstation),
+  `/sickz` mis en cache ou limité, `PFSENSE_AUTHENTICATED_PROBES_ENABLED`
+  aligné sur la politique WAN, Tavily/OVH verts, `*.int` refusés au
+  frontal WAN hors exceptions revues.
+  **CODED/TESTED L1 (non déployé) :** (a) cache `/sickz` 60 s single-flight
+  (`nabla/api/sickz_cache.py`, purge avec `/api/health-board/cache/reset`) ;
+  (c) sonde Tavily via `GET /usage` (`nabla/api/tavily_health.py`) ;
+  (e) page challenge Cloudflare classée `warn`/non vérifiée pour Keycloak et
+  LiteLLM ; skill `fastapi-cloud` et doc pfSense alignés sur
+  `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` côté Cloud. Restent opérateur
+  (runbook nabla-compose `docs/runbooks/2026-11-04-probe-remediation.md`) :
+  apply des routes Tunnel, Service Auth Access, bypass Vaultwarden par
+  chemins, exception WAF, OVH, variable pfSense Cloud, Graylog/Lidarr/Homarr,
+  décision Joplin. Preuve suivante : déploiement Cloud au SHA de cette PR,
+  `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz` sans
+  `Query is invalid.`.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable

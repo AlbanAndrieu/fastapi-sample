@@ -133,13 +133,18 @@ PFSENSE_POSTURE_API_VERIFY_SSL=true
 PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
 PFSENSE_SECURITY_API_VERIFY_SSL=true
 PFSENSE_SECURITY_PATH_MODE=shared_wan
-PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=true   # TrueNAS/LAN observer only; false on FastAPI Cloud
 ```
 
 `PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The FastAPI Cloud application environment must be checked by an authorized operator; GitHub Actions no longer pins or mutates these values. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
 
-FastAPI Cloud keeps authenticated pfSense posture and security probes enabled
-in steady state now that both dedicated least-privilege keys are valid. The
+pfSense WAN TCP/10443 is restricted to `PFSENSE_ADMIN_WAN`; FastAPI Cloud is
+deliberately **not** an allowed source (`nabla-compose`
+`docs/pfsense-wan-exposure-roadmap.md`). From FastAPI Cloud every posture
+attempt therefore ends in `ConnectTimeout` (~6 s per circuit-breaker
+half-open, observed 2026-11-04) and carries no information about pfSense
+health. Set `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` on FastAPI Cloud and
+keep authenticated posture/security probes on the TrueNAS (LAN) observer. The
 posture observer fails fast on the first HTTP 401, so one rejected key cannot
 fan out across deeper pfREST reads and amplify Login Protection / `sshguard`.
 
@@ -152,8 +157,8 @@ the redundant workflow was removed to avoid duplicate deployments and credits.
 Configure steady-state `DEBUG=false`,
 `PFSENSE_POSTURE_API_VERIFY_SSL=true`,
 `PFSENSE_SECURITY_API_VERIFY_SSL=true`, and
-`PFSENSE_AUTHENTICATED_PROBES_ENABLED=true` in the authorized FastAPI Cloud
-control plane. GitHub release tags and the package publishing event are
+`PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` (see the WAN policy above) in the
+authorized FastAPI Cloud control plane. GitHub release tags and the package publishing event are
 **not** application deployment triggers. The read-only `master-smoke.yml`
 remains available for explicit diagnostic use, not automatic deployment.
 
@@ -161,9 +166,9 @@ A Git SHA supplied by a local operator to
 `scripts/stamp_fastapi_deploy_revision.py` can be reported as
 `/v2/version.build_revision` only after runtime verification. A matching
 GitHub release number alone does not prove the running deployment SHA.
- Use `false` only
-as an emergency kill-switch during credential rotation or a fresh Login
-Protection incident, then restore `true` after the key/path issue is corrected.
+On the TrueNAS (LAN) observer, use `false` only as an emergency kill-switch
+during credential rotation or a fresh Login Protection incident, then restore
+`true` after the key/path issue is corrected.
 Keep the checked-in deployment contract and FastAPI Cloud environment aligned;
 do not permanently whitelist an ephemeral Cloud egress.
 

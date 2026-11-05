@@ -345,10 +345,11 @@ def _register_probe_routes(app: FastAPI) -> None:
     async def get_sickz(request: Request, response: Response) -> dict[str, Any]:
         """Compare declared external/Cloudflare policy with observed reachability."""
         from nabla.api.health_board import build_sickz_snapshot
+        from nabla.api.sickz_cache import cached_sickz_snapshot
 
         response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await build_sickz_snapshot(request)
+            return await cached_sickz_snapshot(request, build_sickz_snapshot)
 
 
 def _register_health_board_routes(app: FastAPI) -> None:
@@ -386,6 +387,7 @@ def _register_health_board_routes(app: FastAPI) -> None:
         from nabla.api.external_probe_cache import reset_probe_cache
         from nabla.api.external_probe_cache_redis import resolve_redis_client
         from nabla.api.health_board import reset_health_board_cache
+        from nabla.api.sickz_cache import reset_sickz_cache
 
         probe_keys = (
             "pfsense:liveness",
@@ -399,6 +401,7 @@ def _register_health_board_routes(app: FastAPI) -> None:
         for key in probe_keys:
             await reset_probe_cache(key, redis_client=redis_client)
         await reset_health_board_cache()
+        await reset_sickz_cache()
         response.headers.update(_NO_STORE_HEADERS)
         logger.info("health_probe_cache_reset keys=%s", len(probe_keys))
         return {

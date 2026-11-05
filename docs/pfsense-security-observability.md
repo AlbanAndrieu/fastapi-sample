@@ -345,13 +345,13 @@ After any pfSense or REST API package upgrade:
 1. verify API-key authentication is still enabled;
 2. verify both service users remain enabled and retain only their GET privileges;
 3. recreate/rotate the posture and security keys if they are absent or return
-   HTTP 401;
+    HTTP 401;
 4. verify the newly generated keys are actually present in
-   `System > REST API > Keys` under the expected owner usernames;
+    `System > REST API > Keys` under the expected owner usernames;
 5. update the runtime secret store without logging the key values;
 6. redeploy/restart the observer and purge the provider cache/circuit state;
 7. require HTTP 2xx from the posture endpoint and the diagnostics-table endpoint
-   before declaring credential recovery complete.
+    before declaring credential recovery complete.
 
 ### HTTP 401 after key rotation
 
@@ -403,17 +403,21 @@ copy the stored hash, an ID, or a masked UI value.
 ## FastAPI Cloud transport-only policy
 
 FastAPI Cloud must not use pfSense REST API credentials as a liveness vantage
-point. With the dedicated posture/security keys validated, production deploys
-with authenticated probes enabled:
+point. pfSense WAN TCP/10443 only accepts `PFSENSE_ADMIN_WAN` (see
+`nabla-compose` `docs/pfsense-wan-exposure-roadmap.md`), so FastAPI Cloud
+attempts end in `ConnectTimeout` (observed 2026-11-04, ~6 s per breaker
+half-open). FastAPI Cloud therefore runs transport-only:
 
 ```text
-PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=false   # FastAPI Cloud
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=true    # TrueNAS LAN observer
 ```
 
-The posture liveness call is fail-fast on HTTP 401: deeper authenticated fan-out
+The authenticated posture/security probes run on the TrueNAS observer, which
+has trusted-LAN reachability. The posture liveness call is fail-fast on HTTP 401: deeper authenticated fan-out
 is skipped after the first rejected credential, limiting Login Protection /
-`sshguard` amplification. The value `false` remains an emergency kill-switch.
-When disabled, the direct pfSense entry in `/healthz` is intentionally
+`sshguard` amplification. On TrueNAS, the value `false` remains an emergency
+kill-switch. When disabled, the direct pfSense entry in `/healthz` is intentionally
 `unknown`/unconfirmed with `observation_mode=transport_only` and
 `credential_mode=disabled`; no pfSense HTTP client or `X-API-Key` request is
 created in that mode. A prior authenticated last-good value must not replace
@@ -513,7 +517,7 @@ The expected direct HAProxy path is:
 
 ```text
 Internet -> pfSense WAN:7000 -> HAProxy -> TLS re-encryption
-         -> TrueNAS 172.17.0.24:7000
+        -> TrueNAS 172.17.0.24:7000
 ```
 
 If HAProxy owns WAN 7000, a second NAT port-forward for the same service is

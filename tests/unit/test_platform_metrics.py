@@ -122,7 +122,8 @@ async def test_platform_metrics_transport_failure_is_sanitized() -> None:
         payload = await fetch_platform_metrics(settings=settings, client=client)
 
     assert payload["state"] == "telemetry_unavailable"
-    assert payload["error_kind"] == "query_failed"
+    # #396 classifies transport failures precisely instead of query_failed.
+    assert payload["error_kind"] == "connection_failed"
     assert payload["exception_type"] == "ConnectError"
     assert "secret" not in str(payload)
 
@@ -563,7 +564,7 @@ async def test_akvorado_scrape_jobs_use_fixed_bounded_raw_fallback() -> None:
         )
 
     settings = HomelabPrometheusSettings(
-        homelab_prometheus_url="http://prometheus.test"
+        homelab_prometheus_url="http://prometheus.test",
     )
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
@@ -583,8 +584,10 @@ async def test_akvorado_recorded_and_raw_conflicts_fail_closed() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         rows = [
             {
-                "metric": {"__name__": "nabla:telemetry:service_exporter_up",
-                           "job": "akvorado_inlet"},
+                "metric": {
+                    "__name__": "nabla:telemetry:service_exporter_up",
+                    "job": "akvorado_inlet",
+                },
                 "value": [1, "1"],
             },
             {
@@ -595,13 +598,17 @@ async def test_akvorado_recorded_and_raw_conflicts_fail_closed() -> None:
         return httpx.Response(
             200,
             request=request,
-            json={"status": "success", "data": {
-                "resultType": "vector", "result": rows,
-            }},
+            json={
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": rows,
+                },
+            },
         )
 
     settings = HomelabPrometheusSettings(
-        homelab_prometheus_url="http://prometheus.test"
+        homelab_prometheus_url="http://prometheus.test",
     )
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
@@ -624,7 +631,8 @@ def test_prometheus_access_headers_are_pinned_and_require_both_secrets() -> None
         "https://prometheus.albandrieu.com:444",
     ):
         settings = HomelabPrometheusSettings(
-            homelab_prometheus_url=origin, **both
+            homelab_prometheus_url=origin,
+            **both,
         )
         assert settings.access_headers == {}
     one = HomelabPrometheusSettings(
@@ -656,7 +664,7 @@ async def test_prometheus_http_client_never_follows_access_redirect(monkeypatch)
                 lambda request: httpx.Response(
                     302,
                     headers={"location": "https://untrusted.example/collect"},
-                )
+                ),
             ),
             **kwargs,
         )
@@ -665,7 +673,7 @@ async def test_prometheus_http_client_never_follows_access_redirect(monkeypatch)
     settings = HomelabPrometheusSettings(
         homelab_prometheus_url="https://prometheus.albandrieu.com",
         homelab_prometheus_cf_access_client_id="id-private",
-        homelab_prometheus_cf_access_client_secret="secret-private",
+        homelab_prometheus_cf_access_client_secret="secret-private",  # noqa: S106 -- dummy fixture value, not a credential
     )
     response = await fetch_platform_metrics(settings=settings)
     assert response["state"] == "telemetry_unavailable"

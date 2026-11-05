@@ -16,6 +16,9 @@ from nabla.api.provider_credentials import cloudflare_access_service_token_crede
 _MAX_EDGE_BODY_CHARS = 32_768
 _MAX_ANONYMOUS_REDIRECTS = 4
 _DEFAULT_DENY_FRAGMENT = "this resource is blocked by this account's default-deny policy"
+# Markers of the Cloudflare challenge interstitial ("Just a moment...").
+_CHALLENGE_MARKERS = ("<title>just a moment...</title>", "/cdn-cgi/challenge-platform/", "window._cf_chl_opt")
+_EDGE_BLOCK_STATUSES = frozenset({403, 503})
 _ANONYMOUS_EDGE_HEADERS = {"User-Agent": "nabla-sickz-policy-probe/1.0"}
 _CF_ACCESS_CLIENT_ID_HEADER = "CF-Access-Client-Id"
 _CF_ACCESS_SERVICE_AUTH_HEADER = "CF-Access-Client-Secret"
@@ -45,6 +48,44 @@ def contains_cloudflare_default_deny(body: str) -> bool:
     normalized = re.sub(r"\s+", " ", plain).strip().casefold()
     normalized = normalized.replace(chr(0x2019), "'")
     return _DEFAULT_DENY_FRAGMENT in normalized
+
+
+def contains_cloudflare_challenge(body: str) -> bool:
+    """Detect a Cloudflare managed/JS challenge interstitial in a bounded body."""
+    text = body[:_MAX_EDGE_BODY_CHARS].casefold()
+    return any(marker in text for marker in _CHALLENGE_MARKERS)
+
+
+def cloudflare_edge_block(status_code: int | None, headers: Any, body: str) -> str | None:
+    """Return ``challenge``/``default_deny`` when Cloudflare stopped a request at the edge.
+
+    Only 403/503 responses qualify: those are the statuses Cloudflare uses for
+    challenge and Default-Deny interstitials, so ordinary origin errors stay
+    origin failures.
+    """
+    if status_code not in _EDGE_BLOCK_STATUSES:
+        return None
+    mitigated = str((headers or {}).get("cf-mitigated", "")).casefold()
+    if mitigated in {"challenge", "managed_challenge"} or contains_cloudflare_challenge(body):
+        return "challenge"
+    if contains_cloudflare_default_deny(body):
+        return "default_deny"
+    return None
+
+
+def edge_blocked_probe_result(kind: str, *, service: str, http_status: int | None) -> dict[str, Any]:
+    """Describe an observer blocked by Cloudflare: origin health is unverified, not down."""
+    reason = "a Cloudflare managed challenge" if kind == "challenge" else "Cloudflare Access Default-Deny"
+    return {
+        "reachable": None,
+        "status_confirmed": False,
+        "severity": "warning",
+        "effective_state": "warn",
+        "http_status": http_status,
+        "public_probe_auth_mode": "cloudflare_challenge" if kind == "challenge" else "cloudflare_access_blocked",
+        "edge_block": kind,
+        "warning": f"⚠️ {reason} blocked the {service} probe at the edge; origin health is unverified.",
+    }
 
 
 def _edge_response_evidence(response: httpx.Response) -> dict[str, Any]:

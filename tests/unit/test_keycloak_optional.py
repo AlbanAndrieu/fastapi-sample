@@ -35,6 +35,22 @@ def test_cloudflare_default_deny_keeps_keycloak_unknown_not_down(monkeypatch: py
     assert apply_diagnostic_status({"checks": {"keycloak": result}})["status"] == "healthy"
 
 
+def test_cloudflare_challenge_keeps_keycloak_unknown_not_down(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FastAPI Cloud egress received the 'Just a moment...' interstitial on 2026-11-04."""
+    monkeypatch.setattr(integration_health, "keycloak_configured", lambda: True)
+    body = b'<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title>'
+    error = KeycloakGetError(error_message=body, response_code=403, response_body=body)
+    monkeypatch.setattr(integration_health, "get_openid_config", lambda: _raise(error))
+
+    result = integration_health.probe_keycloak_well_known()
+
+    assert result["reachable"] is None
+    assert result["status_confirmed"] is False
+    assert result["edge_block"] == "challenge"
+    assert result["public_probe_auth_mode"] == "cloudflare_challenge"
+    assert "origin health is unverified" in result["warning"]
+
+
 def test_keycloak_origin_error_is_still_reported_down(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(integration_health, "keycloak_configured", lambda: True)
     error = KeycloakGetError(error_message=b"upstream failed", response_code=500, response_body=b"upstream failed")

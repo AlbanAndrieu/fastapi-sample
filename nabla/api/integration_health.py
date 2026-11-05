@@ -12,7 +12,7 @@ from nabla.api.health_probe_utils import (
     normalize_probe_error as _normalize_probe_error,
     probe_https_tls_trusted,
 )
-from nabla.api.sickz_cloudflare_edge import contains_cloudflare_default_deny
+from nabla.api.sickz_cloudflare_edge import cloudflare_edge_block, edge_blocked_probe_result
 from nabla.config_settings import (
     DD_AGENT_HOST,
     DD_TRACE_AGENT_PORT,
@@ -30,23 +30,7 @@ from nabla.feature_flags import (
 from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
 from nabla.integrations.google_search import _GOOGLE_CSE_URL
-from nabla.integrations.tavily_search import get_tavily_client
 from nabla.utils.sentry_config import select_sentry_health_dsn, sentry_dsn_is_reachable
-
-
-def probe_tavily_search() -> dict[str, Any]:
-    client = get_tavily_client()
-    if client is None:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "TAVILY_API_KEY not configured",
-        }
-    try:
-        client.search(".", search_depth="basic", max_results=1, timeout=5.0)
-    except Exception as exc:
-        return {"reachable": False, "error": _normalize_probe_error(str(exc))}
-    return {"reachable": True}
 
 
 def probe_brave_search() -> dict[str, Any]:
@@ -143,17 +127,12 @@ def probe_keycloak_well_known() -> dict[str, Any]:
         config = get_openid_config()
     except Exception as exc:
         body = getattr(exc, "response_body", None)
-        if contains_cloudflare_default_deny(body.decode("utf-8", "replace") if isinstance(body, bytes) else str(exc)):
-            # Access blocks the anonymous observer before the origin: unknown, not an outage.
-            return {
-                "reachable": None,
-                "status_confirmed": False,
-                "severity": "warning",
-                "effective_state": "warn",
-                "http_status": getattr(exc, "response_code", None),
-                "public_probe_auth_mode": "cloudflare_access_blocked",
-                "warning": "⚠️ Cloudflare Access Default-Deny blocked Keycloak OpenID discovery; origin health is unverified.",
-            }
+        text = body.decode("utf-8", "replace") if isinstance(body, bytes) else str(exc)
+        status = getattr(exc, "response_code", None)
+        # The edge blocked the observer before the origin: unknown, not an outage.
+        edge_block = cloudflare_edge_block(status if isinstance(status, int) else 403, {}, text)
+        if edge_block is not None:
+            return edge_blocked_probe_result(edge_block, service="Keycloak OpenID discovery", http_status=status)
         return {"reachable": False, "error": _normalize_probe_error(str(exc))}
     if isinstance(config, dict) and config.get("issuer"):
         return {"reachable": True}
@@ -261,6 +240,10 @@ def probe_litellm_public_proxy() -> dict[str, Any]:
                 "path": path,
                 "url": url,
             }
+        edge_block = cloudflare_edge_block(response.status_code, response.headers, response.text)
+        if edge_block is not None:
+            # Every fallback path crosses the same edge: stop instead of repeating the block.
+            return {**edge_blocked_probe_result(edge_block, service="LiteLLM", http_status=response.status_code), "base": base, "path": path}
         last_error = f"http_status={response.status_code}"
     return {
         "reachable": False,
