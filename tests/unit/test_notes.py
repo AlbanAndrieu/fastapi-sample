@@ -44,7 +44,9 @@ def _note_json(**overrides):
 def test_homepage(test_app):
     response = test_app.get("/")
     assert response.status_code == 200
-    assert "Sensor Dashboard" in response.text
+    assert "Operations Overview" in response.text
+    assert "Temperature" not in response.text
+    assert 'id="home-fleet"' in response.text
 
 
 def test_create_note(test_app, monkeypatch):

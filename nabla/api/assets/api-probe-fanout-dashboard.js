@@ -14,6 +14,8 @@ const ERROR_EVENT = "homelab-probes:error";
 const DASHBOARD_ID = "truenas-probe-dashboard";
 
 let lastPayload = null;
+let lastConnectionMatrix = null;
+let lastConnectionMeta = { state: "unknown", ageSeconds: null };
 let browserWarmupObservedAt = null;
 let browserWarmupCompletedInSeconds = null;
 let refreshInFlight = false;
@@ -573,6 +575,52 @@ function groupHtml(
   );
 }
 
+function connectionMatrixHtml(report, meta = lastConnectionMeta) {
+  const rows = Array.isArray(report?.rows) ? report.rows : [];
+  if (!rows.length) return "";
+  const generated = Date.parse(String(report?.generated_at || ""));
+  const measuredAge = Number.isFinite(generated) ? (Date.now() - generated) / 1000 : Number.NaN;
+  const sourceAge = finiteNumber(meta?.ageSeconds, Number.NaN);
+  const age = Math.max(
+    Number.isFinite(measuredAge) ? measuredAge : 0,
+    Number.isFinite(sourceAge) ? sourceAge : 0,
+  );
+  // Do not keep a green badge after the health-board snapshot expires.
+  const stale = meta?.state === "stale" || age > 180;
+  const content = rows.map((row) => {
+    const state = stale
+      ? "unknown"
+      : ["ok", "warn", "fail"].includes(row?.state)
+        ? row.state : "unknown";
+    const observed = String(row?.observed_at || "").trim();
+    const provenance = [row?.source || "unverified", observed].filter(Boolean).join(" · ");
+    return (
+      `<div class="probe-dashboard-row probe-dashboard-row--${state}">` +
+      '<div class="probe-dashboard-row-main">' +
+      `<strong>${escapeText(row?.label || row?.id || "Connection")}</strong>` +
+      `<span class="probe-state-badge probe-state-badge--${state}">${escapeText(state)}</span>` +
+      (row?.http_status ? `<span class="probe-source-badge">HTTP ${escapeText(row.http_status)}</span>` : "") +
+      (row?.diagnostic_category ? `<span class="probe-error-badge">${escapeText(row.diagnostic_category)}</span>` : "") +
+      "</div>" +
+      `<div class="probe-dashboard-detail">${escapeText(row?.detail || "No evidence")}</div>` +
+      `<div class="probe-dashboard-timing">${escapeText(provenance)}</div>` +
+      "</div>"
+    );
+  }).join("");
+  const counts = report?.counts || {};
+  const total = rows.length;
+  const freshness = stale
+    ? `STALE snapshot ≈${humanSeconds(age)} old · historical state only`
+    : `health-board ${meta?.state || "unknown"} · evidence age ≈${humanSeconds(age)}`;
+  return (
+    '<details class="probe-dashboard-group" open>' +
+    `<summary>Infrastructure connections · ${total} · ${stale ? "historical / unverified" : `${finiteNumber(counts.ok)} observed OK · ${finiteNumber(counts.fail)} failed`}</summary>` +
+    `<p>${escapeText(freshness)} · Independent layers: Prometheus scrapes, TrueNAS API/TCP/HTTPS, Cloudflare Tunnel/Access/DNS and FastAPI Cloud. DNS or scrape UP does not establish origin readiness.</p>` +
+    `<div class="probe-dashboard-rows">${content}</div>` +
+    "</details>"
+  );
+}
+
 function ensureDashboard() {
   const legacySummary = document.getElementById("truenas-probe-summary");
   const legacyDetails = document.getElementById("truenas-probe-details");
@@ -626,6 +674,7 @@ function ensureDashboard() {
       <p id="probe-dashboard-warmup">Probe evidence has not loaded yet.</p>
     </div>
     <div class="probe-dashboard-scopes" id="probe-dashboard-scopes"></div>
+    <div id="probe-dashboard-connections"></div>
     <div class="probe-dashboard-legend">
       <span>● healthy</span><span>▲ warning</span><span>■ failed</span><span>◌ stale</span><span>· not observed</span>
     </div>
@@ -743,6 +792,19 @@ function clarifyRuntimeTimeout(data) {
 function renderDashboard(data) {
   const root = ensureDashboard();
   if (!root) return;
+  if (data?.probe_snapshot_source === "health-board") {
+    // A new aggregate replaces earlier evidence, including an explicit
+    // missing/timeout result. Raw /api/homelab/probes cannot erase it.
+    lastConnectionMatrix = data?.connection_matrix?.rows
+      ? data.connection_matrix : null;
+    lastConnectionMeta = {
+      state: data?.health_board_state || "unknown",
+      ageSeconds: data?.health_board_age_seconds ?? null,
+    };
+  } else if (data?.connection_matrix?.rows) {
+    lastConnectionMatrix = data.connection_matrix;
+    lastConnectionMeta = { state: "fresh", ageSeconds: 0 };
+  }
   const model = progressModel(data);
   if (data !== lastPayload) captureStateChanges(model.rows);
   lastPayload = data;
@@ -759,6 +821,7 @@ function renderDashboard(data) {
   const bar = document.getElementById("probe-dashboard-progress-bar");
   const warmup = document.getElementById("probe-dashboard-warmup");
   const scopes = document.getElementById("probe-dashboard-scopes");
+  const connections = document.getElementById("probe-dashboard-connections");
   const latest = document.getElementById("probe-dashboard-latest");
   const previous = document.getElementById("probe-dashboard-previous");
   const unobserved = document.getElementById("probe-dashboard-unobserved");
@@ -786,6 +849,7 @@ function renderDashboard(data) {
   scopes.innerHTML =
     scopeCard("public HTTPS", "🌐", model.publicScope) +
     scopeCard("LAN/TCP", "🏠", model.internalScope);
+  if (connections) connections.innerHTML = connectionMatrixHtml(lastConnectionMatrix);
 
   const visibleRows = model.rows.filter(matchesOperatorFilter);
   const latestRows = visibleRows.filter(
