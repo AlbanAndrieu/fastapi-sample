@@ -1,3 +1,15 @@
+# [1.28.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.27.0...1.28.0) (2026-11-05)
+
+
+### Bug Fixes
+
+* **probes:** repair Tavily, classify Cloudflare challenges, cache /sickz ([#397](https://github.com/AlbanAndrieu/fastapi-sample/issues/397)) ([7d38729](https://github.com/AlbanAndrieu/fastapi-sample/commit/7d3872973b213474d749eca3c2b1b98862cfa448)), closes [#396](https://github.com/AlbanAndrieu/fastapi-sample/issues/396)
+
+
+### Features
+
+* **observability:** sondes connexions TrueNAS, Prometheus, Cloudflare et FastAPI Cloud ([#396](https://github.com/AlbanAndrieu/fastapi-sample/issues/396)) ([626c520](https://github.com/AlbanAndrieu/fastapi-sample/commit/626c520e502bb885d90e5de98fca3b4bdcab7a1d))
+
 # [1.27.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.26.3...1.27.0) (2026-11-04)
 
 
