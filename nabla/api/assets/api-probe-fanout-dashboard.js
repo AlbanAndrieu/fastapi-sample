@@ -245,7 +245,7 @@ function runtimeWarmupDetail(data) {
   }
 
   if (browserWarmupObservedAt == null) browserWarmupObservedAt = Date.now();
-  return `backend uptime unavailable · visible in this tab for ${humanSeconds((Date.now() - browserWarmupObservedAt) / 1000)}`;
+  return `backend uptime unavailable · dashboard open for ${humanSeconds((Date.now() - browserWarmupObservedAt) / 1000)} (not worker age)`;
 }
 
 function warmupPhase(model) {
@@ -301,6 +301,7 @@ function cacheText(data) {
 }
 
 function stateLabel(row) {
+  if (row?.probe_source === "unobserved") return "not_executed";
   if (row?.probe_source === "deadline" || row?.timed_out === true) {
     return "deadline";
   }
@@ -400,6 +401,7 @@ function matchesOperatorFilter(row) {
   if (operatorFilter.scope !== "all" && scope !== operatorFilter.scope)
     return false;
   if (operatorFilter.state === "problems" && state === "ok") return false;
+  if (operatorFilter.state === "unknown" && state === "not_executed") return true;
   if (
     !["all", "problems"].includes(operatorFilter.state) &&
     state !== operatorFilter.state
@@ -463,7 +465,7 @@ function targetHtml(row) {
 function observationText(row) {
   if (row?.probe_source === "unobserved") {
     const cadence = finiteNumber(row?.probe_interval_seconds, Number.NaN);
-    return `No retained evidence in this worker${Number.isFinite(cadence) ? ` · rotation interval ≈${humanSeconds(cadence)}` : ""}`;
+    return `Not executed / no retained evidence in this worker${Number.isFinite(cadence) ? ` · rotation interval ≈${humanSeconds(cadence)}` : ""}`;
   }
   const age = finiteNumber(row?.probe_age_seconds, Number.NaN);
   const interval = finiteNumber(row?.probe_interval_seconds, Number.NaN);
@@ -681,7 +683,7 @@ function ensureDashboard() {
     <div id="probe-dashboard-latest"></div>
     <div id="probe-dashboard-previous"></div>
     <div id="probe-dashboard-unobserved"></div>
-    <p class="probe-dashboard-note">Coverage counts eligible probe slots, not catalog services. Disabled LAN targets are excluded. Probes run only when API snapshots refresh (maximum 12 per scope per 30-second window). Evidence is process-local, not shared between workers; rotation estimates are not deadlines. Access-protected does not prove that an origin is healthy.</p>
+    <p class="probe-dashboard-note">Coverage counts eligible probe slots, not catalog services. Disabled LAN targets are excluded. Probes run only when API snapshots refresh (maximum 12 per scope per 30-second window). Evidence is process-local, not shared between workers; rotating waves and missing evidence can overlap. Rotation estimates are not deadlines, and tab-open time is not backend uptime. Access-protected does not prove that an origin is healthy.</p>
     </div>
   `;
   legacySummary.insertAdjacentElement("beforebegin", root);
@@ -842,7 +844,8 @@ function renderDashboard(data) {
   health.textContent = `${model.healthyCoverage.toFixed(1)}% healthy coverage · ${model.healthy} healthy · ${model.counts.warn} warning · ${model.counts.fail} failed · ${model.counts.stale} stale · ${model.counts.deadline} latest deadlines`;
   if (catalog) {
     const unobserved = Math.max(0, model.eligible - model.known);
-    catalog.textContent = `Catalogue ${model.catalogObservable}/${model.catalogCount} with configured public/LAN targets · ${model.catalogUnconfigured} without a target · ${model.unsampledPublic + model.unsampledInternal} eligible slots outside the current rotating wave · ${unobserved} slots without fresh/retained evidence · ${model.disabledLanSlots} LAN slots disabled`;
+    const outsideWave = model.unsampledPublic + model.unsampledInternal;
+    catalog.textContent = `Catalogue ${model.catalogObservable}/${model.catalogCount} with configured public/LAN targets · ${model.catalogUnconfigured} without a target · ${outsideWave} eligible slots outside the current rotating wave · ${unobserved} slots without fresh/retained evidence (counts may overlap) · ${model.disabledLanSlots} LAN slots disabled (excluded from denominator)`;
   }
   bar.innerHTML = progressBar(model);
   warmup.textContent = warmupText(data, model);
