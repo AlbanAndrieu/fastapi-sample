@@ -1,3 +1,15 @@
+# [1.29.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.28.1...1.29.0) (2026-11-06)
+
+
+### Bug Fixes
+
+* **ui:** clarify cloud probe rotation, evidence gaps and runtime state ([#399](https://github.com/AlbanAndrieu/fastapi-sample/issues/399)) ([8959d49](https://github.com/AlbanAndrieu/fastapi-sample/commit/8959d4934a516b45cbecbea5e404210024feb2f9))
+
+
+### Features
+
+* **hooks:** hooks Git avec prek en parallèle, groupes et sortie réduite ([#400](https://github.com/AlbanAndrieu/fastapi-sample/issues/400)) ([5811728](https://github.com/AlbanAndrieu/fastapi-sample/commit/58117289e2b06e9a362233e87daf34624522ac98))
+
 ## [1.28.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.28.0...1.28.1) (2026-11-05)
 
 
