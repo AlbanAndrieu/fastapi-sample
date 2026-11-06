@@ -222,9 +222,9 @@ pour chaque service et refus WAN correct.
   `justfile`, tox et la CI. Les contrôles en lecture seule partagent
   `priority: 100` (parallèles après les correcteurs séquentiels). Ajout de
   `groups` (`security`, `workflow`, `slow`) et `hide_status`.
-  **Preuve L1 :** tous les hooks passent via prek sur les fichiers modifiés,
-  tests de contrat verts. **NOT_RUN :** L2/L3 sur le Mac (pas de `flock`,
-  voir *Verrous et durées locales*) et CI preflight Linux à cache prek froid.
+  **Preuve L3 (06/11) :** `agent-publish.sh` PASS sur le Mac avec
+  `brew install util-linux` (`flock` ajouté au PATH, keg-only).
+  **NOT_RUN :** CI preflight Linux à cache prek froid.
   **Reste :** (1) `.envrc` installe encore pre-commit (fichier du
   propriétaire) ; (2) doublon `ruff`/`ruff-check` (exclusion
   `nabla/__init__.py` à arbitrer) ; (3) doublon commitizen/gitlint sur
