@@ -56,8 +56,8 @@ command() {
     fi
     builtin command "$@"
 }
-pre-commit() {
-    printf 'pre-commit %s\\n' "$*" >> "$QG_MOCK_LOG"
+prek() {
+    printf 'prek %s\\n' "$*" >> "$QG_MOCK_LOG"
     return 0
 }
 uv() {
@@ -95,7 +95,7 @@ def test_quality_gate_uses_uv_tool_run_when_uvx_missing(tmp_path: Path) -> None:
     _make_repo(repo)
     completed, commands = _run(repo, tmp_path)
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "pre-commit run --hook-stage pre-commit" in commands
+    assert "prek run --hook-stage pre-commit" in commands
     assert "uv tool run --from editorconfig-checker==3.11.1 ec -config" in commands
     assert "✅ Quality gate passed" in completed.stdout
 

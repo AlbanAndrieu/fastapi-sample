@@ -140,8 +140,8 @@ def test_actionlint_and_zizmor_run_in_pre_commit_and_ci_preflight() -> None:
 
     workflow = yaml.safe_load((WORKFLOWS / "python.yml").read_text(encoding="utf-8"))
     runs = [step.get("run", "") for step in workflow["jobs"]["preflight"]["steps"]]
-    assert any(".venv/bin/pre-commit run actionlint --all-files" in run for run in runs)
-    assert any(".venv/bin/pre-commit run zizmor --all-files" in run for run in runs)
+    assert any(".venv/bin/prek run actionlint --all-files" in run for run in runs)
+    assert any(".venv/bin/prek run zizmor --all-files" in run for run in runs)
 
     zizmor = yaml.safe_load((ROOT / ".github" / "zizmor.yml").read_text(encoding="utf-8"))
     assert "self-repository" not in zizmor["rules"]

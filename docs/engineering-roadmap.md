@@ -257,6 +257,23 @@ pour chaque service et refus WAN correct.
   **Reste :** validation locale L1/L2/L3 au HEAD exact, diagnostic des
   16 warnings sur données réelles, activation/validation du Redis partagé
   public (opt-in, jamais LAN), puis recette du déploiement (SHA et mesures).
+- [ ] **Hooks Git avec prek (05/11, CODED) :** branche
+  `feat/prek-parallel-hooks`. prek 0.5.10 remplace pre-commit (même
+  `.pre-commit-config.yaml`) dans `mise run hooks`, les gates, le
+  `justfile`, tox et la CI. Les contrôles en lecture seule partagent
+  `priority: 100` (parallèles après les correcteurs séquentiels). Ajout de
+  `groups` (`security`, `workflow`, `slow`) et `hide_status`.
+  **Preuve L3 (06/11) :** `agent-publish.sh` PASS sur le Mac avec
+  `brew install util-linux` (`flock` ajouté au PATH, keg-only).
+  **NOT_RUN :** CI preflight Linux à cache prek froid.
+  **Reste :** (1) `.envrc` installe encore pre-commit (fichier du
+  propriétaire) ; (2) doublon `ruff`/`ruff-check` (exclusion
+  `nabla/__init__.py` à arbitrer) ; (3) doublon commitizen/gitlint sur
+  `commit-msg` ; (4) `commitizen-branch` est en `pre-push` dans la config
+  principale, que `mise run hooks` n'installe pas pour ce stage : il ne
+  s'exécute jamais ; (5) `uv-sync` en `post-checkout`/`post-merge`
+  ; (6) réévaluer hk quand `hk migrate pre-commit` convertit la majorité
+  des hooks (05/11 : 27 convertis, 44 restent sur prek).
 - [ ] **Fédération TrueNAS → Cloud :** concevoir un transport d'agrégats
   signés, horodatés et autorisés. Aucun accès LAN direct depuis Cloud,
   aucune publication d'IP privée ni état vert sans preuve d'origine.

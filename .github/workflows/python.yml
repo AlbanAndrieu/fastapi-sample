@@ -83,19 +83,19 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.22"
 
-      - name: Restore pre-commit environments
+      - name: Restore prek hook environments
         id: precommit-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          path: ~/.cache/prek
+          key: prek-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+            prek-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
       - name: Create minimal quality environment
         run: |
           uv venv --python "${PYTHON_VERSION}"
-          uv pip install --python .venv/bin/python pre-commit==4.6.2
+          uv pip install --python .venv/bin/python prek==0.5.10
 
       - name: Run agent CI preflight before project dependency sync
         timeout-minutes: 20
@@ -119,8 +119,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          .venv/bin/pre-commit run actionlint --all-files --show-diff-on-failure
-          .venv/bin/pre-commit run zizmor --all-files --show-diff-on-failure
+          .venv/bin/prek run actionlint --all-files --show-diff-on-failure
+          .venv/bin/prek run zizmor --all-files --show-diff-on-failure
 
       - name: Run isolated quality-contract tests
         if: steps.ci_scope.outputs.dependency_mode == 'quality'
@@ -143,12 +143,12 @@ jobs:
           pytest_args=(-vv --noconftest --disable-warnings --maxfail=1 -o faulthandler_timeout=60)
           bash scripts/ci/run-pytest-bounded.sh isolated env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
 
-      - name: Save pre-commit environments
+      - name: Save prek hook environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          path: ~/.cache/prek
+          key: prek-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Record preflight performance baseline
         if: always()
