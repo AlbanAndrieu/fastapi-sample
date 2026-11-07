@@ -203,6 +203,11 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   « Validate minimal FastAPI Cloud runtime » verte, `/healthz` Cloud sans
   `openstack_me` ni `litellm` en échec, `litellm` `reachable=true` sur
   TrueNAS.
+  **07/11 :** `_EXPORTER_JOBS` reflète les jobs Prometheus `dependency_track`
+  et `netbox` déclarés dans `nabla-compose` (PR #330) ; ils apparaissent
+  dans `platform_metrics.exporter_jobs` dès que les Apps TrueNAS démarrent.
+  Preuve suivante : `up{job="dependency_track"}` et `up{job="netbox"}` = 1
+  côté LAN et les deux jobs présents dans `/api/health-board`.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable

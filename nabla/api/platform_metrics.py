@@ -62,6 +62,8 @@ _EXPORTER_JOBS = frozenset(
         "docling",
         "akvorado_inlet",
         "akvorado_outlet",
+        "dependency_track",
+        "netbox",
     },
 )
 _EXPORTER_RECORD = "nabla:telemetry:service_exporter_up"
