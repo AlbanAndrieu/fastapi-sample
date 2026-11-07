@@ -86,8 +86,8 @@ if [[ "${{1:-}}" == "run" && "${{2:-}}" == "--no-sync" ]]; then
             fi
             exit 0
             ;;
-        pre-commit)
-            printf '%s\\n' 'pre-commit 4.6.2'
+        prek)
+            printf '%s\\n' 'prek 0.5.10'
             exit 0
             ;;
         pylint)

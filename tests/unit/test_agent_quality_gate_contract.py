@@ -46,6 +46,44 @@ def test_dependency_updates_are_explicit_maintenance_not_validation() -> None:
         assert "stages" not in hook or "pre-commit" in hook["stages"]
 
 
+def test_prek_runs_read_only_checks_in_parallel_after_sequential_fixers() -> None:
+    config = yaml.safe_load((ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hooks = [hook for repo in config["repos"] for hook in repo["hooks"]]
+    # Fixers keep prek's implicit file-order priority, which must stay below the shared check priority.
+    assert len(hooks) < 100
+    parallel = {hook["id"] for hook in hooks if "priority" in hook}
+    assert {hook["priority"] for hook in hooks if "priority" in hook} == {100}
+    fixers = {
+        "trailing-whitespace",
+        "mixed-line-ending",
+        "end-of-file-fixer",
+        "add-trailing-comma",
+        "pyupgrade",
+        "ruff-format",
+        "ruff",
+        "ruff-check",
+        "uv-lock",
+        "uv-export",
+        "shfmt",
+        "sqlfluff-fix",
+        "biome-check",
+        "markdown-toc",
+        "prettier",
+    }
+    assert parallel.isdisjoint(fixers)
+    assert {"actionlint", "zizmor", "bandit", "betterleaks", "yamllint", "shell-lint", "pytest-collect"} <= parallel
+    assert config["hide_status"] == ["passed", "skipped"]
+
+    groups = {hook["id"]: set(hook.get("groups", [])) for hook in hooks}
+    assert {hook_id for hook_id, names in groups.items() if "workflow" in names} == {
+        "actionlint",
+        "zizmor",
+        "check-github-workflows",
+    }
+    assert {"detect-private-key", "bandit", "encryption-check", "betterleaks", "zizmor"} <= {hook_id for hook_id, names in groups.items() if "security" in names}
+    assert {"pytest-collect", "uv-sync", "uv-export"} <= {hook_id for hook_id, names in groups.items() if "slow" in names}
+
+
 def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     gate = ROOT / "scripts" / "agent-quality-gate.sh"
     mode = stat.S_IMODE(gate.stat().st_mode)
@@ -78,9 +116,9 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert 'CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"' in text
     assert 'bash "${CI_SCOPE_SCRIPT}" --mode-only' in text
     assert "QG_SCOPE_INVALID" in text
-    assert "uv run pre-commit run shfmt" in text
-    assert "uv run pre-commit run shell-lint" in text
-    assert "uv run pre-commit run bashate" in text
+    assert "uv run prek run shfmt" in text
+    assert "uv run prek run shell-lint" in text
+    assert "uv run prek run bashate" in text
     assert 'uv run pytest -q --disable-warnings --maxfail="${PYTEST_MAXFAIL}" --junit-xml=junit.xml' in text
     assert 'PYTEST_MAXFAIL="${QUALITY_PYTEST_MAXFAIL:-1}"' in text
     assert "quality-gate contract pytest (isolated fail-fast)" in text
@@ -132,7 +170,7 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "Fast deterministic quality gate" in workflow
     assert "Create minimal quality environment" in workflow
     assert "uv venv --python" in workflow
-    assert "pre-commit==4.6.2" in workflow
+    assert "prek==0.5.10" in workflow
     assert "enable-cache: false" in workflow
     assert 'UV_NO_SYNC: "1"' in workflow
     assert 'SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"' in workflow
@@ -182,7 +220,7 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
     assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
     assert "steps.precommit-cache.outputs.cache-hit != 'true'" in workflow
-    assert "path: ~/.cache/pre-commit" in workflow
+    assert "path: ~/.cache/prek" in workflow
     assert "Ruff critical checks" not in workflow
     assert "Bandit security report" not in workflow
 

@@ -32,7 +32,7 @@ def _initialize_repo(repo: Path) -> None:
 
 
 def _install_pre_commit_stub(repo: Path, marker: Path) -> None:
-    executable = repo / ".venv" / "bin" / "pre-commit"
+    executable = repo / ".venv" / "bin" / "prek"
     executable.parent.mkdir(parents=True)
     executable.write_text(
         '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s\\n" "$*" >> "${QUALITY_GATE_MARKER}"\n',

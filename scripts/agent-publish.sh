@@ -32,15 +32,15 @@ tool_version_or_fail() {
 toolchain_fingerprint() {
     local uv_version
     local python_version
-    local precommit_version
+    local prek_version
     local lock_hash
 
     uv_version="$(tool_version_or_fail uv uv --version)" || return 1
     python_version="$(
         tool_version_or_fail python uv run --no-sync python --version
     )" || return 1
-    precommit_version="$(
-        tool_version_or_fail pre-commit uv run --no-sync pre-commit --version
+    prek_version="$(
+        tool_version_or_fail prek uv run --no-sync prek --version
     )" || return 1
 
     if [[ -f uv.lock ]]; then
@@ -52,7 +52,7 @@ toolchain_fingerprint() {
     {
         printf 'uv=%s\n' "${uv_version}"
         printf 'python=%s\n' "${python_version}"
-        printf 'pre-commit=%s\n' "${precommit_version}"
+        printf 'prek=%s\n' "${prek_version}"
         printf 'uv-lock=%s\n' "${lock_hash}"
     } | git hash-object --stdin
 }

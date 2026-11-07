@@ -171,10 +171,17 @@ p0:
     bash scripts/agent-offline-check.sh
     UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_agent_offline_l1.py tests/unit/test_draft_workflow_budget_contract.py tests/unit/test_talos_manifest_contract.py
 
-# Mandatory full workflow audit through the existing pinned pre-commit hooks.
+# Mandatory full workflow audit (actionlint, zizmor, check-github-workflows) via the prek group.
 workflow-audit:
-    uv run --no-sync pre-commit run actionlint --all-files
-    uv run --no-sync pre-commit run zizmor --all-files
+    uv run --no-sync prek run --group workflow --all-files
+
+# Run one prek hook group on all files, e.g. `just hooks-group security`.
+hooks-group group:
+    uv run --no-sync prek run --group "{{group}}" --all-files
+
+# Quick changed-file hook pass that skips the `slow` group (pytest collect, uv sync/lock/export).
+hooks-fast:
+    uv run --no-sync prek run --no-group slow
 
 # Offline Kubernetes rendering (no deploy, push, or GitHub CI).
 k8s-render:

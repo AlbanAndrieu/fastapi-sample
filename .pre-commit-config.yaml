@@ -1,5 +1,7 @@
 fail_fast: true
-minimum_pre_commit_version: 4.2.0
+# prek runs read-only checks (shared priority 100) in parallel after the file-order fixers.
+minimum_prek_version: "0.5.4"
+hide_status: [passed, skipped]
 exclude: |
   (?x)^(
       .*\{\{.*\}\}.*|     # Exclude any files with cookiecutter variables
@@ -55,6 +57,7 @@ repos:
     hooks:
       # - id: check-hooks-apply
       - id: check-useless-excludes
+        priority: 100
 
   - repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
     rev: v0.10.0
@@ -80,6 +83,7 @@ repos:
         name: "📁 filesystem/⚙️ exec · Verify end of file"
       - id: check-executables-have-shebangs
         name: "📁 filesystem/⚙️ exec · Verify shebang preset"
+        priority: 100
         # exclude: >
         #   (?x)^(
         #       .mvn/|
@@ -88,24 +92,34 @@ repos:
         #   )$
       - id: check-shebang-scripts-are-executable
         name: "📁 filesystem/⚙️ exec · Verify script permissions"
+        priority: 100
       - id: check-symlinks
         name: "📁 filesystem/🔗 symlink · Check symlink validity"
+        priority: 100
       - id: destroyed-symlinks
         name: "📁 filesystem/🔗 symlink · Detect broken symlinks"
+        priority: 100
       - id: debug-statements
         name: "📁 filesystem/📝 debug · Check debug statements"
+        priority: 100
       - id: check-ast
         name: "📁 filesystem/📝 ast · Check ast"
+        priority: 100
       - id: check-builtin-literals
         name: "📁 filesystem/📝 literals · Check builtin literals"
+        priority: 100
       - id: check-case-conflict
         name: "📁 filesystem/📝 names · Check case sensitivity"
+        priority: 100
       - id: check-illegal-windows-names
         name: "📁 filesystem/📝 names · Validate Windows filenames"
+        priority: 100
       - id: check-docstring-first
         name: "📁 filesystem/📝 docstring · Validate docstring first"
+        priority: 100
       - id: name-tests-test
         name: "📁 filesystem/📝 names · Check tests names"
+        priority: 100
         exclude: >
           (?x)^(
               tests/.*|
@@ -113,6 +127,7 @@ repos:
         # --------------------------- 🔍 Code Quality Tools -------------------------- #
       - id: check-json
         name: "📁 filesystem/📝 json · Check json"
+        priority: 100
         exclude: >
           (?x)^(
             ^.vscode/.*|
@@ -120,10 +135,13 @@ repos:
           )$
       - id: check-toml
         name: "📁 filesystem/📜 toml - Check toml"
+        priority: 100
       - id: check-xml
         name: "📁 filesystem/📜 xml - Check xml"
+        priority: 100
       - id: check-yaml
         name: "📁 filesystem/📜 yaml - Check yaml"
+        priority: 100
         args: [--allow-multiple-documents]
         exclude: >
           (?x)^(
@@ -143,13 +161,16 @@ repos:
         # ------------------------------- 🌳 Git Tools ------------------------------- #
       - id: check-merge-conflict
         name: "🌳 git · Detect conflict markers"
+        priority: 100
       - id: forbid-new-submodules
         name: "🌳 git · Prevent submodule creation"
+        priority: 100
         # - id: no-commit-to-branch
         #   name: "🌳 git · Protect main branches"
         #   args: [--branch, main, --branch, master, --branch, release/*]
       - id: check-added-large-files
         name: "🌳 git · Block large file commits"
+        priority: 100
         args: [--maxkb=123]
         exclude: >
           (?x)^(
@@ -164,6 +185,8 @@ repos:
         # ----------------------------- 🔒 Security Tools ---------------------------- #
       - id: detect-private-key
         name: "🔒 security · Detect private keys"
+        priority: 100
+        groups: [security]
         exclude: >
           (?x)^(
               README.md|
@@ -175,6 +198,7 @@ repos:
     hooks:
       - id: validate_manifest
         name: "🤖 manifest · Validate manifest scripts"
+        priority: 100
 
   - repo: https://github.com/doublify/pre-commit-hindent.git
     rev: b3680b6ebf9f7cf29b19307f246adef66756feef
@@ -235,6 +259,7 @@ repos:
     hooks:
       - id: validate-pyproject
         name: "🐍 python · Validate pyproject.toml"
+        priority: 100
         additional_dependencies: ["validate-pyproject-schema-store[all]"]
 
     # ----------------------------- ⚡️ uv Build Tools ---------------------------- #
@@ -245,8 +270,10 @@ repos:
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
+        groups: [slow]
       - id: uv-lock
         name: "⚡️ uv · Update dependency lockfile"
+        groups: [slow]
       - id: uv-lock
         name: "⚡️ uv · Upgrade via uv sync --upgrade"
         alias: deps
@@ -254,6 +281,7 @@ repos:
         stages: [manual]
       - id: uv-export
         name: "⚡️ uv · Export dependencies to requirements.txt"
+        groups: [slow]
         args:
           - "--no-dev"
           - "--no-emit-package"
@@ -290,6 +318,7 @@ repos:
     hooks:
       - id: shell-lint
         name: "🐚 shell · Lint shell scripts"
+        priority: 100
         entry: shellcheck
         language: system
         types: [shell]
@@ -312,6 +341,7 @@ repos:
     hooks:
       - id: bashate
         name: "🐚 shell · Check shell script code style"
+        priority: 100
         args: [-i, "E003,E006"]
         exclude: >
           (?x)^(
@@ -326,6 +356,7 @@ repos:
     hooks:
       - id: checkmake
         name: "🐮 Makefile · Lint Makefile"
+        priority: 100
         args: ["--config=checkmake.ini"]
 
     ### SQL ###
@@ -336,6 +367,7 @@ repos:
         name: "📊 SQL · Attempts to fix rule violations."
       - id: sqlfluff-lint
         name: "📊 SQL · Lint SQL code files"
+        priority: 100
 
     ### Markdown ###
     # mdformat --check README.md CHANGELOG.md
@@ -380,10 +412,12 @@ repos:
     hooks:
       - id: htmllint
         name: "📝 html · Lint html"
+        priority: 100
         args: [--config, .eslintrc.json]
         files: ^src/
       - id: htmlhint
         name: "📝 html · Hint html"
+        priority: 100
         args: [--config, .htmlhintrc]
         exclude: >
           (?x)^(
@@ -426,19 +460,26 @@ repos:
     hooks:
       - id: check-github-workflows
         name: "🧩 github-actions · Validate gh workflow files"
+        priority: 100
+        groups: [workflow]
         args: ["--verbose"]
       - id: check-taskfile
         name: "✅ taskfile · Validate Task configuration"
+        priority: 100
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.12
     hooks:
       - id: actionlint
         name: "🧩 github-actions · Lint workflows (actionlint)"
+        priority: 100
+        groups: [workflow]
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: v1.31.1
     hooks:
       - id: zizmor
         name: "🔒 github-actions · Audit workflow security (zizmor)"
+        priority: 100
+        groups: [security, workflow]
 
     # ----------------------------- 🔒 Deployment Tools ---------------------------- #
   - repo: https://github.com/hadolint/hadolint
@@ -446,12 +487,14 @@ repos:
     hooks:
       - id: hadolint-docker
         name: "🐳 hadolint · Validate Dockerfile"
+        priority: 100
 
   - repo: https://github.com/gruntwork-io/pre-commit
     rev: v0.1.30
     hooks:
       - id: helmlint
         name: "☸️ helmlint · Validate Helm Charts"
+        priority: 100
     # -   repo: https://github.com/norwoodj/helm-docs
     #     rev: '19.0614'
     #     hooks:
@@ -468,6 +511,8 @@ repos:
     hooks:
       - id: bandit
         name: "🔒 security · Detect security issues"
+        priority: 100
+        groups: [security]
         args: [-c, .bandit.yml]
         exclude: >
           (?x)^(
@@ -486,11 +531,15 @@ repos:
     hooks:
       - id: encryption-check
         name: "🔒 security · Detect encryption"
+        priority: 100
+        groups: [security]
   - repo: https://github.com/betterleaks/betterleaks
     rev: v1.9.0
     hooks:
       - id: betterleaks
         name: "🔒 security · Detect hardcoded secrets"
+        priority: 100
+        groups: [security]
         args: [--config, .gitleaks.toml]
 
     ### Ansible ###
@@ -515,6 +564,7 @@ repos:
     hooks:
       - id: yamllint
         name: "📜 yamllint - Lint Yaml"
+        priority: 100
         args: [--format, parsable, --strict]
         exclude: >
           (?x)^(
@@ -596,6 +646,7 @@ repos:
     hooks:
       - id: code-size-maintainability
         name: "🐍 python · Enforce code-size maintainability"
+        priority: 100
         entry: python scripts/check_code_size.py --baseline-ref HEAD
         language: system
         types: [python]
@@ -611,6 +662,8 @@ repos:
         #       pass_filenames: false
       - id: pytest-collect
         name: 🧪 test · Validate test formatting
+        priority: 100
+        groups: [slow]
         entry: ./.venv/bin/pytest tests
         language: system
         types: [python]

@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-sample"
-version = "1.28.1"
+version = "1.29.0"
 description = "Fastapi sample"
 authors = [{ name = "Alban Andrieu", email = "alban.andrieu@free.fr" }]
 requires-python = "==3.13.*"
@@ -311,7 +311,7 @@ extra = [
     "mdurl>=0.1.2",
     "numpy>=2.1",
     "packaging>=24.2",
-    "pre-commit>=4.5.0",
+    "prek>=0.5.4",
     "pip-upgrader>=1.4.15",
     "python-keystoneclient>=0.0.18",
     "readme-renderer[md]>=43.0",
@@ -558,11 +558,11 @@ packages = ["nabla"]
 source = "versioningit"
 
 [tool.versioningit]
-default-version = "1.28.1"
+default-version = "1.29.0"
 
 [tool.commitizen]
 # name = "cz_customize"
-version = "1.28.1"
+version = "1.29.0"
 version_files = [
     "nabla/__version__.py",
     "nabla/__init__.py",
