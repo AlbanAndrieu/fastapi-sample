@@ -112,6 +112,9 @@ services:
       # TrueNAS staging only: use virtual key from sample/.env.secrets.
       # Never copy this private LAN base URL into FastAPI Cloud production.
       LITELLM_URL: http://172.17.0.24:4000
+      # LiteLLM is not published on the Internet: only the LAN observer probes
+      # its unauthenticated liveness endpoint.
+      LITELLM_HEALTHZ_URL: http://172.17.0.24:4000
       DEFAULT_CHAT_MODEL: fastapi-qwen
       # Generic synthetic evidence is read from the existing LAN Prometheus/Gatus
       # plane. These are non-secret settings; env_file values cannot silently

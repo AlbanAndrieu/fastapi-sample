@@ -335,6 +335,8 @@ async def test_exporter_job_inventory_is_bounded_and_does_not_change_health() ->
             ("kafka_exporter", "1"),
             ("opensearch", "0"),
             ("cloudflare_exporter", "1"),
+            ("dependency_track", "0"),
+            ("netbox", "1"),
             ("unexpected_job", "1"),
         ):
             samples.append(
@@ -363,6 +365,8 @@ async def test_exporter_job_inventory_is_bounded_and_does_not_change_health() ->
         "kafka_exporter": 1.0,
         "opensearch": 0.0,
         "cloudflare_exporter": 1.0,
+        "dependency_track": 0.0,
+        "netbox": 1.0,
     }
     assert "unexpected_job" not in payload["exporter_jobs"]
     assert payload["summary"]["signals_total"] == 6

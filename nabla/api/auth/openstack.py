@@ -19,12 +19,16 @@ account (ovh-eu / ovh-ca / ovh-us).
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import ovh
-from ovh.exceptions import APIError, BadParametersError
+if TYPE_CHECKING:
+    import ovh
+
+# The ``ovh`` SDK is optional (``db`` dependency group): import it lazily so the
+# minimal FastAPI runtime can import the application without it.
 
 # See https://help.ovhcloud.com/csm/en-api-getting-started-ovhcloud-api?id=kb_article_view&sysparm_article=KB0042777
 
@@ -46,8 +50,19 @@ def _ovh_api_missing_env_names() -> list[str]:
     return [name for name, value in keys if value is None]
 
 
+def _ovh_probe_enabled() -> bool:
+    """OVH is temporarily disabled (owner decision 2026-11-05) unless opted in."""
+    return (_env_str("OVH_API_PROBE_ENABLED") or "false").lower() in {"1", "true", "yes", "on"}
+
+
+def _ovh_sdk_installed() -> bool:
+    return importlib.util.find_spec("ovh") is not None
+
+
 def _build_client_from_env() -> ovh.Client:
     """Return an OVH API client or raise ``SystemExit`` if credentials are incomplete (CLI)."""
+    import ovh  # noqa: PLC0415 -- optional SDK, imported lazily
+
     endpoint = _env_str("OVH_ENDPOINT") or "ovh-eu"
     application_key = _env_str("OVH_APPLICATION_KEY")
     application_secret = _env_str("OVH_APPLICATION_SECRET")
@@ -76,23 +91,36 @@ def probe_ovh_me_reachable() -> dict[str, Any]:
 
     Skips when API credentials are not set (object-storage ``OVH_*`` username/password are unrelated).
     """
+    if not _ovh_probe_enabled():
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "OVH API probe disabled; set OVH_API_PROBE_ENABLED=true to enable it",
+        }
     if _ovh_api_missing_env_names():
         return {
             "reachable": None,
             "skipped": True,
             "reason": "OVH API credentials not configured (OVH_APPLICATION_KEY, OVH_APPLICATION_SECRET, OVH_CONSUMER_KEY)",
         }
+    if not _ovh_sdk_installed():
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "OVH SDK is not installed; add the `db` dependency group.",
+        }
     try:
         client = _build_client_from_env()
         client.get("/me")
-    except (APIError, BadParametersError) as exc:
-        return {"reachable": False, "error": str(exc)}
-    except Exception as exc:
+    except Exception as exc:  # APIError, BadParametersError and transport errors
         return {"reachable": False, "error": str(exc)}
     return {"reachable": True}
 
 
 def main() -> None:
+    import ovh  # noqa: PLC0415 -- optional SDK, imported lazily
+    from ovh.exceptions import APIError, BadParametersError  # noqa: PLC0415
+
     client = _build_client_from_env()
 
     try:
@@ -100,10 +128,10 @@ def main() -> None:
     except BadParametersError as exc:
         if "signature" in str(exc).lower():
             msg = """OVH rejected the request signature. Check, in order:
-  1. OVH_APPLICATION_SECRET matches the secret shown when the app was created
-  2. OVH_APPLICATION_KEY and OVH_CONSUMER_KEY belong to the *same* application
-  3. OVH_ENDPOINT matches your account (try ovh-eu, ovh-ca, or ovh-us)
-  4. No stray quotes/spaces in .env; copy-paste can add hidden characters
+    1. OVH_APPLICATION_SECRET matches the secret shown when the app was created
+    2. OVH_APPLICATION_KEY and OVH_CONSUMER_KEY belong to the *same* application
+    3. OVH_ENDPOINT matches your account (try ovh-eu, ovh-ca, or ovh-us)
+    4. No stray quotes/spaces in .env; copy-paste can add hidden characters
 """
             print(msg, file=sys.stderr)
         raise SystemExit(exc) from exc
