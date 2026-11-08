@@ -7,8 +7,7 @@ The browser only receives fixed-length timestamp/value pairs without labels.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-import logging
+from dataclasses import dataclass
 import math
 import time
 from typing import Any
@@ -17,8 +16,6 @@ import httpx
 
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.settings.observability import HomelabPrometheusSettings
-
-logger = logging.getLogger(__name__)
 
 # Each window is bounded to 337 samples per series.
 WINDOWS: dict[str, tuple[int, int]] = {
@@ -132,6 +129,7 @@ def _sanitize_matrix(
     if not isinstance(observations, list) or len(observations) > _MAX_SAMPLES:
         raise ValueError("Oversized Prometheus matrix")
     clean: dict[int, float] = {}
+    ambiguous: set[int] = set()
     for pair in observations:
         if not isinstance(pair, list) or len(pair) != 2:
             continue
@@ -144,9 +142,12 @@ def _sanitize_matrix(
             continue
         if metric == "gatus_availability_percent" and value > 100:
             continue
+        if timestamp_int in ambiguous:
+            continue
         if timestamp_int in clean:
-            # Duplicate sample timestamps are ambiguous.
+            # Duplicate timestamps remain ambiguous even after a third row.
             del clean[timestamp_int]
+            ambiguous.add(timestamp_int)
             continue
         clean[timestamp_int] = round(value, 6)
     return [[stamp, clean[stamp]] for stamp in sorted(clean)]

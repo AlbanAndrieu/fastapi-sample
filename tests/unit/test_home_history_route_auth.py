@@ -20,6 +20,7 @@ def test_history_denies_anonymous_before_any_prometheus_request(monkeypatch) -> 
     monkeypatch.setattr(
         "nabla.routes.owner_ui_authenticated", lambda *_args: False
     )
+    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
     app = FastAPI()
     _register_operations_history(app)
     with TestClient(app) as client:
@@ -41,6 +42,7 @@ def test_history_owner_can_use_bounded_windows(monkeypatch, window: str) -> None
     monkeypatch.setattr(
         "nabla.api.home_metrics_history.fetch_home_metrics_history", result
     )
+    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
     app = FastAPI()
     _register_operations_history(app)
     with TestClient(app) as client:
@@ -55,6 +57,7 @@ def test_history_never_accepts_query_or_arbitrary_window(monkeypatch) -> None:
     monkeypatch.setattr(
         "nabla.routes.owner_ui_authenticated", lambda *_args: True
     )
+    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
     app = FastAPI()
     _register_operations_history(app)
     with TestClient(app) as client:
