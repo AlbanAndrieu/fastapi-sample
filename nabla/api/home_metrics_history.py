@@ -7,10 +7,10 @@ The browser only receives fixed-length timestamp/value pairs without labels.
 from __future__ import annotations
 
 import asyncio
-from copy import deepcopy
-from dataclasses import dataclass
 import math
 import time
+from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -138,6 +138,8 @@ def _sanitize_matrix(
         if timestamp is None or value is None:
             continue
         timestamp_int = int(timestamp)
+        if timestamp != timestamp_int:
+            continue
         if not window.start <= timestamp_int <= window.end:
             continue
         if (timestamp_int - window.start) % window.step != 0:
