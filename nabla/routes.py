@@ -19,6 +19,8 @@ from nabla.api.health_routes import register_health_routes
 from nabla.api.owner_ui_session import register_owner_ui_session_routes
 from nabla.api.runtime_environment import runtime_mode
 from nabla.api.topology_telemetry import fetch_topology_telemetry
+from nabla.api.owner_ui_session import owner_ui_authenticated
+from nabla.config_settings import get_settings
 from nabla.api.topology_ui import render_topology_page
 from nabla.api.ui import render_api_root_page
 from nabla.rate_limit import limiter
@@ -73,6 +75,36 @@ def _register_topology_dashboard(app: FastAPI) -> None:
             headers={
                 "Cache-Control": "no-store, max-age=0",
                 "Pragma": "no-cache",
+            },
+        )
+
+
+def _register_operations_history(app: FastAPI) -> None:
+    """Owner-authenticated, fixed-window Prometheus trend projection."""
+
+    @app.get("/api/home/metrics/history", include_in_schema=False)
+    async def operations_history(
+        request: Request, window: str = "1h",
+    ) -> JSONResponse:
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        if window not in {"1h", "24h", "7d"}:
+            return JSONResponse(
+                {"detail": "Unsupported window"},
+                status_code=422,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        from nabla.api.home_metrics_history import fetch_home_metrics_history
+
+        return JSONResponse(
+            await fetch_home_metrics_history(window),
+            headers={
+                "Cache-Control": "private, no-store",
+                "X-Robots-Tag": "noindex, nofollow",
             },
         )
 
@@ -156,6 +188,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
         )
 
     _register_topology_dashboard(app)
+    _register_operations_history(app)
 
     @app.get("/api/runtime-version", include_in_schema=False)
     async def api_runtime_version(request: Request) -> JSONResponse:
