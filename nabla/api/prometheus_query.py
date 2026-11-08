@@ -1,4 +1,4 @@
-"""Shared helpers for fixed, read-only Prometheus instant queries."""
+"""Shared helpers for fixed, read-only Prometheus instant and range queries."""
 
 from __future__ import annotations
 

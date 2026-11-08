@@ -22,9 +22,9 @@ from nabla.api.owner_ui_session import (
 )
 from nabla.api.runtime_environment import runtime_mode
 from nabla.api.topology_telemetry import fetch_topology_telemetry
-from nabla.config_settings import get_settings
 from nabla.api.topology_ui import render_topology_page
 from nabla.api.ui import render_api_root_page
+from nabla.config_settings import get_settings
 from nabla.rate_limit import limiter
 from nabla.utils.logger import logger
 
