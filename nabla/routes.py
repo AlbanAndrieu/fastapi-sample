@@ -86,7 +86,8 @@ def _register_operations_history(app: FastAPI) -> None:
 
     @app.get("/api/home/metrics/history", include_in_schema=False)
     async def operations_history(
-        request: Request, window: str = "1h",
+        request: Request,
+        window: str = "1h",
     ) -> JSONResponse:
         if not owner_ui_authenticated(request, get_settings()):
             return JSONResponse(
@@ -94,18 +95,46 @@ def _register_operations_history(app: FastAPI) -> None:
                 status_code=403,
                 headers={"Cache-Control": "private, no-store"},
             )
-        if window not in {"1h", "24h", "7d"} or any(
-            key != "window" for key in request.query_params
-        ):
+        if window not in {"1h", "24h", "7d"} or any(key != "window" for key in request.query_params):
             return JSONResponse(
                 {"detail": "Unsupported window"},
                 status_code=422,
                 headers={"Cache-Control": "private, no-store"},
             )
-        from nabla.api.home_metrics_history import fetch_home_metrics_history
+        # Lazy on purpose: keeps startup light and lets tests patch the module attribute.
+        from nabla.api.home_metrics_history import fetch_home_metrics_history  # noqa: PLC0415
 
         return JSONResponse(
             await fetch_home_metrics_history(window),
+            headers={
+                "Cache-Control": "private, no-store",
+                "X-Robots-Tag": "noindex, nofollow",
+            },
+        )
+
+
+def _register_appliance_pulse(app: FastAPI) -> None:
+    """Owner-authenticated live TrueNAS appliance pulse (fixed calls, 30 s cache)."""
+
+    @app.get("/api/home/appliance/pulse", include_in_schema=False)
+    async def appliance_pulse(request: Request) -> JSONResponse:
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        if request.query_params:
+            return JSONResponse(
+                {"detail": "No parameters accepted"},
+                status_code=422,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        # Lazy on purpose: keeps startup light and lets tests patch the module attribute.
+        from nabla.api.home_appliance_pulse import fetch_appliance_pulse  # noqa: PLC0415
+
+        return JSONResponse(
+            await fetch_appliance_pulse(),
             headers={
                 "Cache-Control": "private, no-store",
                 "X-Robots-Tag": "noindex, nofollow",
@@ -128,19 +157,19 @@ def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
             "index.html",
             {"database_enabled": database},
             headers={
-    "Cache-Control": "private, no-store, max-age=0",
-    "Pragma": "no-cache",
-    "X-Robots-Tag": "noindex, nofollow",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": (
-        "default-src 'none'; script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
-        "img-src 'self'; font-src 'self'; "
-        "base-uri 'none'; form-action 'none'; "
-        "frame-ancestors 'none'; object-src 'none'"
-    ),
-},
+                "Cache-Control": "private, no-store, max-age=0",
+                "Pragma": "no-cache",
+                "X-Robots-Tag": "noindex, nofollow",
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "Content-Security-Policy": (
+                    "default-src 'none'; script-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
+                    "img-src 'self'; font-src 'self'; "
+                    "base-uri 'none'; form-action 'none'; "
+                    "frame-ancestors 'none'; object-src 'none'"
+                ),
+            },
         )
 
 
@@ -193,6 +222,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
 
     _register_topology_dashboard(app)
     _register_operations_history(app)
+    _register_appliance_pulse(app)
 
     @app.get("/api/runtime-version", include_in_schema=False)
     async def api_runtime_version(request: Request) -> JSONResponse:

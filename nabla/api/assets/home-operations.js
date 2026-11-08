@@ -1,15 +1,16 @@
 import {
   alignedHistoryCorrelation,
-  pearsonCorrelation,
   appendObservation,
-  projectPrometheusHistory,
-  temporalSparklinePath,
+  pearsonCorrelation,
+  projectAppliancePulse,
   projectFleet,
   projectLatency,
   projectProbes,
+  projectPrometheusHistory,
   projectResources,
   projectSecurity,
   sparklinePath,
+  temporalSparklinePath,
 } from "./home-operations-model.js";
 
 const ROOT = document.getElementById("home-operations");
@@ -41,41 +42,63 @@ function status(message, state = "unknown") {
 
 function summaryCounts({ total, counts, source, verified, boardState }) {
   for (const [field, value] of Object.entries({
-    "home-services": total, "home-ok": counts.ok,
-    "home-warn": counts.warn, "home-fail": counts.fail,
+    "home-services": total,
+    "home-ok": counts.ok,
+    "home-warn": counts.warn,
+    "home-fail": counts.fail,
     "home-unknown": counts.unknown,
-  })) put(field, value);
-  put("home-fleet-source", source + " · " +
-    (verified ? "instantané vérifié" : "preuve " + boardState + " / non confirmée"));
+  }))
+    put(field, value);
+  put(
+    "home-fleet-source",
+    source +
+      " · " +
+      (verified
+        ? "instantané vérifié"
+        : "preuve " + boardState + " / non confirmée"),
+  );
   const meter = element("home-fleet-meter");
   if (!meter) return;
   const parts = [];
   for (const kind of ["ok", "warn", "fail", "unknown"]) {
     const item = document.createElement("span");
     item.className = "op-meter-segment op-meter-segment-" + kind;
-    item.style.width = (total > 0 ? 100 * counts[kind] / total : 0).toFixed(2) + "%";
+    item.style.width =
+      (total > 0 ? (100 * counts[kind]) / total : 0).toFixed(2) + "%";
     item.title = kind + ": " + counts[kind];
     parts.push(item);
   }
   meter.replaceChildren(...parts);
   meter.setAttribute(
     "aria-label",
-    total + " services ; " +
-    Object.entries(counts).map(([kind, value]) => kind + " " + value).join(", "),
+    total +
+      " services ; " +
+      Object.entries(counts)
+        .map(([kind, value]) => kind + " " + value)
+        .join(", "),
   );
 }
 
 function clearPublic() {
   for (const name of [
-    "home-services", "home-ok", "home-warn", "home-fail", "home-unknown",
-  ]) put(name, "—");
+    "home-services",
+    "home-ok",
+    "home-warn",
+    "home-fail",
+    "home-unknown",
+  ])
+    put(name, "—");
   put("home-fleet-source", "Catalogue indisponible · aucune preuve");
   element("home-fleet-meter")?.replaceChildren();
 }
 
 function metric(id, value, digits, suffix = "") {
-  put(id, typeof value === "number" && Number.isFinite(value)
-    ? value.toFixed(digits) + suffix : "—");
+  put(
+    id,
+    typeof value === "number" && Number.isFinite(value)
+      ? value.toFixed(digits) + suffix
+      : "—",
+  );
 }
 
 function observe(name, at, value, target, label) {
@@ -99,8 +122,10 @@ function observe(name, at, value, target, label) {
   svg.setAttribute("viewBox", "0 0 420 108");
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", label + ", " + history.length +
-    " mesures depuis l'ouverture de la page");
+  svg.setAttribute(
+    "aria-label",
+    label + ", " + history.length + " mesures depuis l'ouverture de la page",
+  );
   const grid = document.createElementNS(NS, "path");
   grid.setAttribute("d", "M0 54 L420 54");
   grid.setAttribute("class", "op-spark-grid");
@@ -109,7 +134,10 @@ function observe(name, at, value, target, label) {
   trace.setAttribute("class", "op-spark-line");
   svg.append(grid, trace);
   node.replaceChildren(svg);
-  node.setAttribute("aria-label", label + " : " + history.length + " observations");
+  node.setAttribute(
+    "aria-label",
+    label + " : " + history.length + " observations",
+  );
 }
 
 function clearPrivate({ purge = false } = {}) {
@@ -120,10 +148,16 @@ function clearPrivate({ purge = false } = {}) {
     for (const key of Object.keys(SERIES)) delete SERIES[key];
   }
   for (const id of [
-    "home-probes-history", "home-latency-history", "home-cpu-history",
-    "home-memory-history", "home-network-history", "home-p95-history",
-    "home-gatus-history", "home-correlation-chart",
-  ]) element(id)?.replaceChildren();
+    "home-probes-history",
+    "home-latency-history",
+    "home-cpu-history",
+    "home-memory-history",
+    "home-network-history",
+    "home-p95-history",
+    "home-gatus-history",
+    "home-correlation-chart",
+  ])
+    element(id)?.replaceChildren();
   metric("home-coverage", null, 1);
   metric("home-healthy-coverage", null, 1);
   metric("home-cpu", null, 3);
@@ -137,6 +171,229 @@ function clearPrivate({ purge = false } = {}) {
   put("home-history-status", "Historique non confirmé");
   put("home-p95", "—");
   put("home-gatus", "—");
+  clearPulse("TrueNAS · aucun instantané");
+}
+
+const PULSE_FIELDS = [
+  "home-pulse-load",
+  "home-pulse-cpu",
+  "home-pulse-memory",
+  "home-pulse-network",
+  "home-pulse-storage",
+  "home-pulse-alerts",
+  "home-pulse-apps",
+];
+
+function clearPulse(message) {
+  for (const id of PULSE_FIELDS) put(id, "—");
+  for (const id of [
+    "home-pulse-load-detail",
+    "home-pulse-cpu-detail",
+    "home-pulse-memory-detail",
+    "home-pulse-network-detail",
+    "home-pulse-storage-detail",
+    "home-pulse-alerts-detail",
+    "home-pulse-apps-detail",
+  ])
+    put(id, "Non mesuré");
+  for (const id of [
+    "home-pulse-cpu-history",
+    "home-pulse-memory-history",
+    "home-pulse-network-history",
+  ]) {
+    element(id)?.replaceChildren();
+  }
+  put("home-pulse-source", message);
+  put("home-pulse-impacts-summary", "Aucune interdépendance mesurée");
+  element("home-pulse-impacts")?.replaceChildren();
+  const led = element("home-pulse-led");
+  if (led) led.dataset.state = "unknown";
+}
+
+function pulseSparkline(target, points, label) {
+  const node = element(target);
+  if (!node) return;
+  if (points.length < 2) {
+    node.replaceChildren();
+    node.setAttribute("aria-label", label + " : série TrueNAS insuffisante");
+    return;
+  }
+  const startMs = Date.parse(points[0].at);
+  const endMs = Date.parse(points[points.length - 1].at);
+  const path = temporalSparklinePath(points, {
+    startMs,
+    endMs,
+    maxGapMs: 15 * 60000,
+  });
+  if (!path) {
+    node.replaceChildren();
+    return;
+  }
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 420 108");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  svg.setAttribute(
+    "aria-label",
+    label + " · " + points.length + " points TrueNAS",
+  );
+  const grid = document.createElementNS(NS, "path");
+  grid.setAttribute("d", "M0 54 L420 54");
+  grid.setAttribute("class", "op-spark-grid");
+  const trace = document.createElementNS(NS, "path");
+  trace.setAttribute("d", path);
+  trace.setAttribute("class", "op-spark-line");
+  svg.append(grid, trace);
+  node.replaceChildren(svg);
+}
+
+function privatePulse(payload) {
+  const pulse = projectAppliancePulse(payload);
+  if (!pulse) {
+    const state =
+      typeof payload?.state === "string" ? payload.state : "inaccessible";
+    clearPulse("API TrueNAS · " + state + " · aucune valeur supposée");
+    return null;
+  }
+  const led = element("home-pulse-led");
+  if (led) led.dataset.state = pulse.pressure;
+  put(
+    "home-pulse-source",
+    "API TrueNAS " +
+      (pulse.appliance.version || "") +
+      " · " +
+      pulse.observedAt +
+      (pulse.partial ? " · partiel (" + pulse.errors.join(", ") + ")" : ""),
+  );
+  metric("home-pulse-load", pulse.appliance.loadPerCore, 2);
+  put(
+    "home-pulse-load-detail",
+    pulse.appliance.load1 !== null && pulse.appliance.cores !== null
+      ? "charge 1 min " +
+          pulse.appliance.load1.toFixed(2) +
+          " sur " +
+          pulse.appliance.cores +
+          " cœurs"
+      : "system.info indisponible",
+  );
+  metric("home-pulse-cpu", pulse.cpu.busyPercent, 0, " %");
+  put(
+    "home-pulse-cpu-detail",
+    pulse.cpu.state === "observed"
+      ? "netdata · dernière heure"
+      : pulse.cpu.state === "legend_unrecognized"
+        ? "légende netdata non reconnue"
+        : "série indisponible",
+  );
+  pulseSparkline("home-pulse-cpu-history", pulse.cpu.series, "CPU occupé %");
+  metric("home-pulse-memory", pulse.memory.usedPercent, 0, " %");
+  put(
+    "home-pulse-memory-detail",
+    pulse.memory.state === "observed"
+      ? "utilisée / total netdata"
+      : pulse.memory.state === "legend_unrecognized"
+        ? "légende netdata non reconnue"
+        : "série indisponible",
+  );
+  pulseSparkline(
+    "home-pulse-memory-history",
+    pulse.memory.series,
+    "Mémoire utilisée %",
+  );
+  metric(
+    "home-pulse-network",
+    pulse.network.throughput,
+    0,
+    pulse.network.label ? " " + pulse.network.label : "",
+  );
+  const linksUp = pulse.network.interfaces
+    .filter((row) => row.linkUp)
+    .map((row) => row.name);
+  put(
+    "home-pulse-network-detail",
+    pulse.network.observed
+      ? linksUp.length
+        ? "RX+TX " + linksUp.join(", ")
+        : "aucun lien physique actif"
+      : "interface.query indisponible",
+  );
+  pulseSparkline(
+    "home-pulse-network-history",
+    pulse.network.series,
+    "Débit RX+TX",
+  );
+  metric("home-pulse-storage", pulse.storage.worstUsedPercent, 1, " %");
+  put(
+    "home-pulse-storage-detail",
+    pulse.storage.observed
+      ? pulse.storage.pools
+          .map(
+            (pool) =>
+              pool.name +
+              " " +
+              pool.status +
+              (pool.usedPercent !== null
+                ? " " + pool.usedPercent.toFixed(0) + " %"
+                : ""),
+          )
+          .join(" · ") || "aucun pool"
+      : "pool.query indisponible",
+  );
+  put("home-pulse-alerts", pulse.alerts.active);
+  put(
+    "home-pulse-alerts-detail",
+    pulse.alerts.observed
+      ? Object.entries(pulse.alerts.byLevel)
+          .map(([level, value]) => level + " " + value)
+          .join(" · ") || "aucune alerte active"
+      : "alert.list indisponible",
+  );
+  const counts = pulse.apps.counts;
+  put("home-pulse-apps", pulse.apps.total);
+  put(
+    "home-pulse-apps-detail",
+    pulse.apps.observed
+      ? (counts.RUNNING || 0) +
+          " RUNNING · " +
+          (counts.STOPPED || 0) +
+          " STOPPED · " +
+          (counts.CRASHED || 0) +
+          " CRASHED · " +
+          (counts.DEPLOYING || 0) +
+          " DEPLOYING"
+      : "app.query indisponible",
+  );
+  const target = element("home-pulse-impacts");
+  if (target) {
+    target.replaceChildren(
+      ...pulse.impacts.map((impact) => {
+        const li = document.createElement("li");
+        li.className = "op-check";
+        const heading = document.createElement("div");
+        heading.className = "op-check-heading";
+        const label = document.createElement("strong");
+        label.textContent = impact.from + " → " + impact.to;
+        const badge = document.createElement("span");
+        badge.className = "op-check-state op-check-state-" + impact.state;
+        badge.textContent = impact.state.toUpperCase();
+        heading.append(label, badge);
+        const detail = document.createElement("p");
+        detail.textContent =
+          impact.evidence +
+          (impact.linked.length ? " · " + impact.linked.join(", ") : "");
+        li.append(heading, detail);
+        return li;
+      }),
+    );
+  }
+  put(
+    "home-pulse-impacts-summary",
+    pulse.impacts.length +
+      " associations du même instantané · pression " +
+      pulse.pressure.toUpperCase() +
+      " · aucune causalité déduite",
+  );
+  return pulse;
 }
 
 function privateBoard(board) {
@@ -144,10 +401,22 @@ function privateBoard(board) {
   if (probes) {
     metric("home-coverage", probes.coverage, 1, " %");
     metric("home-healthy-coverage", probes.healthyCoverage, 1, " %");
-    put("home-coverage-detail", probes.known + "/" + probes.eligible +
-      " preuves observées · " + probes.unobserved + " absentes");
-    observe("coverage", probes.observedAt, probes.coverage,
-      "home-probes-history", "Couverture des sondes en pourcentage");
+    put(
+      "home-coverage-detail",
+      probes.known +
+        "/" +
+        probes.eligible +
+        " preuves observées · " +
+        probes.unobserved +
+        " absentes",
+    );
+    observe(
+      "coverage",
+      probes.observedAt,
+      probes.coverage,
+      "home-probes-history",
+      "Couverture des sondes en pourcentage",
+    );
   } else {
     metric("home-coverage", null, 1);
     metric("home-healthy-coverage", null, 1);
@@ -155,8 +424,13 @@ function privateBoard(board) {
   }
   const latency = projectLatency(board);
   if (latency) {
-    observe("latency", latency.observedAt, latency.valueMs,
-      "home-latency-history", "Durée des sondes HTTP en ms");
+    observe(
+      "latency",
+      latency.observedAt,
+      latency.valueMs,
+      "home-latency-history",
+      "Durée des sondes HTTP en ms",
+    );
   }
   const security = projectSecurity(board);
   const target = element("home-security-checks");
@@ -167,11 +441,18 @@ function privateBoard(board) {
     return latency;
   }
   const policy = security.policyCounts;
-  put("home-security-summary", security.policyObserved ?
-    security.policyObserved + " politiques" : "Non mesuré");
-  put("home-security-detail", security.policyObserved ?
-    policy.ok + " OK · " + policy.warn + " WARN · " + policy.fail + " FAIL" :
-    "Aucun contrôle d'exposition qualifié dans cet instantané");
+  put(
+    "home-security-summary",
+    security.policyObserved
+      ? security.policyObserved + " politiques"
+      : "Non mesuré",
+  );
+  put(
+    "home-security-detail",
+    security.policyObserved
+      ? policy.ok + " OK · " + policy.warn + " WARN · " + policy.fail + " FAIL"
+      : "Aucun contrôle d'exposition qualifié dans cet instantané",
+  );
   const entries = security.checks.map((check) => {
     const li = document.createElement("li");
     li.className = "op-check";
@@ -184,8 +465,8 @@ function privateBoard(board) {
     badge.textContent = check.state.toUpperCase();
     heading.append(label, badge);
     const detail = document.createElement("p");
-    detail.textContent = check.description +
-      (check.category ? " · " + check.category : "");
+    detail.textContent =
+      check.description + (check.category ? " · " + check.category : "");
     li.append(heading, detail);
     return li;
   });
@@ -196,7 +477,10 @@ function privateBoard(board) {
 function privateResources(snapshot) {
   const resources = projectResources(snapshot);
   if (!resources) {
-    put("home-resource-source", "Prometheus / cAdvisor · aucune donnée fraîche");
+    put(
+      "home-resource-source",
+      "Prometheus / cAdvisor · aucune donnée fraîche",
+    );
     for (const id of ["home-cpu", "home-memory", "home-network"]) put(id, "—");
     return null;
   }
@@ -205,10 +489,29 @@ function privateResources(snapshot) {
   metric("home-memory", resources.memoryMiB, 1, " MiB");
   metric("home-network", resources.networkKiBs, 1, " KiB/s");
   for (const [name, at, value, target, label] of [
-    ["cpu", resources.observedAt, resources.cpuCores, "home-cpu-history", "CPU en cœurs"],
-    ["memory", resources.observedAt, resources.memoryMiB, "home-memory-history", "Mémoire en MiB"],
-    ["network", resources.observedAt, resources.networkKiBs, "home-network-history", "Débit réseau KiB/s"],
-  ]) observe(name, at, value, target, label);
+    [
+      "cpu",
+      resources.observedAt,
+      resources.cpuCores,
+      "home-cpu-history",
+      "CPU en cœurs",
+    ],
+    [
+      "memory",
+      resources.observedAt,
+      resources.memoryMiB,
+      "home-memory-history",
+      "Mémoire en MiB",
+    ],
+    [
+      "network",
+      resources.observedAt,
+      resources.networkKiBs,
+      "home-network-history",
+      "Débit réseau KiB/s",
+    ],
+  ])
+    observe(name, at, value, target, label);
   return resources;
 }
 
@@ -217,8 +520,11 @@ function correlation() {
   if (!node) return;
   const r = pearsonCorrelation(CORRELATION_PAIRS);
   if (r === null) {
-    put("home-correlation-summary",
-      CORRELATION_PAIRS.length + "/6 mesures synchronisées · corrélation inconnue");
+    put(
+      "home-correlation-summary",
+      CORRELATION_PAIRS.length +
+        "/6 mesures synchronisées · corrélation inconnue",
+    );
     const empty = document.createElement("p");
     empty.className = "op-chart-empty";
     empty.textContent = "Six paires CPU/HTTP valides sont nécessaires.";
@@ -226,29 +532,50 @@ function correlation() {
     node.setAttribute("aria-label", "Corrélation non mesurée");
     return;
   }
-  put("home-correlation-summary", "r = " + r.toFixed(2) +
-    " · n = " + CORRELATION_PAIRS.length + " paires · association, pas causalité");
-  const width = 420, height = 108, pad = 18;
+  put(
+    "home-correlation-summary",
+    "r = " +
+      r.toFixed(2) +
+      " · n = " +
+      CORRELATION_PAIRS.length +
+      " paires · association, pas causalité",
+  );
+  const width = 420,
+    height = 108,
+    pad = 18;
   const xs = CORRELATION_PAIRS.map((point) => point.cpu);
   const ys = CORRELATION_PAIRS.map((point) => point.httpMs);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const minX = Math.min(...xs),
+    maxX = Math.max(...xs);
+  const minY = Math.min(...ys),
+    maxY = Math.max(...ys);
   const rx = Math.max(0.00001, maxX - minX);
   const ry = Math.max(0.00001, maxY - minY);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 420 108");
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "CPU en cœurs contre durée HTTP en ms, " +
-    CORRELATION_PAIRS.length + " observations, corrélation " + r.toFixed(2));
+  svg.setAttribute(
+    "aria-label",
+    "CPU en cœurs contre durée HTTP en ms, " +
+      CORRELATION_PAIRS.length +
+      " observations, corrélation " +
+      r.toFixed(2),
+  );
   const axes = document.createElementNS(NS, "path");
   axes.setAttribute("d", "M18 10 L18 90 L410 90");
   axes.setAttribute("class", "op-scatter-axis");
   svg.append(axes);
   for (const point of CORRELATION_PAIRS) {
     const dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("cx", String(pad + (point.cpu - minX) / rx * (width - 2 * pad)));
-    dot.setAttribute("cy", String(height - pad - (point.httpMs - minY) / ry * (height - 2 * pad)));
+    dot.setAttribute(
+      "cx",
+      String(pad + ((point.cpu - minX) / rx) * (width - 2 * pad)),
+    );
+    dot.setAttribute(
+      "cy",
+      String(height - pad - ((point.httpMs - minY) / ry) * (height - 2 * pad)),
+    );
     dot.setAttribute("r", "3.5");
     dot.setAttribute("class", "op-scatter-dot");
     svg.append(dot);
@@ -278,7 +605,8 @@ function renderSeriesHistory(target, points, label, history) {
   svg.setAttribute("viewBox", "0 0 420 108");
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
-  const first = points[0].at, last = points[points.length - 1].at;
+  const first = points[0].at,
+    last = points[points.length - 1].at;
   svg.setAttribute("aria-label", label + " de " + first + " à " + last);
   const grid = document.createElementNS(NS, "path");
   grid.setAttribute("d", "M0 54 L420 54");
@@ -288,58 +616,96 @@ function renderSeriesHistory(target, points, label, history) {
   trace.setAttribute("class", "op-spark-line");
   svg.append(grid, trace);
   node.replaceChildren(svg);
-  node.setAttribute("aria-label", label + " · " + points.length +
-    " mesures Prometheus · " + first.slice(0,16) + " → " + last.slice(0,16));
+  node.setAttribute(
+    "aria-label",
+    label +
+      " · " +
+      points.length +
+      " mesures Prometheus · " +
+      first.slice(0, 16) +
+      " → " +
+      last.slice(0, 16),
+  );
 }
 
 function renderPrometheusHistory(history) {
   const fields = history.fields;
   const formats = [
     ["cpu_cores", "home-cpu-history", "CPU en cœurs", 1],
-    ["memory_bytes", "home-memory-history", "Mémoire active MiB", 1/1048576],
-    ["network_bytes_per_second", "home-network-history", "Débit RX+TX KiB/s", 1/1024],
+    ["memory_bytes", "home-memory-history", "Mémoire active MiB", 1 / 1048576],
+    [
+      "network_bytes_per_second",
+      "home-network-history",
+      "Débit RX+TX KiB/s",
+      1 / 1024,
+    ],
     ["http_p95_ms", "home-p95-history", "Latence applicative p95 ms", 1],
-    ["gatus_availability_percent", "home-gatus-history", "Disponibilité Gatus %", 1],
+    [
+      "gatus_availability_percent",
+      "home-gatus-history",
+      "Disponibilité Gatus %",
+      1,
+    ],
   ];
   for (const [field, target, label, scale] of formats) {
     const points = (fields[field] || []).map((row) => ({
-      at: row.at, value: row.value * scale,
+      at: row.at,
+      value: row.value * scale,
     }));
     renderSeriesHistory(target, points, label, history);
   }
   const p95 = fields.http_p95_ms || [];
   const gatus = fields.gatus_availability_percent || [];
-  const currentValue = (points) => points.length &&
+  const currentValue = (points) =>
+    points.length &&
     history.end * 1000 - Date.parse(points.at(-1).at) <= history.step * 2000
-    ? points.at(-1).value : null;
+      ? points.at(-1).value
+      : null;
   metric("home-p95", currentValue(p95), 1, " ms");
   metric("home-gatus", currentValue(gatus), 1, " %");
   const alignment = alignedHistoryCorrelation(history);
   CORRELATION_PAIRS = alignment.pairs;
   correlation();
-  put("home-history-status", history.window +
-    " · Prometheus · " + history.availableSeries + "/5 séries" +
-    (history.partial ? " · partiel" : "") +
-    " · dernier point " + new Date(history.end * 1000).toISOString());
+  put(
+    "home-history-status",
+    history.window +
+      " · Prometheus · " +
+      history.availableSeries +
+      "/5 séries" +
+      (history.partial ? " · partiel" : "") +
+      " · dernier point " +
+      new Date(history.end * 1000).toISOString(),
+  );
 }
 
 async function updatePrometheusHistory({ force = false } = {}) {
-  if (!force && HISTORY_DATA && Date.now() - HISTORY_READ_AT < HISTORY_RECHECK_MS) {
+  if (
+    !force &&
+    HISTORY_DATA &&
+    Date.now() - HISTORY_READ_AT < HISTORY_RECHECK_MS
+  ) {
     renderPrometheusHistory(HISTORY_DATA);
     return;
   }
-  put("home-history-status", "Lecture de l'historique Prometheus " + HISTORY_WINDOW + "…");
+  put(
+    "home-history-status",
+    "Lecture de l'historique Prometheus " + HISTORY_WINDOW + "…",
+  );
   const requestedWindow = HISTORY_WINDOW;
   try {
     const payload = await fetchJSON(
-      "/api/home/metrics/history?window=" + requestedWindow, 11500,
+      "/api/home/metrics/history?window=" + requestedWindow,
+      11500,
     );
     if (requestedWindow !== HISTORY_WINDOW) return;
     const history = projectPrometheusHistory(payload);
     HISTORY_READ_AT = Date.now();
     HISTORY_DATA = history;
     if (!history) {
-      put("home-history-status", "Historique indisponible ou non configuré · aucune valeur simulée");
+      put(
+        "home-history-status",
+        "Historique indisponible ou non configuré · aucune valeur simulée",
+      );
       return;
     }
     renderPrometheusHistory(history);
@@ -347,7 +713,10 @@ async function updatePrometheusHistory({ force = false } = {}) {
     if (requestedWindow !== HISTORY_WINDOW) return;
     HISTORY_DATA = null;
     HISTORY_READ_AT = Date.now();
-    put("home-history-status", "Historique inaccessible · aucune mesure supposée");
+    put(
+      "home-history-status",
+      "Historique inaccessible · aucune mesure supposée",
+    );
   }
 }
 
@@ -375,49 +744,69 @@ async function refresh() {
   if (button) button.disabled = true;
   status("Lecture des observations mises en cache…");
   try {
-  const [publicResult, sessionResult] = await Promise.allSettled([
-    fetchJSON("/api/ui/services"),
-    fetchJSON("/api/ui/session", 3500),
-  ]);
-  const fleet = publicResult.status === "fulfilled"
-    ? projectFleet(publicResult.value) : null;
-  if (fleet) {
-    summaryCounts(fleet);
-    status(fleet.verified ? "Catalogue vérifié" :
-      "Catalogue disponible, preuves périmées", fleet.verified ? "ok" : "warn");
-  } else {
-    clearPublic();
-    status("Catalogue indisponible · état inconnu", "unknown");
-  }
-
-  const owner = sessionResult.status === "fulfilled" &&
-    sessionResult.value?.authenticated === true;
-  element("home-locked").hidden = owner;
-  element("home-operator-detail").hidden = !owner;
-  if (!owner) {
-    put("home-observed", "Mode public · détails réservés au propriétaire");
-    clearPrivate({ purge: true });
-  } else {
-    const [boardResult, telemetryResult] = await Promise.allSettled([
-      fetchJSON("/api/health-board", 8000),
-      fetchJSON("/api/topology-telemetry", 6000),
+    const [publicResult, sessionResult] = await Promise.allSettled([
+      fetchJSON("/api/ui/services"),
+      fetchJSON("/api/ui/session", 3500),
     ]);
-    clearPrivate();
-    let latency = null;
-    if (boardResult.status === "fulfilled" &&
-        boardResult.value?.state === "fresh") {
-      latency = privateBoard(boardResult.value);
+    const fleet =
+      publicResult.status === "fulfilled"
+        ? projectFleet(publicResult.value)
+        : null;
+    if (fleet) {
+      summaryCounts(fleet);
+      status(
+        fleet.verified
+          ? "Catalogue vérifié"
+          : "Catalogue disponible, preuves périmées",
+        fleet.verified ? "ok" : "warn",
+      );
     } else {
-      status("Diagnostics détaillés absents ou périmés", "warn");
+      clearPublic();
+      status("Catalogue indisponible · état inconnu", "unknown");
     }
-    const resources = telemetryResult.status === "fulfilled"
-      ? privateResources(telemetryResult.value) : null;
-    await updatePrometheusHistory();
-    const board = boardResult.status === "fulfilled" ? boardResult.value : null;
-    put("home-observed", board?.generated_at && board?.state === "fresh" ?
-      "Mesuré : " + board.generated_at :
-      "Preuve propriétaire indisponible · aucune santé supposée");
-  }
+
+    const owner =
+      sessionResult.status === "fulfilled" &&
+      sessionResult.value?.authenticated === true;
+    element("home-locked").hidden = owner;
+    element("home-operator-detail").hidden = !owner;
+    if (!owner) {
+      put("home-observed", "Mode public · détails réservés au propriétaire");
+      clearPrivate({ purge: true });
+    } else {
+      const [boardResult, telemetryResult, pulseResult] =
+        await Promise.allSettled([
+          fetchJSON("/api/health-board", 8000),
+          fetchJSON("/api/topology-telemetry", 6000),
+          fetchJSON("/api/home/appliance/pulse", 10000),
+        ]);
+      clearPrivate();
+      privatePulse(
+        pulseResult.status === "fulfilled" ? pulseResult.value : null,
+      );
+      let latency = null;
+      if (
+        boardResult.status === "fulfilled" &&
+        boardResult.value?.state === "fresh"
+      ) {
+        latency = privateBoard(boardResult.value);
+      } else {
+        status("Diagnostics détaillés absents ou périmés", "warn");
+      }
+      const resources =
+        telemetryResult.status === "fulfilled"
+          ? privateResources(telemetryResult.value)
+          : null;
+      await updatePrometheusHistory();
+      const board =
+        boardResult.status === "fulfilled" ? boardResult.value : null;
+      put(
+        "home-observed",
+        board?.generated_at && board?.state === "fresh"
+          ? "Mesuré : " + board.generated_at
+          : "Preuve propriétaire indisponible · aucune santé supposée",
+      );
+    }
   } catch {
     clearPublic();
     clearPrivate();
@@ -449,6 +838,8 @@ if (ROOT) {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) void refresh();
   });
-  setInterval(() => { if (!document.hidden) void refresh(); }, INTERVAL_MS);
+  setInterval(() => {
+    if (!document.hidden) void refresh();
+  }, INTERVAL_MS);
   void refresh();
 }

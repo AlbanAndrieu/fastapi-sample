@@ -46,6 +46,8 @@ def test_main_dashboard_uses_existing_endpoint_contracts_without_direct_promql()
     assert 'fetchJSON("/api/ui/session"' in script
     assert 'fetchJSON("/api/health-board"' in script
     assert 'fetchJSON("/api/topology-telemetry"' in script
+    assert 'fetchJSON("/api/home/appliance/pulse"' in script
+    assert "projectAppliancePulse" in script
     assert "prometheus.albandrieu.com" not in script
     assert "172.17." not in script
     assert "localStorage" not in script

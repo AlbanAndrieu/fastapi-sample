@@ -54,6 +54,7 @@ _DIAGNOSTIC_EXACT = frozenset(
         "/readyz",
         "/sentry-debug",
         "/api/home/metrics/history",
+        "/api/home/appliance/pulse",
     },
 )
 

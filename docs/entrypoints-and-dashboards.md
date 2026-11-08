@@ -54,6 +54,7 @@ a second dashboard process.
 | `/api/health-board` | Agrégat de santé mis en cache | Réutilise les sondes existantes |
 | `/api/topology-telemetry` | Ressources cAdvisor et NetFlow (si configurés) | Cache Prometheus ; disponibilité distincte du service |
 | `/api/home/metrics/history?window=1h` | Historique Prometheus propriétaire | 5 requêtes prédéfinies : CPU, mémoire, réseau, p95 HTTP et disponibilité Gatus (si exportée) |
+| `/api/home/appliance/pulse` | Pulse TrueNAS en direct (propriétaire) | 7 appels middleware lecture seule : charge, CPU/mémoire/réseau netdata 1 h, pools, alertes, Apps et interdépendances du même instantané ; cache 30 s ; session OWNER, aucun paramètre |
 
 La page `/` n'interroge pas la base de notes et ne démarre pas le générateur
 de mesures météo. Les anciens endpoints `/stream`, `/chart-data`,

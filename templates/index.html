@@ -1,124 +1,286 @@
 <!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="description" content="FastAPI Sample : tableau de bord d'observabilité et de sécurité basé sur des mesures vérifiées.">
-  <title>FastAPI Sample · Operations Overview</title>
-  <link rel="stylesheet" href="/api/assets/home-operations.css">
-  <script type="module" src="/api/assets/home-operations.js"></script>
-</head>
-<body>
-<main id="home-operations" class="op-root" lang="fr">
-  <header class="op-head">
-    <div class="op-heading">
-      <p class="op-eyebrow">FastAPI Sample <span aria-hidden="true">/</span> Operations Overview</p>
-      <h1>Observabilité &amp; sécurité</h1>
-      <p class="op-subtitle">Sondes, disponibilité, exposition et consommation de ressources. Données observées uniquement.</p>
-    </div>
-    <div class="op-actions">
-      <a class="op-link" href="/api">Catalogue de services</a>
-      <a class="op-link" href="/api/topology">Topologie</a>
-      {% if database_enabled %}<a class="op-link op-link-subtle" href="/demo/sensors">Démo historique</a>{% endif %}
-      <button class="op-button" type="button" id="home-refresh">Actualiser</button>
-    </div>
-  </header>
-  <div class="op-strip" role="status" aria-live="polite">
-    <span class="op-led" id="home-connection-led" aria-hidden="true"></span>
-    <span id="home-connection">Chargement des observations…</span>
-    <span class="op-strip-right" id="home-observed">Aucune preuve récupérée</span>
-  </div>
-  <section class="op-section" aria-labelledby="home-fleet-heading" id="home-fleet">
-    <div class="op-section-heading">
-      <div><p class="op-section-kicker">01 / Vue d'ensemble</p><h2 id="home-fleet-heading">État des services</h2></div>
-      <span class="op-provenance" id="home-fleet-source">Catalogue public vérifié · chargement</span>
-    </div>
-    <div class="op-stat-grid">
-      <article class="op-stat"><span>Services déclarés</span><strong id="home-services">—</strong><small>Inventaire, pas une preuve de santé</small></article>
-      <article class="op-stat op-stat-ok"><span>Observés OK</span><strong id="home-ok">—</strong><small>Vérifications fraîches</small></article>
-      <article class="op-stat op-stat-warn"><span>Avertissements</span><strong id="home-warn">—</strong><small>Service dégradé ou accès limité</small></article>
-      <article class="op-stat op-stat-fail"><span>Échecs confirmés</span><strong id="home-fail">—</strong><small>Sans confondre panne et télémétrie</small></article>
-      <article class="op-stat op-stat-unknown"><span>Non confirmés</span><strong id="home-unknown">—</strong><small>Preuves absentes ou périmées</small></article>
-    </div>
-    <div class="op-panel op-distribution">
-      <div class="op-panel-heading"><h3>Répartition des états</h3><p>Pourcentage des services déclarés</p></div>
-      <div class="op-meter" id="home-fleet-meter" role="img" aria-label="Aucune répartition vérifiée">
-        <span class="op-meter-pending">En attente des données</span>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="FastAPI Sample : tableau de bord d'observabilité et de sécurité basé sur des mesures vérifiées."
+    />
+    <title>FastAPI Sample · Operations Overview</title>
+    <link rel="stylesheet" href="/api/assets/home-operations.css" />
+    <script type="module" src="/api/assets/home-operations.js"></script>
+  </head>
+  <body>
+    <main id="home-operations" class="op-root" lang="fr">
+      <header class="op-head">
+        <div class="op-heading">
+          <p class="op-eyebrow">FastAPI Sample <span aria-hidden="true">/</span> Operations Overview</p>
+          <h1>Observabilité &amp; sécurité</h1>
+          <p class="op-subtitle">
+            Sondes, disponibilité, exposition et consommation de ressources. Données observées uniquement.
+          </p>
+        </div>
+        <div class="op-actions">
+          <a class="op-link" href="/api">Catalogue de services</a>
+          <a class="op-link" href="/api/topology">Topologie</a>
+          {% if database_enabled %}<a class="op-link op-link-subtle" href="/demo/sensors">Démo historique</a>{% endif %}
+          <button class="op-button" type="button" id="home-refresh">Actualiser</button>
+        </div>
+      </header>
+      <div class="op-strip" role="status" aria-live="polite">
+        <span class="op-led" id="home-connection-led" aria-hidden="true"></span>
+        <span id="home-connection">Chargement des observations…</span>
+        <span class="op-strip-right" id="home-observed">Aucune preuve récupérée</span>
       </div>
-      <div class="op-meter-legend">
-        <span><i class="op-dot op-dot-ok"></i> OK</span>
-        <span><i class="op-dot op-dot-warn"></i> Avertissement</span>
-        <span><i class="op-dot op-dot-fail"></i> Échec</span>
-        <span><i class="op-dot op-dot-unknown"></i> Inconnu</span>
-      </div>
-    </div>
-  </section>
-  <section class="op-section" aria-labelledby="home-evidence-heading">
-    <div class="op-section-heading">
-      <div><p class="op-section-kicker">02 / Fiabilité des preuves</p><h2 id="home-evidence-heading">Couverture des sondes</h2></div>
-      <span class="op-provenance">Source : health-board · accès propriétaire</span>
-    </div>
-    <div id="home-locked" class="op-panel op-locked">
-      <div><strong>Diagnostics détaillés protégés</strong><p>Les métriques d'infrastructure ne sont chargées que depuis une session propriétaire autorisée. Aucun accès automatique aux données du LAN.</p></div>
-      <a href="/api?operator=1" class="op-link">Accès propriétaire / API</a>
-    </div>
-    <div id="home-operator-detail" hidden>
-      <div class="op-stat-grid op-stat-grid-3">
-        <article class="op-stat"><span>Couverture des preuves</span><strong id="home-coverage">—</strong><small id="home-coverage-detail">Aucune preuve</small></article>
-        <article class="op-stat"><span>Sondes réellement saines</span><strong id="home-healthy-coverage">—</strong><small>Sur toutes les sondes éligibles</small></article>
-        <article class="op-stat"><span>Contrôles de sécurité</span><strong id="home-security-summary">—</strong><small id="home-security-detail">Vérification en attente</small></article>
-      </div>
-      <div class="op-history-toolbar">
-        <label for="home-history-window">Historique Prometheus</label>
-        <select id="home-history-window" aria-label="Fenêtre temporelle historique">
-          <option value="1h">1 heure</option>
-          <option value="24h">24 heures</option>
-          <option value="7d">7 jours</option>
-        </select>
-        <span id="home-history-status" role="status" aria-live="polite">Historique non confirmé</span>
-      </div>
-      <div class="op-dashboard-grid">
-        <article class="op-panel"><div class="op-panel-heading"><h3>Historique des preuves</h3><p>Observations depuis l'ouverture de cette page</p></div><div id="home-probes-history" class="op-chart" role="img" aria-label="Historique des preuves non disponible"><p class="op-chart-empty">Deux instantanés distincts sont nécessaires.</p></div></article>
-        <article class="op-panel"><div class="op-panel-heading"><h3>Latence des sondes HTTP</h3><p>Durée totale de vérification, pas RTT réseau pur</p></div><div id="home-latency-history" class="op-chart" role="img" aria-label="Historique de latence non disponible"><p class="op-chart-empty">Aucune latence mesurée.</p></div></article>
-      </div>
-      <div class="op-section-heading op-secondary-heading">
-        <div><p class="op-section-kicker">03 / Capacité</p><h2>CPU, mémoire et trafic réseau</h2></div>
-        <span class="op-provenance" id="home-resource-source">Prometheus / cAdvisor · en attente</span>
-      </div>
-      <div class="op-stat-grid op-stat-grid-3">
-        <article class="op-stat"><span>CPU du conteneur</span><strong id="home-cpu">—</strong><small>Cœurs CPU · pas un taux d'utilisation</small><div class="op-mini-chart" id="home-cpu-history" aria-label="Historique CPU"></div></article>
-        <article class="op-stat"><span>Mémoire du conteneur</span><strong id="home-memory">—</strong><small>Mémoire active · MiB</small><div class="op-mini-chart" id="home-memory-history" aria-label="Historique mémoire"></div></article>
-        <article class="op-stat"><span>Débit réseau du conteneur</span><strong id="home-network">—</strong><small>RX + TX · KiB/s · pas une latence</small><div class="op-mini-chart" id="home-network-history" aria-label="Historique réseau"></div></article>
-      </div>
-      <article class="op-panel op-correlation" aria-labelledby="home-correlation-heading">
-        <div class="op-panel-heading"><h3 id="home-correlation-heading">Corrélation CPU ↔ latence applicative p95</h3><p id="home-correlation-summary">En attente de six mesures synchronisées</p></div>
-        <div id="home-correlation-chart" class="op-chart" role="img" aria-label="Corrélation inconnue"><p class="op-chart-empty">Aucun nuage de points fabriqué.</p></div>
-        <p class="op-correlation-footnote">Paires horodatées issues du même historique Prometheus. Un coefficient ne prouve pas une causalité.</p>
-      </article>
-      <div class="op-dashboard-grid op-history-secondary">
-        <article class="op-panel">
-          <div class="op-panel-heading"><h3>Latence applicative p95</h3><p id="home-p95">—</p></div>
-          <div id="home-p95-history" class="op-chart" role="img" aria-label="Aucune mesure de latence p95"></div>
-          <p class="op-correlation-footnote">Durée des requêtes FastAPI mesurée par l'histogramme Prometheus, distincte des sondes HTTP.</p>
-        </article>
-        <article class="op-panel">
-          <div class="op-panel-heading"><h3>Disponibilité Gatus</h3><p id="home-gatus">—</p></div>
-          <div id="home-gatus-history" class="op-chart" role="img" aria-label="Aucune mesure Gatus disponible"></div>
-          <p class="op-correlation-footnote">Taux issu d'une règle d'enregistrement Gatus ; inconnu si absente.</p>
-        </article>
-      </div>
-      <div class="op-section-heading op-secondary-heading">
-        <div><p class="op-section-kicker">04 / Sécurité et dépendances</p><h2>Contrôles vérifiés</h2></div>
-        <a class="op-link" href="/api?ui_full=1">Diagnostics complets</a>
-      </div>
-      <div class="op-panel"><ul id="home-security-checks" class="op-check-list" aria-live="polite"><li>En attente des contrôles.</li></ul></div>
-    </div>
-  </section>
-  <footer class="op-footer">
-    <span>État inconnu ≠ panne. État d'un exporter ≠ disponibilité applicative.</span>
-    <span>Les graphiques n'inventent aucune mesure et n'utilisent pas de données météo.</span>
-  </footer>
-</main>
-</body>
+      <section class="op-section" aria-labelledby="home-fleet-heading" id="home-fleet">
+        <div class="op-section-heading">
+          <div>
+            <p class="op-section-kicker">01 / Vue d'ensemble</p>
+            <h2 id="home-fleet-heading">État des services</h2>
+          </div>
+          <span class="op-provenance" id="home-fleet-source">Catalogue public vérifié · chargement</span>
+        </div>
+        <div class="op-stat-grid">
+          <article class="op-stat">
+            <span>Services déclarés</span><strong id="home-services">—</strong
+            ><small>Inventaire, pas une preuve de santé</small>
+          </article>
+          <article class="op-stat op-stat-ok">
+            <span>Observés OK</span><strong id="home-ok">—</strong><small>Vérifications fraîches</small>
+          </article>
+          <article class="op-stat op-stat-warn">
+            <span>Avertissements</span><strong id="home-warn">—</strong><small>Service dégradé ou accès limité</small>
+          </article>
+          <article class="op-stat op-stat-fail">
+            <span>Échecs confirmés</span><strong id="home-fail">—</strong
+            ><small>Sans confondre panne et télémétrie</small>
+          </article>
+          <article class="op-stat op-stat-unknown">
+            <span>Non confirmés</span><strong id="home-unknown">—</strong><small>Preuves absentes ou périmées</small>
+          </article>
+        </div>
+        <div class="op-panel op-distribution">
+          <div class="op-panel-heading">
+            <h3>Répartition des états</h3>
+            <p>Pourcentage des services déclarés</p>
+          </div>
+          <div class="op-meter" id="home-fleet-meter" role="img" aria-label="Aucune répartition vérifiée">
+            <span class="op-meter-pending">En attente des données</span>
+          </div>
+          <div class="op-meter-legend">
+            <span><i class="op-dot op-dot-ok"></i> OK</span>
+            <span><i class="op-dot op-dot-warn"></i> Avertissement</span>
+            <span><i class="op-dot op-dot-fail"></i> Échec</span>
+            <span><i class="op-dot op-dot-unknown"></i> Inconnu</span>
+          </div>
+        </div>
+      </section>
+      <section class="op-section" aria-labelledby="home-evidence-heading">
+        <div class="op-section-heading">
+          <div>
+            <p class="op-section-kicker">02 / Fiabilité des preuves</p>
+            <h2 id="home-evidence-heading">Couverture des sondes</h2>
+          </div>
+          <span class="op-provenance">Source : health-board · accès propriétaire</span>
+        </div>
+        <div id="home-locked" class="op-panel op-locked">
+          <div>
+            <strong>Diagnostics détaillés protégés</strong>
+            <p>
+              Les métriques d'infrastructure ne sont chargées que depuis une session propriétaire autorisée. Aucun accès
+              automatique aux données du LAN.
+            </p>
+          </div>
+          <a href="/api?operator=1" class="op-link">Accès propriétaire / API</a>
+        </div>
+        <div id="home-operator-detail" hidden>
+          <div class="op-stat-grid op-stat-grid-3">
+            <article class="op-stat">
+              <span>Couverture des preuves</span><strong id="home-coverage">—</strong
+              ><small id="home-coverage-detail">Aucune preuve</small>
+            </article>
+            <article class="op-stat">
+              <span>Sondes réellement saines</span><strong id="home-healthy-coverage">—</strong
+              ><small>Sur toutes les sondes éligibles</small>
+            </article>
+            <article class="op-stat">
+              <span>Contrôles de sécurité</span><strong id="home-security-summary">—</strong
+              ><small id="home-security-detail">Vérification en attente</small>
+            </article>
+          </div>
+          <div class="op-history-toolbar">
+            <label for="home-history-window">Historique Prometheus</label>
+            <select id="home-history-window" aria-label="Fenêtre temporelle historique">
+              <option value="1h">1 heure</option>
+              <option value="24h">24 heures</option>
+              <option value="7d">7 jours</option>
+            </select>
+            <span id="home-history-status" role="status" aria-live="polite">Historique non confirmé</span>
+          </div>
+          <div class="op-dashboard-grid">
+            <article class="op-panel">
+              <div class="op-panel-heading">
+                <h3>Historique des preuves</h3>
+                <p>Observations depuis l'ouverture de cette page</p>
+              </div>
+              <div
+                id="home-probes-history"
+                class="op-chart"
+                role="img"
+                aria-label="Historique des preuves non disponible"
+              >
+                <p class="op-chart-empty">Deux instantanés distincts sont nécessaires.</p>
+              </div>
+            </article>
+            <article class="op-panel">
+              <div class="op-panel-heading">
+                <h3>Latence des sondes HTTP</h3>
+                <p>Durée totale de vérification, pas RTT réseau pur</p>
+              </div>
+              <div
+                id="home-latency-history"
+                class="op-chart"
+                role="img"
+                aria-label="Historique de latence non disponible"
+              >
+                <p class="op-chart-empty">Aucune latence mesurée.</p>
+              </div>
+            </article>
+          </div>
+          <div class="op-section-heading op-secondary-heading">
+            <div>
+              <p class="op-section-kicker">03 / Appliance TrueNAS en direct</p>
+              <h2>Charge, mémoire, stockage, alertes et Apps</h2>
+            </div>
+            <span class="op-provenance"
+              ><span class="op-led" id="home-pulse-led" aria-hidden="true"></span>
+              <span id="home-pulse-source">API TrueNAS · en attente</span></span
+            >
+          </div>
+          <div class="op-stat-grid op-stat-grid-3">
+            <article class="op-stat">
+              <span>Charge par cœur</span><strong id="home-pulse-load">—</strong
+              ><small id="home-pulse-load-detail">system.info · loadavg 1 min</small>
+            </article>
+            <article class="op-stat">
+              <span>CPU occupé</span><strong id="home-pulse-cpu">—</strong
+              ><small id="home-pulse-cpu-detail">netdata · dernière heure</small>
+              <div class="op-mini-chart" id="home-pulse-cpu-history" aria-label="Historique CPU TrueNAS"></div>
+            </article>
+            <article class="op-stat">
+              <span>Mémoire utilisée</span><strong id="home-pulse-memory">—</strong
+              ><small id="home-pulse-memory-detail">netdata · dernière heure</small>
+              <div class="op-mini-chart" id="home-pulse-memory-history" aria-label="Historique mémoire TrueNAS"></div>
+            </article>
+            <article class="op-stat">
+              <span>Débit réseau physique</span><strong id="home-pulse-network">—</strong
+              ><small id="home-pulse-network-detail">interfaces physiques actives</small>
+              <div class="op-mini-chart" id="home-pulse-network-history" aria-label="Historique réseau TrueNAS"></div>
+            </article>
+            <article class="op-stat">
+              <span>Pool le plus plein</span><strong id="home-pulse-storage">—</strong
+              ><small id="home-pulse-storage-detail">pool.query · capacité et santé</small>
+            </article>
+            <article class="op-stat">
+              <span>Alertes actives</span><strong id="home-pulse-alerts">—</strong
+              ><small id="home-pulse-alerts-detail">alert.list · non rejetées</small>
+            </article>
+            <article class="op-stat">
+              <span>Apps TrueNAS</span><strong id="home-pulse-apps">—</strong
+              ><small id="home-pulse-apps-detail">app.query · états middleware</small>
+            </article>
+          </div>
+          <article class="op-panel" aria-labelledby="home-pulse-impacts-heading">
+            <div class="op-panel-heading">
+              <h3 id="home-pulse-impacts-heading">Interdépendances observées</h3>
+              <p id="home-pulse-impacts-summary">En attente d'un instantané TrueNAS</p>
+            </div>
+            <ul id="home-pulse-impacts" class="op-check-list" aria-live="polite"></ul>
+            <p class="op-correlation-footnote">
+              Stockage ↔ alertes, mémoire ↔ Apps en échec, charge ↔ services, liens physiques ↔ services : signaux du
+              même instantané TrueNAS, jamais une causalité.
+            </p>
+          </article>
+          <div class="op-section-heading op-secondary-heading">
+            <div>
+              <p class="op-section-kicker">03 bis / Conteneur FastAPI</p>
+              <h2>CPU, mémoire et trafic réseau du conteneur</h2>
+            </div>
+            <span class="op-provenance" id="home-resource-source">Prometheus / cAdvisor · en attente</span>
+          </div>
+          <div class="op-stat-grid op-stat-grid-3">
+            <article class="op-stat">
+              <span>CPU du conteneur</span><strong id="home-cpu">—</strong
+              ><small>Cœurs CPU · pas un taux d'utilisation</small>
+              <div class="op-mini-chart" id="home-cpu-history" aria-label="Historique CPU"></div>
+            </article>
+            <article class="op-stat">
+              <span>Mémoire du conteneur</span><strong id="home-memory">—</strong><small>Mémoire active · MiB</small>
+              <div class="op-mini-chart" id="home-memory-history" aria-label="Historique mémoire"></div>
+            </article>
+            <article class="op-stat">
+              <span>Débit réseau du conteneur</span><strong id="home-network">—</strong
+              ><small>RX + TX · KiB/s · pas une latence</small>
+              <div class="op-mini-chart" id="home-network-history" aria-label="Historique réseau"></div>
+            </article>
+          </div>
+          <article class="op-panel op-correlation" aria-labelledby="home-correlation-heading">
+            <div class="op-panel-heading">
+              <h3 id="home-correlation-heading">Corrélation CPU ↔ latence applicative p95</h3>
+              <p id="home-correlation-summary">En attente de six mesures synchronisées</p>
+            </div>
+            <div id="home-correlation-chart" class="op-chart" role="img" aria-label="Corrélation inconnue">
+              <p class="op-chart-empty">Aucun nuage de points fabriqué.</p>
+            </div>
+            <p class="op-correlation-footnote">
+              Paires horodatées issues du même historique Prometheus. Un coefficient ne prouve pas une causalité.
+            </p>
+          </article>
+          <div class="op-dashboard-grid op-history-secondary">
+            <article class="op-panel">
+              <div class="op-panel-heading">
+                <h3>Latence applicative p95</h3>
+                <p id="home-p95">—</p>
+              </div>
+              <div id="home-p95-history" class="op-chart" role="img" aria-label="Aucune mesure de latence p95"></div>
+              <p class="op-correlation-footnote">
+                Durée des requêtes FastAPI mesurée par l'histogramme Prometheus, distincte des sondes HTTP.
+              </p>
+            </article>
+            <article class="op-panel">
+              <div class="op-panel-heading">
+                <h3>Disponibilité Gatus</h3>
+                <p id="home-gatus">—</p>
+              </div>
+              <div
+                id="home-gatus-history"
+                class="op-chart"
+                role="img"
+                aria-label="Aucune mesure Gatus disponible"
+              ></div>
+              <p class="op-correlation-footnote">Taux issu d'une règle d'enregistrement Gatus ; inconnu si absente.</p>
+            </article>
+          </div>
+          <div class="op-section-heading op-secondary-heading">
+            <div>
+              <p class="op-section-kicker">04 / Sécurité et dépendances</p>
+              <h2>Contrôles vérifiés</h2>
+            </div>
+            <a class="op-link" href="/api?ui_full=1">Diagnostics complets</a>
+          </div>
+          <div class="op-panel">
+            <ul id="home-security-checks" class="op-check-list" aria-live="polite">
+              <li>En attente des contrôles.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+      <footer class="op-footer">
+        <span>État inconnu ≠ panne. État d'un exporter ≠ disponibilité applicative.</span>
+        <span>Les graphiques n'inventent aucune mesure et n'utilisent pas de données météo.</span>
+      </footer>
+    </main>
+  </body>
 </html>
