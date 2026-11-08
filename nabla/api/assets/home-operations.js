@@ -1,7 +1,8 @@
 import {
-  appendAlignedPair,
+  alignedHistoryCorrelation,
   pearsonCorrelation,
   appendObservation,
+  projectPrometheusHistory,
   projectFleet,
   projectLatency,
   projectProbes,
@@ -14,6 +15,10 @@ const ROOT = document.getElementById("home-operations");
 const INTERVAL_MS = 30000;
 const SERIES = Object.create(null);
 let CORRELATION_PAIRS = [];
+let HISTORY_DATA = null;
+let HISTORY_READ_AT = 0;
+let HISTORY_WINDOW = "1h";
+const HISTORY_RECHECK_MS = 120000;
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
 
@@ -105,7 +110,18 @@ function observe(name, at, value, target, label) {
   node.setAttribute("aria-label", label + " : " + history.length + " observations");
 }
 
-function clearPrivate() {
+function clearPrivate({ purge = false } = {}) {
+  if (purge) {
+    HISTORY_DATA = null;
+    HISTORY_READ_AT = 0;
+    CORRELATION_PAIRS = [];
+    for (const key of Object.keys(SERIES)) delete SERIES[key];
+  }
+  for (const id of [
+    "home-probes-history", "home-latency-history", "home-cpu-history",
+    "home-memory-history", "home-network-history", "home-p95-history",
+    "home-gatus-history", "home-correlation-chart",
+  ]) element(id)?.replaceChildren();
   metric("home-coverage", null, 1);
   metric("home-healthy-coverage", null, 1);
   metric("home-cpu", null, 3);
@@ -116,6 +132,9 @@ function clearPrivate() {
   put("home-security-summary", "—");
   put("home-security-detail", "Contrôles non confirmés");
   element("home-security-checks")?.replaceChildren();
+  put("home-history-status", "Historique non confirmé");
+  put("home-p95", "—");
+  put("home-gatus", "—");
 }
 
 function privateBoard(board) {
@@ -192,7 +211,8 @@ function privateResources(snapshot) {
 }
 
 function correlation(cpu, latency) {
-  CORRELATION_PAIRS = appendAlignedPair(CORRELATION_PAIRS, cpu, latency);
+  // Browser-only CPU/HTTP probe pairs are no longer used for a server
+  // p95 correlation. Historical p95 is a distinct, labelled measurement.
   const node = element("home-correlation-chart");
   if (!node) return;
   const r = pearsonCorrelation(CORRELATION_PAIRS);
@@ -235,6 +255,93 @@ function correlation(cpu, latency) {
   }
   node.replaceChildren(svg);
   node.setAttribute("aria-label", "Corrélation CPU / HTTP : " + r.toFixed(2));
+}
+
+function renderSeriesHistory(target, points, label) {
+  const node = element(target);
+  if (!node) return;
+  const path = sparklinePath(points);
+  if (!path) {
+    node.replaceChildren();
+    const fallback = document.createElement("p");
+    fallback.className = "op-chart-empty";
+    fallback.textContent = "Pas assez d'échantillons Prometheus.";
+    node.append(fallback);
+    node.setAttribute("aria-label", label + " : preuve indisponible");
+    return;
+  }
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 420 108");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  const first = points[0].at, last = points[points.length - 1].at;
+  svg.setAttribute("aria-label", label + " de " + first + " à " + last);
+  const grid = document.createElementNS(NS, "path");
+  grid.setAttribute("d", "M0 54 L420 54");
+  grid.setAttribute("class", "op-spark-grid");
+  const trace = document.createElementNS(NS, "path");
+  trace.setAttribute("d", path);
+  trace.setAttribute("class", "op-spark-line");
+  svg.append(grid, trace);
+  node.replaceChildren(svg);
+  node.setAttribute("aria-label", label + " · " + points.length +
+    " mesures Prometheus · " + first.slice(0,16) + " → " + last.slice(0,16));
+}
+
+function renderPrometheusHistory(history) {
+  const fields = history.fields;
+  const formats = [
+    ["cpu_cores", "home-cpu-history", "CPU en cœurs", 1],
+    ["memory_bytes", "home-memory-history", "Mémoire active MiB", 1/1048576],
+    ["network_bytes_per_second", "home-network-history", "Débit RX+TX KiB/s", 1/1024],
+    ["http_p95_ms", "home-p95-history", "Latence applicative p95 ms", 1],
+    ["gatus_availability_percent", "home-gatus-history", "Disponibilité Gatus %", 1],
+  ];
+  for (const [field, target, label, scale] of formats) {
+    const points = (fields[field] || []).map((row) => ({
+      at: row.at, value: row.value * scale,
+    }));
+    renderSeriesHistory(target, points, label);
+  }
+  const p95 = fields.http_p95_ms || [];
+  const gatus = fields.gatus_availability_percent || [];
+  metric("home-p95", p95.length ? p95.at(-1).value : null, 1, " ms");
+  metric("home-gatus", gatus.length ? gatus.at(-1).value : null, 1, " %");
+  const alignment = alignedHistoryCorrelation(history);
+  CORRELATION_PAIRS = alignment.pairs;
+  correlation(null, null);
+  put("home-history-status", history.window +
+    " · Prometheus · " + history.availableSeries + "/5 séries" +
+    (history.partial ? " · partiel" : "") +
+    " · dernier point " + new Date(history.end * 1000).toISOString());
+}
+
+async function updatePrometheusHistory({ force = false } = {}) {
+  if (!force && HISTORY_DATA && Date.now() - HISTORY_READ_AT < HISTORY_RECHECK_MS) {
+    renderPrometheusHistory(HISTORY_DATA);
+    return;
+  }
+  put("home-history-status", "Lecture de l'historique Prometheus " + HISTORY_WINDOW + "…");
+  const requestedWindow = HISTORY_WINDOW;
+  try {
+    const payload = await fetchJSON(
+      "/api/home/metrics/history?window=" + requestedWindow, 11500,
+    );
+    if (requestedWindow !== HISTORY_WINDOW) return;
+    const history = projectPrometheusHistory(payload);
+    HISTORY_READ_AT = Date.now();
+    HISTORY_DATA = history;
+    if (!history) {
+      put("home-history-status", "Historique indisponible ou non configuré · aucune valeur simulée");
+      return;
+    }
+    renderPrometheusHistory(history);
+  } catch {
+    if (requestedWindow !== HISTORY_WINDOW) return;
+    HISTORY_DATA = null;
+    HISTORY_READ_AT = Date.now();
+    put("home-history-status", "Historique inaccessible · aucune mesure supposée");
+  }
 }
 
 async function fetchJSON(url, timeout = 6500) {
@@ -282,7 +389,7 @@ async function refresh() {
   element("home-operator-detail").hidden = !owner;
   if (!owner) {
     put("home-observed", "Mode public · détails réservés au propriétaire");
-    clearPrivate();
+    clearPrivate({ purge: true });
   } else {
     const [boardResult, telemetryResult] = await Promise.allSettled([
       fetchJSON("/api/health-board", 8000),
@@ -298,7 +405,7 @@ async function refresh() {
     }
     const resources = telemetryResult.status === "fulfilled"
       ? privateResources(telemetryResult.value) : null;
-    correlation(resources, latency);
+    await updatePrometheusHistory();
     const board = boardResult.status === "fulfilled" ? boardResult.value : null;
     put("home-observed", board?.generated_at && board?.state === "fresh" ?
       "Mesuré : " + board.generated_at :
@@ -315,7 +422,18 @@ async function refresh() {
 }
 
 if (ROOT) {
-  element("home-refresh")?.addEventListener("click", () => void refresh());
+  element("home-refresh")?.addEventListener("click", () => {
+    HISTORY_READ_AT = 0;
+    void refresh();
+  });
+  element("home-history-window")?.addEventListener("change", (event) => {
+    const selection = event.target.value;
+    if (!["1h", "24h", "7d"].includes(selection)) return;
+    HISTORY_WINDOW = selection;
+    HISTORY_DATA = null;
+    HISTORY_READ_AT = 0;
+    if (!active) void refresh();
+  });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) void refresh();
   });
