@@ -69,10 +69,11 @@ def _resource_values(
                 continue
             resources.setdefault(service, {})[field] = round(max(0.0, value), 6)
     for _service, values in resources.items():
-        values["network_bytes_per_second"] = round(
-            values.get("rx_bytes_per_second", 0.0) + values.get("tx_bytes_per_second", 0.0),
-            6,
-        )
+        # Missing one direction is not a measured zero.
+        rx = values.get("rx_bytes_per_second")
+        tx = values.get("tx_bytes_per_second")
+        if rx is not None and tx is not None:
+            values["network_bytes_per_second"] = round(rx + tx, 6)
     return resources
 
 

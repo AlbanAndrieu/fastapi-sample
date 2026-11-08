@@ -48,11 +48,16 @@ démarrage du processus.
 - Un 401/403 Cloudflare Access n'atteste pas l'état de l'origine.
 - Une résolution DNS n'atteste ni HTTPS ni Tunnel.
 - La courbe ne commence qu'après **deux snapshots datés distincts**.
-- Les courbes sont **locales à l'onglet**, limitées à 24 points, sans persistance.
-  Ne pas les présenter comme des historiques Prometheus.
-- Le nuage de points CPU/HTTP requiert au moins **six paires** réelles,
-  à 30 secondes au plus d'écart. Un coefficient de Pearson n'est affiché
-  que si les deux variables présentent une variance mesurable.
+- Les courbes **de preuves ponctuelles** sont locales à l'onglet et limitées
+  à 24 points. Les courbes **CPU/mémoire/réseau/p95/Gatus** utilisent
+  maintenant `query_range` depuis le serveur, avec 1 h, 24 h et 7 j
+  (60 s, 300 s et 1 800 s de pas respectivement), 350 points maximum
+  par série et interruption du trait si un intervalle manque.
+- Le nuage de points CPU/p95 requiert au moins **six paires** réelles
+  de l'historique Prometheus avec exactement le même horodatage. Un
+  coefficient de Pearson n'est affiché que si les deux variables présentent
+  une variance mesurable. La durée d'une sonde HTTP et le p95 des
+  requêtes FastAPI ne sont pas la même mesure.
 - Pour une étude de causalité ou une corrélation sur plus longue période,
   consulter les **mêmes fenêtres temporelles** de Prometheus (rate CPU,
   mémoire, débit, erreurs, latence) et Gatus. Ne pas déduire de causalité
@@ -69,7 +74,10 @@ python -m pytest -q \
   tests/unit/test_app_factory.py \
   tests/unit/test_notes.py \
   tests/unit/test_lifespan.py \
-  tests/unit/test_sensor_import_safety.py
+  tests/unit/test_sensor_import_safety.py \
+  tests/unit/test_home_metrics_history.py \
+  tests/unit/test_home_history_route_auth.py \
+  tests/unit/test_topology_telemetry.py
 git diff --check master...HEAD
 ```
 
@@ -83,9 +91,16 @@ git diff --check master...HEAD
 - Mobile : ordre des cartes et affichage des statuts sans scroll horizontal.
 - Contrôler les exports et le SHA réellement déployé sur TrueNAS et Cloud.
 
-**À différer** : historiques serveur Prometheus `query_range`, p95 de latence
-HTTP et corrélation erreurs/CPU. Nécessitent une fenêtre, une politique
-de fraîcheur et des limites de cardinalité validées avant ajout.
+**Implémenté en code** : historique serveur `query_range` à fenêtres fixes,
+p95 HTTP si `http_request_duration_seconds_bucket{job="fastapi_sample"}`
+est collecté, et corrélation CPU/p95 sur les mêmes fenêtres. La disponibilité
+Gatus requiert `nabla:service:synthetic_availability_ratio_5m` avec
+`nabla_service_id=sample` ou `fastapi-sample`. Si les séries sont
+absentes, la courbe et la valeur restent inconnues.
+
+**À différer** : attribution réseau par flux, traces distribuées p95
+par destination et analyse de causalité CPU/latence. Ces sujets
+nécessitent une cardinalité, une instrumentation et une recette distinctes.
 
 ## Livraison légère de l'accueil
 
@@ -94,3 +109,37 @@ Il charge seulement des ressources CSS/JS locales, sans Chart.js,
 Plotly, HTMX, DaisyUI ou Tailwind CDN. La réponse est `no-store`
 et comporte une CSP limitant les scripts et connexions au même domaine,
 avec `frame-ancestors 'none'`.
+
+
+## Conditions d'acceptation — TrueNAS et FastAPI Cloud
+
+1. Sur TrueNAS : `FASTAPI_RUNTIME_MODE=homelab` et
+   `HOMELAB_PROMETHEUS_URL` configurés pour un Prometheus de confiance.
+2. Depuis une session OWNER autorisée, vérifier :
+   `GET /api/home/metrics/history?window=1h`, puis `24h`, puis `7d`.
+   Contrôler `model`, `state`, `step_seconds`, `series` et la durée.
+3. Vérifier dans Prometheus la présence des métriques cAdvisor pour le
+   conteneur Compose `sample` (ou l'un des noms prévus).
+4. Confirmer l'instrumentation HTTP `http_request_duration_seconds_bucket`,
+   sous le job `fastapi_sample` ; si absente, p95 doit rester inconnu.
+5. Confirmer l'enregistrement `nabla:service:synthetic_availability_ratio_5m`
+   pour le service Gatus correspondant ; une série manquante n'est pas 0 %.
+6. Sans session OWNER, l'historique répond par un refus.
+   La règle de lecture publique temporaire n'y donne pas accès.
+7. En Cloud, le même endpoint ne doit jamais joindre Prometheus LAN ;
+   son résultat est `not_executed` si appelé par une session autorisée.
+8. Contrôler que `/` affiche la synthèse publique sans bloquer
+   et que `/demo/sensors` reste une démonstration distincte.
+9. Vérifier les cas 302/403 (Access), 429, timeout, série ambiguë
+   et série périmée : jamais un statut sain inventé.
+10. Vérifier les captures desktop/mobile (CSS autonome, sans CDN) et
+    confirmer le SHA réellement déployé sur les deux plateformes.
+
+**Limites de validation dans l'environnement d'édition :** le dépôt et les
+connecteurs GitHub permettent les changements, mais pas une session TrueNAS
+ou Prometheus local authentifiée. La vérification opérationnelle nécessite
+une recette depuis le LAN. Aucun secret, pare-feu ni jeton n'est modifié.
+
+Les paramètres de requête inattendus, notamment `query`, sont rejetés
+avec HTTP 422 sur l'endpoint d'historique. Les requêtes sont prédéfinies,
+en lecture seule, avec un cache de 120 secondes.

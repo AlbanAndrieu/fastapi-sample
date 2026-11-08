@@ -53,6 +53,7 @@ _DIAGNOSTIC_EXACT = frozenset(
         "/sickz",
         "/readyz",
         "/sentry-debug",
+        "/api/home/metrics/history",
     },
 )
 

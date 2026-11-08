@@ -53,6 +53,7 @@ a second dashboard process.
 | `/demo/sensors` | Ancienne démonstration, si le module DB est installé | Température, humidité et pression **synthétiques uniquement** |
 | `/api/health-board` | Agrégat de santé mis en cache | Réutilise les sondes existantes |
 | `/api/topology-telemetry` | Ressources cAdvisor et NetFlow (si configurés) | Cache Prometheus ; disponibilité distincte du service |
+| `/api/home/metrics/history?window=1h` | Historique Prometheus propriétaire | 5 requêtes prédéfinies : CPU, mémoire, réseau, p95 HTTP et disponibilité Gatus (si exportée) |
 
 La page `/` n'interroge pas la base de notes et ne démarre pas le générateur
 de mesures météo. Les anciens endpoints `/stream`, `/chart-data`,
@@ -61,14 +62,21 @@ Aucune requête Prometheus, TrueNAS ni Cloudflare n'est déclenchée directement
 depuis le JavaScript de la page. Elle réutilise les caches serveur.
 
 La session OWNER est vérifiée via `GET /api/ui/session` avant de charger
-`/api/health-board` et `/api/topology-telemetry`.
+`/api/health-board`, `/api/topology-telemetry` et les trois fenêtres
+de l'historique `/api/home/metrics/history`. Le serveur revérifie
+l'authentification et la source autorisée pour ce nouvel endpoint.
 Les visiteurs anonymes reçoivent **uniquement** la projection déjà exposée
 par `/api/ui/services`. Sans preuve fraîche, tous les services sont inconnus.
 
 CPU = cœurs réellement consommés, mémoire = MiB actifs, réseau = RX + TX
 en KiB/s ; la sonde HTTP mesure une durée de requête **et non** le RTT IP.
-Les courbes conservent au maximum 24 observations **dans l'onglet courant**.
-Elles n'utilisent ni valeurs fictives ni historique Prometheus inventé.
+La couverture et les sondes ponctuelles conservent 24 observations
+**dans l'onglet courant**. Les courbes CPU/mémoire/réseau/p95/Gatus
+utilisent le véritable historique Prometheus `query_range` à fenêtre fixe
+(1 h, 24 h ou 7 j), au maximum 350 points par série. Les trous sont visibles.
+Aucune mesure n'est fabriquée ; Gatus et p95 restent inconnus si la
+métrique ou l'exporter manque. Les historiques n'exécutent aucun sondage LAN
+supplémentaire depuis FastAPI Cloud.
 
 Détails : [Runbook de transition de l'accueil](runbooks/home-operations-transition.md).
 
@@ -101,3 +109,7 @@ properties:
 - tests proving that disabled mode does not import or initialize it.
 
 Do not add port 8091 or a fake OpenCode command until such a feature exists.
+
+La valeur du paramètre `window` peut seulement être `1h`, `24h` ou `7d`.
+Aucune expression PromQL, cible, URL, label ou durée arbitraire ne peut
+être transmise par le navigateur.

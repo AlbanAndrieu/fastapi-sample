@@ -1,4 +1,4 @@
-"""Shared helpers for fixed, read-only Prometheus instant queries."""
+"""Shared helpers for fixed, read-only Prometheus instant and range queries."""
 
 from __future__ import annotations
 
@@ -68,3 +68,43 @@ async def query_vector(
     ):
         raise ValueError("Prometheus returned an invalid instant-vector result")
     return vector_result(payload)
+
+
+async def query_matrix_range(
+    client: httpx.AsyncClient,
+    expression: str,
+    *,
+    start: int,
+    end: int,
+    step: int,
+) -> dict[str, Any]:
+    """Read a bounded matrix; only server-owned callers supply fixed PromQL."""
+    if step <= 0 or end < start or (end - start) // step + 1 > 350:
+        raise ValueError("Invalid bounded Prometheus range")
+    response = await client.get(
+        "/api/v1/query_range",
+        params={
+            "query": expression,
+            "start": start,
+            "end": end,
+            "step": step,
+        },
+        headers={"Accept": "application/json"},
+    )
+    if 300 <= response.status_code < 400:
+        raise httpx.HTTPStatusError(
+            "Prometheus range query redirected",
+            request=response.request,
+            response=response,
+        )
+    response.raise_for_status()
+    payload = response.json()
+    if (
+        not isinstance(payload, dict)
+        or payload.get("status") != "success"
+        or not isinstance(payload.get("data"), dict)
+        or payload["data"].get("resultType") != "matrix"
+        or not isinstance(payload["data"].get("result"), list)
+    ):
+        raise ValueError("Prometheus returned an invalid matrix result")
+    return payload

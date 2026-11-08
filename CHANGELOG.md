@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.29.0...1.29.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **probes:** lazy OVH SDK import, disable OVH probe, LAN-only LiteLLM probe ([#401](https://github.com/AlbanAndrieu/fastapi-sample/issues/401)) ([cffc675](https://github.com/AlbanAndrieu/fastapi-sample/commit/cffc675660d2f1059b45ddf1c43f51f1daa58a2a)), closes [#397](https://github.com/AlbanAndrieu/fastapi-sample/issues/397) [#330](https://github.com/AlbanAndrieu/fastapi-sample/issues/330)
+
 # [1.29.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.28.1...1.29.0) (2026-11-06)
 
 

@@ -214,28 +214,6 @@ export function sparklinePath(history, width = 420, height = 108) {
   }).join(" ");
 }
 
-export function appendAlignedPair(pairs, cpu, latency, maxSkewMs = 30000) {
-  const x = finite(cpu?.cpuCores);
-  const y = finite(latency?.valueMs);
-  const cpuAt = Date.parse(cpu?.observedAt);
-  const latencyAt = Date.parse(latency?.observedAt);
-  if (x === null || y === null || x < 0 || y < 0 ||
-      !Number.isFinite(cpuAt) || !Number.isFinite(latencyAt) ||
-      Math.abs(cpuAt - latencyAt) > maxSkewMs) return pairs.slice(-MAX_HISTORY);
-  // A reused scrape or HTTP observation must not inflate sample size.
-  if (pairs.some((item) =>
-    item.cpuAt === cpu.observedAt || item.httpAt === latency.observedAt
-  )) return pairs.slice(-MAX_HISTORY);
-  const key = cpu.observedAt + "|" + latency.observedAt;
-  const updated = pairs.slice();
-  updated.push({
-    key, cpu: x, httpMs: y, at: Math.max(cpuAt, latencyAt),
-    cpuAt: cpu.observedAt, httpAt: latency.observedAt,
-  });
-  updated.sort((a, b) => a.at - b.at);
-  return updated.slice(-MAX_HISTORY);
-}
-
 export function pearsonCorrelation(pairs, minSamples = 6) {
   if (!Array.isArray(pairs) || pairs.length < minSamples) return null;
   const n = pairs.length;
@@ -252,4 +230,112 @@ export function pearsonCorrelation(pairs, minSamples = 6) {
   const coefficient = cov / Math.sqrt(varX * varY);
   return Number.isFinite(coefficient)
     ? Math.max(-1, Math.min(1, coefficient)) : null;
+}
+
+// The history contract is deliberately smaller than the Prometheus API.
+const HISTORY_FIELDS = Object.freeze([
+  "cpu_cores", "memory_bytes", "network_bytes_per_second",
+  "http_p95_ms", "gatus_availability_percent",
+]);
+const HISTORY_WINDOWS = Object.freeze({
+  "1h": { seconds: 3600, step: 60 },
+  "24h": { seconds: 86400, step: 300 },
+  "7d": { seconds: 604800, step: 1800 },
+});
+
+export function projectPrometheusHistory(payload, nowMs = Date.now()) {
+  const window = HISTORY_WINDOWS[payload?.window];
+  if (payload?.schema_version !== 1 ||
+      payload?.model !== "owner-operations-history" ||
+      !window || !["observed", "partial"].includes(payload?.state) ||
+      payload?.synthetic !== false ||
+      payload?.source !== "prometheus_query_range" ||
+      payload.step_seconds !== window.step ||
+      !Number.isSafeInteger(payload.start) || !Number.isSafeInteger(payload.end) ||
+      payload.end - payload.start !== window.seconds ||
+      payload.end * 1000 > nowMs + 30000 ||
+      payload.end * 1000 < nowMs - window.step * 2000 ||
+      !payload.series || typeof payload.series !== "object" ||
+      Array.isArray(payload.series)) return null;
+  const fields = {};
+  let known = 0;
+  for (const key of HISTORY_FIELDS) {
+    const rows = payload.series[key];
+    if (!Array.isArray(rows) || rows.length > 350) return null;
+    let previous = -1;
+    const points = [];
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length !== 2 ||
+          !Number.isSafeInteger(row[0]) ||
+          row[0] < payload.start || row[0] > payload.end ||
+          (row[0] - payload.start) % window.step !== 0 ||
+          row[0] <= previous || finite(row[1]) === null ||
+          row[1] < 0) return null;
+      if (key === "gatus_availability_percent" && row[1] > 100) return null;
+      previous = row[0];
+      points.push({ at: new Date(row[0] * 1000).toISOString(), value: row[1] });
+    }
+    fields[key] = points;
+    known += Number(points.length > 0);
+  }
+  if (!known) return null;
+  return {
+    window: payload.window,
+    start: payload.start,
+    end: payload.end,
+    step: window.step,
+    source: "Prometheus · query_range",
+    fields,
+    availableSeries: known,
+    partial: payload.state === "partial",
+  };
+}
+
+export function alignedHistoryCorrelation(history, minPairs = 6) {
+  if (!history?.fields) return { pairs: [], coefficient: null };
+  const cpu = history.fields.cpu_cores || [];
+  const http = new Map((history.fields.http_p95_ms || []).map(
+    (row) => [row.at, row.value],
+  ));
+  const pairs = cpu.filter((row) => http.has(row.at)).map((row) => ({
+    at: Date.parse(row.at),
+    key: row.at,
+    cpu: row.value,
+    httpMs: http.get(row.at),
+  }));
+  return { pairs, coefficient: pearsonCorrelation(pairs, minPairs) };
+}
+
+
+export function temporalSparklinePath(points, {
+  startMs, endMs, maxGapMs, width = 420, height = 108,
+} = {}) {
+  if (!Array.isArray(points) || points.length < 2 ||
+      !Number.isFinite(startMs) || !Number.isFinite(endMs) ||
+      endMs <= startMs || !Number.isFinite(maxGapMs) || maxGapMs <= 0) return null;
+  const sorted = points.map((point) => ({
+    timestamp: Date.parse(point?.at),
+    value: finite(point?.value),
+  }));
+  if (sorted.some((point) =>
+    !Number.isFinite(point.timestamp) || point.value === null ||
+    point.timestamp < startMs || point.timestamp > endMs ||
+    point.value < 0
+  )) return null;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].timestamp <= sorted[i - 1].timestamp) return null;
+  }
+  const minimum = Math.min(...sorted.map((point) => point.value));
+  const maximum = Math.max(...sorted.map((point) => point.value));
+  const pad = 7;
+  const range = Math.max(maximum - minimum, Number.EPSILON);
+  return sorted.map((point, index) => {
+    const x = pad + (point.timestamp - startMs) / (endMs - startMs) *
+      (width - 2 * pad);
+    const y = maximum === minimum ? height / 2 :
+      height - pad - (point.value - minimum) / range * (height - 2 * pad);
+    const disconnected = index === 0 ||
+      point.timestamp - sorted[index - 1].timestamp > maxGapMs;
+    return `${disconnected ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(" ");
 }

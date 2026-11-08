@@ -108,3 +108,14 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
     assert result["network_flow"]["pfsense_bytes_per_second"] == 8192.0
     assert result["edge_bandwidth"] == {}
     assert result["edge_bandwidth_state"] == "unattributed"
+
+
+def test_missing_cadvisor_network_direction_is_not_a_measured_zero() -> None:
+    label = "container_label_com_docker_compose_service"
+    result = _resource_values({
+        "cpu_cores": [_sample("cpu", "0.12", **{label: "sample"})],
+        "rx_bytes_per_second": [_sample("rx", "0", **{label: "sample"})],
+        "tx_bytes_per_second": [],
+    })
+    assert result["sample"]["rx_bytes_per_second"] == 0
+    assert "network_bytes_per_second" not in result["sample"]

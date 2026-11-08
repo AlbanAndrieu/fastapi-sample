@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import {
-  appendAlignedPair,
+  alignedHistoryCorrelation,
+  projectPrometheusHistory,
+  temporalSparklinePath,
   pearsonCorrelation,
   appendObservation,
   projectFleet,
@@ -165,59 +167,111 @@ test("home only reveals detailed fetch after owner session, never auto-polls sen
   assert.equal(typeof root, "string");
 });
 
-test("CPU–HTTP correlation requires six independent, time-aligned pairs", () => {
-  let pairs = [];
-  for (let i = 0; i < 6; i += 1) {
-    const at = new Date(NOW - i * 60000).toISOString();
-    const candidate = appendAlignedPair(pairs, {
-      cpuCores: i + 1, observedAt: at,
-    }, {
-      valueMs: 10 * (i + 1), observedAt: new Date(Date.parse(at) + 5000).toISOString(),
-    });
-    pairs = candidate;
-  }
-  assert.equal(pairs.length, 6);
-  assert.equal(pearsonCorrelation(pairs), 1);
-  const same = appendAlignedPair(pairs, {
-    cpuCores: 6, observedAt: new Date(NOW).toISOString(),
-  }, {
-    valueMs: 60, observedAt: new Date(NOW + 5000).toISOString(),
-  });
-  assert.equal(same.length, 6);
-  assert.equal(pearsonCorrelation(pairs.slice(0, 5)), null);
-});
-
-test("correlation never pairs measurements with 30+ seconds skew", () => {
-  const pairs = appendAlignedPair([], {
-    cpuCores: 0.5, observedAt: AT,
-  }, {
-    valueMs: 32, observedAt: "2026-11-04T17:28:00Z",
-  });
-  assert.equal(pairs.length, 0);
-  assert.equal(pearsonCorrelation(
-    Array.from({ length: 6 }, (_, index) => ({ cpu: 0, httpMs: index + 1 })),
-  ), null);
-});
-
-test("repeated CPU or HTTP sample cannot inflate the correlation sample count", () => {
-  const initial = appendAlignedPair([], {
-    cpuCores: 0.4, observedAt: AT,
-  }, {
-    valueMs: 50, observedAt: "2026-11-04T17:29:40Z",
-  });
-  assert.equal(appendAlignedPair(initial, {
-    cpuCores: 0.4, observedAt: AT,
-  }, {
-    valueMs: 70, observedAt: "2026-11-04T17:29:42Z",
-  }).length, 1);
-  assert.equal(pearsonCorrelation(
-    Array.from({ length: 6 }, (_, i) => ({ cpu: i === 0 ? 1e300 : i, httpMs: 100 + i })),
-  ), null);
-});
-
 test("standalone home imports no remote CDN or inline script", () => {
   const root = readFileSync(new URL("../../templates/index.html", import.meta.url), "utf8");
   assert.match(root, /<html lang="fr">/);
   assert.match(root, /src="\/api\/assets\/home-operations.js"/);
   assert.doesNotMatch(root, /\{% extends|https:\/\/|cdn\.jsdelivr|unpkg|chart\.js/i);
+});
+
+function historyFixture(overrides = {}) {
+  const end = Math.floor(NOW / 1000 / 60) * 60;
+  return {
+    schema_version: 1,
+    model: "owner-operations-history",
+    window: "1h",
+    step_seconds: 60,
+    start: end - 3600,
+    end,
+    state: "partial",
+    source: "prometheus_query_range",
+    synthetic: false,
+    series: {
+      cpu_cores: [[end - 120, 0.2], [end - 60, 0.3], [end, 0.4]],
+      memory_bytes: [[end, 104857600]],
+      network_bytes_per_second: [[end, 8192]],
+      http_p95_ms: [[end - 120, 20], [end - 60, 30], [end, 40]],
+      gatus_availability_percent: [],
+    },
+    ...overrides,
+  };
+}
+
+test("server range history accepts only bounded, real Prometheus samples", () => {
+  const value = projectPrometheusHistory(historyFixture(), NOW);
+  assert.equal(value.availableSeries, 4);
+  assert.equal(value.window, "1h");
+  assert.equal(value.fields.memory_bytes[0].value, 104857600);
+  assert.equal(value.fields.cpu_cores.length, 3);
+  assert.equal(projectPrometheusHistory({
+    ...historyFixture(), synthetic: true,
+  }, NOW), null);
+  assert.equal(projectPrometheusHistory({
+    ...historyFixture(), state: "not_executed",
+  }, NOW), null);
+});
+
+test("stale, forged, duplicate, nonfinite history is rejected", () => {
+  const payload = historyFixture();
+  assert.equal(projectPrometheusHistory({
+    ...payload, start: payload.start - 5000, end: payload.end - 5000,
+  }, NOW), null);
+  assert.equal(projectPrometheusHistory({
+    ...payload, series: { ...payload.series, cpu_cores: [[1, 999]] },
+  }, NOW), null);
+  assert.equal(projectPrometheusHistory({
+    ...payload, series: { ...payload.series,
+      cpu_cores: [[payload.end, 1], [payload.end, 2]] },
+  }, NOW), null);
+  assert.equal(projectPrometheusHistory({
+    ...payload, series: { ...payload.series,
+      cpu_cores: [[payload.end, Number.NaN]] },
+  }, NOW), null);
+});
+
+test("historical CPU and p95 Pearson only pairs identical sample timestamps", () => {
+  const payload = historyFixture();
+  const end = payload.end;
+  const series = {
+    ...payload.series,
+    cpu_cores: Array.from({ length: 7 }, (_, i) => [end - (6 - i) * 60, i + 1]),
+    http_p95_ms: Array.from({ length: 7 }, (_, i) => [end - (6 - i) * 60, (i + 1) * 10]),
+  };
+  const history = projectPrometheusHistory({ ...payload, series }, NOW);
+  const { pairs, coefficient } = alignedHistoryCorrelation(history);
+  assert.equal(pairs.length, 7);
+  assert.ok(Math.abs(coefficient - 1) < 1e-12);
+  const misaligned = { ...history, fields: {
+    ...history.fields,
+    http_p95_ms: history.fields.http_p95_ms.map((row) => ({
+      ...row, at: new Date(Date.parse(row.at) + 30000).toISOString(),
+    })),
+  } };
+  assert.equal(alignedHistoryCorrelation(misaligned).coefficient, null);
+});
+
+test("history UI only accepts bounded windows, never arbitrary PromQL", () => {
+  const ui = readFileSync(
+    new URL("../../nabla/api/assets/home-operations.js", import.meta.url), "utf8",
+  );
+  assert.match(ui, /projectPrometheusHistory/);
+  assert.match(ui, /updatePrometheusHistory/);
+  assert.match(ui, /\["1h", "24h", "7d"\]/);
+  assert.match(ui, /\/api\/home\/metrics\/history\?window=/);
+  assert.doesNotMatch(ui, /query=|prometheus\.albandrieu\.com/);
+});
+
+test("timeline respects real time and draws explicit gaps", () => {
+  const startMs = NOW - 3600000;
+  const endMs = NOW;
+  const line = temporalSparklinePath([
+    { at: new Date(startMs).toISOString(), value: 2 },
+    { at: new Date(startMs + 60000).toISOString(), value: 4 },
+    { at: new Date(endMs).toISOString(), value: 10 },
+  ], { startMs, endMs, maxGapMs: 120000 });
+  assert.equal(line.match(/M/g).length, 2);
+  assert.equal(line.match(/L/g).length, 1);
+  assert.match(line, /^M7\.0 /);
+  assert.match(line, /M413\.0 /);
+  assert.equal(temporalSparklinePath([], { startMs, endMs, maxGapMs: 120000 }), null);
 });
