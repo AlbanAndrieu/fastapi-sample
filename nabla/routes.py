@@ -16,10 +16,12 @@ from prometheus_client.openmetrics.exposition import (
 from starlette.routing import Mount
 
 from nabla.api.health_routes import register_health_routes
-from nabla.api.owner_ui_session import register_owner_ui_session_routes
+from nabla.api.owner_ui_session import (
+    owner_ui_authenticated,
+    register_owner_ui_session_routes,
+)
 from nabla.api.runtime_environment import runtime_mode
 from nabla.api.topology_telemetry import fetch_topology_telemetry
-from nabla.api.owner_ui_session import owner_ui_authenticated
 from nabla.config_settings import get_settings
 from nabla.api.topology_ui import render_topology_page
 from nabla.api.ui import render_api_root_page

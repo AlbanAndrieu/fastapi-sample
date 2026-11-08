@@ -7,6 +7,7 @@ The browser only receives fixed-length timestamp/value pairs without labels.
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from dataclasses import dataclass
 import math
 import time
@@ -274,15 +275,15 @@ async def fetch_home_metrics_history(
     now = time.monotonic()
     hit = _CACHE.get(key)
     if hit and now - hit[0] < _CACHE_SECONDS:
-        return {**hit[1], "cached": True}
+        return {**deepcopy(hit[1]), "cached": True}
     async with _CACHE_LOCKS[window]:
         hit = _CACHE.get(key)
         now = time.monotonic()
         if hit and now - hit[0] < _CACHE_SECONDS:
-            return {**hit[1], "cached": True}
+            return {**deepcopy(hit[1]), "cached": True}
         try:
             payload = await _fetch_history(effective, spec, None)
         except TimeoutError:
             payload = {**base, "state": "telemetry_unavailable", "reason": "timeout"}
-        _CACHE[key] = (time.monotonic(), payload)
+        _CACHE[key] = (time.monotonic(), deepcopy(payload))
         return {**payload, "cached": False}

@@ -22,6 +22,7 @@ let HISTORY_WINDOW = "1h";
 const HISTORY_RECHECK_MS = 120000;
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
+let refreshRequested = false;
 
 function element(id) {
   return document.getElementById(id);
@@ -426,6 +427,10 @@ async function refresh() {
   } finally {
     if (button) button.disabled = false;
     active = false;
+    if (refreshRequested && !document.hidden) {
+      refreshRequested = false;
+      queueMicrotask(() => void refresh());
+    }
   }
 }
 
@@ -440,7 +445,8 @@ if (ROOT) {
     HISTORY_WINDOW = selection;
     HISTORY_DATA = null;
     HISTORY_READ_AT = 0;
-    if (!active) void refresh();
+    if (active) refreshRequested = true;
+    else void refresh();
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) void refresh();
