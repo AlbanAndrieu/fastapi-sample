@@ -53,7 +53,7 @@ a second dashboard process.
 | `/demo/sensors` | Ancienne démonstration, si le module DB est installé | Température, humidité et pression **synthétiques uniquement** |
 | `/api/health-board` | Agrégat de santé mis en cache | Réutilise les sondes existantes |
 | `/api/topology-telemetry` | Ressources cAdvisor et NetFlow (si configurés) | Cache Prometheus ; disponibilité distincte du service |
-| `/api/home/metrics/history?window=1h\|24h\|7d` | Historique Prometheus propriétaire | 5 requêtes prédéfinies : CPU, mémoire, réseau, p95 HTTP et disponibilité Gatus (si exportée) |
+| `/api/home/metrics/history?window=1h` | Historique Prometheus propriétaire | 5 requêtes prédéfinies : CPU, mémoire, réseau, p95 HTTP et disponibilité Gatus (si exportée) |
 
 La page `/` n'interroge pas la base de notes et ne démarre pas le générateur
 de mesures météo. Les anciens endpoints `/stream`, `/chart-data`,
@@ -109,3 +109,7 @@ properties:
 - tests proving that disabled mode does not import or initialize it.
 
 Do not add port 8091 or a fake OpenCode command until such a feature exists.
+
+La valeur du paramètre `window` peut seulement être `1h`, `24h` ou `7d`.
+Aucune expression PromQL, cible, URL, label ou durée arbitraire ne peut
+être transmise par le navigateur.

@@ -66,3 +66,18 @@ def test_history_never_accepts_query_or_arbitrary_window(monkeypatch) -> None:
         )
     assert response.status_code == 422
     assert "metrics" not in str(response.json())
+
+
+def test_history_rejects_client_supplied_promql_even_with_owner(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "nabla.routes.owner_ui_authenticated", lambda *_args: True
+    )
+    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
+    app = FastAPI()
+    _register_operations_history(app)
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/home/metrics/history",
+            params={"window": "1h", "query": "up"},
+        )
+    assert response.status_code == 422

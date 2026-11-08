@@ -139,3 +139,7 @@ avec `frame-ancestors 'none'`.
 connecteurs GitHub permettent les changements, mais pas une session TrueNAS
 ou Prometheus local authentifiée. La vérification opérationnelle nécessite
 une recette depuis le LAN. Aucun secret, pare-feu ni jeton n'est modifié.
+
+Les paramètres de requête inattendus, notamment `query`, sont rejetés
+avec HTTP 422 sur l'endpoint d'historique. Les requêtes sont prédéfinies,
+en lecture seule, avec un cache de 120 secondes.

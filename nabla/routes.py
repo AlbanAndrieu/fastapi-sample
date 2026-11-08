@@ -94,7 +94,9 @@ def _register_operations_history(app: FastAPI) -> None:
                 status_code=403,
                 headers={"Cache-Control": "private, no-store"},
             )
-        if window not in {"1h", "24h", "7d"}:
+        if window not in {"1h", "24h", "7d"} or any(
+            key != "window" for key in request.query_params
+        ):
             return JSONResponse(
                 {"detail": "Unsupported window"},
                 status_code=422,
