@@ -36,7 +36,7 @@ def _matrix(request: httpx.Request) -> httpx.Response:
         json={
             "status": "success",
             "data": {"resultType": "matrix", "result": [
-                {"metric": labels, "values": [[end - 60, "0.25"], [end, "0.5"]]},
+                {"metric": labels, "values": [[end - int(request.url.params["step"]), "0.25"], [end, "0.5"]]},
             ]},
         },
     )

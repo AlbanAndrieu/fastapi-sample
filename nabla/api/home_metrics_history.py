@@ -14,6 +14,7 @@ from typing import Any
 
 import httpx
 
+from nabla.api.prometheus_query import query_matrix_range
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.settings.observability import HomelabPrometheusSettings
 
@@ -73,7 +74,6 @@ class _RequestWindow:
     start: int
     step: int
     label: str
-    expected_points: int
 
 
 def _window(label: str) -> _RequestWindow:
@@ -84,7 +84,6 @@ def _window(label: str) -> _RequestWindow:
         start=end - seconds,
         step=step,
         label=label,
-        expected_points=seconds // step + 1,
     )
 
 
@@ -138,7 +137,9 @@ def _sanitize_matrix(
         if timestamp is None or value is None:
             continue
         timestamp_int = int(timestamp)
-        if not window.start <= timestamp_int <= window.end + 1:
+        if not window.start <= timestamp_int <= window.end:
+            continue
+        if (timestamp_int - window.start) % window.step != 0:
             continue
         if metric == "gatus_availability_percent" and value > 100:
             continue
@@ -151,31 +152,6 @@ def _sanitize_matrix(
             continue
         clean[timestamp_int] = round(value, 6)
     return [[stamp, clean[stamp]] for stamp in sorted(clean)]
-
-
-async def _matrix_query(
-    client: httpx.AsyncClient,
-    expression: str,
-    window: _RequestWindow,
-) -> object:
-    response = await client.get(
-        "/api/v1/query_range",
-        params={
-            "query": expression,
-            "start": window.start,
-            "end": window.end,
-            "step": window.step,
-        },
-        headers={"Accept": "application/json"},
-    )
-    if 300 <= response.status_code < 400:
-        raise httpx.HTTPStatusError(
-            "Prometheus redirect rejected",
-            request=response.request,
-            response=response,
-        )
-    response.raise_for_status()
-    return response.json()
 
 
 def _failure_kind(exc: Exception) -> str:
@@ -217,7 +193,10 @@ async def _fetch_history(
     async def collect(field: str, expression: str) -> None:
         async with semaphore:
             try:
-                payload = await _matrix_query(query_client, expression, window)
+                payload = await query_matrix_range(
+                    query_client, expression,
+                    start=window.start, end=window.end, step=window.step,
+                )
                 series[field] = _sanitize_matrix(payload, field, window)
             except (httpx.HTTPError, ValueError) as exc:
                 errors[field] = _failure_kind(exc)

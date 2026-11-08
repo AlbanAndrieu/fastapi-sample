@@ -289,7 +289,8 @@ export function projectPrometheusHistory(payload, nowMs = Date.now()) {
     for (const row of rows) {
       if (!Array.isArray(row) || row.length !== 2 ||
           !Number.isSafeInteger(row[0]) ||
-          row[0] < payload.start || row[0] > payload.end + 1 ||
+          row[0] < payload.start || row[0] > payload.end ||
+          (row[0] - payload.start) % window.step !== 0 ||
           row[0] <= previous || finite(row[1]) === null ||
           row[1] < 0) return null;
       if (key === "gatus_availability_percent" && row[1] > 100) return null;
