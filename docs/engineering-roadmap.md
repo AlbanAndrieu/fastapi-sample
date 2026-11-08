@@ -185,10 +185,29 @@ sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
   `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` côté Cloud. Restent opérateur
   (runbook nabla-compose `docs/runbooks/2026-11-04-probe-remediation.md`) :
   apply des routes Tunnel, Service Auth Access, bypass Vaultwarden par
-  chemins, exception WAF, OVH, variable pfSense Cloud, Graylog/Lidarr/Homarr,
-  décision Joplin. Preuve suivante : déploiement Cloud au SHA de cette PR,
-  `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz` sans
-  `Query is invalid.`.
+  chemins, OVH, Graylog/Lidarr/Homarr/bitcoind, déploiement TrueNAS de
+  dependency-track, netbox, scanopy, joplin, ntopng et plumber, migration
+  canonique Home Assistant. Preuve suivante : déploiement Cloud au SHA de
+  cette PR, `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz`
+  sans `Query is invalid.`.
+  **05/11 :** `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` appliqué sur Cloud
+  (constaté : `transport_only`, `telemetry_disabled`) ; smoke de production
+  aligné sur ce contrat. Décision propriétaire : **pas d'exception WAF** ;
+  Keycloak/LiteLLM restent `warn` (`edge_block=challenge`) depuis Cloud, la
+  preuve de santé vient de l'observateur TrueNAS LAN.
+  **05/11 (suite) :** sonde OVH désactivée par défaut
+  (`OVH_API_PROBE_ENABLED=true` pour la réactiver) et SDK `ovh` importé
+  paresseusement (le runtime minimal `uv sync --no-default-groups` ne
+  démarrait pas) ; LiteLLM n'est plus publié sur Internet : sonde ignorée
+  par défaut, URL LAN sur TrueNAS (`compose.yml`). Preuve suivante : CI
+  « Validate minimal FastAPI Cloud runtime » verte, `/healthz` Cloud sans
+  `openstack_me` ni `litellm` en échec, `litellm` `reachable=true` sur
+  TrueNAS.
+  **07/11 :** `_EXPORTER_JOBS` reflète les jobs Prometheus `dependency_track`
+  et `netbox` déclarés dans `nabla-compose` (PR #330) ; ils apparaissent
+  dans `platform_metrics.exporter_jobs` dès que les Apps TrueNAS démarrent.
+  Preuve suivante : `up{job="dependency_track"}` et `up{job="netbox"}` = 1
+  côté LAN et les deux jobs présents dans `/api/health-board`.
 
 **Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
 authentifié, aucun voyant vert sans preuve fraîche, couverture explicable

@@ -263,7 +263,9 @@ class _Settings(DatabaseSettings):
     litellm_healthz_url: Annotated[
         str,
         Field(
-            default="https://litellm.albandrieu.com",
+            # LiteLLM is not published on the Internet; runtimes on the LAN set
+            # LITELLM_HEALTHZ_URL explicitly, others skip the probe.
+            default="",
             validation_alias=AliasChoices("LITELLM_HEALTHZ_URL"),
         ),
     ]
