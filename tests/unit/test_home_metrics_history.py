@@ -8,9 +8,6 @@ import pytest
 from nabla.api import home_metrics_history as history
 from nabla.settings.observability import HomelabPrometheusSettings
 
-pytestmark = pytest.mark.asyncio
-
-
 def _settings() -> HomelabPrometheusSettings:
     return HomelabPrometheusSettings(
         homelab_prometheus_url="https://prometheus.albandrieu.com",

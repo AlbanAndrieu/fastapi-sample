@@ -214,28 +214,6 @@ export function sparklinePath(history, width = 420, height = 108) {
   }).join(" ");
 }
 
-export function appendAlignedPair(pairs, cpu, latency, maxSkewMs = 30000) {
-  const x = finite(cpu?.cpuCores);
-  const y = finite(latency?.valueMs);
-  const cpuAt = Date.parse(cpu?.observedAt);
-  const latencyAt = Date.parse(latency?.observedAt);
-  if (x === null || y === null || x < 0 || y < 0 ||
-      !Number.isFinite(cpuAt) || !Number.isFinite(latencyAt) ||
-      Math.abs(cpuAt - latencyAt) > maxSkewMs) return pairs.slice(-MAX_HISTORY);
-  // A reused scrape or HTTP observation must not inflate sample size.
-  if (pairs.some((item) =>
-    item.cpuAt === cpu.observedAt || item.httpAt === latency.observedAt
-  )) return pairs.slice(-MAX_HISTORY);
-  const key = cpu.observedAt + "|" + latency.observedAt;
-  const updated = pairs.slice();
-  updated.push({
-    key, cpu: x, httpMs: y, at: Math.max(cpuAt, latencyAt),
-    cpuAt: cpu.observedAt, httpAt: latency.observedAt,
-  });
-  updated.sort((a, b) => a.at - b.at);
-  return updated.slice(-MAX_HISTORY);
-}
-
 export function pearsonCorrelation(pairs, minSamples = 6) {
   if (!Array.isArray(pairs) || pairs.length < minSamples) return null;
   const n = pairs.length;

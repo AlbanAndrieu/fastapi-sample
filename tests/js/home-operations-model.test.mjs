@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import {
-  appendAlignedPair,
   alignedHistoryCorrelation,
   projectPrometheusHistory,
   temporalSparklinePath,
@@ -166,56 +165,6 @@ test("home only reveals detailed fetch after owner session, never auto-polls sen
   assert.match(source, /fetchJSON\("\/api\/topology-telemetry"/);
   assert.doesNotMatch(source, /\/(?:stream|charts|sensor-data)/);
   assert.equal(typeof root, "string");
-});
-
-test("CPU–HTTP correlation requires six independent, time-aligned pairs", () => {
-  let pairs = [];
-  for (let i = 0; i < 6; i += 1) {
-    const at = new Date(NOW - i * 60000).toISOString();
-    const candidate = appendAlignedPair(pairs, {
-      cpuCores: i + 1, observedAt: at,
-    }, {
-      valueMs: 10 * (i + 1), observedAt: new Date(Date.parse(at) + 5000).toISOString(),
-    });
-    pairs = candidate;
-  }
-  assert.equal(pairs.length, 6);
-  assert.equal(pearsonCorrelation(pairs), 1);
-  const same = appendAlignedPair(pairs, {
-    cpuCores: 6, observedAt: new Date(NOW).toISOString(),
-  }, {
-    valueMs: 60, observedAt: new Date(NOW + 5000).toISOString(),
-  });
-  assert.equal(same.length, 6);
-  assert.equal(pearsonCorrelation(pairs.slice(0, 5)), null);
-});
-
-test("correlation never pairs measurements with 30+ seconds skew", () => {
-  const pairs = appendAlignedPair([], {
-    cpuCores: 0.5, observedAt: AT,
-  }, {
-    valueMs: 32, observedAt: "2026-11-04T17:28:00Z",
-  });
-  assert.equal(pairs.length, 0);
-  assert.equal(pearsonCorrelation(
-    Array.from({ length: 6 }, (_, index) => ({ cpu: 0, httpMs: index + 1 })),
-  ), null);
-});
-
-test("repeated CPU or HTTP sample cannot inflate the correlation sample count", () => {
-  const initial = appendAlignedPair([], {
-    cpuCores: 0.4, observedAt: AT,
-  }, {
-    valueMs: 50, observedAt: "2026-11-04T17:29:40Z",
-  });
-  assert.equal(appendAlignedPair(initial, {
-    cpuCores: 0.4, observedAt: AT,
-  }, {
-    valueMs: 70, observedAt: "2026-11-04T17:29:42Z",
-  }).length, 1);
-  assert.equal(pearsonCorrelation(
-    Array.from({ length: 6 }, (_, i) => ({ cpu: i === 0 ? 1e300 : i, httpMs: 100 + i })),
-  ), null);
 });
 
 test("standalone home imports no remote CDN or inline script", () => {

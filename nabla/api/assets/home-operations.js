@@ -212,9 +212,7 @@ function privateResources(snapshot) {
   return resources;
 }
 
-function correlation(cpu, latency) {
-  // Browser-only CPU/HTTP probe pairs are no longer used for a server
-  // p95 correlation. Historical p95 is a distinct, labelled measurement.
+function correlation() {
   const node = element("home-correlation-chart");
   if (!node) return;
   const r = pearsonCorrelation(CORRELATION_PAIRS);
@@ -318,7 +316,7 @@ function renderPrometheusHistory(history) {
   metric("home-gatus", currentValue(gatus), 1, " %");
   const alignment = alignedHistoryCorrelation(history);
   CORRELATION_PAIRS = alignment.pairs;
-  correlation(null, null);
+  correlation();
   put("home-history-status", history.window +
     " · Prometheus · " + history.availableSeries + "/5 séries" +
     (history.partial ? " · partiel" : "") +
