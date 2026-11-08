@@ -3,6 +3,7 @@ import {
   pearsonCorrelation,
   appendObservation,
   projectPrometheusHistory,
+  temporalSparklinePath,
   projectFleet,
   projectLatency,
   projectProbes,
@@ -257,10 +258,14 @@ function correlation(cpu, latency) {
   node.setAttribute("aria-label", "Corrélation CPU / HTTP : " + r.toFixed(2));
 }
 
-function renderSeriesHistory(target, points, label) {
+function renderSeriesHistory(target, points, label, history) {
   const node = element(target);
   if (!node) return;
-  const path = sparklinePath(points);
+  const path = temporalSparklinePath(points, {
+    startMs: history.start * 1000,
+    endMs: history.end * 1000,
+    maxGapMs: history.step * 2000,
+  });
   if (!path) {
     node.replaceChildren();
     const fallback = document.createElement("p");
@@ -301,12 +306,15 @@ function renderPrometheusHistory(history) {
     const points = (fields[field] || []).map((row) => ({
       at: row.at, value: row.value * scale,
     }));
-    renderSeriesHistory(target, points, label);
+    renderSeriesHistory(target, points, label, history);
   }
   const p95 = fields.http_p95_ms || [];
   const gatus = fields.gatus_availability_percent || [];
-  metric("home-p95", p95.length ? p95.at(-1).value : null, 1, " ms");
-  metric("home-gatus", gatus.length ? gatus.at(-1).value : null, 1, " %");
+  const currentValue = (points) => points.length &&
+    history.end * 1000 - Date.parse(points.at(-1).at) <= history.step * 2000
+    ? points.at(-1).value : null;
+  metric("home-p95", currentValue(p95), 1, " ms");
+  metric("home-gatus", currentValue(gatus), 1, " %");
   const alignment = alignedHistoryCorrelation(history);
   CORRELATION_PAIRS = alignment.pairs;
   correlation(null, null);

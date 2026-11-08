@@ -6,6 +6,7 @@ import {
   appendAlignedPair,
   alignedHistoryCorrelation,
   projectPrometheusHistory,
+  temporalSparklinePath,
   pearsonCorrelation,
   appendObservation,
   projectFleet,
@@ -309,4 +310,19 @@ test("history UI only accepts bounded windows, never arbitrary PromQL", () => {
   assert.match(ui, /\["1h", "24h", "7d"\]/);
   assert.match(ui, /\/api\/home\/metrics\/history\?window=/);
   assert.doesNotMatch(ui, /query=|prometheus\.albandrieu\.com/);
+});
+
+test("timeline respects real time and draws explicit gaps", () => {
+  const startMs = NOW - 3600000;
+  const endMs = NOW;
+  const line = temporalSparklinePath([
+    { at: new Date(startMs).toISOString(), value: 2 },
+    { at: new Date(startMs + 60000).toISOString(), value: 4 },
+    { at: new Date(endMs).toISOString(), value: 10 },
+  ], { startMs, endMs, maxGapMs: 120000 });
+  assert.equal(line.match(/M/g).length, 2);
+  assert.equal(line.match(/L/g).length, 1);
+  assert.match(line, /^M7\.0 /);
+  assert.match(line, /M413\.0 /);
+  assert.equal(temporalSparklinePath([], { startMs, endMs, maxGapMs: 120000 }), null);
 });

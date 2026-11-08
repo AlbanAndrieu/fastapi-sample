@@ -327,3 +327,37 @@ export function alignedHistoryCorrelation(history, minPairs = 6) {
   }));
   return { pairs, coefficient: pearsonCorrelation(pairs, minPairs) };
 }
+
+
+export function temporalSparklinePath(points, {
+  startMs, endMs, maxGapMs, width = 420, height = 108,
+} = {}) {
+  if (!Array.isArray(points) || points.length < 2 ||
+      !Number.isFinite(startMs) || !Number.isFinite(endMs) ||
+      endMs <= startMs || !Number.isFinite(maxGapMs) || maxGapMs <= 0) return null;
+  const sorted = points.map((point) => ({
+    timestamp: Date.parse(point?.at),
+    value: finite(point?.value),
+  }));
+  if (sorted.some((point) =>
+    !Number.isFinite(point.timestamp) || point.value === null ||
+    point.timestamp < startMs || point.timestamp > endMs ||
+    point.value < 0
+  )) return null;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].timestamp <= sorted[i - 1].timestamp) return null;
+  }
+  const minimum = Math.min(...sorted.map((point) => point.value));
+  const maximum = Math.max(...sorted.map((point) => point.value));
+  const pad = 7;
+  const range = Math.max(maximum - minimum, Number.EPSILON);
+  return sorted.map((point, index) => {
+    const x = pad + (point.timestamp - startMs) / (endMs - startMs) *
+      (width - 2 * pad);
+    const y = maximum === minimum ? height / 2 :
+      height - pad - (point.value - minimum) / range * (height - 2 * pad);
+    const disconnected = index === 0 ||
+      point.timestamp - sorted[index - 1].timestamp > maxGapMs;
+    return `${disconnected ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(" ");
+}

@@ -65,7 +65,7 @@ _UNITS = {
 }
 _SERVICE_SERIES = frozenset({"cpu_cores", "memory_bytes", "network_bytes_per_second"})
 _CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
-_CACHE_LOCK = asyncio.Lock()
+_CACHE_LOCKS = {window: asyncio.Lock() for window in WINDOWS}
 
 
 @dataclass(slots=True)
@@ -247,7 +247,6 @@ async def fetch_home_metrics_history(
         raise ValueError("Unsupported history window")
     spec = _window(window)
     active = homelab_runtime_detected() if enabled is None else enabled
-    effective = settings or HomelabPrometheusSettings()
     base = {
         "schema_version": 1,
         "model": "owner-operations-history",
@@ -263,6 +262,7 @@ async def fetch_home_metrics_history(
     }
     if not active:
         return {**base, "state": "not_executed", "reason": "homelab_only"}
+    effective = settings or HomelabPrometheusSettings()
     if not effective.configured:
         return {**base, "state": "not_configured", "reason": "prometheus_missing"}
     if client is not None:
@@ -275,7 +275,7 @@ async def fetch_home_metrics_history(
     hit = _CACHE.get(key)
     if hit and now - hit[0] < _CACHE_SECONDS:
         return {**hit[1], "cached": True}
-    async with _CACHE_LOCK:
+    async with _CACHE_LOCKS[window]:
         hit = _CACHE.get(key)
         now = time.monotonic()
         if hit and now - hit[0] < _CACHE_SECONDS:
