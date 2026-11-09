@@ -3,6 +3,7 @@
 """Application lifecycle management (startup/shutdown)."""
 
 import asyncio
+import os
 import socket
 import time
 from collections.abc import AsyncIterator, Callable, Coroutine
@@ -20,6 +21,7 @@ from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.runtime_topology import runtime_topology_heartbeat
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.app_features import AppFeatures
 from nabla.config_settings import get_settings
 from nabla.mcp.client import close_mcp_clients, initialize_mcp_clients
@@ -239,12 +241,32 @@ def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], A
     return lifespan
 
 
+def cloud_background_workers_allowed() -> bool:
+    """Disable idle tickers on FastAPI Cloud unless explicitly requested.
+
+    Continuous psutil sampling (5s), Redis pub/sub and 30s heartbeats
+    keep replicas doing work after a page view and are redundant with
+    platform-native CPU/memory metrics on a scale-to-zero deployment.
+    TrueNAS and local development retain their existing behavior.
+    """
+    cloud = fastapi_cloud_runtime_detected(os.getenv("APP_DOMAIN"))
+    if not cloud:
+        return True
+    return (
+        os.getenv("FASTAPI_CLOUD_BACKGROUND_WORKERS_ENABLED", "")
+        .strip().lower() == "true"
+    )
+
+
 def _start_background_workers(
     features: AppFeatures,
     redis_client: Any,
     tasks: list[asyncio.Task[None]],
 ) -> None:
-    """Start the best-effort workers owned by the enabled subsystems."""
+    """Start only explicitly authorized tickers on Cloud."""
+    if not cloud_background_workers_allowed():
+        logger.info("background_worker_policy runtime=fastapi_cloud mode=on_demand")
+        return
     if features.observability and get_settings().metrics_enabled:
         _start_background_task(
             update_system_metrics(),

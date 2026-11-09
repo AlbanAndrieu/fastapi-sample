@@ -101,7 +101,7 @@ def _public_board_reader(request: Request):
         == "true"
     )
     if cloud and not allow_expensive:
-        return health_board.peek_public_health_board_snapshot()
+        return health_board.peek_public_health_board_snapshot(request)
     return health_board.get_health_board_snapshot(request)
 
 
