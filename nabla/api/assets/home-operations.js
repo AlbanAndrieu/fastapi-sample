@@ -13,6 +13,8 @@ import {
   projectLatency,
   projectProbes,
   projectResources,
+  projectServiceFootprint,
+  projectAggregateNetworkFlow,
   projectSecurity,
   sparklinePath,
 } from "./home-operations-model.js";
@@ -24,6 +26,7 @@ let CORRELATION_PAIRS = [];
 let HISTORY_DATA = null;
 let HISTORY_READ_AT = 0;
 let HISTORY_WINDOW = "1h";
+let LATEST_RESOURCE_TELEMETRY = null;
 const HISTORY_RECHECK_MS = 120000;
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
@@ -166,6 +169,12 @@ function observe(name, at, value, target, label) {
 }
 
 function clearPrivate({ purge = false } = {}) {
+  LATEST_RESOURCE_TELEMETRY = null;
+  element("home-footprint-bars")?.replaceChildren();
+  put("home-footprint-source", "Mesures non confirmées");
+  put("home-footprint-note", "Barres relatives entre services observés, pas un pourcentage de capacité.");
+  put("home-pfsense-flow", "—");
+  put("home-flow-source", "Flux non confirmés · Akvorado / Prometheus.");
   if (purge) {
     HISTORY_DATA = null;
     HISTORY_READ_AT = 0;
@@ -246,7 +255,66 @@ function privateBoard(board) {
   return latency;
 }
 
+
+function renderServiceFootprint(snapshot) {
+  // Never expose this projection outside the already authenticated OWNER panel.
+  const list = element("home-footprint-bars");
+  if (!list) return;
+  list.replaceChildren();
+  const selected = element("home-footprint-metric")?.value || "memory_bytes";
+  const footprint = projectServiceFootprint(snapshot, selected);
+  if (!footprint || !footprint.rows.length) {
+    const empty = document.createElement("li");
+    empty.className = "op-resource-empty";
+    empty.textContent = "Aucune mesure récente pour cette ressource (absence ≠ zéro).";
+    list.append(empty);
+    put("home-footprint-source", "Télémétrie indisponible ou mesure absente");
+    put("home-footprint-note", selected === "fs_bytes" ?
+      "FS conteneur uniquement ; aucun chiffre de datasets ZFS ou PVC." :
+      "Aucune capacité, utilisation ou indisponibilité inventée.");
+  } else {
+    put("home-footprint-source", footprint.measured + "/" + footprint.declared +
+      " services mesurés · " + footprint.observedAt + " · 8 premiers");
+    put("home-footprint-note", footprint.storageScope ||
+      "Largeur relative au plus grand service mesuré : ce n'est pas un % de quota CPU/RAM.");
+    for (const row of footprint.rows) {
+      const item = document.createElement("li");
+      item.className = "op-resource-item";
+      const heading = document.createElement("div");
+      heading.className = "op-resource-label";
+      const label = document.createElement("strong");
+      label.textContent = row.name;
+      const measure = document.createElement("data");
+      measure.textContent = row.value.toLocaleString("fr-FR", {
+        maximumFractionDigits: row.value < 1 ? 3 : 1,
+      }) + " " + footprint.unit;
+      heading.append(label, measure);
+      const track = document.createElement("div");
+      track.className = "op-resource-track";
+      track.setAttribute("role", "img");
+      track.setAttribute("aria-label", row.name + " : " + measure.textContent +
+        " · barre relative, pas capacité");
+      const bar = document.createElement("span");
+      bar.className = "op-resource-fill";
+      bar.style.width = row.relativePercent.toFixed(2) + "%";
+      track.append(bar);
+      item.append(heading, track);
+      list.append(item);
+    }
+  }
+  const flow = projectAggregateNetworkFlow(snapshot);
+  put("home-pfsense-flow", flow?.kiBs == null ? "—" :
+    flow.kiBs.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " KiB/s");
+  put("home-flow-source", !flow ?
+    "Absence de preuve réseau récente" :
+    flow.kiBs === null ? "Débit pfSense absent · aucune valeur supposée" :
+    (flow.collectorConfirmed ? "Collecte Akvorado confirmée" :
+      "Collecte Akvorado non confirmée") + " · flux pfSense agrégé, non attribué");
+}
+
 function privateResources(snapshot) {
+  LATEST_RESOURCE_TELEMETRY = snapshot;
+  renderServiceFootprint(snapshot);
   const resources = projectResources(snapshot);
   if (!resources) {
     put("home-resource-source", "Prometheus / cAdvisor · aucune donnée fraîche");
@@ -531,6 +599,11 @@ if (ROOT) {
     HISTORY_READ_AT = 0;
     warmupAttempts = 0;
     void refresh();
+  });
+  element("home-footprint-metric")?.addEventListener("change", () => {
+    if (!element("home-operator-detail")?.hidden && LATEST_RESOURCE_TELEMETRY) {
+      renderServiceFootprint(LATEST_RESOURCE_TELEMETRY);
+    }
   });
   element("home-history-window")?.addEventListener("change", (event) => {
     const selection = event.target.value;
