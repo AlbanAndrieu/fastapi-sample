@@ -124,6 +124,66 @@ export function projectResources(payload, nowMs = Date.now()) {
   };
 }
 
+
+/**
+ * Rank measured container resources without inventing missing capacity or
+ * interpreting byte counters as ZFS datasets. Caller MUST be OWNER-gated.
+ * Ratios are relative to the largest observed row, never CPU utilization %.
+ */
+export function projectServiceFootprint(payload, dimension = "memory_bytes", nowMs = Date.now()) {
+  const dimensions = {
+    cpu_cores: { label: "CPU", unit: "c" },
+    memory_bytes: { label: "Mémoire", unit: "MiB", divisor: 1048576 },
+    fs_bytes: { label: "FS conteneur", unit: "MiB", divisor: 1048576 },
+    network_bytes_per_second: { label: "Réseau RX + TX", unit: "KiB/s", divisor: 1024 },
+  };
+  if (!Object.hasOwn(dimensions, dimension)) return null;
+  const telemetry = record(payload);
+  if (telemetry.schema_version !== 1 ||
+      !["healthy", "partial"].includes(telemetry.state) ||
+      telemetry.resource_source !== "truenas_cadvisor" ||
+      !hasFreshTimestamp(telemetry.generated_at, nowMs)) return null;
+  const services = record(telemetry.resources);
+  const names = Object.keys(services);
+  if (names.length > 2000) return null;
+  const spec = dimensions[dimension];
+  const observed = [];
+  for (const name of names) {
+    if (!/^[a-zA-Z0-9_.-]{1,80}$/.test(name)) continue;
+    const value = finite(record(services[name])[dimension]);
+    if (value === null || value < 0) continue;
+    observed.push({ name, value: value / (spec.divisor || 1) });
+  }
+  observed.sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  const max = observed[0]?.value || 0;
+  return {
+    dimension, label: spec.label, unit: spec.unit,
+    observedAt: telemetry.generated_at,
+    measured: observed.length,
+    declared: names.length,
+    rows: observed.slice(0, 8).map((entry) => ({
+      ...entry, relativePercent: max > 0 ? 100 * entry.value / max : 0,
+    })),
+    storageScope: dimension === "fs_bytes" ?
+      "Système de fichiers du conteneur (cAdvisor) ; hors datasets ZFS / PVC." : null,
+  };
+}
+
+/** pfSense flow is aggregate evidence; no per-service/edge attribution exists. */
+export function projectAggregateNetworkFlow(payload, nowMs = Date.now()) {
+  if (payload?.schema_version !== 1 ||
+      !["healthy", "partial"].includes(payload.state) ||
+      !hasFreshTimestamp(payload.generated_at, nowMs)) return null;
+  const flow = record(payload.network_flow);
+  const rate = finite(flow.pfsense_bytes_per_second);
+  return {
+    observedAt: payload.generated_at,
+    kiBs: rate !== null && rate >= 0 ? rate / 1024 : null,
+    collectorConfirmed: flow.akvorado_inlet_up === 1 && flow.akvorado_outlet_up === 1,
+    attributed: false,
+  };
+}
+
 export function projectLatency(board, nowMs = Date.now()) {
   if (!freshBoard(board, nowMs)) return null;
   const rows = record(board.homelab).public_probe_results;
