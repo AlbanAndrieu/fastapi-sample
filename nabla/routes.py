@@ -106,7 +106,9 @@ def _register_operations_history(app: FastAPI) -> None:
                 status_code=422,
                 headers={"Cache-Control": "private, no-store"},
             )
-        from nabla.api.home_metrics_history import fetch_home_metrics_history
+        from nabla.api.home_metrics_history import (  # noqa: PLC0415 - lazy OWNER-only import
+            fetch_home_metrics_history,
+        )
 
         return JSONResponse(
             await fetch_home_metrics_history(window),
