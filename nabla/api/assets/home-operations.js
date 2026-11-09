@@ -48,7 +48,11 @@ function clearWarmupRetry() {
 function scheduleWarmupRetry() {
   clearWarmupRetry();
   // Five bounded fast retries, then return to the existing 30s cadence.
-  if (warmupAttempts >= WARMUP_DELAYS_MS.length || document.hidden) return;
+  if (warmupAttempts >= WARMUP_DELAYS_MS.length) {
+    put("home-retry-status", "Actualisation périodique toutes les 30 s");
+    return;
+  }
+  if (document.hidden) return;
   const delay = WARMUP_DELAYS_MS[warmupAttempts];
   warmupAttempts += 1;
   put("home-retry-status", "Nouvelle lecture automatique dans " +
@@ -424,10 +428,16 @@ async function refresh() {
   if (button) button.disabled = true;
   status("Lecture des observations mises en cache…");
   try {
-  const [publicResult, sessionResult] = await Promise.allSettled([
-    fetchJSON("/api/ui/services"),
-    fetchJSON("/api/ui/session", 3500),
-  ]);
+  // A slow owner session check must not delay public service cards.
+  const publicRequest = fetchJSON("/api/ui/services").then(
+    (value) => ({ status: "fulfilled", value }),
+    (reason) => ({ status: "rejected", reason }),
+  );
+  const sessionRequest = fetchJSON("/api/ui/session", 3500).then(
+    (value) => ({ status: "fulfilled", value }),
+    (reason) => ({ status: "rejected", reason }),
+  );
+  const publicResult = await publicRequest;
   const fleet = publicResult.status === "fulfilled"
     ? projectFleet(publicResult.value) : null;
   const publicDenied = publicResult.status === "rejected" &&
@@ -458,6 +468,7 @@ async function refresh() {
     status("Catalogue temporairement indisponible · nouvelle tentative automatique",
       "warn");
   }
+  const sessionResult = await sessionRequest;
   if (sessionResult.status === "rejected") retryWarmup = true;
 
   const owner = sessionResult.status === "fulfilled" &&
