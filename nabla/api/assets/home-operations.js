@@ -489,7 +489,8 @@ async function refresh() {
         boardResult.value?.state === "fresh") {
       latency = privateBoard(boardResult.value);
     } else {
-      status("Diagnostics détaillés absents ou périmés", "warn");
+      retryWarmup = true;
+      status("Diagnostics détaillés absents ou périmés · nouvelle lecture automatique", "warn");
     }
     const resources = telemetryResult.status === "fulfilled"
       ? privateResources(telemetryResult.value) : null;

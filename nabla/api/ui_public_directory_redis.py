@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import re
 import time
@@ -90,6 +91,8 @@ async def read_public_directory_redis() -> Any | None:
             return None
         stored_at = envelope.get("storedAt")
         if not isinstance(stored_at, (int, float)) or isinstance(stored_at, bool):
+            return None
+        if not math.isfinite(stored_at):
             return None
         age = time.time() - stored_at
         if age < -30 or age > _TTL_SECONDS:

@@ -152,3 +152,15 @@ async def test_fresh_bootstrap_prefers_current_board_to_old_redis(monkeypatch) -
     assert result.boardState == "fresh"
     assert result.services[0].state == "ok"
     assert len(result.services) == 1
+
+
+@pytest.mark.asyncio
+async def test_nonfinite_redis_timestamp_is_rejected(monkeypatch) -> None:
+    redis = MemoryRedis()
+    _enable(monkeypatch, redis)
+    await cache.write_public_directory_redis(_projection())
+    key = next(iter(redis.rows))
+    payload = json.loads(redis.rows[key])
+    payload["storedAt"] = float("nan")
+    redis.rows[key] = json.dumps(payload)
+    assert await cache.read_public_directory_redis() is None
