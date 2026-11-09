@@ -1,4 +1,9 @@
 import {
+  discardPublicDirectory,
+  persistPublicDirectory,
+  restorePublicDirectory,
+} from "./home-public-cache.js";
+import {
   alignedHistoryCorrelation,
   pearsonCorrelation,
   appendObservation,
@@ -23,6 +28,48 @@ const HISTORY_RECHECK_MS = 120000;
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
 let refreshRequested = false;
+let warmupAttempts = 0;
+let warmupTimer = null;
+const WARMUP_DELAYS_MS = [2000, 4000, 8000, 15000, 30000];
+
+function publicSessionCache() {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function clearWarmupRetry() {
+  if (warmupTimer !== null) clearTimeout(warmupTimer);
+  warmupTimer = null;
+}
+
+function scheduleWarmupRetry() {
+  clearWarmupRetry();
+  // Five bounded fast retries, then return to the existing 30s cadence.
+  if (warmupAttempts >= WARMUP_DELAYS_MS.length || document.hidden) return;
+  const delay = WARMUP_DELAYS_MS[warmupAttempts];
+  warmupAttempts += 1;
+  put("home-retry-status", "Nouvelle lecture automatique dans " +
+    Math.round(delay / 1000) + " s");
+  warmupTimer = setTimeout(() => {
+    warmupTimer = null;
+    if (active) refreshRequested = true;
+    else void refresh();
+  }, delay);
+}
+
+function paintSessionDirectory() {
+  const directory = restorePublicDirectory(publicSessionCache());
+  if (!directory) return false;
+  const projected = projectFleet(directory);
+  if (!projected) return false;
+  summaryCounts(projected);
+  put("home-fleet-source", "Inventaire public de cet onglet · états non vérifiés");
+  status("Inventaire provisoire · actualisation automatique", "unknown");
+  return true;
+}
 
 function element(id) {
   return document.getElementById(id);
@@ -370,7 +417,9 @@ async function fetchJSON(url, timeout = 6500) {
 
 async function refresh() {
   if (active || document.hidden || !ROOT) return;
+  clearWarmupRetry();
   active = true;
+  let retryWarmup = false;
   const button = element("home-refresh");
   if (button) button.disabled = true;
   status("Lecture des observations mises en cache…");
@@ -381,14 +430,35 @@ async function refresh() {
   ]);
   const fleet = publicResult.status === "fulfilled"
     ? projectFleet(publicResult.value) : null;
+  const publicDenied = publicResult.status === "rejected" &&
+    ["http_401", "http_403", "http_404"].includes(publicResult.reason?.message);
   if (fleet) {
+    persistPublicDirectory(publicSessionCache(), publicResult.value);
     summaryCounts(fleet);
-    status(fleet.verified ? "Catalogue vérifié" :
-      "Catalogue disponible, preuves périmées", fleet.verified ? "ok" : "warn");
-  } else {
+    retryWarmup = !fleet.verified;
+    status(fleet.verified
+      ? "Catalogue vérifié · actualisation automatique"
+      : "Sondes en préparation · nouvelle lecture automatique",
+      fleet.verified ? "ok" : "warn");
+    if (fleet.verified) {
+      warmupAttempts = 0;
+      put("home-retry-status", "Actualisation périodique toutes les 30 s");
+    }
+  } else if (publicDenied) {
+    discardPublicDirectory(publicSessionCache());
     clearPublic();
-    status("Catalogue indisponible · état inconnu", "unknown");
+    warmupAttempts = WARMUP_DELAYS_MS.length;
+    put("home-retry-status", "Accès public indisponible");
+    status("Inventaire public désactivé ou non autorisé", "unknown");
+  } else {
+    // Cached directory contains names/kinds ONLY. Never reuse an old OK.
+    const restored = paintSessionDirectory();
+    if (!restored) clearPublic();
+    retryWarmup = true;
+    status("Catalogue temporairement indisponible · nouvelle tentative automatique",
+      "warn");
   }
+  if (sessionResult.status === "rejected") retryWarmup = true;
 
   const owner = sessionResult.status === "fulfilled" &&
     sessionResult.value?.authenticated === true;
@@ -419,12 +489,14 @@ async function refresh() {
       "Preuve propriétaire indisponible · aucune santé supposée");
   }
   } catch {
-    clearPublic();
-    clearPrivate();
-    status("Impossible de confirmer les mesures", "unknown");
+    if (!paintSessionDirectory()) clearPublic();
+    clearPrivate({ purge: true });
+    retryWarmup = true;
+    status("Impossible de confirmer les mesures · nouvel essai automatique", "unknown");
   } finally {
     if (button) button.disabled = false;
     active = false;
+    if (retryWarmup) scheduleWarmupRetry();
     if (refreshRequested && !document.hidden) {
       refreshRequested = false;
       queueMicrotask(() => void refresh());
@@ -433,8 +505,12 @@ async function refresh() {
 }
 
 if (ROOT) {
+  // Before the first network response, show only public service names with
+  // UNKNOWN statuses. Session storage never contains probe health or tokens.
+  paintSessionDirectory();
   element("home-refresh")?.addEventListener("click", () => {
     HISTORY_READ_AT = 0;
+    warmupAttempts = 0;
     void refresh();
   });
   element("home-history-window")?.addEventListener("change", (event) => {
@@ -447,7 +523,13 @@ if (ROOT) {
     else void refresh();
   });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void refresh();
+    if (document.hidden) {
+      clearWarmupRetry();
+    } else {
+      warmupAttempts = 0;
+      if (active) refreshRequested = true;
+      else void refresh();
+    }
   });
   setInterval(() => { if (!document.hidden) void refresh(); }, INTERVAL_MS);
   void refresh();
