@@ -143,3 +143,97 @@ une recette depuis le LAN. Aucun secret, pare-feu ni jeton n'est modifié.
 Les paramètres de requête inattendus, notamment `query`, sont rejetés
 avec HTTP 422 sur l'endpoint d'historique. Les requêtes sont prédéfinies,
 en lecture seule, avec un cache de 120 secondes.
+
+## Démarrage à froid Cloud et stratégie de cache (09/11/2026)
+
+Lorsque le tableau `health-board` d'un nouveau worker n'a pas de données,
+`/api/ui/services` peut fournir `boardState=pending` très rapidement :
+le tableau de bord démarre son rafraîchissement en arrière-plan. Le
+premier clic manuel ne doit pas être nécessaire pour voir les mesures
+publiques dès que l'agrégat devient frais.
+
+**Comportement de `/` :**
+
+1. Au chargement, lire éventuellement `sessionStorage` pour afficher
+   **uniquement les noms et catégories publics**, tous `UNKNOWN`.
+2. Lancer immédiatement `/api/ui/services` et `/api/ui/session`
+   en parallèle, mais afficher les cartes dès la réponse du catalogue,
+   sans attendre la vérification de session.
+3. Lorsque le résultat est `pending` ou `stale`, relire automatiquement
+   après **2, 4, 8, 15 et 30 secondes**, puis revenir à l'intervalle
+   habituel de **30 secondes**. Les onglets masqués ne sondent pas.
+4. Une réponse publique `401/403/404` efface le cache de session ; aucun
+   ancien nom n'est affiché comme preuve autorisée, et aucune tempête
+   de retries n'est déclenchée.
+5. Si le réseau tombe, un ancien inventaire public peut rester visible,
+   mais **jamais** ses anciens états ou ses diagnostics propriétaires.
+
+| Couche | Stockage | TTL / politique | Contenu |
+| --- | --- | --- | --- |
+| L0 navigateur | `sessionStorage` | 5 min, onglet courant ; `fetch` reste `no-store` | Noms et catégories publics seulement ; toujours `UNKNOWN` |
+| L1 catalogue Backstage | Mémoire par worker | 5 min | Catalogue de référence déjà validé |
+| L1 health-board | Mémoire par worker | TTL configuré ; calcul asynchrone | Sondes et preuves ; non persistées dans le navigateur |
+| L1 topologie | Mémoire par worker | 15 s | CPU, mémoire, débit ponctuels |
+| L1 historiques | Mémoire par worker | 120 s | `query_range` OWNER ; non persistant côté navigateur |
+| L2 Redis annuaire (nouveau) | Redis partagé **opt-in** | 5 min | Seulement noms/catégories publics, statuts `UNKNOWN` |
+| L2 Redis preuves (existant) | Redis partagé **opt-in** | Selon fenêtre de preuves | Observations de sondes publiques filtrées, jamais LAN |
+
+L'annuaire L2 Redis ne remplace pas le catalogue de référence. Il n'est
+consulté que si les données Backstage sont indisponibles ou bloquées par
+le backoff et que le health-board **n'est pas frais**. Dès qu'un agrégat
+frais existe, les données locales validées ont priorité.
+
+### Activer Redis L2 de l'annuaire si un Redis autorisé est disponible
+
+Configuration facultative côté serveur uniquement :
+
+```dotenv
+NABLA_PUBLIC_DIRECTORY_REDIS_ENABLED=true
+NABLA_PUBLIC_DIRECTORY_REDIS_NAMESPACE=fastapi-cloud-prod
+# REDIS_URL est fourni par le gestionnaire de secrets du runtime.
+```
+
+Un espace de noms explicite et distinct est obligatoire par environnement.
+En l'absence de Redis joignable ou de configuration, le système retombe
+sur l'inventaire local. Le client Redis est importé à la demande, les
+échecs sont bornés à 150 ms et ne bloquent ni le chargement ni le démarrage.
+Ne **jamais** mettre `REDIS_URL`, les clés, la session OWNER ou les
+informations TrueNAS/Cloudflare dans `sessionStorage` ou `localStorage`.
+
+### Recette spécifique au bouton « Actualiser »
+
+- Vider l'onglet et ouvrir `/` sans appuyer sur Actualiser :
+  l'inventaire public doit apparaître automatiquement.
+- Simuler `pending` pendant le warm-up : les états doivent rester
+  `UNKNOWN`, puis changer sans clic quand l'origine devient `fresh`.
+- Recharger l'onglet avec le cache de session valide : inventaire
+  immédiat, statuts inconnus jusqu'à la nouvelle réponse réseau.
+- Simuler 403/404 : l'inventaire de session est effacé.
+- Bloquer `sessionStorage` et Redis : aucun plantage.
+- Ouvrir un onglet masqué : pas de rafraîchissement agressif.
+- Tester deux workers avec le même Redis, mais des namespaces distincts :
+  aucun mélange des catalogues ni des preuves.
+- Sur FastAPI Cloud, vérifier les réponses de
+  `/api/ui/services`, `/api/ui/session` et la console navigateur.
+  Un agrégat Cloud dépourvu de sondes LAN doit rester `UNKNOWN`,
+  pas `FAIL` par déduction.
+
+### Validation locale
+
+```bash
+node --check nabla/api/assets/home-public-cache.js
+node --check nabla/api/assets/home-operations.js
+node --test tests/js/home-public-cache.test.mjs tests/js/home-operations-model.test.mjs
+python -m pytest -q \
+  tests/unit/test_ui_public_directory_redis.py \
+  tests/unit/test_ui_public_services.py \
+  tests/unit/test_home_operations_contract.py
+git diff --check master...HEAD
+```
+
+**Contrainte de disponibilité :** sur un hébergement qui suspend ses
+workers après la réponse HTTP, une tâche de warm-up lancée en arrière-plan
+peut ne pas finir. Le cache Redis des **noms** ne transforme pas cette
+limitation en sondes réelles. Elle nécessite une collecte planifiée ou
+une source d'évidence partagée, authentifiée et explicitement
+configurée. Ne pas modifier les règles d'accès pour la contourner.

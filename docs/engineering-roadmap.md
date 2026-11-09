@@ -346,3 +346,11 @@ TrueNAS, secrets, Gatus, Prometheus, firewall et ingress ;
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban) = composants
 Next.js et leur cache navigateur. Aucun changement d'ACL, secret, CI,
 merge ou déploiement implicite.
+
+- [ ] **P1 — Accueil Cloud sans clic (09/11, PR de suivi, CODED) :**
+  relances `pending/stale` 2/4/8/15/30 s, rendu de l'inventaire public
+  dès la première réponse, `sessionStorage` de noms sans statuts,
+  cache Redis L2 facultatif et isolé par environnement. L0 n'enregistre
+  aucun résultat de sonde ni donnée OWNER. **Reste :** Node/pytest
+  en checkout complet, test cold-start Cloud et contrôle TrueNAS.
+  Voir [migration de l'accueil](runbooks/home-operations-transition.md).

@@ -19,6 +19,10 @@ from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from nabla.api import health_board
+from nabla.api.ui_public_directory_redis import (
+    read_public_directory_redis,
+    write_public_directory_redis,
+)
 from nabla.api.homelab_catalog import packaged_homelab_catalog
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
@@ -97,6 +101,12 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
     except Exception:
         board = {"state": "pending"}
     board_state, states = verified_health_by_service_id(board)
+    if board_state != "fresh":
+        # A shared L2 entry is ONLY an inventory with UNKNOWN health. When
+        # in-process health is fresh, prefer real states from packaged labels.
+        cached = await read_public_directory_redis()
+        if cached is not None:
+            return cached
     by_label: dict[str, list[str]] = {}
     for service in catalog.services:
         label = service.name.strip()
@@ -158,4 +168,7 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
         # The service directory should survive failures in optional diagnostic
         # collectors. No fresh evidence means UNKNOWN, never fabricated OK/FAIL.
         board = {"state": "pending"}
-    return project_public_ui_services(catalog, board)
+    projected = project_public_ui_services(catalog, board)
+    # L2 is opt-in, bounded to 150ms, and stores labels only; fail open to L1.
+    await write_public_directory_redis(projected)
+    return projected
