@@ -11,6 +11,7 @@ import {
   projectFleet,
   projectLatency,
   projectProbes,
+  projectProbeMatrix,
   projectResources,
   projectServiceFootprint,
   projectAggregateNetworkFlow,
@@ -68,6 +69,24 @@ test("probe coverage excludes disabled LAN and never invents healthy slots", () 
   assert.equal(coverage.coverage, 50);
   assert.equal(coverage.healthyCoverage, 25);
   assert.equal(coverage.unobserved, 2);
+});
+
+
+test("probe mosaic shows only declared probes and downgrades stale evidence", () => {
+  const value = board();
+  value.homelab.public_probe_results = [
+    { id: "healthy", state: "ok", probe_source: "origin", probe_stale: false },
+    { id: "failed", state: "fail", probe_source: "memory", probe_stale: false },
+    { id: "old", state: "fail", probe_source: "origin", probe_stale: true },
+    { id: "not-run", state: "fail", probe_source: "not_executed" },
+  ];
+  const result = projectProbeMatrix(value, NOW);
+  assert.equal(result.count, 4);
+  assert.equal(result.tiles[0].id, "failed");
+  assert.equal(result.tiles.find((row) => row.id === "old").state, "unknown");
+  assert.equal(result.tiles.find((row) => row.id === "old").evidence, "stale");
+  assert.equal(result.tiles.find((row) => row.id === "not-run").state, "unknown");
+  assert.equal(projectProbeMatrix({ ...value, state: "stale" }, NOW), null);
 });
 
 test("no probe or security result survives an outdated board", () => {
