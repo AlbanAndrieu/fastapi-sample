@@ -12,6 +12,7 @@ import {
   projectFleet,
   projectLatency,
   projectProbes,
+  projectProbeMatrix,
   projectResources,
   projectServiceFootprint,
   projectAggregateNetworkFlow,
@@ -192,6 +193,8 @@ function clearPrivate({ purge = false } = {}) {
   metric("home-memory", null, 1);
   metric("home-network", null, 1);
   put("home-coverage-detail", "Aucune observation fraîche");
+  element("home-probe-mosaic")?.replaceChildren();
+  put("home-probe-mosaic-source", "Aucune sonde vérifiée");
   put("home-resource-source", "Prometheus / cAdvisor · indisponible");
   put("home-security-summary", "—");
   put("home-security-detail", "Contrôles non confirmés");
@@ -201,7 +204,33 @@ function clearPrivate({ purge = false } = {}) {
   put("home-gatus", "—");
 }
 
+function renderProbeMatrix(board) {
+  const target = element("home-probe-mosaic");
+  if (!target) return;
+  target.replaceChildren();
+  const matrix = projectProbeMatrix(board);
+  if (!matrix || matrix.tiles.length === 0) {
+    put("home-probe-mosaic-source", "Aucune donnée de sonde récente");
+    return;
+  }
+  put("home-probe-mosaic-source", matrix.count + " sondes dans l'instantané · " +
+    matrix.tiles.length + " affichées" +
+    (matrix.truncated ? " · " + matrix.truncated + " masquées" : ""));
+  for (const tile of matrix.tiles) {
+    const li = document.createElement("li");
+    li.className = "op-probe-tile op-probe-tile-" + tile.state +
+      (tile.evidence === "stale" ? " op-probe-tile-stale" : "");
+    const detail = tile.scope + " / " + tile.id + " · " +
+      (tile.evidence === "observed" ? tile.state : tile.evidence + " / état inconnu");
+    li.setAttribute("role", "img");
+    li.setAttribute("aria-label", detail);
+    li.title = detail;
+    target.append(li);
+  }
+}
+
 function privateBoard(board) {
+  renderProbeMatrix(board);
   const probes = projectProbes(board);
   if (probes) {
     metric("home-coverage", probes.coverage, 1, " %");
