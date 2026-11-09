@@ -53,7 +53,9 @@ function scheduleWarmupRetry() {
   clearWarmupRetry();
   // Five bounded fast retries, then return to the existing 30s cadence.
   if (warmupAttempts >= WARMUP_DELAYS_MS.length) {
-    put("home-retry-status", "Actualisation périodique toutes les 30 s");
+    put("home-retry-status", homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+      ? "Actualisation périodique contrôlée"
+      : "Mode Cloud économique · mise à jour à l'ouverture ou au retour");
     return;
   }
   if (document.hidden) return;
@@ -453,11 +455,15 @@ async function refresh() {
     summaryCounts(fleet);
     retryWarmup = !fleet.verified;
     status(fleet.verified
-      ? "Catalogue vérifié · actualisation automatique"
-      : "Sondes en préparation · nouvelle lecture automatique",
-      fleet.verified ? "ok" : "warn");
+      ? "Catalogue vérifié · instantané public"
+      : HOME_RUNTIME === "fastapi_cloud"
+        ? "Inventaire public · sondes à exécuter sur demande"
+        : "Sondes en préparation · nouvelle lecture automatique",
+      fleet.verified ? "ok" : "unknown");
     if (fleet.verified) {
-      put("home-retry-status", "Actualisation périodique toutes les 30 s");
+      put("home-retry-status", homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+        ? "Actualisation périodique contrôlée"
+        : "Mode Cloud économique · mise à jour à l'ouverture ou au retour");
     }
   } else if (publicDenied) {
     discardPublicDirectory(publicSessionCache());
