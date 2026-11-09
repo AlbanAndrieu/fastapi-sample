@@ -101,6 +101,46 @@ export function projectProbes(board, nowMs = Date.now()) {
   };
 }
 
+
+/** A compact OWNER-only probe mosaic, never a synthetic health census. */
+export function projectProbeMatrix(board, nowMs = Date.now()) {
+  if (!freshBoard(board, nowMs)) return null;
+  const homelab = record(board.homelab);
+  const summary = record(homelab.probe_summary);
+  const rows = [];
+  for (const [scope, field] of [
+    ["public", "public_probe_results"],
+    ["internal", "internal_services"],
+  ]) {
+    if (record(summary[scope]).enabled === false) continue;
+    const candidates = homelab[field];
+    if (!Array.isArray(candidates)) continue;
+    for (const probe of candidates) {
+      if (!probe || typeof probe.id !== "string" ||
+          probe.id.length === 0 || probe.id.length > 100) continue;
+      const evidenced = OBSERVED_SOURCES.has(probe.probe_source) &&
+        probe.probe_stale !== true;
+      rows.push({
+        id: probe.id,
+        scope,
+        state: evidenced ? validState(probe.state) : "unknown",
+        evidence: evidenced ? "observed" :
+          probe.probe_stale === true ? "stale" : "unobserved",
+      });
+    }
+  }
+  // Render at most 80 tiles; do not materialize nonexistent catalog slots.
+  const order = { fail: 0, warn: 1, unknown: 2, ok: 3 };
+  rows.sort((a, b) => order[a.state] - order[b.state] ||
+    a.scope.localeCompare(b.scope) || a.id.localeCompare(b.id));
+  return {
+    observedAt: board.generated_at,
+    count: rows.length,
+    tiles: rows.slice(0, 80),
+    truncated: Math.max(0, rows.length - 80),
+  };
+}
+
 export function projectResources(payload, nowMs = Date.now()) {
   const telemetry = record(payload);
   if (!["healthy", "partial"].includes(telemetry.state) ||
