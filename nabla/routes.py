@@ -113,6 +113,28 @@ def _register_operations_history(app: FastAPI) -> None:
         )
 
 
+def _register_runtime_resource_observer(app: FastAPI) -> None:
+    """OWNER-only local process sample without continuous psutil tickers."""
+
+    @app.get("/api/runtime/resources", include_in_schema=False)
+    async def runtime_resources(request: Request) -> JSONResponse:
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        from nabla.api.runtime_cost_observer import snapshot_process_resources
+
+        return JSONResponse(
+            snapshot_process_resources(),
+            headers={
+                "Cache-Control": "private, no-store",
+                "X-Robots-Tag": "noindex, nofollow",
+            },
+        )
+
+
 def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
     """Serve the light operations shell without fetching PostgreSQL or probes.
 
@@ -193,6 +215,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
 
     _register_topology_dashboard(app)
     _register_operations_history(app)
+    _register_runtime_resource_observer(app)
 
     @app.get("/api/runtime-version", include_in_schema=False)
     async def api_runtime_version(request: Request) -> JSONResponse:
