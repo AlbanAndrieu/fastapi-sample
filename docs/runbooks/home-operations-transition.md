@@ -241,6 +241,14 @@ configurée. Ne pas modifier les règles d'accès pour la contourner.
 
 ## Comparaison graphique des ressources (9 novembre 2026)
 
+L'accueil OWNER présente aussi une **mosaïque des sondes observées** :
+jusqu'à 80 tuiles réelles triées par gravité (FAIL/WARN/UNKNOWN/OK),
+avec hachures pour la preuve périmée. Les slots du catalogue sans
+résultat ne sont pas fabriqués ; le nombre de sondes affichées reste
+distinct de la couverture éligible. Chaque tuile possède un nom et un
+état accessibles au lecteur d'écran. Les points historiques conservent
+la différence entre absence de preuve et panne confirmée.
+
 L'accueil OWNER ajoute un classement horizontal **des huit conteneurs
 les plus consommateurs** avec sélection CPU (cœurs utilisés), mémoire
 active (MiB), système de fichiers conteneur (MiB) ou réseau RX + TX
