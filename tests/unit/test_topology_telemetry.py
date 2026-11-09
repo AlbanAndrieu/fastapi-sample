@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 import httpx
 import pytest
 
@@ -11,6 +13,8 @@ from nabla.api.topology_telemetry import (
     fetch_topology_telemetry,
 )
 from nabla.settings.observability import HomelabPrometheusSettings
+from nabla.route_policy import Credential, Visibility, route_policy_for
+from nabla.routes import _register_topology_dashboard
 
 
 def _sample(name: str, value: str, **labels: str) -> dict[str, object]:
@@ -141,20 +145,14 @@ def test_missing_cadvisor_network_direction_is_not_a_measured_zero() -> None:
 
 
 def test_topology_telemetry_route_requires_owner_policy() -> None:
-    from nabla.route_policy import Credential, Visibility, route_policy_for
-
     policy = route_policy_for("/api/topology-telemetry")
     assert policy.visibility is Visibility.OWNER
     assert policy.credential is Credential.DIAGNOSTICS_KEY
 
 
 def test_topology_telemetry_denies_anonymous_before_prometheus(monkeypatch) -> None:
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from nabla.routes import _register_topology_dashboard
-
     monkeypatch.setattr("nabla.routes.owner_ui_authenticated", lambda *_args: False)
-    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
+    monkeypatch.setattr("nabla.routes.get_settings", object)
 
     async def forbidden_query() -> dict:
         raise AssertionError("Prometheus must never be contacted without OWNER")
@@ -169,12 +167,8 @@ def test_topology_telemetry_denies_anonymous_before_prometheus(monkeypatch) -> N
 
 
 def test_topology_telemetry_owner_can_fetch_bounded_projection(monkeypatch) -> None:
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from nabla.routes import _register_topology_dashboard
-
     monkeypatch.setattr("nabla.routes.owner_ui_authenticated", lambda *_args: True)
-    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
+    monkeypatch.setattr("nabla.routes.get_settings", object)
 
     async def snapshot() -> dict:
         return {"schema_version": 1, "resources": {"sample": {"cpu_cores": 0}}}
