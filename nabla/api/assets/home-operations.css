@@ -59,6 +59,22 @@ a,button{font:inherit}
 .op-check-state{font-size:10px;font-weight:700;letter-spacing:.04em;border:1px solid #414b59;padding:3px 7px;border-radius:4px;color:#a9b4c3}
 .op-check-state-ok{border-color:#246247;color:#77e5b3}.op-check-state-warn{border-color:#74541c;color:#f0c477}.op-check-state-fail{border-color:#693b43;color:#f09a9d}
 .op-footer{border-top:1px solid #222936;margin-top:34px;padding-top:17px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;color:#778497;font-size:11px}
+/* Relative resource bars: measured values only, with text labels for a11y. */
+.op-field-label{font-size:11px;color:#97a8be}
+.op-select{width:100%;max-width:390px;color:#f4f7fc;background:#151e28;border:1px solid #435269;border-radius:7px;padding:9px 11px;font:inherit;font-size:12px}
+.op-resource-bars{list-style:none;padding:0;margin:17px 0 7px;display:grid;gap:14px}
+.op-resource-item{min-width:0}
+.op-resource-label{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px;font-size:12px}
+.op-resource-label strong{min-width:0;overflow-wrap:anywhere;color:#e1e8f3;font-weight:610}
+.op-resource-label data{color:#b8d1f0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.op-resource-track{height:10px;border:1px solid #344354;border-radius:4px;background:#1a2431;overflow:hidden}
+.op-resource-fill{height:100%;display:block;background:#70afed;border-radius:3px;max-width:100%}
+.op-resource-empty{color:#94a3b6;font-size:12px;line-height:1.6}
+.op-flow-stat{margin:20px 0 9px;border:1px solid #283a4b;border-radius:8px;padding:15px;background:#101c28;display:flex;align-items:baseline;flex-wrap:wrap;justify-content:space-between;gap:10px}
+.op-flow-stat span{font-size:12px;color:#abb8ca}
+.op-flow-stat strong{font-size:24px;color:#e1ebf8;font-variant-numeric:tabular-nums}
+.op-flow-link{display:inline-flex;margin-top:16px}
+
 @media(max-width:960px){.op-stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.op-head{flex-direction:column}.op-actions{justify-content:flex-start}}
 @media(max-width:650px){.op-root{padding:18px 14px 30px}.op-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.op-stat-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
 .op-dashboard-grid,.op-check-list{grid-template-columns:1fr}.op-stat{min-height:119px;padding:13px}.op-locked{align-items:flex-start;flex-direction:column}
