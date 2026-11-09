@@ -1,3 +1,16 @@
+# [1.30.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.29.1...1.30.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **home:** auto-refresh Cloud à froid et cache public sûr (session/Redis) ([#403](https://github.com/AlbanAndrieu/fastapi-sample/issues/403)) ([c567def](https://github.com/AlbanAndrieu/fastapi-sample/commit/c567defec6fd9698c6743ff25a0628a0d28602bb))
+
+
+### Features
+
+* **home:** visualiser les consommations des services et les flux réseau mesurés ([#404](https://github.com/AlbanAndrieu/fastapi-sample/issues/404)) ([8b2dc71](https://github.com/AlbanAndrieu/fastapi-sample/commit/8b2dc7199362d1307daf45afcb2145eff2a155c4))
+* **observability:** finaliser l'accueil avec historiques Prometheus sécurisés ([#402](https://github.com/AlbanAndrieu/fastapi-sample/issues/402)) ([b829d38](https://github.com/AlbanAndrieu/fastapi-sample/commit/b829d384d9f0d73ca9a8c72cc176974ef35d1d89))
+
 ## [1.29.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.29.0...1.29.1) (2026-11-08)
 
 
