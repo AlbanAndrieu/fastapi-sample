@@ -26,7 +26,12 @@ from nabla.app_features import AppFeatures
 from nabla.config_settings import get_settings
 from nabla.mcp.client import close_mcp_clients, initialize_mcp_clients
 from nabla.utils.logger import logger
-from nabla.utils.prometheus import update_system_metrics
+from nabla.utils.prometheus import (
+    CPU_USAGE,
+    MEMORY_USAGE,
+    PROCESS_MEMORY_RSS,
+    update_system_metrics,
+)
 
 
 async def _cancel_background_tasks(tasks: list[asyncio.Task[None]]) -> None:
@@ -265,6 +270,10 @@ def _start_background_workers(
 ) -> None:
     """Start only explicitly authorized tickers on Cloud."""
     if not cloud_background_workers_allowed():
+        # Do not report the default value 0 as an observed CPU/RAM sample.
+        # FastAPI Cloud platform Metrics is authoritative for replica usage.
+        for gauge in (CPU_USAGE, MEMORY_USAGE, PROCESS_MEMORY_RSS):
+            gauge.set(float("nan"))
         logger.info("background_worker_policy runtime=fastapi_cloud mode=on_demand")
         return
     if features.observability and get_settings().metrics_enabled:

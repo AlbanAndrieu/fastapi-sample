@@ -190,3 +190,25 @@ def test_cloud_workers_may_be_explicitly_enabled_without_affecting_homelab(monke
     monkeypatch.setenv("FASTAPI_CLOUD_BACKGROUND_WORKERS_ENABLED", "false")
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
     assert lifespan.cloud_background_workers_allowed() is True
+
+
+def test_cloud_disabled_gauges_report_unobserved_not_zero(monkeypatch):
+    from unittest.mock import Mock
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deployment-test")
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.delenv("FASTAPI_CLOUD_BACKGROUND_WORKERS_ENABLED", raising=False)
+    gauges = [Mock(), Mock(), Mock()]
+    for attr, gauge in zip(
+        ("CPU_USAGE", "MEMORY_USAGE", "PROCESS_MEMORY_RSS"),
+        gauges,
+        strict=True,
+    ):
+        monkeypatch.setattr(lifespan, attr, gauge)
+    lifespan._start_background_workers(
+        SimpleNamespace(observability=True),
+        SimpleNamespace(),
+        [],
+    )
+    for gauge in gauges:
+        gauge.set.assert_called_once()
+        assert str(gauge.set.call_args.args[0]).lower() == "nan"
