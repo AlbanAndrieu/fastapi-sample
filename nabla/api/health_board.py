@@ -399,6 +399,39 @@ async def get_health_board_snapshot(
     }
 
 
+async def peek_public_health_board_snapshot() -> dict[str, Any]:
+    """Passive, bounded PUBLIC state projection with zero refresh side effects.
+
+    Cloud landing visits must not start the expensive homelab/Cloudflare/
+    Prometheus reconciliation task. Read only evidence already in this worker.
+    If it is missing or stale, return UNKNOWN-compatible metadata. No raw
+    network fields, per-probe payloads, tokens, or nested providers are copied.
+    """
+    async with _cache_lock:
+        snapshot = _cached_snapshot
+        if snapshot is None:
+            return {"state": "pending"}
+        age = time.monotonic() - _cached_at
+        if age >= _ttl_seconds():
+            return {"state": "stale"}
+        homelab = snapshot.get("homelab")
+        rows = homelab.get("services") if isinstance(homelab, dict) else None
+        public_rows = []
+        if isinstance(rows, list):
+            for item in rows[:2000]:
+                if not isinstance(item, dict):
+                    continue
+                public_rows.append({
+                    key: item[key]
+                    for key in (
+                        "id", "effective_state", "state",
+                        "observation_stale", "probe_stale",
+                    )
+                    if key in item and isinstance(item[key], (str, bool))
+                })
+    return {"state": "fresh", "homelab": {"services": public_rows}}
+
+
 async def reset_health_board_cache() -> None:
     """Reset module state for deterministic tests."""
     global _cached_at, _cached_snapshot, _last_refresh_error, _refresh_task
