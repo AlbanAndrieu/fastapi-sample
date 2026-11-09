@@ -66,3 +66,19 @@ def test_operations_home_is_standalone_and_has_a_local_only_csp() -> None:
     assert "script-src 'self'" in router
     assert "connect-src 'self'" in router
     assert "frame-ancestors 'none'" in router
+
+
+def test_owner_resource_comparison_is_not_public_and_uses_existing_telemetry() -> None:
+    markup = (ROOT / "templates/index.html").read_text(encoding="utf-8")
+    script = (ROOT / "nabla/api/assets/home-operations.js").read_text(encoding="utf-8")
+    telemetry = (ROOT / "nabla/api/topology_telemetry.py").read_text(encoding="utf-8")
+    assert markup.index('id="home-operator-detail" hidden') < markup.index('id="home-footprint-bars"')
+    assert 'id="home-footprint-metric"' in markup
+    assert 'value="fs_bytes"' in markup
+    assert 'id="home-pfsense-flow"' in markup
+    assert "projectServiceFootprint" in script
+    assert "projectAggregateNetworkFlow" in script
+    assert 'fetchJSON("/api/topology-telemetry"' in script
+    assert "container_fs_usage_bytes" in telemetry
+    assert "Math.random" not in script
+    assert 'fetchJSON("/api/v1/query' not in script

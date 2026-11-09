@@ -102,7 +102,7 @@ jobs:
         id: agent_preflight
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
-          QUALITY_LOG_TAIL: "80"
+          QUALITY_LOG_TAIL: "1000"
           UV_NO_SYNC: "1"
           SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"
         shell: bash

@@ -55,6 +55,7 @@ _DIAGNOSTIC_EXACT = frozenset(
         "/sentry-debug",
         "/api/home/metrics/history",
         "/api/runtime/resources",
+        "/api/topology-telemetry",
     },
 )
 
