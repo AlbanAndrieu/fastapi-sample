@@ -12,6 +12,8 @@ import {
   projectLatency,
   projectProbes,
   projectResources,
+  projectServiceFootprint,
+  projectAggregateNetworkFlow,
   projectSecurity,
   sparklinePath,
 } from "../../nabla/api/assets/home-operations-model.js";
@@ -112,6 +114,53 @@ test("ambiguous containers or missing data do not produce synthetic metrics", ()
     state: "healthy", generated_at: AT, resources: { sample: {} },
   }, NOW).cpuCores, null);
   assert.equal(projectResources({ state: "not_configured" }, NOW), null);
+});
+
+
+test("service footprint ranks only fresh measured values and keeps null distinct from zero", () => {
+  const base = {
+    schema_version: 1, state: "partial", generated_at: AT,
+    resource_source: "truenas_cadvisor",
+    resources: {
+      alpha: { cpu_cores: 0.8, memory_bytes: 104857600, fs_bytes: 209715200, network_bytes_per_second: 0 },
+      beta: { cpu_cores: 0.1, memory_bytes: 209715200, network_bytes_per_second: 2048 },
+      gamma: { memory_bytes: 0, fs_bytes: null },
+      missing: {},
+    },
+  };
+  const memory = projectServiceFootprint(base, "memory_bytes", NOW);
+  assert.deepEqual(memory.rows.map((row) => row.name), ["beta", "alpha", "gamma"]);
+  assert.equal(memory.rows[0].relativePercent, 100);
+  assert.equal(memory.rows[1].relativePercent, 50);
+  assert.equal(memory.rows[2].value, 0);
+  assert.equal(memory.measured, 3);
+  const fs = projectServiceFootprint(base, "fs_bytes", NOW);
+  assert.deepEqual(fs.rows.map((row) => row.name), ["alpha"]);
+  assert.match(fs.storageScope, /hors datasets ZFS/);
+  const network = projectServiceFootprint(base, "network_bytes_per_second", NOW);
+  assert.equal(network.rows[1].name, "alpha");
+  assert.equal(network.rows[1].value, 0);
+  assert.equal(projectServiceFootprint(base, "unknown_metric", NOW), null);
+  assert.equal(projectServiceFootprint({ ...base, state: "telemetry_unavailable" }, "memory_bytes", NOW), null);
+  assert.equal(projectServiceFootprint({ ...base, generated_at: "2026-11-04T17:00:00Z" }, "memory_bytes", NOW), null);
+  assert.equal(projectServiceFootprint({ ...base, resource_source: "unknown" }, "memory_bytes", NOW), null);
+});
+
+test("aggregate network flow is never attributed to a particular service", () => {
+  const value = projectAggregateNetworkFlow({
+    schema_version: 1, generated_at: AT, state: "partial",
+    network_flow: {
+      pfsense_bytes_per_second: 4096,
+      akvorado_inlet_up: 1, akvorado_outlet_up: 1,
+    },
+  }, NOW);
+  assert.equal(value.kiBs, 4);
+  assert.equal(value.collectorConfirmed, true);
+  assert.equal(value.attributed, false);
+  assert.equal(projectAggregateNetworkFlow({
+    schema_version: 1, generated_at: AT, state: "partial", network_flow: {},
+  }, NOW).kiBs, null);
+  assert.equal(projectAggregateNetworkFlow({ state: "not_configured" }, NOW), null);
 });
 
 test("security checks use connection matrix evidence but never infer compliance", () => {
