@@ -106,3 +106,11 @@ test("cold start auto-retries without manual refresh or persisting OWNER data", 
   assert.match(script, /cache: "no-store"/);
   assert.doesNotMatch(script, /localStorage|DIAGNOSTICS_ACCESS_KEY|REDIS_URL/);
 });
+
+test("clearPublic also removes screen reader stale state", () => {
+  const script = readFileSync(
+    new URL("../../nabla/api/assets/home-operations.js", import.meta.url), "utf8",
+  );
+  assert.match(script, /Répartition inconnue · aucune preuve récente/);
+  assert.match(script, /meter\?\.setAttribute\("aria-label"/);
+});

@@ -121,7 +121,9 @@ function clearPublic() {
     "home-services", "home-ok", "home-warn", "home-fail", "home-unknown",
   ]) put(name, "—");
   put("home-fleet-source", "Catalogue indisponible · aucune preuve");
-  element("home-fleet-meter")?.replaceChildren();
+  const meter = element("home-fleet-meter");
+  meter?.replaceChildren();
+  meter?.setAttribute("aria-label", "Répartition inconnue · aucune preuve récente");
 }
 
 function metric(id, value, digits, suffix = "") {
