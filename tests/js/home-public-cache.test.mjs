@@ -112,5 +112,5 @@ test("clearPublic also removes screen reader stale state", () => {
     new URL("../../nabla/api/assets/home-operations.js", import.meta.url), "utf8",
   );
   assert.match(script, /Répartition inconnue · aucune preuve récente/);
-  assert.match(script, /meter\?\.setAttribute\("aria-label"/);
+  assert.match(script, /meter\?\.setAttribute\(\s*"aria-label"/);
 });
