@@ -96,7 +96,7 @@ test("cold start auto-retries without manual refresh or persisting OWNER data", 
     new URL("../../nabla/api/assets/home-operations.js", import.meta.url),
     "utf8",
   );
-  assert.match(script, /WARMUP_DELAYS_MS = \[2000, 4000, 8000, 15000, 30000\]/);
+  assert.match(script, /WARMUP_DELAYS_MS = INITIAL_CADENCE\.warmupDelaysMs/);
   assert.match(script, /scheduleWarmupRetry\(\)/);
   assert.match(script, /setTimeout\(\(\) =>/);
   assert.match(script, /paintSessionDirectory\(\);/);
