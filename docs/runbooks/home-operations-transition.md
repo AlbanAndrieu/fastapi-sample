@@ -292,3 +292,10 @@ Références ergonomiques : Grafana [Node graph](https://grafana.com/docs/grafan
 [Docker monitoring cAdvisor](https://grafana.com/grafana/dashboards/15798-docker-monitoring/),
 [Netdata metrics](https://learn.netdata.cloud/docs/dashboards-and-charts/tabs/metrics),
 [conventions Prometheus](https://prometheus.io/docs/practices/naming/).
+
+**Correction d'autorisation (9/11)** : la route `GET /api/topology-telemetry`
+impose maintenant une session OWNER vérifiée **par le serveur** avant
+toute requête Prometheus ; elle répond 403 et `Cache-Control: private,
+no-store` sans privilège, même si le JavaScript est contourné.
+La page `/api/topology` conserve le rendu du graphe déclaratif public,
+mais les métriques détaillées restent privées.

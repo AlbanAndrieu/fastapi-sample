@@ -138,3 +138,51 @@ def test_missing_cadvisor_network_direction_is_not_a_measured_zero() -> None:
     )
     assert result["sample"]["rx_bytes_per_second"] == 0
     assert "network_bytes_per_second" not in result["sample"]
+
+def test_topology_telemetry_route_requires_owner_policy() -> None:
+    from nabla.route_policy import Credential, Visibility, route_policy_for
+
+    policy = route_policy_for("/api/topology-telemetry")
+    assert policy.visibility is Visibility.OWNER
+    assert policy.credential is Credential.DIAGNOSTICS_KEY
+
+
+def test_topology_telemetry_denies_anonymous_before_prometheus(monkeypatch) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from nabla.routes import _register_topology_dashboard
+
+    monkeypatch.setattr("nabla.routes.owner_ui_authenticated", lambda *_args: False)
+    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
+
+    async def forbidden_query() -> dict:
+        raise AssertionError("Prometheus must never be contacted without OWNER")
+
+    monkeypatch.setattr("nabla.routes.fetch_topology_telemetry", forbidden_query)
+    app = FastAPI()
+    _register_topology_dashboard(app)
+    with TestClient(app) as client:
+        response = client.get("/api/topology-telemetry")
+    assert response.status_code == 403
+    assert response.headers["cache-control"] == "private, no-store"
+
+
+def test_topology_telemetry_owner_can_fetch_bounded_projection(monkeypatch) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from nabla.routes import _register_topology_dashboard
+
+    monkeypatch.setattr("nabla.routes.owner_ui_authenticated", lambda *_args: True)
+    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
+
+    async def snapshot() -> dict:
+        return {"schema_version": 1, "resources": {"sample": {"cpu_cores": 0}}}
+
+    monkeypatch.setattr("nabla.routes.fetch_topology_telemetry", snapshot)
+    app = FastAPI()
+    _register_topology_dashboard(app)
+    with TestClient(app) as client:
+        response = client.get("/api/topology-telemetry")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.json()["resources"]["sample"]["cpu_cores"] == 0

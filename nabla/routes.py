@@ -71,13 +71,18 @@ def _register_topology_dashboard(app: FastAPI) -> None:
         )
 
     @app.get("/api/topology-telemetry", include_in_schema=False)
-    async def topology_telemetry() -> JSONResponse:
+    async def topology_telemetry(request: Request) -> JSONResponse:
+        # Container names and infrastructure resource usage are OWNER-only.
+        # Client-side visibility is not an authorization boundary.
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
         return JSONResponse(
             await fetch_topology_telemetry(),
-            headers={
-                "Cache-Control": "no-store, max-age=0",
-                "Pragma": "no-cache",
-            },
+            headers={"Cache-Control": "private, no-store"},
         )
 
 
