@@ -113,3 +113,10 @@ Do not add port 8091 or a fake OpenCode command until such a feature exists.
 La valeur du paramètre `window` peut seulement être `1h`, `24h` ou `7d`.
 Aucune expression PromQL, cible, URL, label ou durée arbitraire ne peut
 être transmise par le navigateur.
+
+Le navigateur utilise désormais uniquement `sessionStorage` pour
+conserver temporairement les **noms publics** ; jamais les états de santé
+antérieurs, jetons ou données propriétaire. Les requêtes utilisent
+`cache: no-store`. Un cache Redis L2 de noms publics est optionnel
+et nécessite un espace de noms propre au runtime.
+Voir [le runbook](runbooks/home-operations-transition.md).
