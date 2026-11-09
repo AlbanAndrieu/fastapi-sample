@@ -71,13 +71,18 @@ def _register_topology_dashboard(app: FastAPI) -> None:
         )
 
     @app.get("/api/topology-telemetry", include_in_schema=False)
-    async def topology_telemetry() -> JSONResponse:
+    async def topology_telemetry(request: Request) -> JSONResponse:
+        # Container names and infrastructure resource usage are OWNER-only.
+        # Client-side visibility is not an authorization boundary.
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
         return JSONResponse(
             await fetch_topology_telemetry(),
-            headers={
-                "Cache-Control": "no-store, max-age=0",
-                "Pragma": "no-cache",
-            },
+            headers={"Cache-Control": "private, no-store"},
         )
 
 
@@ -86,7 +91,8 @@ def _register_operations_history(app: FastAPI) -> None:
 
     @app.get("/api/home/metrics/history", include_in_schema=False)
     async def operations_history(
-        request: Request, window: str = "1h",
+        request: Request,
+        window: str = "1h",
     ) -> JSONResponse:
         if not owner_ui_authenticated(request, get_settings()):
             return JSONResponse(
@@ -94,15 +100,15 @@ def _register_operations_history(app: FastAPI) -> None:
                 status_code=403,
                 headers={"Cache-Control": "private, no-store"},
             )
-        if window not in {"1h", "24h", "7d"} or any(
-            key != "window" for key in request.query_params
-        ):
+        if window not in {"1h", "24h", "7d"} or any(key != "window" for key in request.query_params):
             return JSONResponse(
                 {"detail": "Unsupported window"},
                 status_code=422,
                 headers={"Cache-Control": "private, no-store"},
             )
-        from nabla.api.home_metrics_history import fetch_home_metrics_history
+        from nabla.api.home_metrics_history import (  # noqa: PLC0415 - lazy OWNER-only import
+            fetch_home_metrics_history,
+        )
 
         return JSONResponse(
             await fetch_home_metrics_history(window),
@@ -128,19 +134,19 @@ def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
             "index.html",
             {"database_enabled": database},
             headers={
-    "Cache-Control": "private, no-store, max-age=0",
-    "Pragma": "no-cache",
-    "X-Robots-Tag": "noindex, nofollow",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": (
-        "default-src 'none'; script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
-        "img-src 'self'; font-src 'self'; "
-        "base-uri 'none'; form-action 'none'; "
-        "frame-ancestors 'none'; object-src 'none'"
-    ),
-},
+                "Cache-Control": "private, no-store, max-age=0",
+                "Pragma": "no-cache",
+                "X-Robots-Tag": "noindex, nofollow",
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "Content-Security-Policy": (
+                    "default-src 'none'; script-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; connect-src 'self'; "
+                    "img-src 'self'; font-src 'self'; "
+                    "base-uri 'none'; form-action 'none'; "
+                    "frame-ancestors 'none'; object-src 'none'"
+                ),
+            },
         )
 
 

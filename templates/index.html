@@ -70,6 +70,11 @@
         <article class="op-stat"><span>Sondes réellement saines</span><strong id="home-healthy-coverage">—</strong><small>Sur toutes les sondes éligibles</small></article>
         <article class="op-stat"><span>Contrôles de sécurité</span><strong id="home-security-summary">—</strong><small id="home-security-detail">Vérification en attente</small></article>
       </div>
+      <article class="op-panel op-probe-mosaic" aria-labelledby="home-probe-mosaic-heading">
+        <div class="op-panel-heading"><h3 id="home-probe-mosaic-heading">Carte des preuves de sondes</h3><p id="home-probe-mosaic-source">Observation non confirmée</p></div>
+        <ul id="home-probe-mosaic" class="op-probe-mosaic-grid" aria-label="Sondes individuelles observées"></ul>
+        <p class="op-correlation-footnote">Une tuile représente une sonde déclarée dans l'instantané, jamais une sonde inventée. Gris = état inconnu ; absence de preuve ≠ panne.</p>
+      </article>
       <div class="op-history-toolbar">
         <label for="home-history-window">Historique Prometheus</label>
         <select id="home-history-window" aria-label="Fenêtre temporelle historique">
@@ -91,6 +96,39 @@
         <article class="op-stat"><span>CPU du conteneur</span><strong id="home-cpu">—</strong><small>Cœurs CPU · pas un taux d'utilisation</small><div class="op-mini-chart" id="home-cpu-history" aria-label="Historique CPU"></div></article>
         <article class="op-stat"><span>Mémoire du conteneur</span><strong id="home-memory">—</strong><small>Mémoire active · MiB</small><div class="op-mini-chart" id="home-memory-history" aria-label="Historique mémoire"></div></article>
         <article class="op-stat"><span>Débit réseau du conteneur</span><strong id="home-network">—</strong><small>RX + TX · KiB/s · pas une latence</small><div class="op-mini-chart" id="home-network-history" aria-label="Historique réseau"></div></article>
+      </div>
+      <div class="op-section-heading op-secondary-heading">
+        <div><p class="op-section-kicker">03A / Empreinte des services</p><h2>Les services qui consomment le plus</h2></div>
+        <span class="op-provenance">Mesures cAdvisor par conteneur · accès propriétaire</span>
+      </div>
+      <div class="op-dashboard-grid">
+        <article class="op-panel" aria-labelledby="home-footprint-heading">
+          <div class="op-panel-heading">
+            <h3 id="home-footprint-heading">Classement des services mesurés</h3>
+            <label for="home-footprint-metric" class="op-field-label">Mesure</label>
+          </div>
+          <select id="home-footprint-metric" class="op-select" aria-label="Classer les services par ressource">
+            <option value="memory_bytes">Mémoire active (MiB)</option>
+            <option value="cpu_cores">CPU consommé (cœurs)</option>
+            <option value="fs_bytes">Système de fichiers conteneur (MiB)</option>
+            <option value="network_bytes_per_second">Débit RX + TX (KiB/s)</option>
+          </select>
+          <p class="op-correlation-footnote" id="home-footprint-source">En attente de mesures récentes.</p>
+          <ol id="home-footprint-bars" class="op-resource-bars" aria-live="polite">
+            <li class="op-resource-empty">Aucune mesure confirmée.</li>
+          </ol>
+          <p class="op-correlation-footnote" id="home-footprint-note">Barres relatives au plus grand consommateur observé, pas un pourcentage de capacité.</p>
+        </article>
+        <article class="op-panel" aria-labelledby="home-flows-heading">
+          <div class="op-panel-heading">
+            <h3 id="home-flows-heading">Flux réseau observés</h3>
+            <p>Pas d'attribution par relation</p>
+          </div>
+          <div class="op-flow-stat"><span>pfSense / IPFIX · débit agrégé</span><strong id="home-pfsense-flow">—</strong></div>
+          <p class="op-correlation-footnote" id="home-flow-source">Flux non confirmés · Akvorado / Prometheus.</p>
+          <p class="op-correlation-footnote">Le trafic d'un conteneur (RX + TX) n'est pas un flux entre deux services. Aucune épaisseur d'arête n'est déduite sans attribution source → destination.</p>
+          <a class="op-link op-flow-link" href="/api/topology">Explorer la topologie déclarative</a>
+        </article>
       </div>
       <article class="op-panel op-correlation" aria-labelledby="home-correlation-heading">
         <div class="op-panel-heading"><h3 id="home-correlation-heading">Corrélation CPU ↔ latence applicative p95</h3><p id="home-correlation-summary">En attente de six mesures synchronisées</p></div>

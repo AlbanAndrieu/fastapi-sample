@@ -237,3 +237,65 @@ peut ne pas finir. Le cache Redis des **noms** ne transforme pas cette
 limitation en sondes réelles. Elle nécessite une collecte planifiée ou
 une source d'évidence partagée, authentifiée et explicitement
 configurée. Ne pas modifier les règles d'accès pour la contourner.
+
+
+## Comparaison graphique des ressources (9 novembre 2026)
+
+L'accueil OWNER présente aussi une **mosaïque des sondes observées** :
+jusqu'à 80 tuiles réelles triées par gravité (FAIL/WARN/UNKNOWN/OK),
+avec hachures pour la preuve périmée. Les slots du catalogue sans
+résultat ne sont pas fabriqués ; le nombre de sondes affichées reste
+distinct de la couverture éligible. Chaque tuile possède un nom et un
+état accessibles au lecteur d'écran. Les points historiques conservent
+la différence entre absence de preuve et panne confirmée.
+
+L'accueil OWNER ajoute un classement horizontal **des huit conteneurs
+les plus consommateurs** avec sélection CPU (cœurs utilisés), mémoire
+active (MiB), système de fichiers conteneur (MiB) ou réseau RX + TX
+(KiB/s). La barre est **relative au maximum de l'échantillon**, jamais
+un pourcentage de capacité hôte/quota. Les données sont tirées de
+`/api/topology-telemetry`, déjà interrogé par OWNER : aucun fetch
+Prometheus supplémentaire n'est réalisé par le navigateur.
+
+La nouvelle requête serveur `container_fs_usage_bytes` (cAdvisor)
+est **facultative** et calculée par `max by (compose_service)` pour
+éviter le double comptage de plusieurs devices par conteneur. Elle
+n'inclut **pas** les datasets ZFS, snapshots, PVC, volumes ni la
+taille des images Docker. Leur occupation devra être ajoutée par
+l'inventaire TrueNAS/ZFS, avec provenance séparée et contrôles d'accès.
+Une mesure manquante s'affiche « inconnue », jamais « 0 » ; un zéro
+observé demeure 0. Le graphique refuse les échantillons périmés.
+
+Le panneau flux réseau affiche uniquement le débit agrégé pfSense
+exposé par l'enregistrement Prometheus/collecteur Akvorado, avec
+l'état de confirmation du collecteur si disponible. Le RX/TX cAdvisor
+est par conteneur, **pas** par paire source/destination ; aucune
+épaisseur d'arête n'est inventée. Une attribution future exige des
+flux IPFIX associés à des identités réseau stables (`entityRef`),
+puis des fenêtres temporelles cohérentes et un budget de cardinalité.
+
+**Confidentialité** : classement, noms et flux sont sous
+`home-operator-detail` et le navigateur ne charge pas la télémétrie
+sans session `authenticated === true` ; aucune réponse OWNER n'est
+stockée dans `sessionStorage`.
+
+Contrôles locaux :
+
+```bash
+node --check nabla/api/assets/home-operations.js
+node --check nabla/api/assets/home-operations-model.js
+node --test tests/js/home-operations-model.test.mjs
+python -m pytest -q tests/unit/test_home_operations_contract.py tests/unit/test_topology_telemetry.py
+```
+
+Références ergonomiques : Grafana [Node graph](https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/node-graph/),
+[Docker monitoring cAdvisor](https://grafana.com/grafana/dashboards/15798-docker-monitoring/),
+[Netdata metrics](https://learn.netdata.cloud/docs/dashboards-and-charts/tabs/metrics),
+[conventions Prometheus](https://prometheus.io/docs/practices/naming/).
+
+**Correction d'autorisation (9/11)** : la route `GET /api/topology-telemetry`
+impose maintenant une session OWNER vérifiée **par le serveur** avant
+toute requête Prometheus ; elle répond 403 et `Cache-Control: private,
+no-store` sans privilège, même si le JavaScript est contourné.
+La page `/api/topology` conserve le rendu du graphe déclaratif public,
+mais les métriques détaillées restent privées.
