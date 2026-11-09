@@ -1,3 +1,4 @@
+import { homepageCadence } from "./home-cost-policy.js";
 import {
   discardPublicDirectory,
   persistPublicDirectory,
@@ -18,7 +19,9 @@ import {
 } from "./home-operations-model.js";
 
 const ROOT = document.getElementById("home-operations");
-const INTERVAL_MS = 30000;
+const HOME_RUNTIME = ROOT?.dataset.runtimeMode || "local";
+const INITIAL_CADENCE = homepageCadence(HOME_RUNTIME, false);
+const INTERVAL_MS = INITIAL_CADENCE.pollIntervalMs;
 const SERIES = Object.create(null);
 let CORRELATION_PAIRS = [];
 let HISTORY_DATA = null;
@@ -28,9 +31,10 @@ const HISTORY_RECHECK_MS = 120000;
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
 let refreshRequested = false;
+let ownerSessionActive = false;
 let warmupAttempts = 0;
 let warmupTimer = null;
-const WARMUP_DELAYS_MS = [2000, 4000, 8000, 15000, 30000];
+const WARMUP_DELAYS_MS = INITIAL_CADENCE.warmupDelaysMs;
 
 function publicSessionCache() {
   try {
@@ -474,6 +478,7 @@ async function refresh() {
 
   const owner = sessionResult.status === "fulfilled" &&
     sessionResult.value?.authenticated === true;
+  ownerSessionActive = owner;
   element("home-locked").hidden = owner;
   element("home-operator-detail").hidden = !owner;
   if (!owner) {
@@ -514,7 +519,9 @@ async function refresh() {
     } else {
       warmupAttempts = 0;
       clearWarmupRetry();
-      put("home-retry-status", "Actualisation périodique toutes les 30 s");
+      put("home-retry-status", homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+        ? "Actualisation périodique contrôlée"
+        : "Mode Cloud économique · mise à jour au retour dans cet onglet");
     }
     if (refreshRequested && !document.hidden) {
       refreshRequested = false;
@@ -550,6 +557,11 @@ if (ROOT) {
       else void refresh();
     }
   });
-  setInterval(() => { if (!document.hidden) void refresh(); }, INTERVAL_MS);
+  setInterval(() => {
+    if (document.hidden) return;
+    if (homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled) {
+      void refresh();
+    }
+  }, INTERVAL_MS);
   void refresh();
 }

@@ -126,7 +126,7 @@ def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
         return templates.TemplateResponse(
             request,
             "index.html",
-            {"database_enabled": database},
+            {"database_enabled": database, "runtime_mode": runtime_mode(request.url.hostname)},
             headers={
     "Cache-Control": "private, no-store, max-age=0",
     "Pragma": "no-cache",
