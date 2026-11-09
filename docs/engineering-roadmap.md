@@ -354,3 +354,13 @@ merge ou déploiement implicite.
   aucun résultat de sonde ni donnée OWNER. **Reste :** Node/pytest
   en checkout complet, test cold-start Cloud et contrôle TrueNAS.
   Voir [migration de l'accueil](runbooks/home-operations-transition.md).
+
+- [ ] **P0 — FastAPI Cloud : budget runtime (09/11, CODED / non déployé)** :
+  accueil public sans fan-out, réconciliation OWNER TTL/backoff 180 s,
+  arrêt des trois boucles résidentes en Cloud, pollings navigateur
+  publics arrêtés et OWNER réduits, échantillon CPU-time/RSS
+  sur demande seulement. Aucun réglage automatique de CPU/replicas.
+  Validation requise : Node 22, pytest, smoke test de version,
+  comparaison Metrics FastAPI Cloud avant/après. Ne pas modifier
+  l'autorisation du LAN. Voir
+  [runbook](runbooks/fastapi-cloud-runtime-cost-guard.md).
