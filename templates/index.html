@@ -70,6 +70,11 @@
         <article class="op-stat"><span>Sondes réellement saines</span><strong id="home-healthy-coverage">—</strong><small>Sur toutes les sondes éligibles</small></article>
         <article class="op-stat"><span>Contrôles de sécurité</span><strong id="home-security-summary">—</strong><small id="home-security-detail">Vérification en attente</small></article>
       </div>
+      <article class="op-panel op-probe-mosaic" aria-labelledby="home-probe-mosaic-heading">
+        <div class="op-panel-heading"><h3 id="home-probe-mosaic-heading">Carte des preuves de sondes</h3><p id="home-probe-mosaic-source">Observation non confirmée</p></div>
+        <ul id="home-probe-mosaic" class="op-probe-mosaic-grid" aria-label="Sondes individuelles observées"></ul>
+        <p class="op-correlation-footnote">Une tuile représente une sonde déclarée dans l'instantané, jamais une sonde inventée. Gris = état inconnu ; absence de preuve ≠ panne.</p>
+      </article>
       <div class="op-history-toolbar">
         <label for="home-history-window">Historique Prometheus</label>
         <select id="home-history-window" aria-label="Fenêtre temporelle historique">
