@@ -139,6 +139,7 @@ def test_missing_cadvisor_network_direction_is_not_a_measured_zero() -> None:
     assert result["sample"]["rx_bytes_per_second"] == 0
     assert "network_bytes_per_second" not in result["sample"]
 
+
 def test_topology_telemetry_route_requires_owner_policy() -> None:
     from nabla.route_policy import Credential, Visibility, route_policy_for
 
