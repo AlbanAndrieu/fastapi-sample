@@ -451,7 +451,6 @@ async function refresh() {
       : "Sondes en préparation · nouvelle lecture automatique",
       fleet.verified ? "ok" : "warn");
     if (fleet.verified) {
-      warmupAttempts = 0;
       put("home-retry-status", "Actualisation périodique toutes les 30 s");
     }
   } else if (publicDenied) {
@@ -508,7 +507,13 @@ async function refresh() {
   } finally {
     if (button) button.disabled = false;
     active = false;
-    if (retryWarmup) scheduleWarmupRetry();
+    if (retryWarmup) {
+      scheduleWarmupRetry();
+    } else {
+      warmupAttempts = 0;
+      clearWarmupRetry();
+      put("home-retry-status", "Actualisation périodique toutes les 30 s");
+    }
     if (refreshRequested && !document.hidden) {
       refreshRequested = false;
       queueMicrotask(() => void refresh());
