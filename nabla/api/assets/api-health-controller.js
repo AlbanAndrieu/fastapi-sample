@@ -23,6 +23,10 @@ const HEALTH_BOARD_IDLE_POLL_MS = 30000;
 const HEALTH_BOARD_REFRESHING_POLL_MS = 5000;
 // Do not increase outbound diagnostic load when a homelab is unresponsive.
 const HEALTH_BOARD_ERROR_BACKOFF_MS = 60000;
+const CLOUD_COST_MODE = window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
+const CLOUD_HEALTH_BOARD_IDLE_POLL_MS = 180000;
+const CLOUD_HEALTH_BOARD_REFRESHING_POLL_MS = 15000;
+const CLOUD_HEALTH_BOARD_ERROR_BACKOFF_MS = 180000;
 let automaticRefreshInFlight = false;
 let automaticRefreshTimer = null;
 
@@ -124,7 +128,9 @@ function loadHealthBoards({
     .catch(() => null);
 }
 
-function scheduleAutomaticRefresh(delayMs = HEALTH_BOARD_IDLE_POLL_MS) {
+function scheduleAutomaticRefresh(
+  delayMs = CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_IDLE_POLL_MS : HEALTH_BOARD_IDLE_POLL_MS,
+) {
   if (automaticRefreshTimer) window.clearTimeout(automaticRefreshTimer);
   automaticRefreshTimer = window.setTimeout(async () => {
     if (document.hidden || automaticRefreshInFlight) {
@@ -136,10 +142,10 @@ function scheduleAutomaticRefresh(delayMs = HEALTH_BOARD_IDLE_POLL_MS) {
     automaticRefreshInFlight = false;
     scheduleAutomaticRefresh(
       snapshot == null
-        ? HEALTH_BOARD_ERROR_BACKOFF_MS
+        ? (CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_ERROR_BACKOFF_MS : HEALTH_BOARD_ERROR_BACKOFF_MS)
         : snapshot.refreshing === true
-          ? HEALTH_BOARD_REFRESHING_POLL_MS
-          : HEALTH_BOARD_IDLE_POLL_MS,
+          ? (CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_REFRESHING_POLL_MS : HEALTH_BOARD_REFRESHING_POLL_MS)
+          : (CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_IDLE_POLL_MS : HEALTH_BOARD_IDLE_POLL_MS),
     );
   }, delayMs);
 }
@@ -156,7 +162,16 @@ function installTechnicalDetailRefresh() {
   });
 }
 
-function installAutomaticRefresh() {
+async function installAutomaticRefresh() {
+  // Explicit OWNER diagnostics still refresh, at a reduced Cloud cadence.
+  // A public read-only visitor must not keep a scale-to-zero replica awake.
+  if (CLOUD_COST_MODE) {
+    try {
+      if (!(await ownerSessionAvailable())) return;
+    } catch {
+      return;
+    }
+  }
   scheduleAutomaticRefresh();
   document.addEventListener("visibilitychange", () => {
     if (document.hidden || automaticRefreshInFlight) return;
@@ -191,5 +206,5 @@ export function installHealthBoardController() {
   // Technical LAN drill-downs are lazy: the Cloud landing page must not
   // eagerly fetch TrueNAS runtime/topology while the drawer is closed.
   loadHealthBoards({ includeTechnical: technicalDetailsOpen() });
-  installAutomaticRefresh();
+  void installAutomaticRefresh();
 }
