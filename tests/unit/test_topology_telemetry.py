@@ -26,6 +26,7 @@ def test_resource_values_join_cadvisor_dimensions_by_compose_service() -> None:
         {
             "cpu_cores": [_sample("cpu", "0.25", **{label: "fastapi-sample"})],
             "memory_bytes": [_sample("memory", "104857600", **{label: "fastapi-sample"})],
+            "fs_bytes": [_sample("fs", "52428800", **{label: "fastapi-sample"})],
             "rx_bytes_per_second": [_sample("rx", "1200", **{label: "fastapi-sample"})],
             "tx_bytes_per_second": [_sample("tx", "800", **{label: "fastapi-sample"})],
         },
@@ -33,6 +34,7 @@ def test_resource_values_join_cadvisor_dimensions_by_compose_service() -> None:
 
     assert result["fastapi-sample"]["cpu_cores"] == 0.25
     assert result["fastapi-sample"]["memory_bytes"] == 104857600.0
+    assert result["fastapi-sample"]["fs_bytes"] == 52428800.0
     assert result["fastapi-sample"]["network_bytes_per_second"] == 2000.0
 
 
@@ -75,6 +77,8 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
             result = [_sample("", "0.4", **{label: "fastapi-sample"})]
         elif "container_memory_working_set_bytes" in query:
             result = [_sample("", "209715200", **{label: "fastapi-sample"})]
+        elif "container_fs_usage_bytes" in query:
+            result = [_sample("", "157286400", **{label: "fastapi-sample"})]
         elif "container_network_receive_bytes_total" in query:
             result = [_sample("", "2048", **{label: "fastapi-sample"})]
         elif "container_network_transmit_bytes_total" in query:
@@ -104,10 +108,21 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
 
     assert result["state"] == "healthy"
     assert result["resources"]["fastapi-sample"]["cpu_cores"] == 0.4
+    assert result["resources"]["fastapi-sample"]["fs_bytes"] == 157286400.0
     assert result["resources"]["fastapi-sample"]["network_bytes_per_second"] == 3072.0
     assert result["network_flow"]["pfsense_bytes_per_second"] == 8192.0
     assert result["edge_bandwidth"] == {}
     assert result["edge_bandwidth_state"] == "unattributed"
+
+
+def test_missing_fs_series_is_unknown_not_zero() -> None:
+    label = "container_label_com_docker_compose_service"
+    result = _resource_values({
+        "cpu_cores": [_sample("cpu", "0.25", **{label: "sample"})],
+        "fs_bytes": [],
+    })
+    assert result["sample"]["cpu_cores"] == 0.25
+    assert "fs_bytes" not in result["sample"]
 
 
 def test_missing_cadvisor_network_direction_is_not_a_measured_zero() -> None:
