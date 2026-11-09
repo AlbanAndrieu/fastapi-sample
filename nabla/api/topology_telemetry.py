@@ -40,6 +40,11 @@ _RESOURCE_QUERIES = {
     "memory_bytes": (
         'sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{job="truenas_cadvisor",container_label_com_docker_compose_service!=""})'
     ),
+    # This is cAdvisor filesystem usage only, not application volume/ZFS
+    # dataset consumption or physical image size. Never label it as pool use.
+    "fs_bytes": (
+        'max by (container_label_com_docker_compose_service) (container_fs_usage_bytes{job="truenas_cadvisor",container_label_com_docker_compose_service!=""})'
+    ),
     "rx_bytes_per_second": (
         "sum by (container_label_com_docker_compose_service) "
         '(rate(container_network_receive_bytes_total{job="truenas_cadvisor",container_label_com_docker_compose_service!=""}[2m]))'
