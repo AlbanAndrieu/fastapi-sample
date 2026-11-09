@@ -32,6 +32,7 @@ from nabla.api.synthetic_probe_comparison import (
     evaluate_internal_probe_delegation,
 )
 from nabla.settings.health_runtime import HealthRuntimeSettings
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 
 _cloudflare_unconfirmed_check = cloudflare_unconfirmed_check
 
@@ -46,6 +47,10 @@ _cached_snapshot: dict[str, Any] | None = None
 _cached_at = 0.0
 _refresh_task: asyncio.Task[None] | None = None
 _last_refresh_error: str | None = None
+_last_refresh_failed_at = 0.0
+
+_CLOUD_CACHE_MIN_TTL_SECONDS = 180.0
+_CLOUD_FAILED_REFRESH_BACKOFF_SECONDS = 180.0
 
 
 def _ttl_seconds() -> float:
@@ -320,12 +325,13 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
 
 
 async def _refresh(request: Request) -> None:
-    global _cached_at, _cached_snapshot, _last_refresh_error
+    global _cached_at, _cached_snapshot, _last_refresh_error, _last_refresh_failed_at
     started = time.monotonic()
     try:
         async with asyncio.timeout(_HEALTH_BOARD_REFRESH_DEADLINE_SEC):
             snapshot = await build_health_board_snapshot(request)
     except TimeoutError:
+        _last_refresh_failed_at = time.monotonic()
         _last_refresh_error = "health board refresh deadline exceeded"
         logger.warning(
             "health board snapshot refresh timed out duration_seconds=%.3f deadline_seconds=%.1f",
@@ -334,6 +340,7 @@ async def _refresh(request: Request) -> None:
         )
         return
     except Exception as exc:
+        _last_refresh_failed_at = time.monotonic()
         _last_refresh_error = _short_error(exc)
         logger.warning(
             "health board snapshot refresh failed duration_seconds=%.3f error=%s",
@@ -345,6 +352,7 @@ async def _refresh(request: Request) -> None:
     async with _cache_lock:
         _cached_snapshot = snapshot
         _cached_at = time.monotonic()
+        _last_refresh_failed_at = 0.0
         _last_refresh_error = None
     logger.info(
         "health board snapshot refreshed duration_seconds=%.3f",
@@ -364,10 +372,22 @@ async def get_health_board_snapshot(
     """Return a fresh/stale snapshot immediately and refresh it in the background."""
     global _refresh_task
 
+    cloud = fastapi_cloud_runtime_detected(request.url.hostname)
+    ttl = max(_ttl_seconds(), _CLOUD_CACHE_MIN_TTL_SECONDS) if cloud else _ttl_seconds()
+    now = time.monotonic()
     async with _cache_lock:
-        age = time.monotonic() - _cached_at if _cached_snapshot is not None else None
-        fresh = age is not None and age < _ttl_seconds()
-        if (force_refresh or not fresh) and not _task_is_running():
+        age = now - _cached_at if _cached_snapshot is not None else None
+        fresh = age is not None and age < ttl
+        failed_backoff = (
+            max(
+                0.0,
+                _CLOUD_FAILED_REFRESH_BACKOFF_SECONDS
+                - (now - _last_refresh_failed_at),
+            )
+            if cloud and _last_refresh_failed_at > 0
+            else 0.0
+        )
+        if (force_refresh or not fresh) and not _task_is_running() and failed_backoff <= 0:
             _refresh_task = asyncio.create_task(
                 _refresh(request),
                 name="health-board-refresh",
@@ -381,7 +401,7 @@ async def get_health_board_snapshot(
             "schema_version": 1,
             "state": "pending",
             "refreshing": refreshing,
-            "retry_after_seconds": 2,
+            "retry_after_seconds": max(2, int(failed_backoff + 0.999)),
             "generated_at": None,
             "error": error,
             "runtime": None,
@@ -399,7 +419,7 @@ async def get_health_board_snapshot(
     }
 
 
-async def peek_public_health_board_snapshot() -> dict[str, Any]:
+async def peek_public_health_board_snapshot(request: Request | None = None) -> dict[str, Any]:
     """Passive, bounded PUBLIC state projection with zero refresh side effects.
 
     Cloud landing visits must not start the expensive homelab/Cloudflare/
@@ -412,7 +432,9 @@ async def peek_public_health_board_snapshot() -> dict[str, Any]:
         if snapshot is None:
             return {"state": "pending"}
         age = time.monotonic() - _cached_at
-        if age >= _ttl_seconds():
+        cloud = request is not None and fastapi_cloud_runtime_detected(request.url.hostname)
+        ttl = max(_ttl_seconds(), _CLOUD_CACHE_MIN_TTL_SECONDS) if cloud else _ttl_seconds()
+        if age >= ttl:
             return {"state": "stale"}
         homelab = snapshot.get("homelab")
         rows = homelab.get("services") if isinstance(homelab, dict) else None
@@ -434,13 +456,14 @@ async def peek_public_health_board_snapshot() -> dict[str, Any]:
 
 async def reset_health_board_cache() -> None:
     """Reset module state for deterministic tests."""
-    global _cached_at, _cached_snapshot, _last_refresh_error, _refresh_task
+    global _cached_at, _cached_snapshot, _last_refresh_error, _refresh_task, _last_refresh_failed_at
     async with _cache_lock:
         task = _refresh_task
         _refresh_task = None
         _cached_snapshot = None
         _cached_at = 0.0
         _last_refresh_error = None
+        _last_refresh_failed_at = 0.0
     if task is not None and not task.done():
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)

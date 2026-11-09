@@ -19,6 +19,7 @@ _KNOWN_PAAS_ENV_MARKERS: tuple[str, ...] = (
 _FASTAPI_CLOUD_ENV_MARKERS: tuple[str, ...] = (
     "FASTAPI_CLOUD",
     "FASTAPI_CLOUD_APP_ID",
+    "FASTAPICLOUD_DEPLOYMENT_ID",
 )
 _FASTAPI_CLOUD_NETWORK_LABELS = frozenset(
     {"fastapicloud", "fastapi-cloud", "fastapi_cloud"}
@@ -73,6 +74,12 @@ def fastapi_cloud_runtime_detected(hostname: str | None = None) -> bool:
 
     if homelab_runtime_detected():
         return False
+
+    # FastAPI Cloud injects this runtime marker. Unlike a copied app ID,
+    # a deployment ID identifies the active platform even if FASTAPI_ENV
+    # was accidentally left at "development".
+    if _env_present("FASTAPICLOUD_DEPLOYMENT_ID") and not _explicit_local_hostname(hostname):
+        return True
 
     if _explicit_local_hostname(hostname) or _explicit_development_runtime():
         return False

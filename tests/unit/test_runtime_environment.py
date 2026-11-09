@@ -11,6 +11,7 @@ def _clear_runtime_markers(monkeypatch) -> None:
     for name in (
         "FASTAPI_CLOUD",
         "FASTAPI_CLOUD_APP_ID",
+        "FASTAPICLOUD_DEPLOYMENT_ID",
         "FASTAPI_ENV",
         "APP_DOMAIN",
         "FASTAPI_RUNTIME_MODE",
@@ -189,3 +190,14 @@ async def test_fastapi_cloud_500_does_not_disclose_exception_details(
     assert response.status_code == 500
     assert "private-diagnostic-marker" not in response.text
     assert "Traceback" not in response.text
+
+
+def test_fastapi_cloud_injected_deployment_marker_detects_managed_runtime(
+    monkeypatch,
+) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deploy-example")
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+    assert runtime_environment.fastapi_cloud_runtime_detected() is True
+    assert runtime_environment.runtime_mode() == "fastapi_cloud"
+    assert runtime_environment.fastapi_cloud_runtime_detected("127.0.0.1") is False
