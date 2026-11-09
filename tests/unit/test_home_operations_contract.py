@@ -81,4 +81,4 @@ def test_owner_resource_comparison_is_not_public_and_uses_existing_telemetry() -
     assert 'fetchJSON("/api/topology-telemetry"' in script
     assert "container_fs_usage_bytes" in telemetry
     assert "Math.random" not in script
-    assert "fetchJSON(\"/api/v1/query" not in script
+    assert 'fetchJSON("/api/v1/query' not in script

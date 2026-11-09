@@ -117,20 +117,24 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
 
 def test_missing_fs_series_is_unknown_not_zero() -> None:
     label = "container_label_com_docker_compose_service"
-    result = _resource_values({
-        "cpu_cores": [_sample("cpu", "0.25", **{label: "sample"})],
-        "fs_bytes": [],
-    })
+    result = _resource_values(
+        {
+            "cpu_cores": [_sample("cpu", "0.25", **{label: "sample"})],
+            "fs_bytes": [],
+        }
+    )
     assert result["sample"]["cpu_cores"] == 0.25
     assert "fs_bytes" not in result["sample"]
 
 
 def test_missing_cadvisor_network_direction_is_not_a_measured_zero() -> None:
     label = "container_label_com_docker_compose_service"
-    result = _resource_values({
-        "cpu_cores": [_sample("cpu", "0.12", **{label: "sample"})],
-        "rx_bytes_per_second": [_sample("rx", "0", **{label: "sample"})],
-        "tx_bytes_per_second": [],
-    })
+    result = _resource_values(
+        {
+            "cpu_cores": [_sample("cpu", "0.12", **{label: "sample"})],
+            "rx_bytes_per_second": [_sample("rx", "0", **{label: "sample"})],
+            "tx_bytes_per_second": [],
+        }
+    )
     assert result["sample"]["rx_bytes_per_second"] == 0
     assert "network_bytes_per_second" not in result["sample"]
