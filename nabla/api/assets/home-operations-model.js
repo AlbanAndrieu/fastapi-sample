@@ -268,6 +268,76 @@ export function projectServiceFootprint(
   };
 }
 
+/**
+ * OWNER-only compact resource matrix. Every column is scaled independently
+ * to its measured maximum; no cell represents capacity utilisation.
+ * Missing measurement is distinct from a measured zero.
+ */
+export function projectResourceHeatmap(payload, nowMs = Date.now()) {
+  const dimensions = [
+    ["cpu_cores", "CPU", "c", 1],
+    ["memory_bytes", "RAM", "MiB", 1048576],
+    ["fs_bytes", "FS", "MiB", 1048576],
+    ["network_bytes_per_second", "RX+TX", "KiB/s", 1024],
+  ];
+  const telemetry = record(payload);
+  if (
+    telemetry.schema_version !== 1 ||
+    !["healthy", "partial"].includes(telemetry.state) ||
+    telemetry.resource_source !== "truenas_cadvisor" ||
+    !hasFreshTimestamp(telemetry.generated_at, nowMs)
+  )
+    return null;
+  const services = record(telemetry.resources);
+  const names = Object.keys(services);
+  if (names.length > 2000) return null;
+  const maxima = Object.fromEntries(dimensions.map(([key]) => [key, 0]));
+  const rows = [];
+  for (const name of names) {
+    if (!/^[a-zA-Z0-9_.-]{1,80}$/.test(name)) continue;
+    const raw = record(services[name]);
+    const values = {};
+    let measured = 0;
+    for (const [key] of dimensions) {
+      const value = finite(raw[key]);
+      values[key] = value !== null && value >= 0 ? value : null;
+      if (values[key] !== null) {
+        measured += 1;
+        maxima[key] = Math.max(maxima[key], values[key]);
+      }
+    }
+    if (measured > 0) rows.push({ name, measured, values });
+  }
+  rows.sort(
+    (a, b) =>
+      b.measured - a.measured ||
+      (b.values.memory_bytes ?? -1) - (a.values.memory_bytes ?? -1) ||
+      a.name.localeCompare(b.name),
+  );
+  return {
+    observedAt: telemetry.generated_at,
+    measuredServices: rows.length,
+    declaredServices: names.length,
+    truncated: Math.max(0, rows.length - 12),
+    dimensions: dimensions.map(([key, label, unit, divisor]) => ({
+      key, label, unit, divisor,
+    })),
+    rows: rows.slice(0, 12).map((row) => ({
+      name: row.name,
+      cells: dimensions.map(([key, label, unit, divisor]) => ({
+        key,
+        label,
+        unit,
+        value: row.values[key] === null ? null : row.values[key] / divisor,
+        relativePercent:
+          row.values[key] === null || maxima[key] === 0
+            ? null
+            : (100 * row.values[key]) / maxima[key],
+      })),
+    })),
+  };
+}
+
 /** pfSense flow is aggregate evidence; no per-service/edge attribution exists. */
 export function projectAggregateNetworkFlow(payload, nowMs = Date.now()) {
   if (
