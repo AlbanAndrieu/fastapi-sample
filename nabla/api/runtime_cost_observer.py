@@ -7,9 +7,9 @@ No background sampling, network access or raw process environment is involved.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 import psutil
+
+from nabla.api.platform_health_diagnostics import utc_now
 
 
 def snapshot_process_resources() -> dict[str, object]:
@@ -22,7 +22,7 @@ def snapshot_process_resources() -> dict[str, object]:
     return {
         "schema_version": 1,
         "model": "process-resource-observation",
-        "observed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "observed_at": utc_now(),
         "rss_bytes": max(0, rss),
         "process_cpu_seconds_total": round(
             max(0.0, float(cpu.user) + float(cpu.system)),
