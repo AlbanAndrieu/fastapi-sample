@@ -166,3 +166,13 @@ def test_cloud_domain_recognized_without_loose_lan_override(monkeypatch) -> None
     monkeypatch.setenv("APP_DOMAIN", "sample.albandrieu.com")
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
     assert not health_board._cloud_budget_enabled()
+
+
+def test_cloud_domain_also_selects_low_cost_metrics_sampling(monkeypatch) -> None:
+    from nabla.utils import prometheus
+
+    monkeypatch.delenv("FASTAPI_CLOUD", raising=False)
+    monkeypatch.delenv("FASTAPI_ENV", raising=False)
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.setenv("APP_DOMAIN", "fastapi-sample.fastapicloud.dev")
+    assert prometheus.system_metrics_interval_seconds() == 30.0

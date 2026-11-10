@@ -143,9 +143,15 @@ ACTIVE_USERS = Gauge("active_users_current", "Currently active users")
 
 def system_metrics_interval_seconds() -> float:
     """Keep LAN scrape granularity; avoid 5s host sampling on tiny Cloud."""
+    from os import environ
+
     from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 
-    return 30.0 if fastapi_cloud_runtime_detected() else 5.0
+    return (
+        30.0
+        if fastapi_cloud_runtime_detected(environ.get("APP_DOMAIN"))
+        else 5.0
+    )
 
 
 async def update_system_metrics():
