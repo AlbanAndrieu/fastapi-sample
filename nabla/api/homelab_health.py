@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 import time
-from datetime import datetime, timezone
 from typing import Any, Literal
 
 import httpx
@@ -39,6 +38,7 @@ from nabla.api.homelab_probe_policy import (
     rotated_priority_ids as _rotated_priority_ids,
     select_probe_subset as _select_probe_subset,
 )
+from nabla.api.platform_health_diagnostics import utc_now
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.utils.environment import env_bool
 
@@ -220,24 +220,19 @@ def _finalize_scope(
     summary["evidence"] = evidence_summary(merged, eligible_count=len(candidates))
     summary["priority_source"] = _priority_source(candidates)
     summary["rotated_priority_ids"] = _rotated_priority_ids(candidates, limit=limit) if enabled else []
-    summary["estimated_full_cycle_seconds"] = (
-        _estimated_full_cycle_seconds(candidates, limit=limit) if enabled else None
-    )
+    summary["estimated_full_cycle_seconds"] = _estimated_full_cycle_seconds(candidates, limit=limit) if enabled else None
     # Include eligible services missing any non-stale origin/retained evidence.
     # Names and canonical IDs only: never expose LAN hosts or token material.
-    known_ids = {
-        row.get("id")
-        for row in merged
-        if row.get("probe_source") in {"origin", "memory"}
-        and row.get("probe_stale") is not True
-    }
+    known_ids = {row.get("id") for row in merged if row.get("probe_source") in {"origin", "memory"} and row.get("probe_stale") is not True}
     summary["unobserved_slots"] = (
         [
             {
                 "id": service.service_id,
                 "name": service.name,
                 "probe_interval_seconds": _estimated_probe_interval_seconds(
-                    service, eligible_services=candidates, limit=limit
+                    service,
+                    eligible_services=candidates,
+                    limit=limit,
                 ),
             }
             for service in candidates
@@ -318,9 +313,9 @@ async def build_homelab_health_payload(
             internal_enabled=internal_enabled,
         )
 
-        checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        checked_at = utc_now()
         shared_public_entries, shared_read_ok = await read_public_probe_evidence(
-            public_candidates
+            public_candidates,
         )
         public_results = _finalize_scope(
             "public",
@@ -333,11 +328,10 @@ async def build_homelab_health_payload(
             shared_entries=shared_public_entries,
         )
         shared_write_ok = await write_public_probe_evidence(
-            public_results, checked_at
+            public_results,
+            checked_at,
         )
-        public_summary["evidence_storage"] = (
-            "redis_shared" if shared_read_ok and shared_write_ok else "process_memory"
-        )
+        public_summary["evidence_storage"] = "redis_shared" if shared_read_ok and shared_write_ok else "process_memory"
         internal_results = _finalize_scope(
             "internal",
             internal_results,
