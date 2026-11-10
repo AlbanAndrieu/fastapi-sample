@@ -47,7 +47,7 @@ function openDiagnostics(serviceKey) {
 
 function openTrueNasDiagnostics() {
   const panel = document.getElementById("truenas-platform");
-  panel?.scrollIntoView({ behavior: "smooth", block: "center" });
+  panel?.scrollIntoView({ behavior: "smooth", block: "start" });
   panel?.querySelector(".service-detail-trigger")?.click();
 }
 
