@@ -177,9 +177,15 @@ def _enrich_truenas_flow(
 
 async def prepare_homelab_reconciliation_context(
     services: list[HomelabService],
+    *,
+    timings_ms: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """Read independent providers once while service probes are running."""
-    timings_ms: dict[str, float] = {}
+    """Read independent providers once while service probes are running.
+
+    A caller-owned ``timings_ms`` keeps the provider phases observed so far
+    when an outer deadline cancels the reconciliation.
+    """
+    timings_ms = {} if timings_ms is None else timings_ms
     declared_task = asyncio.create_task(timed_homelab_phase("declared_catalog", fetch_declared_service_catalog(), timings_ms))
     cloudflare_task = asyncio.create_task(timed_homelab_phase("cloudflare_exposure", observe_cloudflare_exposure(), timings_ms))
     topology_task = asyncio.create_task(timed_homelab_phase("topology", fetch_homelab_topology(), timings_ms))
@@ -234,11 +240,7 @@ def _topology_runtime_match(
             continue
         if container_service:
             wanted = container_service.strip().casefold()
-            containers = [
-                container
-                for container in app.containers
-                if str(container.service_name or "").strip().casefold() == wanted
-            ]
+            containers = [container for container in app.containers if str(container.service_name or "").strip().casefold() == wanted]
             if containers:
                 matches.append((app, containers[0]))
                 continue
@@ -300,9 +302,7 @@ def _append_runtime_topology_component_evidence(
                 "observation_stale": runtime.stale,
                 "topology_runtime_projection": True,
                 "presentation_role": node.presentation_role or "support",
-                "runtime_container_service": (
-                    container.service_name if container is not None else binding.container_service
-                ),
+                "runtime_container_service": (container.service_name if container is not None else binding.container_service),
             },
         )
         known_ids.add(node.id)
@@ -317,11 +317,7 @@ def _reconcile_shared_component_evidence(
     if not isinstance(shared_checks, dict):
         return rows
 
-    by_id = {
-        str(row.get("id")): row
-        for row in rows
-        if isinstance(row, dict) and row.get("id")
-    }
+    by_id = {str(row.get("id")): row for row in rows if isinstance(row, dict) and row.get("id")}
     mappings = {
         "postgres": ("postgresql", "sql_query"),
     }
@@ -342,17 +338,11 @@ def _reconcile_shared_component_evidence(
             row["state"] = "ok"
             if previous_state != "ok":
                 row["evidence_conflict"] = True
-                row["reconciliation_note"] = (
-                    f"{check_key} application probe succeeded while homelab "
-                    f"evidence reported {previous_state}; application evidence wins"
-                )
+                row["reconciliation_note"] = f"{check_key} application probe succeeded while homelab evidence reported {previous_state}; application evidence wins"
         elif previous_state == "ok":
             row["state"] = "warn"
             row["evidence_conflict"] = True
-            row["reconciliation_note"] = (
-                f"{check_key} application probe failed while alternate homelab "
-                "evidence reports operational"
-            )
+            row["reconciliation_note"] = f"{check_key} application probe failed while alternate homelab evidence reports operational"
         elif previous_state == "unknown":
             row["state"] = "warn"
     return rows
@@ -416,11 +406,7 @@ async def reconcile_homelab_health_payload(
         cloudflare_status_confirmed=cloudflare_summary.get("status_confirmed"),
         cloudflare_warning=cloudflare_summary.get("warning"),
         checked_at=checked_at,
-        internal_probes_enabled=(
-            payload.get("internal_probes_enabled")
-            if isinstance(payload.get("internal_probes_enabled"), bool)
-            else None
-        ),
+        internal_probes_enabled=(payload.get("internal_probes_enabled") if isinstance(payload.get("internal_probes_enabled"), bool) else None),
     )
     reconciled = _append_runtime_topology_component_evidence(
         reconciled,

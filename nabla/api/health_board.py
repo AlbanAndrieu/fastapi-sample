@@ -42,6 +42,25 @@ _HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC = 5.0
 _SICKZ_POLICY_DEADLINE_SEC = 6.0
 _HOMELAB_SNAPSHOT_DEADLINE_SEC = 12.0
 _HEALTH_BOARD_REFRESH_DEADLINE_SEC = 40.0
+_HOMELAB_DEADLINE_ERROR = "aggregate homelab diagnostic deadline exceeded"
+# Fixed vocabulary for the await an aggregate homelab snapshot is blocked on.
+_HOMELAB_SNAPSHOT_STAGES = frozenset(
+    {
+        "catalog",
+        "component_checks",
+        "probes",
+        "reconciliation_context",
+        "reconciliation",
+        "complete",
+    },
+)
+# Provider phases read by prepare_homelab_reconciliation_context().
+_HOMELAB_CONTEXT_PHASES = (
+    "declared_catalog",
+    "cloudflare_exposure",
+    "topology",
+    "pfsense_posture",
+)
 _cache_lock = asyncio.Lock()
 _cached_snapshot: dict[str, Any] | None = None
 _cached_at = 0.0
@@ -83,14 +102,28 @@ async def build_extended_healthz(
     )
 
 
+def _enter_stage(progress: dict[str, Any], stage: str) -> None:
+    """Record the await in progress so a deadline can name where it blocked."""
+    now = time.perf_counter()
+    previous = progress.get("stage")
+    if isinstance(previous, str):
+        stages_ms = progress.setdefault("stages_ms", {})
+        elapsed = now - progress.get("stage_started", now)
+        stages_ms[previous] = round(elapsed * 1000, 1)
+    progress["stage"] = stage
+    progress["stage_started"] = now
+
+
 async def _build_homelab_snapshot(
     shared_checks: dict[str, Any] | None = None,
     *,
     catalog_services: list[Any] | None = None,
     reconciliation_context: Awaitable[dict[str, Any]] | dict[str, Any] | None = None,
     homelab_payload: Awaitable[dict[str, Any]] | None = None,
+    progress: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
+    progress = {} if progress is None else progress
     from nabla.api.component_health import (
         build_component_checks,
         component_status,
@@ -108,6 +141,7 @@ async def _build_homelab_snapshot(
     from nabla.api.homelab_performance import finalize_homelab_performance
     from nabla.api.provider_credentials import infrastructure_provider_credentials
 
+    _enter_stage(progress, "catalog")
     services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
     homelab_task = (
         homelab_payload
@@ -116,24 +150,37 @@ async def _build_homelab_snapshot(
             build_homelab_health_payload(catalog_services=services),
         )
     )
-    context_awaitable = reconciliation_context if reconciliation_context is not None else asyncio.create_task(prepare_homelab_reconciliation_context(services))
+    progress["probe_task"] = homelab_task
+    if reconciliation_context is None:
+        phases_ms = progress.setdefault("provider_phases_ms", {})
+        context_awaitable = asyncio.create_task(
+            prepare_homelab_reconciliation_context(services, timings_ms=phases_ms),
+        )
+    else:
+        context_awaitable = reconciliation_context
     if shared_checks is None:
+        _enter_stage(progress, "component_checks")
         components = await build_component_checks(
             redis_client=redis,
             engine=engine,
             homelab_snapshot=homelab_task,
         )
+        _enter_stage(progress, "probes")
+        homelab = await homelab_task
     else:
+        _enter_stage(progress, "probes")
         homelab = await homelab_task
         components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
         components["truenas"] = truenas_component(homelab)
-    homelab = await homelab_task
+    _enter_stage(progress, "reconciliation_context")
     reconciliation_context_value = context_awaitable if isinstance(context_awaitable, dict) else await context_awaitable
+    _enter_stage(progress, "reconciliation")
     payload = await reconcile_homelab_health_payload(
         homelab,
         context=reconciliation_context_value,
         shared_checks=components,
     )
+    _enter_stage(progress, "complete")
     components["unbound"] = pfsense_unbound_component(payload)
     payload["components_status"] = component_status(components)
     payload["components"] = components
@@ -203,42 +250,33 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
     return stages
 
 
-async def build_homelab_snapshot(
-    shared_checks: dict[str, Any] | None = None,
-    *,
-    catalog_services: list[Any] | None = None,
-    reconciliation_context: Awaitable[dict[str, Any]] | dict[str, Any] | None = None,
-    homelab_payload: Awaitable[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """Build homelab diagnostics without allowing a provider hang to hold the route."""
-    try:
-        async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
-            payload = await _build_homelab_snapshot(
-                shared_checks,
-                catalog_services=catalog_services,
-                reconciliation_context=reconciliation_context,
-                homelab_payload=homelab_payload,
-            )
-        return {
-            **payload,
-            "status": payload.get("components_status", "healthy"),
-            "timed_out": False,
-            "error": None,
-        }
-    except TimeoutError:
-        from nabla.api.homelab_health import internal_probes_enabled
-        from nabla.api.provider_credentials import infrastructure_provider_credentials
-        from nabla.api.runtime_environment import homelab_runtime_detected
+def _completed_probe_payload(task: object) -> dict[str, Any] | None:
+    """Return the raw probe matrix only if it finished before the deadline."""
+    if not isinstance(task, asyncio.Future) or not task.done() or task.cancelled():
+        return None
+    if task.exception() is not None:
+        return None
+    result = task.result()
+    return deepcopy(result) if isinstance(result, dict) else None
 
-        error = "aggregate homelab diagnostic deadline exceeded"
+
+def _homelab_deadline_payload(
+    progress: dict[str, Any],
+    *,
+    elapsed_seconds: float,
+) -> dict[str, Any]:
+    """Keep evidence gathered before the aggregate deadline instead of erasing it."""
+    from nabla.api.homelab_health import internal_probes_enabled
+    from nabla.api.homelab_performance import finalize_homelab_performance
+    from nabla.api.provider_credentials import infrastructure_provider_credentials
+    from nabla.api.runtime_environment import homelab_runtime_detected
+
+    error = _HOMELAB_DEADLINE_ERROR
+    probes = _completed_probe_payload(progress.get("probe_task"))
+    if probes is None:
         path_mode = "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
         lan_probes_enabled = internal_probes_enabled()
-        return {
-            "schema_version": 2,
-            "status": "degraded",
-            "timed_out": True,
-            "error": error,
-            "error_kind": "deadline",
+        evidence: dict[str, Any] = {
             "truenas": {
                 "id": "truenas",
                 "state": "warn",
@@ -257,10 +295,84 @@ async def build_homelab_snapshot(
                 "public": {},
                 "internal": {"enabled": lan_probes_enabled},
             },
-            "components_status": "degraded",
-            "components": {},
-            "provider_credentials": infrastructure_provider_credentials(),
         }
+    else:
+        # Raw probes are real measurements; only the reconciliation is missing.
+        evidence = probes
+
+    stage = progress.get("stage")
+    raw_phases = progress.get("provider_phases_ms")
+    tracked = isinstance(raw_phases, dict)
+    phases_ms = dict(raw_phases) if tracked else {}
+    unfinished = [phase for phase in _HOMELAB_CONTEXT_PHASES if phase not in phases_ms] if tracked else []
+    payload = finalize_homelab_performance(
+        {"performance": {"phases_ms": phases_ms}},
+        total_seconds=elapsed_seconds,
+    )
+    return {
+        **evidence,
+        "schema_version": 2,
+        "status": "degraded",
+        "timed_out": True,
+        "error": error,
+        "error_kind": "deadline",
+        "evidence_scope": "raw_probes" if probes is not None else "none",
+        "reconciled": False,
+        "deadline": {
+            "budget_seconds": _HOMELAB_SNAPSHOT_DEADLINE_SEC,
+            "blocked_stage": stage if stage in _HOMELAB_SNAPSHOT_STAGES else None,
+            "stages_ms": dict(progress.get("stages_ms") or {}),
+            "provider_phases_tracked": tracked,
+            "unfinished_provider_phases": unfinished,
+        },
+        "performance": payload["performance"],
+        "components_status": "degraded",
+        "components": {},
+        "provider_credentials": infrastructure_provider_credentials(),
+    }
+
+
+async def build_homelab_snapshot(
+    shared_checks: dict[str, Any] | None = None,
+    *,
+    catalog_services: list[Any] | None = None,
+    reconciliation_context: Awaitable[dict[str, Any]] | dict[str, Any] | None = None,
+    homelab_payload: Awaitable[dict[str, Any]] | None = None,
+    provider_phases_ms: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Build homelab diagnostics without allowing a provider hang to hold the route.
+
+    ``provider_phases_ms`` is the timing dict shared with an externally created
+    reconciliation context, so a deadline can still attribute the slow provider.
+    """
+    started = time.perf_counter()
+    progress: dict[str, Any] = {}
+    if provider_phases_ms is not None:
+        progress["provider_phases_ms"] = provider_phases_ms
+    try:
+        async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
+            payload = await _build_homelab_snapshot(
+                shared_checks,
+                catalog_services=catalog_services,
+                reconciliation_context=reconciliation_context,
+                homelab_payload=homelab_payload,
+                progress=progress,
+            )
+        return {
+            **payload,
+            "status": payload.get("components_status", "healthy"),
+            "timed_out": False,
+            "error": None,
+        }
+    except TimeoutError:
+        elapsed = time.perf_counter() - started
+        logger.warning(
+            "homelab snapshot deadline exceeded deadline_seconds=%.1f elapsed_seconds=%.3f blocked_stage=%s",
+            _HOMELAB_SNAPSHOT_DEADLINE_SEC,
+            elapsed,
+            progress.get("stage"),
+        )
+        return _homelab_deadline_payload(progress, elapsed_seconds=elapsed)
 
 
 async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
@@ -280,8 +392,9 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     from nabla.api.external_connection_probes import fetch_external_connection_probes
 
     services = await fetch_homelab_services()
+    provider_phases_ms: dict[str, float] = {}
     reconciliation_task = asyncio.create_task(
-        prepare_homelab_reconciliation_context(services),
+        prepare_homelab_reconciliation_context(services, timings_ms=provider_phases_ms),
     )
     homelab_payload_task = asyncio.create_task(
         build_homelab_health_payload(catalog_services=services),
@@ -300,6 +413,7 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         catalog_services=services,
         reconciliation_context=reconciliation_task,
         homelab_payload=homelab_payload_task,
+        provider_phases_ms=provider_phases_ms,
     )
     homelab = _annotate_truenas_ingress_policy(homelab, runtime)
     healthz = _annotate_talos_vm_health(healthz, homelab)

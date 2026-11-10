@@ -98,7 +98,7 @@ def test_runtime_snapshot_uses_stale_last_good_inventory() -> None:
 def test_health_board_overlaps_reconciliation_with_probe_collection() -> None:
     source = (ROOT / "nabla/api/health_board.py").read_text(encoding="utf-8")
 
-    assert "prepare_homelab_reconciliation_context(services)" in source
+    assert "prepare_homelab_reconciliation_context(services, timings_ms=provider_phases_ms)" in source
     assert "build_homelab_health_payload(catalog_services=services)" in source
     assert "context=reconciliation_context" in source
 

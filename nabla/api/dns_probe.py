@@ -59,13 +59,25 @@ async def probe_dns_hostname(
 ) -> dict[str, Any]:
     """Resolve public A/AAAA evidence asynchronously with dnspython."""
     started = time.perf_counter()
-    resolver = _resolver()
     base: dict[str, Any] = {
         "dns_hostname": hostname,
         "dns_probe": "dnspython.resolve_name",
         "dns_resolver_source": "system",
-        "dns_resolvers": list(system_dns_resolvers(resolver)),
+        "dns_resolvers": [],
     }
+    try:
+        # A missing resolv.conf is DNS evidence for this target, never a batch abort.
+        resolver = _resolver()
+    except dns.resolver.NoResolverConfiguration as exc:
+        return {
+            **base,
+            "dns_resolver_source": "unavailable",
+            "dns_state": "fail",
+            "dns_latency_ms": _elapsed_ms(started),
+            "dns_error": _short_error(exc),
+            "dns_resolved": [],
+        }
+    base["dns_resolvers"] = list(system_dns_resolvers(resolver))
     try:
         answers = await resolver.resolve_name(
             hostname,

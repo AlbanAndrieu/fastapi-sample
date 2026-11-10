@@ -19,24 +19,28 @@ def short_error(exc: BaseException) -> str:
     return message[:240]
 
 
+# Ordered: specific timeout classes must win over their TimeoutException base.
+_TYPED_ERROR_KINDS: tuple[tuple[type[BaseException], str], ...] = (
+    (httpx.ConnectTimeout, "connect_timeout"),
+    (httpx.ReadTimeout, "read_timeout"),
+    (httpx.PoolTimeout, "pool_timeout"),
+    (httpx.TimeoutException, "timeout"),
+    # Egress proxy failure, not an answer from the probed service.
+    (httpx.ProxyError, "proxy_error"),
+)
+
+
 def http_error_kind(exc: BaseException) -> str:
     """Classify transport failures for safe runtime diagnostics."""
     message = str(exc).casefold()
-    if isinstance(exc, httpx.ConnectTimeout):
-        return "connect_timeout"
-    if isinstance(exc, httpx.ReadTimeout):
-        return "read_timeout"
-    if isinstance(exc, httpx.PoolTimeout):
-        return "pool_timeout"
-    if isinstance(exc, httpx.TimeoutException):
-        return "timeout"
+    for error_type, kind in _TYPED_ERROR_KINDS:
+        if isinstance(exc, error_type):
+            return kind
     if isinstance(exc, httpx.ConnectError):
         if any(marker in message for marker in ("certificate", "ssl", "tls")):
             return "tls_error"
         return "connect_error"
-    if isinstance(exc, ssl.SSLError) or any(
-        marker in message for marker in ("certificate", "ssl", "tls")
-    ):
+    if isinstance(exc, ssl.SSLError) or any(marker in message for marker in ("certificate", "ssl", "tls")):
         return "tls_error"
     if isinstance(exc, httpx.HTTPError):
         return "http_error"

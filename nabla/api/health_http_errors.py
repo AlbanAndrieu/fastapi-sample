@@ -14,6 +14,9 @@ def http_probe_error_kind(exc: Exception) -> str:
         return "read_timeout"
     if isinstance(exc, httpx.TimeoutException):
         return "timeout"
+    if isinstance(exc, httpx.ProxyError):
+        # The egress proxy failed the tunnel: the target never answered.
+        return "proxy_error"
     if any(marker in message for marker in ("certificate", "ssl", "tls")):
         return "tls_error"
     if any(
