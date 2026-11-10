@@ -693,7 +693,7 @@ button {
   padding: 5px;
   border: 1px solid #354356;
   border-radius: 4px;
-  background: rgba(76, 145, 218, calc(0.10 + var(--heat, 0) * 0.66));
+  background: rgba(76, 145, 218, var(--heat-alpha, 0.10));
   color: #f5f8ff;
   white-space: nowrap;
 }
