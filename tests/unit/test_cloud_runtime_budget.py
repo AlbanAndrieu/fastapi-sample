@@ -10,15 +10,19 @@ from starlette.requests import Request
 
 from nabla.api import health_board
 from nabla.settings.health_runtime import HealthRuntimeSettings
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
+from nabla.utils import prometheus
 
 
 def _request() -> Request:
-    return Request({
-        "type": "http",
-        "method": "GET",
-        "path": "/api/health-board",
-        "headers": [],
-    })
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/health-board",
+            "headers": [],
+        },
+    )
 
 
 def test_cloud_health_board_cache_ttl_does_not_modify_homelab(monkeypatch) -> None:
@@ -42,9 +46,12 @@ def test_cloud_health_board_cache_ttl_does_not_modify_homelab(monkeypatch) -> No
     ],
 )
 def test_cloud_cache_ttl_bounds(value: str, expected: float) -> None:
-    assert HealthRuntimeSettings(
-        cloud_health_board_cache_ttl_seconds=value,
-    ).cloud_health_board_cache_ttl_seconds == expected
+    assert (
+        HealthRuntimeSettings(
+            cloud_health_board_cache_ttl_seconds=value,
+        ).cloud_health_board_cache_ttl_seconds
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -57,9 +64,12 @@ def test_cloud_cache_ttl_bounds(value: str, expected: float) -> None:
     ],
 )
 def test_cloud_failure_backoff_bounds(value: str, expected: float) -> None:
-    assert HealthRuntimeSettings(
-        cloud_health_board_failure_backoff_seconds=value,
-    ).cloud_health_board_failure_backoff_seconds == expected
+    assert (
+        HealthRuntimeSettings(
+            cloud_health_board_failure_backoff_seconds=value,
+        ).cloud_health_board_failure_backoff_seconds
+        == expected
+    )
 
 
 @pytest.mark.asyncio
@@ -143,9 +153,6 @@ async def test_homelab_keeps_existing_refresh_semantics(monkeypatch) -> None:
 
 
 def test_background_host_metrics_sampling_rate(monkeypatch) -> None:
-    from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
-    from nabla.utils import prometheus
-
     # Keep explicit Cloud and LAN semantics; never infer by raw IP.
     monkeypatch.setenv("FASTAPI_CLOUD", "true")
     monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
@@ -169,8 +176,6 @@ def test_cloud_domain_recognized_without_loose_lan_override(monkeypatch) -> None
 
 
 def test_cloud_domain_also_selects_low_cost_metrics_sampling(monkeypatch) -> None:
-    from nabla.utils import prometheus
-
     monkeypatch.delenv("FASTAPI_CLOUD", raising=False)
     monkeypatch.delenv("FASTAPI_ENV", raising=False)
     monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)

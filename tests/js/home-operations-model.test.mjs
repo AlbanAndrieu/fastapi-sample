@@ -13,6 +13,7 @@ import {
   projectProbeMatrix,
   projectProbes,
   projectPrometheusHistory,
+  projectResourceHeatmap,
   projectResources,
   projectSecurity,
   projectServiceFootprint,
@@ -716,4 +717,99 @@ test("projectAppliancePulse drops impossible percentages, non-monotonic series a
   assert.equal(broken.storage.worstUsedPercent, null);
   assert.deepEqual(broken.storage.pools, []);
   assert.deepEqual(broken.impacts, []);
+});
+
+test("resource heatmap exposes only fresh evidence and retains missing versus zero", () => {
+  const source = {
+    schema_version: 1,
+    resource_source: "truenas_cadvisor",
+    state: "partial",
+    generated_at: AT,
+    resources: {
+      alpha: {
+        cpu_cores: 0.5,
+        memory_bytes: 104857600,
+        fs_bytes: 0,
+        network_bytes_per_second: 2048,
+      },
+      beta: {
+        cpu_cores: 1,
+        memory_bytes: 209715200,
+        network_bytes_per_second: 0,
+      },
+      gamma: { memory_bytes: null },
+    },
+  };
+  const matrix = projectResourceHeatmap(source, NOW);
+  assert.equal(matrix.measuredServices, 2);
+  assert.equal(matrix.declaredServices, 3);
+  assert.deepEqual(
+    matrix.dimensions.map((cell) => cell.key),
+    ["cpu_cores", "memory_bytes", "fs_bytes", "network_bytes_per_second"],
+  );
+  const beta = matrix.rows.find((row) => row.name === "beta");
+  const alpha = matrix.rows.find((row) => row.name === "alpha");
+  assert.equal(beta.cells[0].relativePercent, 100);
+  assert.equal(alpha.cells[0].relativePercent, 50);
+  assert.equal(beta.cells[2].value, null);
+  assert.equal(alpha.cells[2].value, 0);
+  assert.equal(alpha.cells[2].relativePercent, null);
+  assert.equal(beta.cells[3].value, 0);
+  assert.equal(beta.cells[3].relativePercent, 0);
+  assert.equal(
+    projectResourceHeatmap({ ...source, state: "unavailable" }, NOW),
+    null,
+  );
+  assert.equal(
+    projectResourceHeatmap(
+      { ...source, generated_at: "2026-11-04T17:00:00Z" },
+      NOW,
+    ),
+    null,
+  );
+  assert.equal(
+    projectResourceHeatmap({ ...source, resource_source: "unknown" }, NOW),
+    null,
+  );
+});
+
+test("resource heatmap stays bounded and never infers a missing service", () => {
+  const rows = Object.fromEntries(
+    Array.from({ length: 20 }, (_, index) => [
+      "svc-" + String(index).padStart(2, "0"),
+      { memory_bytes: (index + 1) * 1048576 },
+    ]),
+  );
+  const value = projectResourceHeatmap(
+    {
+      schema_version: 1,
+      resource_source: "truenas_cadvisor",
+      state: "healthy",
+      generated_at: AT,
+      resources: rows,
+    },
+    NOW,
+  );
+  assert.equal(value.rows.length, 12);
+  assert.equal(value.truncated, 8);
+  assert.equal(value.measuredServices, 20);
+  assert.equal(value.rows[0].name, "svc-19");
+  assert.equal(
+    projectResourceHeatmap(
+      {
+        schema_version: 1,
+        resource_source: "truenas_cadvisor",
+        state: "healthy",
+        generated_at: AT,
+        resources: Object.fromEntries(
+          Array.from({ length: 2001 }, (_, i) => [
+            "svc-" + i,
+            { cpu_cores: 1 },
+          ]),
+        ),
+      },
+      NOW,
+    ),
+    null,
+  );
 });

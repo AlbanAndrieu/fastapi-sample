@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from nabla import access_control
 from nabla.api import health_routes, ui_public_services
+from nabla.api.site_health_v2 import verified_health_by_service_id
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
@@ -254,6 +255,7 @@ async def test_bootstrap_never_fabricates_state_from_stale_or_ambiguous_evidence
 @pytest.mark.asyncio
 async def test_slow_backstage_falls_back_to_bounded_public_bootstrap(monkeypatch):
     """A cold external catalog must not block the anonymous landing."""
+
     async def never_catalog():
         await asyncio.Event().wait()
 
@@ -262,10 +264,13 @@ async def test_slow_backstage_falls_back_to_bounded_public_bootstrap(monkeypatch
     monkeypatch.setattr(ui_public_services, "_PUBLIC_BOARD_DEADLINE_SECONDS", 0.01)
     monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
     monkeypatch.setattr(
-        ui_public_services, "packaged_homelab_catalog",
-        lambda: SimpleNamespace(services=[
-            SimpleNamespace(name="Garage", service_id="garage"),
-        ]),
+        ui_public_services,
+        "packaged_homelab_catalog",
+        lambda: SimpleNamespace(
+            services=[
+                SimpleNamespace(name="Garage", service_id="garage"),
+            ],
+        ),
     )
     monkeypatch.setattr(
         "nabla.api.health_board.get_health_board_snapshot",
@@ -281,15 +286,18 @@ async def test_slow_backstage_falls_back_to_bounded_public_bootstrap(monkeypatch
 @pytest.mark.asyncio
 async def test_slow_cached_health_snapshot_returns_unknown_public_states(monkeypatch):
     """Never serialize stale cached health as a verified operational state."""
+
     async def never_board(_request):
         await asyncio.Event().wait()
 
     monkeypatch.setattr(
-        ui_public_services, "fetch_site_catalog_v2",
+        ui_public_services,
+        "fetch_site_catalog_v2",
         AsyncMock(return_value=_catalog()),
     )
     monkeypatch.setattr(
-        "nabla.api.health_board.get_health_board_snapshot", never_board,
+        "nabla.api.health_board.get_health_board_snapshot",
+        never_board,
     )
     monkeypatch.setattr(ui_public_services, "_PUBLIC_BOARD_DEADLINE_SECONDS", 0.01)
     monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
@@ -300,19 +308,19 @@ async def test_slow_cached_health_snapshot_returns_unknown_public_states(monkeyp
 
 
 def test_cached_board_never_keeps_green_after_probe_freshness_deadline():
-    from nabla.api.site_health_v2 import verified_health_by_service_id
-
     source = {
         "state": "fresh",
         "age_seconds": 180,
         "homelab": {
-            "services": [{
-                "id": "garage",
-                "effective_state": "ok",
-                "probe_age_seconds": 15,
-                "probe_stale_after_seconds": 120,
-                "probe_stale": False,
-            }],
+            "services": [
+                {
+                    "id": "garage",
+                    "effective_state": "ok",
+                    "probe_age_seconds": 15,
+                    "probe_stale_after_seconds": 120,
+                    "probe_stale": False,
+                },
+            ],
         },
     }
     state, statuses = verified_health_by_service_id(source)

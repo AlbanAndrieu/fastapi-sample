@@ -30,6 +30,7 @@ from nabla.api.site_architecture_catalog import (
     fetch_site_catalog_v2,
 )
 from nabla.api.site_health_v2 import project_site_health_v2, verified_health_by_service_id
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 
 State = Literal["ok", "warn", "fail", "unknown"]
 Kind = Literal["API", "Component", "Resource"]
@@ -86,6 +87,21 @@ def project_public_ui_services(
     )
 
 
+def _public_board_reader(request: Request):
+    """Cloud anonymous reads remain passive unless expressly enabled.
+
+    An authorized diagnostic endpoint still uses get_health_board_snapshot()
+    and can refresh the board. Do not turn an anonymous catalogue hit into
+    a costly multi-provider reconciliation on a scale-to-zero replica.
+    """
+    hostname = request.url.hostname if request is not None else None
+    cloud = fastapi_cloud_runtime_detected(hostname)
+    allow_expensive = os.getenv("FASTAPI_CLOUD_PUBLIC_DEEP_PROBES_ENABLED", "").strip().lower() == "true"
+    if cloud and not allow_expensive:
+        return health_board.peek_public_health_board_snapshot(request)
+    return health_board.get_health_board_snapshot(request)
+
+
 async def _bootstrap_public_service_directory(request: Request) -> PublicUiServices:
     """Fail-safe packaged inventory when the canonical v2 source is unreachable.
 
@@ -94,7 +110,7 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
     """
     try:
         board = await asyncio.wait_for(
-            health_board.get_health_board_snapshot(request),
+            _public_board_reader(request),
             timeout=_PUBLIC_BOARD_DEADLINE_SECONDS,
         )
     except Exception:
@@ -163,7 +179,7 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
     _backstage_backoff["retry_after"] = 0.0
     try:
         board = await asyncio.wait_for(
-            health_board.get_health_board_snapshot(request),
+            _public_board_reader(request),
             timeout=_PUBLIC_BOARD_DEADLINE_SECONDS,
         )
     except Exception:

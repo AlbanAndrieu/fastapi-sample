@@ -379,3 +379,23 @@ merge ou déploiement implicite.
   l'écran FastAPI Cloud → Metrics (CPU en vCPU, RAM, réplicas), et la
   recette après déploiement. Voir
   [runbook de budget Cloud](runbooks/fastapi-cloud-runtime-budget.md).
+
+- [ ] **P0 — FastAPI Cloud : budget runtime (09/11, CODED / non déployé)** :
+  accueil public sans fan-out, réconciliation OWNER TTL/backoff 180 s,
+  arrêt des trois boucles résidentes en Cloud, pollings navigateur
+  publics arrêtés et OWNER réduits, échantillon CPU-time/RSS
+  sur demande seulement. Aucun réglage automatique de CPU/replicas.
+  Validation requise : Node 22, pytest, smoke test de version,
+  comparaison Metrics FastAPI Cloud avant/après. Ne pas modifier
+  l'autorisation du LAN. Voir
+  [runbook](runbooks/fastapi-cloud-runtime-cost-guard.md).
+
+## P1 — Visualisation des ressources et flux Homelab (10 novembre 2026)
+
+- **CODED dans la PR #405, pas déployé :** carte thermique OWNER-only sur l'accueil `/`, calculée à partir du snapshot cAdvisor déjà autorisé et mis en cache. Jusqu'à 12 services × 4 dimensions : cœurs CPU, RAM active, système de fichiers conteneur et débit RX+TX. Intensités normalisées **par colonne sur le maximum observé**, jamais sur la capacité. Mesure nulle `0` et mesure absente `—` restent distinctes.
+- **Prochain jalon P0 :** après les tests locaux Node, Python et le quality gate, identifier le SHA actif avec `/v2/version` puis vérifier dans un navigateur OWNER la matrice, les classements, la mosaïque des sondes et l'absence de donnée privée dans une session anonyme.
+- **Stockage P1 :** compléter cAdvisor par des métriques **ZFS dataset**, `used`/`available`/`quota`, issues de TrueNAS ou d'un exporter dédié ; ne jamais présenter `container_fs_usage_bytes` comme l'occupation de `cpool`.
+- **Flux réseau P1 :** utiliser les séries RX/TX des conteneurs (cAdvisor) et les dimensions IPFIX/NetFlow d'Akvorado pour une vue Sankey *uniquement si source, destination, protocole et échantillonnage sont vérifiés*. Le débit global pfSense ne peut pas être attribué à une dépendance de catalogue.
+- **Coût Cloud P0 :** aucune requête supplémentaire ajoutée à l'accueil ; le public Cloud utilise le snapshot autorisé sans réveil périodique. La métrologie CPU/réplicas se mesure sur FastAPI Cloud, pas à partir des CPU cAdvisor TrueNAS.
+
+Références : [cAdvisor](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md), [Grafana Node Graph](https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/node-graph/), [Akvorado](https://github.com/akvorado/akvorado), [Apache ECharts](https://echarts.apache.org/en/feature.html).

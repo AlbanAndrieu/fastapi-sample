@@ -661,3 +661,63 @@ button {
     transition: none !important;
   }
 }
+
+/* OWNER-only comparison: column intensity is relative to measured maxima. */
+.op-heatmap-heading {
+  margin-top: 26px;
+}
+.op-heatmap-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.op-heatmap {
+  min-width: 560px;
+  display: grid;
+  gap: 5px;
+}
+.op-heatmap-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 1.5fr) repeat(4, minmax(83px, 1fr));
+  align-items: stretch;
+  gap: 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.op-heatmap-head {
+  color: #a9b4c4;
+  font-weight: 650;
+}
+.op-heatmap-head > span {
+  padding: 5px;
+}
+.op-heatmap-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-self: center;
+  padding: 7px 5px;
+  color: #dbe5f3;
+}
+.op-heatmap-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 5px;
+  border: 1px solid #354356;
+  border-radius: 4px;
+  background: rgba(76, 145, 218, var(--heat-alpha, 0.1));
+  color: #f5f8ff;
+  white-space: nowrap;
+}
+.op-heatmap-missing {
+  border-style: dashed;
+  background: repeating-linear-gradient(
+    135deg,
+    #19212d,
+    #19212d 5px,
+    #222d3b 5px,
+    #222d3b 10px
+  );
+  color: #b4bfce;
+}

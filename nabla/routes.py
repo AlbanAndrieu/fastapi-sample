@@ -119,6 +119,25 @@ def _register_operations_history(app: FastAPI) -> None:
         )
 
 
+def _register_runtime_resource_observer(app: FastAPI) -> None:
+    """OWNER-only process sample, no continuous psutil polling."""
+
+    @app.get("/api/runtime/resources", include_in_schema=False)
+    async def runtime_resources(request: Request) -> JSONResponse:
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        from nabla.api.runtime_cost_observer import snapshot_process_resources  # noqa: PLC0415
+
+        return JSONResponse(
+            snapshot_process_resources(),
+            headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"},
+        )
+
+
 def _register_appliance_pulse(app: FastAPI) -> None:
     """Owner-authenticated live TrueNAS appliance pulse (fixed calls, 30 s cache)."""
 
@@ -161,7 +180,7 @@ def _register_operations_dashboard(app: FastAPI, *, database: bool) -> None:
         return templates.TemplateResponse(
             request,
             "index.html",
-            {"database_enabled": database},
+            {"database_enabled": database, "runtime_mode": runtime_mode(request.url.hostname)},
             headers={
                 "Cache-Control": "private, no-store, max-age=0",
                 "Pragma": "no-cache",
@@ -228,6 +247,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
 
     _register_topology_dashboard(app)
     _register_operations_history(app)
+    _register_runtime_resource_observer(app)
     _register_appliance_pulse(app)
 
     @app.get("/api/runtime-version", include_in_schema=False)

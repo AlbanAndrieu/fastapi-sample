@@ -143,15 +143,12 @@ ACTIVE_USERS = Gauge("active_users_current", "Currently active users")
 
 def system_metrics_interval_seconds() -> float:
     """Keep LAN scrape granularity; avoid 5s host sampling on tiny Cloud."""
-    from os import environ
+    # Lazy: nabla.utils.prometheus is imported very early; avoid an import cycle with nabla.api.
+    from os import environ  # noqa: PLC0415
 
-    from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
+    from nabla.api.runtime_environment import fastapi_cloud_runtime_detected  # noqa: PLC0415
 
-    return (
-        30.0
-        if fastapi_cloud_runtime_detected(environ.get("APP_DOMAIN"))
-        else 5.0
-    )
+    return 30.0 if fastapi_cloud_runtime_detected(environ.get("APP_DOMAIN")) else 5.0
 
 
 async def update_system_metrics():

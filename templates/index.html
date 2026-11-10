@@ -13,7 +13,7 @@
     <script type="module" src="/api/assets/home-operations.js"></script>
   </head>
   <body>
-    <main id="home-operations" class="op-root" lang="fr">
+    <main id="home-operations" class="op-root" lang="fr" data-runtime-mode="{{ runtime_mode }}">
       <header class="op-head">
         <div class="op-heading">
           <p class="op-eyebrow">FastAPI Sample <span aria-hidden="true">/</span> Operations Overview</p>
@@ -263,6 +263,18 @@
               </ol>
               <p class="op-correlation-footnote" id="home-footprint-note">
                 Barres relatives au plus grand consommateur observé, pas un pourcentage de capacité.
+              </p>
+              <div class="op-panel-heading op-heatmap-heading">
+                <h3 id="home-resource-heatmap-heading">Carte thermique des ressources</h3>
+                <p>12 services maximum · intensités relatives par colonne</p>
+              </div>
+              <p class="op-correlation-footnote" id="home-resource-heatmap-source">Aucune mesure privée vérifiée</p>
+              <div class="op-heatmap-scroll" role="region" aria-labelledby="home-resource-heatmap-heading" tabindex="0">
+                <div id="home-resource-heatmap" class="op-heatmap" aria-live="off"></div>
+              </div>
+              <p class="op-correlation-footnote">
+                CPU en cœurs, RAM et FS en MiB, RX+TX en KiB/s. FS = couche conteneur, hors datasets ZFS/PVC. Le tiret
+                signifie « non mesuré » et non zéro ; la couleur n'indique jamais la santé.
               </p>
             </article>
             <article class="op-panel" aria-labelledby="home-flows-heading">

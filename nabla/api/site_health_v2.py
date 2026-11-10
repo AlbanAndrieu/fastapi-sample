@@ -44,9 +44,7 @@ def _verified_state(row: object, snapshot_age_seconds: float = 0.0) -> State:
     limit = row.get("probe_stale_after_seconds")
     # A cached snapshot keeps its original row ages. Advance the evidence
     # clock by the board cache age before deciding whether it is still valid.
-    if isinstance(age, (int, float)) and not isinstance(age, bool) and (
-        isinstance(limit, (int, float)) and not isinstance(limit, bool)
-    ):
+    if isinstance(age, (int, float)) and not isinstance(age, bool) and (isinstance(limit, (int, float)) and not isinstance(limit, bool)):
         if not math.isfinite(age) or not math.isfinite(limit):
             return "unknown"
         if limit <= 0 or age + snapshot_age_seconds >= limit:
@@ -72,12 +70,7 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
         return board_state, {}
 
     raw_age = board.get("age_seconds")
-    snapshot_age_seconds = (
-        max(0.0, float(raw_age))
-        if isinstance(raw_age, (int, float)) and not isinstance(raw_age, bool)
-        and math.isfinite(raw_age)
-        else 0.0
-    )
+    snapshot_age_seconds = max(0.0, float(raw_age)) if isinstance(raw_age, (int, float)) and not isinstance(raw_age, bool) and math.isfinite(raw_age) else 0.0
     by_id: dict[str, dict[str, Any]] = {}
     duplicates: set[str] = set()
     for row in rows:
@@ -90,10 +83,7 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
             duplicates.add(key)
         else:
             by_id[key] = row
-    return board_state, {
-        key: _verified_state(row, snapshot_age_seconds)
-        for key, row in by_id.items() if key not in duplicates
-    }
+    return board_state, {key: _verified_state(row, snapshot_age_seconds) for key, row in by_id.items() if key not in duplicates}
 
 
 def project_site_health_v2(
@@ -104,10 +94,7 @@ def project_site_health_v2(
     board_state, states = verified_health_by_service_id(board)
     # Health-board rows use service IDs, not unique Backstage entity references.
     # Do not assign one observation to multiple entities with the same name.
-    relevant_entities = [
-        entity for entity in catalog.entities
-        if entity.kind in ("Component", "Resource", "API")
-    ]
+    relevant_entities = [entity for entity in catalog.entities if entity.kind in ("Component", "Resource", "API")]
     name_counts: dict[str, int] = {}
     for entity in relevant_entities:
         name = entity.metadata.name
@@ -115,11 +102,7 @@ def project_site_health_v2(
     entries = [
         SiteHealthServiceV2(
             entityRef=entity.entityRef,
-            state=(
-                states.get(entity.metadata.name, "unknown")
-                if name_counts[entity.metadata.name] == 1
-                else "unknown"
-            ),
+            state=(states.get(entity.metadata.name, "unknown") if name_counts[entity.metadata.name] == 1 else "unknown"),
         )
         for entity in relevant_entities
     ]

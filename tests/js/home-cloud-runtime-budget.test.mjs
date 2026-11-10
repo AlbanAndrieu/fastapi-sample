@@ -20,8 +20,14 @@ function el(id) {
 
 test("FastAPI Cloud idle tab does not repeatedly wake an autoscaled instance", async () => {
   const previous = Object.fromEntries(
-    ["document", "window", "fetch", "setInterval", "setTimeout", "clearTimeout"]
-      .map((name) => [name, globalThis[name]]),
+    [
+      "document",
+      "window",
+      "fetch",
+      "setInterval",
+      "setTimeout",
+      "clearTimeout",
+    ].map((name) => [name, globalThis[name]]),
   );
   const realNow = Date.now;
   const nodes = new Map();
@@ -51,7 +57,9 @@ test("FastAPI Cloud idle tab does not repeatedly wake an autoscaled instance", a
         removeItem: (key) => session.delete(key),
       },
     };
-    globalThis.setInterval = (fn, ms) => { intervals.push({ fn, ms }); };
+    globalThis.setInterval = (fn, ms) => {
+      intervals.push({ fn, ms });
+    };
     globalThis.setTimeout = () => 1;
     globalThis.clearTimeout = () => {};
     globalThis.fetch = async (url) => {
@@ -59,19 +67,26 @@ test("FastAPI Cloud idle tab does not repeatedly wake an autoscaled instance", a
       if (url === "/api/ui/session") {
         return { ok: true, json: async () => ({ authenticated: false }) };
       }
-      if (url !== "/api/ui/services") throw Error("Unexpected protected request");
-      return { ok: true, json: async () => ({
-        schemaVersion: 2,
-        model: "public-service-overview",
-        catalogRevision: "sha256:" + "a".repeat(64),
-        catalogSource: "backstage-v2",
-        boardState: "fresh",
-        services: [{ name: "Gatus", kind: "Component", state: "ok" }],
-      }) };
+      if (url !== "/api/ui/services")
+        throw Error("Unexpected protected request");
+      return {
+        ok: true,
+        json: async () => ({
+          schemaVersion: 2,
+          model: "public-service-overview",
+          catalogRevision: "sha256:" + "a".repeat(64),
+          catalogSource: "backstage-v2",
+          boardState: "fresh",
+          services: [{ name: "Gatus", kind: "Component", state: "ok" }],
+        }),
+      };
     };
 
     await import(
-      new URL("../../nabla/api/assets/home-operations.js?cloud-budget", import.meta.url)
+      new URL(
+        "../../nabla/api/assets/home-operations.js?cloud-budget",
+        import.meta.url,
+      )
     );
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(intervals.length, 1);

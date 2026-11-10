@@ -1,3 +1,4 @@
+import { homepageCadence } from "./home-cost-policy.js";
 import {
   alignedHistoryCorrelation,
   appendObservation,
@@ -9,6 +10,7 @@ import {
   projectProbeMatrix,
   projectProbes,
   projectPrometheusHistory,
+  projectResourceHeatmap,
   projectResources,
   projectSecurity,
   projectServiceFootprint,
@@ -22,15 +24,20 @@ import {
 } from "./home-public-cache.js";
 
 const ROOT = document.getElementById("home-operations");
+const HOME_RUNTIME = ROOT?.dataset?.runtimeMode || "local";
+const INITIAL_CADENCE = homepageCadence(HOME_RUNTIME, false);
 // Limit idle anonymous polling on FastAPI Cloud; manual refresh remains available.
-const CLOUD_RUNTIME = window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
+const CLOUD_RUNTIME =
+  window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
 const INTERVAL_MS = CLOUD_RUNTIME ? 60000 : 30000;
 const CLOUD_IDLE_POLL_PAUSE_MS = 5 * 60 * 1000;
 let lastCloudInteractionAt = Date.now();
 let cloudPollingPaused = false;
 
 function cloudPollingIdle(now = Date.now()) {
-  return CLOUD_RUNTIME && now - lastCloudInteractionAt >= CLOUD_IDLE_POLL_PAUSE_MS;
+  return (
+    CLOUD_RUNTIME && now - lastCloudInteractionAt >= CLOUD_IDLE_POLL_PAUSE_MS
+  );
 }
 const SERIES = Object.create(null);
 let CORRELATION_PAIRS = [];
@@ -42,9 +49,10 @@ const HISTORY_RECHECK_MS = 120000;
 const NS = "http://www.w3.org/2000/svg";
 let active = false;
 let refreshRequested = false;
+let ownerSessionActive = false;
 let warmupAttempts = 0;
 let warmupTimer = null;
-const WARMUP_DELAYS_MS = [2000, 4000, 8000, 15000, 30000];
+const WARMUP_DELAYS_MS = INITIAL_CADENCE.warmupDelaysMs;
 
 function publicSessionCache() {
   try {
@@ -63,7 +71,12 @@ function scheduleWarmupRetry() {
   clearWarmupRetry();
   // Five bounded fast retries, then return to normal periodic polling.
   if (warmupAttempts >= WARMUP_DELAYS_MS.length) {
-    put("home-retry-status", "Actualisation périodique toutes les 30 s");
+    put(
+      "home-retry-status",
+      homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+        ? "Actualisation périodique contrôlée"
+        : "Mode Cloud économique · mise à jour au retour dans cet onglet",
+    );
     return;
   }
   if (document.hidden || cloudPollingIdle()) return;
@@ -217,6 +230,8 @@ function observe(name, at, value, target, label) {
 function clearPrivate({ purge = false } = {}) {
   LATEST_RESOURCE_TELEMETRY = null;
   element("home-footprint-bars")?.replaceChildren();
+  element("home-resource-heatmap")?.replaceChildren();
+  put("home-resource-heatmap-source", "Aucune mesure privée vérifiée");
   put("home-footprint-source", "Mesures non confirmées");
   put(
     "home-footprint-note",
@@ -598,6 +613,87 @@ function privateBoard(board) {
   return latency;
 }
 
+function renderResourceHeatmap(snapshot) {
+  const target = element("home-resource-heatmap");
+  if (!target) return;
+  target.replaceChildren();
+  const matrix = projectResourceHeatmap(snapshot);
+  if (!matrix || matrix.rows.length === 0) {
+    put(
+      "home-resource-heatmap-source",
+      "Mesures absentes ou périmées · aucune valeur supposée",
+    );
+    return;
+  }
+  put(
+    "home-resource-heatmap-source",
+    matrix.measuredServices +
+      "/" +
+      matrix.declaredServices +
+      " services avec au moins une mesure · " +
+      matrix.observedAt +
+      (matrix.truncated
+        ? " · " + matrix.truncated + " autres non affichés"
+        : ""),
+  );
+  const header = document.createElement("div");
+  header.className = "op-heatmap-row op-heatmap-head";
+  const first = document.createElement("span");
+  first.textContent = "Service";
+  header.append(first);
+  for (const dimension of matrix.dimensions) {
+    const title = document.createElement("span");
+    title.textContent = dimension.label;
+    title.title = dimension.label + " · " + dimension.unit;
+    header.append(title);
+  }
+  target.append(header);
+  for (const row of matrix.rows) {
+    const line = document.createElement("div");
+    line.className = "op-heatmap-row";
+    const name = document.createElement("strong");
+    name.className = "op-heatmap-name";
+    name.textContent = row.name;
+    name.title = row.name;
+    line.append(name);
+    for (const cell of row.cells) {
+      const tile = document.createElement("span");
+      tile.className = "op-heatmap-cell";
+      if (cell.value === null) {
+        tile.classList.add("op-heatmap-missing");
+        tile.textContent = "—";
+        tile.setAttribute(
+          "aria-label",
+          row.name + " · " + cell.label + " : non mesuré",
+        );
+      } else {
+        const displayed =
+          cell.value.toLocaleString("fr-FR", {
+            maximumFractionDigits: cell.value < 1 ? 3 : 1,
+          }) +
+          " " +
+          cell.unit;
+        tile.style.setProperty(
+          "--heat-alpha",
+          String(0.1 + (cell.relativePercent ?? 0) * 0.0066),
+        );
+        tile.textContent = displayed;
+        tile.setAttribute(
+          "aria-label",
+          row.name +
+            " · " +
+            cell.label +
+            " : " +
+            displayed +
+            " · intensité relative, pas capacité",
+        );
+      }
+      line.append(tile);
+    }
+    target.append(line);
+  }
+}
+
 function renderServiceFootprint(snapshot) {
   // Never expose this projection outside the already authenticated OWNER panel.
   const list = element("home-footprint-bars");
@@ -690,6 +786,7 @@ function renderServiceFootprint(snapshot) {
 function privateResources(snapshot) {
   LATEST_RESOURCE_TELEMETRY = snapshot;
   renderServiceFootprint(snapshot);
+  renderResourceHeatmap(snapshot);
   const resources = projectResources(snapshot);
   if (!resources) {
     put(
@@ -986,12 +1083,19 @@ async function refresh() {
       retryWarmup = !fleet.verified;
       status(
         fleet.verified
-          ? "Catalogue vérifié · actualisation automatique"
-          : "Sondes en préparation · nouvelle lecture automatique",
-        fleet.verified ? "ok" : "warn",
+          ? "Catalogue vérifié · instantané public"
+          : HOME_RUNTIME === "fastapi_cloud"
+            ? "Inventaire public · sondes à exécuter sur demande"
+            : "Sondes en préparation · nouvelle lecture automatique",
+        fleet.verified ? "ok" : "unknown",
       );
       if (fleet.verified) {
-        put("home-retry-status", "Actualisation périodique toutes les 30 s");
+        put(
+          "home-retry-status",
+          homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+            ? "Actualisation périodique contrôlée"
+            : "Mode Cloud économique · mise à jour au retour dans cet onglet",
+        );
       }
     } else if (publicDenied) {
       discardPublicDirectory(publicSessionCache());
@@ -1015,6 +1119,7 @@ async function refresh() {
     const owner =
       sessionResult.status === "fulfilled" &&
       sessionResult.value?.authenticated === true;
+    ownerSessionActive = owner;
     element("home-locked").hidden = owner;
     element("home-operator-detail").hidden = !owner;
     if (!owner) {
@@ -1074,7 +1179,12 @@ async function refresh() {
     } else {
       warmupAttempts = 0;
       clearWarmupRetry();
-      put("home-retry-status", "Actualisation périodique toutes les 30 s");
+      put(
+        "home-retry-status",
+        homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+          ? "Actualisation périodique contrôlée"
+          : "Mode Cloud économique · mise à jour au retour dans cet onglet",
+      );
     }
     if (refreshRequested && !document.hidden) {
       refreshRequested = false;
@@ -1127,7 +1237,9 @@ if (ROOT) {
       if (active) refreshRequested = true;
       else void refresh();
     };
-    document.addEventListener("pointerdown", resumeCloudPolling, { passive: true });
+    document.addEventListener("pointerdown", resumeCloudPolling, {
+      passive: true,
+    });
     document.addEventListener("keydown", resumeCloudPolling);
   }
   setInterval(() => {
@@ -1140,7 +1252,9 @@ if (ROOT) {
       }
       return;
     }
-    void refresh();
+    // Anonymous FastAPI Cloud visitors never poll (PR #405); owners keep #406's idle pause.
+    if (homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled)
+      void refresh();
   }, INTERVAL_MS);
   void refresh();
 }

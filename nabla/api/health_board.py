@@ -50,6 +50,8 @@ _last_refresh_error: str | None = None
 _last_refresh_attempt_at = 0.0
 _next_refresh_allowed_at = 0.0
 _CLOUD_MIN_REFRESH_INTERVAL_SECONDS = 30.0
+# Passive public reads accept a Cloud snapshot up to this age (PR #405).
+_CLOUD_CACHE_MIN_TTL_SECONDS = 180.0
 
 
 def _cloud_budget_enabled() -> bool:
@@ -62,19 +64,11 @@ def _cloud_budget_enabled() -> bool:
 def _ttl_seconds() -> float:
     """Use a longer bounded health snapshot TTL on resource-limited Cloud."""
     config = HealthRuntimeSettings()
-    return (
-        config.cloud_health_board_cache_ttl_seconds
-        if _cloud_budget_enabled()
-        else config.health_board_cache_ttl_seconds
-    )
+    return config.cloud_health_board_cache_ttl_seconds if _cloud_budget_enabled() else config.health_board_cache_ttl_seconds
 
 
 def _failure_backoff_seconds() -> float:
-    return (
-        HealthRuntimeSettings().cloud_health_board_failure_backoff_seconds
-        if _cloud_budget_enabled()
-        else 0.0
-    )
+    return HealthRuntimeSettings().cloud_health_board_failure_backoff_seconds if _cloud_budget_enabled() else 0.0
 
 
 async def build_extended_healthz(
@@ -318,7 +312,9 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     homelab = {
         **homelab,
         "connection_matrix": build_connection_matrix(
-            homelab, platform_metrics, external_connections
+            homelab,
+            platform_metrics,
+            external_connections,
         ),
     }
     internal_probe_comparison = compare_internal_probe_evidence(
@@ -396,17 +392,9 @@ async def get_health_board_snapshot(
         age = now - _cached_at if _cached_snapshot is not None else None
         fresh = age is not None and age < _ttl_seconds()
         cloud_budget = _cloud_budget_enabled()
-        minimum_interval_elapsed = (
-            not cloud_budget
-            or now - _last_refresh_attempt_at >= _CLOUD_MIN_REFRESH_INTERVAL_SECONDS
-        )
+        minimum_interval_elapsed = not cloud_budget or now - _last_refresh_attempt_at >= _CLOUD_MIN_REFRESH_INTERVAL_SECONDS
         allowed_by_failure_backoff = now >= _next_refresh_allowed_at
-        if (
-            (force_refresh or not fresh)
-            and not _task_is_running()
-            and minimum_interval_elapsed
-            and allowed_by_failure_backoff
-        ):
+        if (force_refresh or not fresh) and not _task_is_running() and minimum_interval_elapsed and allowed_by_failure_backoff:
             _last_refresh_attempt_at = now
             _refresh_task = asyncio.create_task(
                 _refresh(request),
@@ -427,13 +415,8 @@ async def get_health_board_snapshot(
                     max(
                         0.0,
                         _next_refresh_allowed_at - time.monotonic(),
-                        (
-                            _CLOUD_MIN_REFRESH_INTERVAL_SECONDS
-                            - (time.monotonic() - _last_refresh_attempt_at)
-                        )
-                        if _cloud_budget_enabled()
-                        else 0.0,
-                    )
+                        (_CLOUD_MIN_REFRESH_INTERVAL_SECONDS - (time.monotonic() - _last_refresh_attempt_at)) if _cloud_budget_enabled() else 0.0,
+                    ),
                 ),
             ),
             "generated_at": None,
@@ -451,6 +434,46 @@ async def get_health_board_snapshot(
         "age_seconds": round(age or 0.0, 3),
         "error": error,
     }
+
+
+async def peek_public_health_board_snapshot(request: Request | None = None) -> dict[str, Any]:
+    """Passive, bounded PUBLIC state projection with zero refresh side effects.
+
+    Cloud landing visits must not start the expensive homelab/Cloudflare/
+    Prometheus reconciliation task. Read only evidence already in this worker.
+    If it is missing or stale, return UNKNOWN-compatible metadata. No raw
+    network fields, per-probe payloads, tokens, or nested providers are copied.
+    """
+    async with _cache_lock:
+        snapshot = _cached_snapshot
+        if snapshot is None:
+            return {"state": "pending"}
+        age = time.monotonic() - _cached_at
+        cloud = request is not None and fastapi_cloud_runtime_detected(request.url.hostname)
+        ttl = max(_ttl_seconds(), _CLOUD_CACHE_MIN_TTL_SECONDS) if cloud else _ttl_seconds()
+        if age >= ttl:
+            return {"state": "stale"}
+        homelab = snapshot.get("homelab")
+        rows = homelab.get("services") if isinstance(homelab, dict) else None
+        public_rows = []
+        if isinstance(rows, list):
+            for item in rows[:2000]:
+                if not isinstance(item, dict):
+                    continue
+                public_rows.append(
+                    {
+                        key: item[key]
+                        for key in (
+                            "id",
+                            "effective_state",
+                            "state",
+                            "observation_stale",
+                            "probe_stale",
+                        )
+                        if key in item and isinstance(item[key], (str, bool))
+                    },
+                )
+    return {"state": "fresh", "homelab": {"services": public_rows}}
 
 
 async def reset_health_board_cache() -> None:
