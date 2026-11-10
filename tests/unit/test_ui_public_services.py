@@ -297,3 +297,27 @@ async def test_slow_cached_health_snapshot_returns_unknown_public_states(monkeyp
     assert result.catalogSource == "backstage-v2"
     assert result.boardState == "pending"
     assert all(s.state == "unknown" for s in result.services)
+
+
+def test_cached_board_never_keeps_green_after_probe_freshness_deadline():
+    from nabla.api.site_health_v2 import verified_health_by_service_id
+
+    source = {
+        "state": "fresh",
+        "age_seconds": 180,
+        "homelab": {
+            "services": [{
+                "id": "garage",
+                "effective_state": "ok",
+                "probe_age_seconds": 15,
+                "probe_stale_after_seconds": 120,
+                "probe_stale": False,
+            }],
+        },
+    }
+    state, statuses = verified_health_by_service_id(source)
+    assert state == "fresh"
+    assert statuses == {"garage": "unknown"}
+
+    source["age_seconds"] = 30
+    assert verified_health_by_service_id(source)[1] == {"garage": "ok"}

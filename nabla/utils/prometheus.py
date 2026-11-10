@@ -141,17 +141,28 @@ ORDER_VALUE = Histogram("order_value_dollars", "Order value distribution")
 ACTIVE_USERS = Gauge("active_users_current", "Currently active users")
 
 
+def system_metrics_interval_seconds() -> float:
+    """Keep LAN scrape granularity; avoid 5s host sampling on tiny Cloud."""
+    from os import environ
+
+    from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
+
+    return (
+        30.0
+        if fastapi_cloud_runtime_detected(environ.get("APP_DOMAIN"))
+        else 5.0
+    )
+
+
 async def update_system_metrics():
-    """
-    📊 Continuous system metrics collection
-    Updates every 5 seconds with current system state
-    """
+    """Sample local gauges at a runtime-appropriate bounded cadence."""
     process = psutil.Process()
+    interval = system_metrics_interval_seconds()
     while True:
         CPU_USAGE.set(psutil.cpu_percent())
         MEMORY_USAGE.set(psutil.virtual_memory().percent)
         PROCESS_MEMORY_RSS.set(process.memory_info().rss)
-        await asyncio.sleep(5)
+        await asyncio.sleep(interval)
 
 
 # See https://github.com/blueswen/fastapi-observability/blob/main/fastapi_app/utils.py
