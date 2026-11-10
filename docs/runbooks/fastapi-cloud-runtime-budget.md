@@ -82,3 +82,22 @@ git diff --check master...HEAD
 Les limites CPU/RAM et le coût réel ne peuvent pas être inférés d'un
 code source, du succès d'une CI ni de la disponibilité HTTP. Ce rapport
 ne prétend pas avoir accès à la console privée de l'application.
+
+### Polling et scale-to-zero (économie de réplicas)
+
+Le scale-to-zero est activé par défaut sur FastAPI Cloud :
+https://fastapicloud.com/docs/builds-and-deployments/how-it-works/
+
+Le navigateur effectue un premier chargement, puis un polling Cloud à
+60 secondes. **Après 5 minutes sans interaction dans l'onglet Cloud**,
+les lectures périodiques et les retries courts sont suspendus. Un
+nouveau clic/touche ou le retour vers l'onglet relance la vérification.
+Le polling sur TrueNAS reste à 30 secondes, sans mise en pause sur
+inactivité au premier plan. Les contrôles utilisateur « Actualiser »
+restent explicites et possibles.
+
+Cette règle aide à permettre le passage à zéro réplica pour un onglet
+laissé ouvert, mais ne garantit pas à elle seule une économie : d'autres
+visiteurs, probes, crons et réglages de réplica minimum peuvent encore
+maintenir l'application active. Aucun changement de scale/autoscaling
+n'est effectué par ce code.

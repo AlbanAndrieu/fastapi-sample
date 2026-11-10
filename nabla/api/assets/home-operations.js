@@ -22,9 +22,15 @@ import {
 
 const ROOT = document.getElementById("home-operations");
 // Limit idle anonymous polling on FastAPI Cloud; manual refresh remains available.
-const INTERVAL_MS = window.location?.hostname?.endsWith(".fastapicloud.dev")
-  ? 60000
-  : 30000;
+const CLOUD_RUNTIME = window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
+const INTERVAL_MS = CLOUD_RUNTIME ? 60000 : 30000;
+const CLOUD_IDLE_POLL_PAUSE_MS = 5 * 60 * 1000;
+let lastCloudInteractionAt = Date.now();
+let cloudPollingPaused = false;
+
+function cloudPollingIdle(now = Date.now()) {
+  return CLOUD_RUNTIME && now - lastCloudInteractionAt >= CLOUD_IDLE_POLL_PAUSE_MS;
+}
 const SERIES = Object.create(null);
 let CORRELATION_PAIRS = [];
 let HISTORY_DATA = null;
@@ -54,12 +60,12 @@ function clearWarmupRetry() {
 
 function scheduleWarmupRetry() {
   clearWarmupRetry();
-  // Five bounded fast retries, then return to the existing 30s cadence.
+  // Five bounded fast retries, then return to normal periodic polling.
   if (warmupAttempts >= WARMUP_DELAYS_MS.length) {
     put("home-retry-status", "Actualisation périodique toutes les 30 s");
     return;
   }
-  if (document.hidden) return;
+  if (document.hidden || cloudPollingIdle()) return;
   const delay = WARMUP_DELAYS_MS[warmupAttempts];
   warmupAttempts += 1;
   put(
@@ -875,13 +881,37 @@ if (ROOT) {
     if (document.hidden) {
       clearWarmupRetry();
     } else {
+      lastCloudInteractionAt = Date.now();
+      cloudPollingPaused = false;
       warmupAttempts = 0;
       if (active) refreshRequested = true;
       else void refresh();
     }
   });
+  if (CLOUD_RUNTIME) {
+    const resumeCloudPolling = () => {
+      const paused = cloudPollingPaused || cloudPollingIdle();
+      lastCloudInteractionAt = Date.now();
+      if (!paused || document.hidden) return;
+      cloudPollingPaused = false;
+      put("home-retry-status", "Reprise de la surveillance automatique");
+      if (active) refreshRequested = true;
+      else void refresh();
+    };
+    document.addEventListener("pointerdown", resumeCloudPolling, { passive: true });
+    document.addEventListener("keydown", resumeCloudPolling);
+  }
   setInterval(() => {
-    if (!document.hidden) void refresh();
+    if (document.hidden) return;
+    if (cloudPollingIdle()) {
+      if (!cloudPollingPaused) {
+        cloudPollingPaused = true;
+        clearWarmupRetry();
+        put("home-retry-status", "Surveillance en pause · inactivité Cloud");
+      }
+      return;
+    }
+    void refresh();
   }, INTERVAL_MS);
   void refresh();
 }
