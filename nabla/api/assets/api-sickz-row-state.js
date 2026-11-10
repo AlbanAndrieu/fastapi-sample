@@ -28,7 +28,7 @@ export function classifySick(check) {
   return "gray";
 }
 
-function isTrueNasExposureCheck(check) {
+export function isTrueNasExposureCheck(check) {
   const name = String(check?.name || check?.display_label || "")
     .trim()
     .toLowerCase();
