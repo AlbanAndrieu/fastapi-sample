@@ -354,3 +354,16 @@ merge ou déploiement implicite.
   aucun résultat de sonde ni donnée OWNER. **Reste :** Node/pytest
   en checkout complet, test cold-start Cloud et contrôle TrueNAS.
   Voir [migration de l'accueil](runbooks/home-operations-transition.md).
+
+- [ ] **P0 — FastAPI Cloud runtime FinOps / 10 novembre 2026 (CODED)** :
+  optimisation de la fréquence des reconstructions health-board sur Cloud
+  (cache 180 s, tentatives espacées 30 s, backoff échec 90 s),
+  échantillonnage psutil 30 s contre 5 s, polling public Cloud 60 s
+  contre 30 s, sans toucher à la cadence TrueNAS.
+  Le statut public des sondes tient compte de la durée réelle de validité
+  des preuves lors de la réutilisation d'un snapshot.
+  Objectif théorique : ~6 fois moins de vagues Cloud en régime de cache,
+  **sans prétendre mesurer le CPU réel**. Les preuves réelles nécessitent
+  l'écran FastAPI Cloud → Metrics (CPU en vCPU, RAM, réplicas), et la
+  recette après déploiement. Voir
+  [runbook de budget Cloud](runbooks/fastapi-cloud-runtime-budget.md).

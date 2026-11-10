@@ -156,3 +156,13 @@ def test_background_host_metrics_sampling_rate(monkeypatch) -> None:
     monkeypatch.delenv("FASTAPI_CLOUD")
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
     assert prometheus.system_metrics_interval_seconds() == 5.0
+
+
+def test_cloud_domain_recognized_without_loose_lan_override(monkeypatch) -> None:
+    monkeypatch.setenv("APP_DOMAIN", "fastapi-sample.fastapicloud.dev")
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+    assert health_board._cloud_budget_enabled()
+
+    monkeypatch.setenv("APP_DOMAIN", "sample.albandrieu.com")
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+    assert not health_board._cloud_budget_enabled()
