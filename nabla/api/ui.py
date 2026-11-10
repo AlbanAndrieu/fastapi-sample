@@ -76,6 +76,29 @@ def render_api_root_page(
     runtime_note = profile["note"]
     hero_runtime = profile["hero"]
     badge_class = profile["badge"]
+    cloud_budget_panel = ""
+    if mode == "fastapi_cloud":
+        cloud_budget_panel = """
+                <section class="runtime-cloud-budget" aria-labelledby="runtime-cloud-budget-title">
+                    <div class="runtime-cloud-budget-heading">
+                        <h4 id="runtime-cloud-budget-title">FastAPI Cloud · Hobby reference budget</h4>
+                        <a href="https://fastapicloud.com/docs/monitoring-and-performance/metrics/" target="_blank" rel="noopener noreferrer">Provider metrics guide</a>
+                    </div>
+                    <p class="runtime-topology-note">Verify your actual team plan in FastAPI Cloud. These are published Hobby reference allowances, not measurements of your team's consumption. Usage-based billing is not active in the published pricing documentation.</p>
+                    <div class="runtime-cloud-budget-grid">
+                        <div><span>Compute (planned allowance)</span><strong>180 Nano replica-hours</strong><small>Shared across team apps / billing period</small></div>
+                        <div><span>Outbound (planned allowance)</span><strong>5 GB</strong><small>Team-wide / billing period</small></div>
+                        <div><span>Builds (planned allowance)</span><strong>500 minutes</strong><small>Team-wide / billing period</small></div>
+                    </div>
+                    <p id="runtime-cloud-budget-usage" class="runtime-topology-note" role="status">Actual team usage: unavailable · FastAPI Cloud does not publish metered totals in the app API. No quota-exceeded conclusion can be drawn.</p>
+                    <div class="runtime-cloud-process">
+                        <span class="runtime-topology-label">On-demand process memory / Nano 500 MiB reference</span>
+                        <strong id="runtime-cloud-process-rss">Not measured</strong>
+                        <p id="runtime-cloud-process-status" class="runtime-topology-note" role="status">OWNER-only, process RSS is a lower bound for the replica's memory. A warning is raised at 80% of the Nano reference. This is not billed usage.</p>
+                        <button type="button" id="runtime-cloud-process-refresh">Measure process resources</button>
+                    </div>
+                </section>
+"""
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -286,6 +309,7 @@ def render_api_root_page(
                     </div>
                 </div>
                 <p class="runtime-topology-note" id="runtime-redis-scope">Application Redis backend · provider attribution pending telemetry.</p>
+                {cloud_budget_panel}
                 <div class="runtime-topology-egress">
                     <span class="runtime-topology-label">Active egress IPs</span>
                     <div class="runtime-topology-pills" id="runtime-active-egress">Loading…</div>
