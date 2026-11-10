@@ -25,7 +25,8 @@ def snapshot_process_resources() -> dict[str, object]:
         "observed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "rss_bytes": max(0, rss),
         "process_cpu_seconds_total": round(
-            max(0.0, float(cpu.user) + float(cpu.system)), 4
+            max(0.0, float(cpu.user) + float(cpu.system)),
+            4,
         ),
         "threads": max(0, threads),
         "sample_type": "single_observation",

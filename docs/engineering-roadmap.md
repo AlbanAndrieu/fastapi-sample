@@ -324,6 +324,18 @@ pour chaque service et refus WAN correct.
   **Reste :** Node/pytest L2/L3 sur checkout complet, recette mobile et
   confirmation des séries sur TrueNAS/Cloud ; aucun déploiement implicite.
   Voir [runbook](runbooks/home-operations-transition.md).
+  **Extension 08/11 — pulse TrueNAS en direct (CODED) :** sur Cloud les
+  sections capacité restaient vides (Prometheus LAN seulement). Nouveau
+  `GET /api/home/appliance/pulse` (OWNER) : `system.info`, `alert.list`,
+  `pool.query`, `interface.query`, `app.query`, `reporting.netdata_graphs`
+  et `reporting.netdata_get_data` (1 h) en une session, cache 30 s ;
+  section « Appliance TrueNAS en direct » et liste d'interdépendances du
+  même instantané (stockage ↔ alertes, mémoire ↔ Apps CRASHED, charge,
+  liens physiques). **Preuves suivantes :** `state=observed` depuis une
+  session OWNER sur Cloud et TrueNAS ; si `partial`, ajouter les rôles
+  `REPORTING_READ`/`ALERT_LIST_READ` à la clé d'observation ; confirmer les
+  légendes netdata réelles (`idle`, `used`/`free`, `received`/`sent`) ou
+  adapter la conversion ; recette mobile de la nouvelle section.
 
 ## Documentation et séquence de reprise
 
@@ -354,6 +366,19 @@ merge ou déploiement implicite.
   aucun résultat de sonde ni donnée OWNER. **Reste :** Node/pytest
   en checkout complet, test cold-start Cloud et contrôle TrueNAS.
   Voir [migration de l'accueil](runbooks/home-operations-transition.md).
+
+- [ ] **P0 — FastAPI Cloud runtime FinOps / 10 novembre 2026 (CODED)** :
+  optimisation de la fréquence des reconstructions health-board sur Cloud
+  (cache 180 s, tentatives espacées 30 s, backoff échec 90 s),
+  échantillonnage psutil 30 s contre 5 s, polling public Cloud 60 s
+  contre 30 s, sans toucher à la cadence TrueNAS.
+  Le statut public des sondes tient compte de la durée réelle de validité
+  des preuves lors de la réutilisation d'un snapshot.
+  Objectif théorique : ~6 fois moins de vagues Cloud en régime de cache,
+  **sans prétendre mesurer le CPU réel**. Les preuves réelles nécessitent
+  l'écran FastAPI Cloud → Metrics (CPU en vCPU, RAM, réplicas), et la
+  recette après déploiement. Voir
+  [runbook de budget Cloud](runbooks/fastapi-cloud-runtime-budget.md).
 
 - [ ] **P0 — FastAPI Cloud : budget runtime (09/11, CODED / non déployé)** :
   accueil public sans fan-out, réconciliation OWNER TTL/backoff 180 s,

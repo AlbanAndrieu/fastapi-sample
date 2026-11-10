@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from starlette.requests import Request
@@ -21,23 +21,27 @@ import nabla.lifespan as lifespan
 
 
 def cloud_request() -> Request:
-    return Request({
-        "type": "http",
-        "method": "GET",
-        "path": "/api/ui/services",
-        "headers": [(b"host", b"fastapi-sample.fastapicloud.dev")],
-        "scheme": "https",
-    })
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/ui/services",
+            "headers": [(b"host", b"fastapi-sample.fastapicloud.dev")],
+            "scheme": "https",
+        },
+    )
 
 
 def local_request() -> Request:
-    return Request({
-        "type": "http",
-        "method": "GET",
-        "path": "/api/ui/services",
-        "headers": [(b"host", b"localhost")],
-        "scheme": "http",
-    })
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/ui/services",
+            "headers": [(b"host", b"localhost")],
+            "scheme": "http",
+        },
+    )
 
 
 def catalog() -> SiteArchitectureCatalogV2:
@@ -63,11 +67,13 @@ async def test_cloud_public_landing_never_triggers_health_board_refresh(monkeypa
     expensive = AsyncMock(side_effect=AssertionError("unauthorized provider fan-out"))
     monkeypatch.setattr(health_board, "build_health_board_snapshot", expensive)
     monkeypatch.setattr(
-        ui_public_services, "fetch_site_catalog_v2",
+        ui_public_services,
+        "fetch_site_catalog_v2",
         AsyncMock(return_value=catalog()),
     )
     monkeypatch.setattr(
-        ui_public_services, "write_public_directory_redis",
+        ui_public_services,
+        "write_public_directory_redis",
         AsyncMock(return_value=False),
     )
     monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
@@ -85,7 +91,9 @@ async def test_cached_public_projection_never_copies_secrets(monkeypatch):
     await health_board.reset_health_board_cache()
     monkeypatch.setattr(health_board, "_cached_at", time.monotonic())
     monkeypatch.setattr(
-        health_board, "_cached_snapshot", {
+        health_board,
+        "_cached_snapshot",
+        {
             "homelab": {
                 "services": [
                     {
@@ -102,9 +110,13 @@ async def test_cached_public_projection_never_copies_secrets(monkeypatch):
     )
     result = await health_board.peek_public_health_board_snapshot(cloud_request())
     assert result["state"] == "fresh"
-    assert result["homelab"]["services"] == [{
-        "id": "gatus", "effective_state": "ok", "probe_stale": False,
-    }]
+    assert result["homelab"]["services"] == [
+        {
+            "id": "gatus",
+            "effective_state": "ok",
+            "probe_stale": False,
+        },
+    ]
     assert "NEVER_ECHO" not in str(result)
     assert "172.17" not in str(result)
     await health_board.reset_health_board_cache()
@@ -124,11 +136,13 @@ async def test_cached_board_ttl_is_longer_on_cloud_than_local(monkeypatch):
 @pytest.mark.asyncio
 async def test_cloud_explicit_owner_board_still_starts_a_refresh(monkeypatch):
     await health_board.reset_health_board_cache()
-    built = AsyncMock(return_value={
-        "schema_version": 1,
-        "generated_at": "2026-11-09T00:00:00Z",
-        "homelab": {"services": []},
-    })
+    built = AsyncMock(
+        return_value={
+            "schema_version": 1,
+            "generated_at": "2026-11-09T00:00:00Z",
+            "homelab": {"services": []},
+        },
+    )
     monkeypatch.setattr(health_board, "build_health_board_snapshot", built)
     initial = await health_board.get_health_board_snapshot(cloud_request())
     assert initial["state"] == "pending"
@@ -143,11 +157,17 @@ async def test_cloud_explicit_owner_board_still_starts_a_refresh(monkeypatch):
 @pytest.mark.asyncio
 async def test_failed_cloud_refresh_backoff_blocks_repeated_provider_work(monkeypatch):
     await health_board.reset_health_board_cache()
+    # #406's mechanism: a failed Cloud refresh sets the next allowed attempt.
+    monkeypatch.setattr(health_board, "_cloud_budget_enabled", lambda: True)
     monkeypatch.setattr(
-        health_board, "_last_refresh_failed_at", time.monotonic(),
+        health_board,
+        "_next_refresh_allowed_at",
+        time.monotonic() + 180.0,
     )
     monkeypatch.setattr(
-        health_board, "_last_refresh_error", "health board refresh deadline exceeded",
+        health_board,
+        "_last_refresh_error",
+        "health board refresh deadline exceeded",
     )
     built = AsyncMock(side_effect=AssertionError("must not retry immediately"))
     monkeypatch.setattr(health_board, "build_health_board_snapshot", built)
@@ -193,7 +213,6 @@ def test_cloud_workers_may_be_explicitly_enabled_without_affecting_homelab(monke
 
 
 def test_cloud_disabled_gauges_report_unobserved_not_zero(monkeypatch):
-    from unittest.mock import Mock
     monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deployment-test")
     monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
     monkeypatch.delenv("FASTAPI_CLOUD_BACKGROUND_WORKERS_ENABLED", raising=False)

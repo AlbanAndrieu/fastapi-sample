@@ -42,24 +42,18 @@ def test_fastapi_cloud_detected_from_request_hostname(monkeypatch) -> None:
 
     assert (
         runtime_environment.fastapi_cloud_runtime_detected(
-            "fastapi-sample.fastapicloud.dev"
+            "fastapi-sample.fastapicloud.dev",
         )
         is True
     )
-    assert (
-        runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
-        == "fastapi_cloud"
-    )
+    assert runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev") == "fastapi_cloud"
 
 
 def test_fastapi_cloud_hostname_wins_over_local_env_marker(monkeypatch) -> None:
     _clear_runtime_markers(monkeypatch)
     monkeypatch.setenv("FASTAPI_ENV", "development")
 
-    assert (
-        runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
-        == "fastapi_cloud"
-    )
+    assert runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev") == "fastapi_cloud"
 
 
 def test_local_request_does_not_claim_fastapi_cloud_from_app_id(monkeypatch) -> None:
@@ -115,10 +109,7 @@ def test_fastapi_cloud_hostname_wins_over_homelab_marker(monkeypatch) -> None:
     _clear_runtime_markers(monkeypatch)
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
 
-    assert (
-        runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
-        == "fastapi_cloud"
-    )
+    assert runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev") == "fastapi_cloud"
 
 
 def test_application_debug_is_disabled_on_fastapi_cloud(monkeypatch) -> None:

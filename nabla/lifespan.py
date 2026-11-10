@@ -257,10 +257,7 @@ def cloud_background_workers_allowed() -> bool:
     cloud = fastapi_cloud_runtime_detected(os.getenv("APP_DOMAIN"))
     if not cloud:
         return True
-    return (
-        os.getenv("FASTAPI_CLOUD_BACKGROUND_WORKERS_ENABLED", "")
-        .strip().lower() == "true"
-    )
+    return os.getenv("FASTAPI_CLOUD_BACKGROUND_WORKERS_ENABLED", "").strip().lower() == "true"
 
 
 def _start_background_workers(

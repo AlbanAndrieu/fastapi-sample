@@ -42,7 +42,7 @@ def test_process_sample_is_not_a_public_endpoint():
 
 def test_anonymous_client_cannot_read_process_metrics(monkeypatch):
     monkeypatch.setattr("nabla.routes.owner_ui_authenticated", lambda *_: False)
-    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
+    monkeypatch.setattr("nabla.routes.get_settings", object)
     app = FastAPI()
     _register_runtime_resource_observer(app)
     with TestClient(app) as client:
@@ -54,13 +54,15 @@ def test_anonymous_client_cannot_read_process_metrics(monkeypatch):
 
 def test_owner_receives_one_bounded_snapshot_without_metrics_loop(monkeypatch):
     monkeypatch.setattr("nabla.routes.owner_ui_authenticated", lambda *_: True)
-    monkeypatch.setattr("nabla.routes.get_settings", lambda: object())
-    read = Mock(return_value={
-        "schema_version": 1,
-        "model": "process-resource-observation",
-        "rss_bytes": 1024,
-        "process_cpu_seconds_total": 2.0,
-    })
+    monkeypatch.setattr("nabla.routes.get_settings", object)
+    read = Mock(
+        return_value={
+            "schema_version": 1,
+            "model": "process-resource-observation",
+            "rss_bytes": 1024,
+            "process_cpu_seconds_total": 2.0,
+        },
+    )
     monkeypatch.setattr(runtime_cost_observer, "snapshot_process_resources", read)
     app = FastAPI()
     _register_runtime_resource_observer(app)

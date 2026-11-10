@@ -130,11 +130,40 @@ def _register_runtime_resource_observer(app: FastAPI) -> None:
                 status_code=403,
                 headers={"Cache-Control": "private, no-store"},
             )
-        from nabla.api.runtime_cost_observer import snapshot_process_resources
+        from nabla.api.runtime_cost_observer import snapshot_process_resources  # noqa: PLC0415
 
         return JSONResponse(
             snapshot_process_resources(),
             headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"},
+        )
+
+
+def _register_appliance_pulse(app: FastAPI) -> None:
+    """Owner-authenticated live TrueNAS appliance pulse (fixed calls, 30 s cache)."""
+
+    @app.get("/api/home/appliance/pulse", include_in_schema=False)
+    async def appliance_pulse(request: Request) -> JSONResponse:
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "Owner session required"},
+                status_code=403,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        if request.query_params:
+            return JSONResponse(
+                {"detail": "No parameters accepted"},
+                status_code=422,
+                headers={"Cache-Control": "private, no-store"},
+            )
+        # Lazy on purpose: keeps startup light and lets tests patch the module attribute.
+        from nabla.api.home_appliance_pulse import fetch_appliance_pulse  # noqa: PLC0415
+
+        return JSONResponse(
+            await fetch_appliance_pulse(),
+            headers={
+                "Cache-Control": "private, no-store",
+                "X-Robots-Tag": "noindex, nofollow",
+            },
         )
 
 
@@ -219,6 +248,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
     _register_topology_dashboard(app)
     _register_operations_history(app)
     _register_runtime_resource_observer(app)
+    _register_appliance_pulse(app)
 
     @app.get("/api/runtime-version", include_in_schema=False)
     async def api_runtime_version(request: Request) -> JSONResponse:

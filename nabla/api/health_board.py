@@ -47,15 +47,28 @@ _cached_snapshot: dict[str, Any] | None = None
 _cached_at = 0.0
 _refresh_task: asyncio.Task[None] | None = None
 _last_refresh_error: str | None = None
-_last_refresh_failed_at = 0.0
-
+_last_refresh_attempt_at = 0.0
+_next_refresh_allowed_at = 0.0
+_CLOUD_MIN_REFRESH_INTERVAL_SECONDS = 30.0
+# Passive public reads accept a Cloud snapshot up to this age (PR #405).
 _CLOUD_CACHE_MIN_TTL_SECONDS = 180.0
-_CLOUD_FAILED_REFRESH_BACKOFF_SECONDS = 180.0
+
+
+def _cloud_budget_enabled() -> bool:
+    """Only apply stricter budgets to FastAPI Cloud, never the trusted LAN."""
+    from os import environ
+
+    return fastapi_cloud_runtime_detected(environ.get("APP_DOMAIN"))
 
 
 def _ttl_seconds() -> float:
-    """Read the bounded cache TTL through the typed settings boundary."""
-    return HealthRuntimeSettings().health_board_cache_ttl_seconds
+    """Use a longer bounded health snapshot TTL on resource-limited Cloud."""
+    config = HealthRuntimeSettings()
+    return config.cloud_health_board_cache_ttl_seconds if _cloud_budget_enabled() else config.health_board_cache_ttl_seconds
+
+
+def _failure_backoff_seconds() -> float:
+    return HealthRuntimeSettings().cloud_health_board_failure_backoff_seconds if _cloud_budget_enabled() else 0.0
 
 
 async def build_extended_healthz(
@@ -299,7 +312,9 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     homelab = {
         **homelab,
         "connection_matrix": build_connection_matrix(
-            homelab, platform_metrics, external_connections
+            homelab,
+            platform_metrics,
+            external_connections,
         ),
     }
     internal_probe_comparison = compare_internal_probe_evidence(
@@ -325,14 +340,14 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
 
 
 async def _refresh(request: Request) -> None:
-    global _cached_at, _cached_snapshot, _last_refresh_error, _last_refresh_failed_at
+    global _cached_at, _cached_snapshot, _last_refresh_error, _next_refresh_allowed_at
     started = time.monotonic()
     try:
         async with asyncio.timeout(_HEALTH_BOARD_REFRESH_DEADLINE_SEC):
             snapshot = await build_health_board_snapshot(request)
     except TimeoutError:
-        _last_refresh_failed_at = time.monotonic()
         _last_refresh_error = "health board refresh deadline exceeded"
+        _next_refresh_allowed_at = time.monotonic() + _failure_backoff_seconds()
         logger.warning(
             "health board snapshot refresh timed out duration_seconds=%.3f deadline_seconds=%.1f",
             time.monotonic() - started,
@@ -340,8 +355,8 @@ async def _refresh(request: Request) -> None:
         )
         return
     except Exception as exc:
-        _last_refresh_failed_at = time.monotonic()
         _last_refresh_error = _short_error(exc)
+        _next_refresh_allowed_at = time.monotonic() + _failure_backoff_seconds()
         logger.warning(
             "health board snapshot refresh failed duration_seconds=%.3f error=%s",
             time.monotonic() - started,
@@ -352,8 +367,8 @@ async def _refresh(request: Request) -> None:
     async with _cache_lock:
         _cached_snapshot = snapshot
         _cached_at = time.monotonic()
-        _last_refresh_failed_at = 0.0
         _last_refresh_error = None
+        _next_refresh_allowed_at = 0.0
     logger.info(
         "health board snapshot refreshed duration_seconds=%.3f",
         time.monotonic() - started,
@@ -370,24 +385,17 @@ async def get_health_board_snapshot(
     force_refresh: bool = False,
 ) -> dict[str, Any]:
     """Return a fresh/stale snapshot immediately and refresh it in the background."""
-    global _refresh_task
+    global _refresh_task, _last_refresh_attempt_at
 
-    cloud = fastapi_cloud_runtime_detected(request.url.hostname)
-    ttl = max(_ttl_seconds(), _CLOUD_CACHE_MIN_TTL_SECONDS) if cloud else _ttl_seconds()
-    now = time.monotonic()
     async with _cache_lock:
+        now = time.monotonic()
         age = now - _cached_at if _cached_snapshot is not None else None
-        fresh = age is not None and age < ttl
-        failed_backoff = (
-            max(
-                0.0,
-                _CLOUD_FAILED_REFRESH_BACKOFF_SECONDS
-                - (now - _last_refresh_failed_at),
-            )
-            if cloud and _last_refresh_failed_at > 0
-            else 0.0
-        )
-        if (force_refresh or not fresh) and not _task_is_running() and failed_backoff <= 0:
+        fresh = age is not None and age < _ttl_seconds()
+        cloud_budget = _cloud_budget_enabled()
+        minimum_interval_elapsed = not cloud_budget or now - _last_refresh_attempt_at >= _CLOUD_MIN_REFRESH_INTERVAL_SECONDS
+        allowed_by_failure_backoff = now >= _next_refresh_allowed_at
+        if (force_refresh or not fresh) and not _task_is_running() and minimum_interval_elapsed and allowed_by_failure_backoff:
+            _last_refresh_attempt_at = now
             _refresh_task = asyncio.create_task(
                 _refresh(request),
                 name="health-board-refresh",
@@ -401,7 +409,16 @@ async def get_health_board_snapshot(
             "schema_version": 1,
             "state": "pending",
             "refreshing": refreshing,
-            "retry_after_seconds": max(2, int(failed_backoff + 0.999)),
+            "retry_after_seconds": max(
+                2,
+                round(
+                    max(
+                        0.0,
+                        _next_refresh_allowed_at - time.monotonic(),
+                        (_CLOUD_MIN_REFRESH_INTERVAL_SECONDS - (time.monotonic() - _last_refresh_attempt_at)) if _cloud_budget_enabled() else 0.0,
+                    ),
+                ),
+            ),
             "generated_at": None,
             "error": error,
             "runtime": None,
@@ -443,27 +460,34 @@ async def peek_public_health_board_snapshot(request: Request | None = None) -> d
             for item in rows[:2000]:
                 if not isinstance(item, dict):
                     continue
-                public_rows.append({
-                    key: item[key]
-                    for key in (
-                        "id", "effective_state", "state",
-                        "observation_stale", "probe_stale",
-                    )
-                    if key in item and isinstance(item[key], (str, bool))
-                })
+                public_rows.append(
+                    {
+                        key: item[key]
+                        for key in (
+                            "id",
+                            "effective_state",
+                            "state",
+                            "observation_stale",
+                            "probe_stale",
+                        )
+                        if key in item and isinstance(item[key], (str, bool))
+                    },
+                )
     return {"state": "fresh", "homelab": {"services": public_rows}}
 
 
 async def reset_health_board_cache() -> None:
     """Reset module state for deterministic tests."""
-    global _cached_at, _cached_snapshot, _last_refresh_error, _refresh_task, _last_refresh_failed_at
+    global _cached_at, _cached_snapshot, _last_refresh_error, _refresh_task
+    global _last_refresh_attempt_at, _next_refresh_allowed_at
     async with _cache_lock:
         task = _refresh_task
         _refresh_task = None
         _cached_snapshot = None
         _cached_at = 0.0
         _last_refresh_error = None
-        _last_refresh_failed_at = 0.0
+        _last_refresh_attempt_at = 0.0
+        _next_refresh_allowed_at = 0.0
     if task is not None and not task.done():
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)

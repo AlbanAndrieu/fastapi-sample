@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.30.0...1.31.0) (2026-11-10)
+
+
+### Features
+
+* **home:** live TrueNAS appliance pulse on the operations screen + Redis-first public directory fix ([#407](https://github.com/AlbanAndrieu/fastapi-sample/issues/407)) ([2286c7c](https://github.com/AlbanAndrieu/fastapi-sample/commit/2286c7c4f50d30f083b05d9d9d0a6d4a319de7db)), closes [#397](https://github.com/AlbanAndrieu/fastapi-sample/issues/397) [#330](https://github.com/AlbanAndrieu/fastapi-sample/issues/330) [#403](https://github.com/AlbanAndrieu/fastapi-sample/issues/403)
+
 # [1.30.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.29.1...1.30.0) (2026-11-09)
 
 

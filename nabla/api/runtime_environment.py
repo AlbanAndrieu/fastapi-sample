@@ -22,10 +22,10 @@ _FASTAPI_CLOUD_ENV_MARKERS: tuple[str, ...] = (
     "FASTAPICLOUD_DEPLOYMENT_ID",
 )
 _FASTAPI_CLOUD_NETWORK_LABELS = frozenset(
-    {"fastapicloud", "fastapi-cloud", "fastapi_cloud"}
+    {"fastapicloud", "fastapi-cloud", "fastapi_cloud"},
 )
 _LOCAL_FASTAPI_ENV_VALUES = frozenset(
-    {"dev", "development", "local", "test", "testing"}
+    {"dev", "development", "local", "test", "testing"},
 )
 _LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain"})
 _HOMELAB_RUNTIME_MODE = "homelab"
@@ -42,10 +42,7 @@ def _explicit_development_runtime() -> bool:
 
 def homelab_runtime_detected() -> bool:
     """Return whether this process is explicitly the trusted homelab runtime."""
-    return (
-        os.environ.get("FASTAPI_RUNTIME_MODE", "").strip().casefold()
-        == _HOMELAB_RUNTIME_MODE
-    )
+    return os.environ.get("FASTAPI_RUNTIME_MODE", "").strip().casefold() == _HOMELAB_RUNTIME_MODE
 
 
 def _explicit_local_hostname(hostname: str | None) -> bool:
@@ -58,12 +55,7 @@ def _explicit_local_hostname(hostname: str | None) -> bool:
         address = ipaddress.ip_address(host)
     except ValueError:
         return False
-    return (
-        address.is_loopback
-        or address.is_private
-        or address.is_link_local
-        or address.is_unspecified
-    )
+    return address.is_loopback or address.is_private or address.is_link_local or address.is_unspecified
 
 
 def fastapi_cloud_runtime_detected(hostname: str | None = None) -> bool:
@@ -95,9 +87,7 @@ def known_paas_runtime_detected(hostname: str | None = None) -> bool:
     """Return whether a known cloud/PaaS runtime marker is present."""
     if _explicit_local_hostname(hostname) or _explicit_development_runtime():
         return False
-    return fastapi_cloud_runtime_detected(hostname) or any(
-        _env_present(name) for name in _KNOWN_PAAS_ENV_MARKERS
-    )
+    return fastapi_cloud_runtime_detected(hostname) or any(_env_present(name) for name in _KNOWN_PAAS_ENV_MARKERS)
 
 
 def application_debug_enabled(configured_debug: bool) -> bool:
@@ -108,9 +98,7 @@ def application_debug_enabled(configured_debug: bool) -> bool:
     cloud_domain = os.environ.get("APP_DOMAIN")
     cloud_network = os.environ.get("SICKZ_NETWORK_LABEL", "").strip().casefold()
     return configured_debug and not (
-        fastapi_cloud_runtime_detected(cloud_domain)
-        or any(_env_present(name) for name in _FASTAPI_CLOUD_ENV_MARKERS)
-        or cloud_network in _FASTAPI_CLOUD_NETWORK_LABELS
+        fastapi_cloud_runtime_detected(cloud_domain) or any(_env_present(name) for name in _FASTAPI_CLOUD_ENV_MARKERS) or cloud_network in _FASTAPI_CLOUD_NETWORK_LABELS
     )
 
 

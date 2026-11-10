@@ -56,6 +56,7 @@ _DIAGNOSTIC_EXACT = frozenset(
         "/api/home/metrics/history",
         "/api/runtime/resources",
         "/api/topology-telemetry",
+        "/api/home/appliance/pulse",
     },
 )
 
