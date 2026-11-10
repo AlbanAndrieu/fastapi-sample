@@ -7,6 +7,7 @@ import {
   appendObservation,
   pearsonCorrelation,
   projectAggregateNetworkFlow,
+  projectAppliancePulse,
   projectFleet,
   projectLatency,
   projectProbeMatrix,
@@ -538,4 +539,181 @@ test("timeline respects real time and draws explicit gaps", () => {
     temporalSparklinePath([], { startMs, endMs, maxGapMs: 120000 }),
     null,
   );
+});
+
+function pulsePayload(overrides = {}) {
+  const base = Date.parse(AT) / 1000 - 300;
+  return {
+    schema_version: 1,
+    model: "owner-appliance-pulse",
+    source: "truenas_middleware",
+    synthetic: false,
+    state: "observed",
+    observed_at: AT,
+    pressure_state: "warn",
+    appliance: {
+      state: "observed",
+      version: "TrueNAS-27.0.0-RC.1",
+      cores: 8,
+      load: { "1m": 9.6 },
+      load_per_core_1m: 1.2,
+      uptime_seconds: 86400,
+    },
+    cpu: {
+      state: "observed",
+      busy_percent: 24,
+      series: [
+        [base, 20],
+        [base + 60, 24],
+      ],
+    },
+    memory: {
+      state: "observed",
+      used_percent: 70,
+      series: [
+        [base, 69.5],
+        [base + 60, 70],
+      ],
+    },
+    network: {
+      state: "observed",
+      throughput: 1500,
+      vertical_label: "Bits/s",
+      physical: [
+        { name: "eno1", link_up: true },
+        { name: "eno2", link_up: false },
+      ],
+      links_down: ["eno2"],
+      series: [
+        [base, 1200],
+        [base + 60, 1500],
+      ],
+    },
+    storage: {
+      state: "observed",
+      worst_used_percent: 86,
+      pools: [
+        { name: "cpool", status: "ONLINE", healthy: true, used_percent: 86 },
+      ],
+    },
+    alerts: {
+      state: "observed",
+      total: 2,
+      active: 1,
+      by_level: { WARNING: 1 },
+      items: [
+        {
+          klass: "ZpoolCapacityWarning",
+          level: "WARNING",
+          dismissed: false,
+          text: "pool at 86%",
+        },
+      ],
+    },
+    apps: {
+      state: "observed",
+      total: 3,
+      counts: { RUNNING: 1, STOPPED: 1, CRASHED: 1 },
+      crashed: ["openrag"],
+    },
+    impacts: [
+      {
+        id: "storage_capacity",
+        from: "storage",
+        to: "alerts",
+        state: "warn",
+        evidence: "pool 86 %",
+        linked: ["ZpoolCapacityWarning"],
+      },
+    ],
+    errors: {},
+    ...overrides,
+  };
+}
+
+test("projectAppliancePulse keeps validated live TrueNAS signals and impacts", () => {
+  const pulse = projectAppliancePulse(pulsePayload(), NOW);
+  assert.ok(pulse);
+  assert.equal(pulse.pressure, "warn");
+  assert.equal(pulse.appliance.loadPerCore, 1.2);
+  assert.equal(pulse.cpu.busyPercent, 24);
+  assert.equal(pulse.cpu.series.length, 2);
+  assert.equal(pulse.memory.usedPercent, 70);
+  assert.equal(pulse.network.throughput, 1500);
+  assert.equal(pulse.network.label, "Bits/s");
+  assert.deepEqual(
+    pulse.network.interfaces.map((row) => row.linkUp),
+    [true, false],
+  );
+  assert.equal(pulse.storage.worstUsedPercent, 86);
+  assert.deepEqual(pulse.alerts.byLevel, { WARNING: 1 });
+  assert.deepEqual(pulse.apps.counts, { RUNNING: 1, STOPPED: 1, CRASHED: 1 });
+  assert.deepEqual(pulse.impacts[0].linked, ["ZpoolCapacityWarning"]);
+});
+
+test("projectAppliancePulse refuses stale, synthetic, foreign or malformed payloads", () => {
+  assert.equal(
+    projectAppliancePulse(pulsePayload({ synthetic: true }), NOW),
+    null,
+  );
+  assert.equal(
+    projectAppliancePulse(
+      pulsePayload({ model: "owner-operations-history" }),
+      NOW,
+    ),
+    null,
+  );
+  assert.equal(
+    projectAppliancePulse(pulsePayload({ state: "not_configured" }), NOW),
+    null,
+  );
+  assert.equal(
+    projectAppliancePulse(
+      pulsePayload({ observed_at: "2026-11-04T17:00:00Z" }),
+      NOW,
+    ),
+    null,
+  );
+  const unavailable = projectAppliancePulse(
+    pulsePayload({
+      state: "partial",
+      alerts: { state: "unavailable", active: null, by_level: {}, items: [] },
+    }),
+    NOW,
+  );
+  assert.ok(unavailable);
+  assert.equal(unavailable.partial, true);
+  assert.equal(unavailable.alerts.observed, false);
+  assert.equal(unavailable.alerts.active, null);
+});
+
+test("projectAppliancePulse drops impossible percentages, non-monotonic series and unsafe lists", () => {
+  const broken = projectAppliancePulse(
+    pulsePayload({
+      cpu: {
+        state: "observed",
+        busy_percent: 140,
+        series: [
+          [10, 20],
+          [5, 30],
+        ],
+      },
+      storage: {
+        state: "observed",
+        worst_used_percent: -3,
+        pools: [{ name: 42 }],
+      },
+      impacts: [
+        { id: 7, state: "fail", evidence: "x" },
+        { id: "ok", state: "weird", evidence: "y" },
+      ],
+    }),
+    NOW,
+  );
+  assert.ok(broken);
+  assert.equal(broken.cpu.busyPercent, null);
+  assert.deepEqual(broken.cpu.series, []);
+  assert.equal(broken.storage.worstUsedPercent, null);
+  assert.deepEqual(broken.storage.pools, []);
+  assert.deepEqual(broken.impacts, []);
 });

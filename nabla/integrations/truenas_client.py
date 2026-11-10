@@ -8,6 +8,8 @@ import os
 import socket
 import ssl
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -316,6 +318,43 @@ class TrueNASReadOnlyAdapter:
             round((time.perf_counter() - started) * 1000),
         )
         return result
+
+    @contextmanager
+    def read_only_session(
+        self,
+        *,
+        call_timeout: float | None = None,
+    ) -> Iterator[TrueNASClientProtocol]:
+        """Authenticate once and yield the client for several read-only calls.
+
+        Connection and authentication failures are classified as
+        TrueNASHealthProbeError; failures raised by the caller's own calls
+        propagate unchanged so each call can be optional.
+        """
+        phase = "connect"
+        try:
+            with self._connect(call_timeout=call_timeout) as client:
+                phase = "authentication"
+                client.login_with_api_key(self.settings.username, self.settings.api_key)
+                phase = "call"
+                yield client
+        except Exception as exc:
+            if phase == "call":
+                raise
+            logger.warning(
+                "TrueNAS API session failed uri=%s phase=%s stage=%s exception=%s",
+                self.settings.websocket_uri,
+                phase,
+                _truenas_failure_stage(exc),
+                exc.__class__.__name__,
+            )
+            raise TrueNASHealthProbeError(
+                phase=phase,
+                stage=_truenas_failure_stage(exc),
+                cause=exc,
+                method="auth.login_with_api_key" if phase == "authentication" else "connect",
+                authenticated=False,
+            ) from exc
 
     def system_version(self) -> str:
         """Return the TrueNAS software version."""

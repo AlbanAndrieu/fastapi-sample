@@ -324,6 +324,18 @@ pour chaque service et refus WAN correct.
   **Reste :** Node/pytest L2/L3 sur checkout complet, recette mobile et
   confirmation des séries sur TrueNAS/Cloud ; aucun déploiement implicite.
   Voir [runbook](runbooks/home-operations-transition.md).
+  **Extension 08/11 — pulse TrueNAS en direct (CODED) :** sur Cloud les
+  sections capacité restaient vides (Prometheus LAN seulement). Nouveau
+  `GET /api/home/appliance/pulse` (OWNER) : `system.info`, `alert.list`,
+  `pool.query`, `interface.query`, `app.query`, `reporting.netdata_graphs`
+  et `reporting.netdata_get_data` (1 h) en une session, cache 30 s ;
+  section « Appliance TrueNAS en direct » et liste d'interdépendances du
+  même instantané (stockage ↔ alertes, mémoire ↔ Apps CRASHED, charge,
+  liens physiques). **Preuves suivantes :** `state=observed` depuis une
+  session OWNER sur Cloud et TrueNAS ; si `partial`, ajouter les rôles
+  `REPORTING_READ`/`ALERT_LIST_READ` à la clé d'observation ; confirmer les
+  légendes netdata réelles (`idle`, `used`/`free`, `received`/`sent`) ou
+  adapter la conversion ; recette mobile de la nouvelle section.
 
 ## Documentation et séquence de reprise
 
