@@ -3,6 +3,7 @@
 import httpx
 
 from nabla.api.health_checks import _http_probe_error_kind
+from nabla.api.platform_health_diagnostics import http_error_kind
 
 
 def test_classifies_connect_timeout() -> None:
@@ -21,6 +22,16 @@ def test_classifies_tls_error_before_connect_error() -> None:
 def test_classifies_dns_error_before_connect_error() -> None:
     error = httpx.ConnectError("[Errno -2] Name or service not known")
     assert _http_probe_error_kind(error) == "dns_error"
+
+
+def test_classifies_egress_proxy_refusal_as_proxy_error() -> None:
+    error = httpx.ProxyError("403 Forbidden")
+    assert _http_probe_error_kind(error) == "proxy_error"
+
+
+def test_platform_diagnostics_classify_egress_proxy_refusal() -> None:
+    assert http_error_kind(httpx.ProxyError("403 Forbidden")) == "proxy_error"
+    assert http_error_kind(httpx.ConnectError("connection refused")) == "connect_error"
 
 
 def test_classifies_generic_connect_error() -> None:

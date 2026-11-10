@@ -178,6 +178,83 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
 
 
 @pytest.mark.asyncio
+async def test_homelab_deadline_keeps_completed_probe_evidence(monkeypatch) -> None:
+    """A slow provider must not erase probes that finished before the deadline."""
+    probe_payload = {
+        "checked_at": "2026-11-03T21:46:53Z",
+        "truenas": {"id": "truenas", "state": "ok"},
+        "services": [{"id": "grafana", "state": "warn", "http_status": 302}],
+        "internal_probes_enabled": False,
+        "internal_services": [],
+        "probe_summary": {"public": {"sampled": 1, "completed": 1}},
+    }
+    probe_task = asyncio.get_running_loop().create_future()
+    probe_task.set_result(probe_payload)
+    provider_phases_ms = {"declared_catalog": 12.0, "topology": 15.0}
+
+    async def hanging_context():
+        await asyncio.Event().wait()
+
+    context_task = asyncio.create_task(hanging_context())
+    monkeypatch.setattr(health_board, "_HOMELAB_SNAPSHOT_DEADLINE_SEC", 0.05)
+
+    payload = await health_board.build_homelab_snapshot(
+        {},
+        catalog_services=[],
+        reconciliation_context=context_task,
+        homelab_payload=probe_task,
+        provider_phases_ms=provider_phases_ms,
+    )
+
+    assert payload["timed_out"] is True
+    assert payload["status"] == "degraded"
+    assert payload["error_kind"] == "deadline"
+    assert payload["reconciled"] is False
+    assert payload["evidence_scope"] == "raw_probes"
+    assert payload["services"] == probe_payload["services"]
+    assert payload["services"] is not probe_payload["services"]
+    assert payload["truenas"] == {"id": "truenas", "state": "ok"}
+    assert payload["probe_summary"] == probe_payload["probe_summary"]
+    deadline = payload["deadline"]
+    assert deadline["blocked_stage"] == "reconciliation_context"
+    assert deadline["provider_phases_tracked"] is True
+    assert deadline["unfinished_provider_phases"] == [
+        "cloudflare_exposure",
+        "pfsense_posture",
+    ]
+    assert {"catalog", "probes"} <= set(deadline["stages_ms"])
+    performance = payload["performance"]
+    assert performance["phases_ms"]["topology"] == 15.0
+    assert performance["dominant_provider_phase"] == "topology"
+    assert performance["phases_ms"]["total"] is not None
+    assert context_task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_homelab_deadline_without_probe_result_reports_blocked_stage(
+    monkeypatch,
+) -> None:
+    pending_probes = asyncio.get_running_loop().create_future()
+    monkeypatch.setattr(health_board, "_HOMELAB_SNAPSHOT_DEADLINE_SEC", 0.05)
+
+    payload = await health_board.build_homelab_snapshot(
+        {},
+        catalog_services=[],
+        reconciliation_context={},
+        homelab_payload=pending_probes,
+    )
+
+    assert payload["timed_out"] is True
+    assert payload["evidence_scope"] == "none"
+    assert payload["services"] == []
+    assert payload["truenas"]["diagnostics"]["unavailable"] is True
+    assert payload["deadline"]["blocked_stage"] == "probes"
+    assert payload["deadline"]["provider_phases_tracked"] is False
+    assert payload["deadline"]["unfinished_provider_phases"] == []
+    assert pending_probes.cancelled()
+
+
+@pytest.mark.asyncio
 async def test_health_board_refresh_deadline_does_not_pin_task(monkeypatch) -> None:
     async def slow_board(_request):
         await asyncio.sleep(1.0)

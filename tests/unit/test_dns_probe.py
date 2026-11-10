@@ -21,11 +21,7 @@ class _Answers:
 
 
 def _resolver(*, addresses=(), error: BaseException | None = None):
-    resolve_name = (
-        AsyncMock(side_effect=error)
-        if error is not None
-        else AsyncMock(return_value=_Answers(*addresses))
-    )
+    resolve_name = AsyncMock(side_effect=error) if error is not None else AsyncMock(return_value=_Answers(*addresses))
     return SimpleNamespace(
         nameservers=[
             SimpleNamespace(address="172.17.0.1"),
@@ -45,9 +41,7 @@ def test_system_dns_resolvers_uses_dnspython_resolver_configuration() -> None:
 
 
 def test_resolver_display_identifies_known_public_and_docker_dns() -> None:
-    assert dns_probe._resolver_display("127.0.0.11") == (
-        "127.0.0.11 (Docker embedded DNS)"
-    )
+    assert dns_probe._resolver_display("127.0.0.11") == ("127.0.0.11 (Docker embedded DNS)")
     assert dns_probe._resolver_display("1.1.1.1") == "1.1.1.1 (Cloudflare DNS)"
     assert dns_probe._resolver_display("9.9.9.9") == "9.9.9.9 (Quad9)"
     assert dns_probe._resolver_display("172.17.0.1") == "172.17.0.1"
@@ -94,3 +88,24 @@ async def test_probe_dns_hostname_preserves_nxdomain_evidence(monkeypatch) -> No
         "172.17.0.1",
         "1.1.1.1 (Cloudflare DNS)",
     ]
+
+
+@pytest.mark.asyncio
+async def test_missing_resolver_configuration_is_dns_evidence_not_a_crash(
+    monkeypatch,
+) -> None:
+    """A dangling/absent /etc/resolv.conf must not abort the whole probe batch."""
+
+    def _unconfigured():
+        raise dns.resolver.NoResolverConfiguration("cannot open /etc/resolv.conf")
+
+    monkeypatch.setattr(dns_probe, "_resolver", _unconfigured)
+
+    result = await dns_probe.probe_dns_hostname("truenas.example")
+
+    assert result["dns_state"] == "fail"
+    assert result["dns_resolver_source"] == "unavailable"
+    assert result["dns_resolvers"] == []
+    assert result["dns_resolved"] == []
+    assert "resolv.conf" in result["dns_error"]
+    assert isinstance(result["dns_latency_ms"], int)
