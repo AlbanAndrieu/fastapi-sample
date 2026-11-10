@@ -131,3 +131,48 @@
     gap: 0.2rem;
   }
 }
+
+/* Hobby budget is reference-only: the provider's metered totals are not available here. */
+.runtime-cloud-budget {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  margin: 1rem 0;
+  padding: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 0.7rem;
+}
+.runtime-cloud-budget-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.runtime-cloud-budget-heading h4 { margin: 0; font-size: 0.92rem; }
+.runtime-cloud-budget-heading a { font-size: 0.75rem; }
+.runtime-cloud-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+.runtime-cloud-budget-grid > div {
+  min-width: 0;
+  padding: 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.45rem;
+}
+.runtime-cloud-budget-grid span,
+.runtime-cloud-budget-grid small { display: block; font-size: 0.7rem; color: #94a3b8; }
+.runtime-cloud-budget-grid strong { display: block; overflow-wrap: anywhere; margin: 0.2rem 0; }
+.runtime-cloud-process { margin-top: 0.8rem; }
+.runtime-cloud-process strong { display: block; margin: 0.25rem 0; font-variant-numeric: tabular-nums; }
+.runtime-cloud-process[data-severity="warning"] #runtime-cloud-process-status { color: #fcd34d; }
+.runtime-cloud-process[data-severity="danger"] #runtime-cloud-process-status { color: #fca5a5; }
+#runtime-cloud-process-refresh {
+  margin-top: 0.4rem;
+  min-height: 2.5rem;
+  max-width: 100%;
+  cursor: pointer;
+}
