@@ -12,15 +12,15 @@ la plateforme.
 ## Constat et impact
 
 1. L'ancienne lecture anonyme `/api/ui/services` pouvait déclencher
-   `get_health_board_snapshot` : création d'une tâche unique mais
-   potentiellement longue (jusqu'à 40 s), avec fan-out vers TrueNAS,
-   Cloudflare, Prometheus et les analyses de politique.
+    `get_health_board_snapshot` : création d'une tâche unique mais
+    potentiellement longue (jusqu'à 40 s), avec fan-out vers TrueNAS,
+    Cloudflare, Prometheus et les analyses de politique.
 2. Sur le runtime Cloud, une page ouverte lançait `/` toutes les 30 s.
-   Le mode avancé `/api?ui_full=1` pouvait sonder à 5 s en rafraîchissement
-   et 30 s au repos. Cela maintient du trafic et retarde le scale-to-zero.
+    Le mode avancé `/api?ui_full=1` pouvait sonder à 5 s en rafraîchissement
+    et 30 s au repos. Cela maintient du trafic et retarde le scale-to-zero.
 3. Les workers de démarrage exécutaient une boucle `psutil` (5 s),
-   un consommateur Redis pub/sub et un heartbeat de topologie (30 s)
-   même si aucun diagnostic n'était consulté.
+    un consommateur Redis pub/sub et un heartbeat de topologie (30 s)
+    même si aucun diagnostic n'était consulté.
 
 ## Politique économique implémentée
 

@@ -320,7 +320,10 @@ export function projectResourceHeatmap(payload, nowMs = Date.now()) {
     declaredServices: names.length,
     truncated: Math.max(0, rows.length - 12),
     dimensions: dimensions.map(([key, label, unit, divisor]) => ({
-      key, label, unit, divisor,
+      key,
+      label,
+      unit,
+      divisor,
     })),
     rows: rows.slice(0, 12).map((row) => ({
       name: row.name,

@@ -10,8 +10,8 @@ import {
   projectProbeMatrix,
   projectProbes,
   projectPrometheusHistory,
-  projectResources,
   projectResourceHeatmap,
+  projectResources,
   projectSecurity,
   projectServiceFootprint,
   sparklinePath,
@@ -27,14 +27,17 @@ const ROOT = document.getElementById("home-operations");
 const HOME_RUNTIME = ROOT?.dataset?.runtimeMode || "local";
 const INITIAL_CADENCE = homepageCadence(HOME_RUNTIME, false);
 // Limit idle anonymous polling on FastAPI Cloud; manual refresh remains available.
-const CLOUD_RUNTIME = window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
+const CLOUD_RUNTIME =
+  window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
 const INTERVAL_MS = CLOUD_RUNTIME ? 60000 : 30000;
 const CLOUD_IDLE_POLL_PAUSE_MS = 5 * 60 * 1000;
 let lastCloudInteractionAt = Date.now();
 let cloudPollingPaused = false;
 
 function cloudPollingIdle(now = Date.now()) {
-  return CLOUD_RUNTIME && now - lastCloudInteractionAt >= CLOUD_IDLE_POLL_PAUSE_MS;
+  return (
+    CLOUD_RUNTIME && now - lastCloudInteractionAt >= CLOUD_IDLE_POLL_PAUSE_MS
+  );
 }
 const SERIES = Object.create(null);
 let CORRELATION_PAIRS = [];
@@ -71,8 +74,8 @@ function scheduleWarmupRetry() {
     put(
       "home-retry-status",
       homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
-          ? "Actualisation périodique contrôlée"
-          : "Mode Cloud économique · mise à jour au retour dans cet onglet",
+        ? "Actualisation périodique contrôlée"
+        : "Mode Cloud économique · mise à jour au retour dans cet onglet",
     );
     return;
   }
@@ -616,14 +619,22 @@ function renderResourceHeatmap(snapshot) {
   target.replaceChildren();
   const matrix = projectResourceHeatmap(snapshot);
   if (!matrix || matrix.rows.length === 0) {
-    put("home-resource-heatmap-source", "Mesures absentes ou périmées · aucune valeur supposée");
+    put(
+      "home-resource-heatmap-source",
+      "Mesures absentes ou périmées · aucune valeur supposée",
+    );
     return;
   }
   put(
     "home-resource-heatmap-source",
-    matrix.measuredServices + "/" + matrix.declaredServices +
-      " services avec au moins une mesure · " + matrix.observedAt +
-      (matrix.truncated ? " · " + matrix.truncated + " autres non affichés" : ""),
+    matrix.measuredServices +
+      "/" +
+      matrix.declaredServices +
+      " services avec au moins une mesure · " +
+      matrix.observedAt +
+      (matrix.truncated
+        ? " · " + matrix.truncated + " autres non affichés"
+        : ""),
   );
   const header = document.createElement("div");
   header.className = "op-heatmap-row op-heatmap-head";
@@ -651,16 +662,29 @@ function renderResourceHeatmap(snapshot) {
       if (cell.value === null) {
         tile.classList.add("op-heatmap-missing");
         tile.textContent = "—";
-        tile.setAttribute("aria-label", row.name + " · " + cell.label + " : non mesuré");
+        tile.setAttribute(
+          "aria-label",
+          row.name + " · " + cell.label + " : non mesuré",
+        );
       } else {
-        const displayed = cell.value.toLocaleString("fr-FR", {
-          maximumFractionDigits: cell.value < 1 ? 3 : 1,
-        }) + " " + cell.unit;
-        tile.style.setProperty("--heat-alpha", String(0.10 + (cell.relativePercent ?? 0) * 0.0066));
+        const displayed =
+          cell.value.toLocaleString("fr-FR", {
+            maximumFractionDigits: cell.value < 1 ? 3 : 1,
+          }) +
+          " " +
+          cell.unit;
+        tile.style.setProperty(
+          "--heat-alpha",
+          String(0.1 + (cell.relativePercent ?? 0) * 0.0066),
+        );
         tile.textContent = displayed;
         tile.setAttribute(
           "aria-label",
-          row.name + " · " + cell.label + " : " + displayed +
+          row.name +
+            " · " +
+            cell.label +
+            " : " +
+            displayed +
             " · intensité relative, pas capacité",
         );
       }
@@ -1067,11 +1091,11 @@ async function refresh() {
       );
       if (fleet.verified) {
         put(
-      "home-retry-status",
-      homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
-          ? "Actualisation périodique contrôlée"
-          : "Mode Cloud économique · mise à jour au retour dans cet onglet",
-    );
+          "home-retry-status",
+          homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+            ? "Actualisation périodique contrôlée"
+            : "Mode Cloud économique · mise à jour au retour dans cet onglet",
+        );
       }
     } else if (publicDenied) {
       discardPublicDirectory(publicSessionCache());
@@ -1156,11 +1180,11 @@ async function refresh() {
       warmupAttempts = 0;
       clearWarmupRetry();
       put(
-      "home-retry-status",
-      homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
+        "home-retry-status",
+        homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled
           ? "Actualisation périodique contrôlée"
           : "Mode Cloud économique · mise à jour au retour dans cet onglet",
-    );
+      );
     }
     if (refreshRequested && !document.hidden) {
       refreshRequested = false;
@@ -1213,7 +1237,9 @@ if (ROOT) {
       if (active) refreshRequested = true;
       else void refresh();
     };
-    document.addEventListener("pointerdown", resumeCloudPolling, { passive: true });
+    document.addEventListener("pointerdown", resumeCloudPolling, {
+      passive: true,
+    });
     document.addEventListener("keydown", resumeCloudPolling);
   }
   setInterval(() => {
@@ -1227,7 +1253,8 @@ if (ROOT) {
       return;
     }
     // Anonymous FastAPI Cloud visitors never poll (PR #405); owners keep #406's idle pause.
-    if (homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled) void refresh();
+    if (homepageCadence(HOME_RUNTIME, ownerSessionActive).pollEnabled)
+      void refresh();
   }, INTERVAL_MS);
   void refresh();
 }

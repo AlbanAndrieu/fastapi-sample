@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { projectFleet } from "../../nabla/api/assets/home-operations-model.js";
 import {
   discardPublicDirectory,
   persistPublicDirectory,
   restorePublicDirectory,
 } from "../../nabla/api/assets/home-public-cache.js";
-import { projectFleet } from "../../nabla/api/assets/home-operations-model.js";
 
 const NOW = Date.parse("2026-11-09T12:00:00Z");
 function source() {
@@ -27,8 +27,12 @@ function memoryStorage() {
   const items = new Map();
   return {
     getItem: (key) => items.get(key) ?? null,
-    setItem: (key, value) => { items.set(key, value); },
-    removeItem: (key) => { items.delete(key); },
+    setItem: (key, value) => {
+      items.set(key, value);
+    },
+    removeItem: (key) => {
+      items.delete(key);
+    },
     snapshot: () => Array.from(items.values()).join(""),
   };
 }
@@ -40,13 +44,20 @@ test("session cache stores public names/kinds but NEVER status or secrets", () =
   const raw = JSON.parse(storage.snapshot());
   assert.deepEqual(
     raw.directory.services.map((row) => Object.keys(row).sort()),
-    [["kind", "name", "state"], ["kind", "name", "state"]],
+    [
+      ["kind", "name", "state"],
+      ["kind", "name", "state"],
+    ],
   );
-  assert.deepEqual(raw.directory.services.map((row) => row.state), [
-    "unknown", "unknown",
-  ]);
+  assert.deepEqual(
+    raw.directory.services.map((row) => row.state),
+    ["unknown", "unknown"],
+  );
   assert.equal(raw.directory.boardState, "stale");
-  assert.doesNotMatch(storage.snapshot(), /"ok"|"fail"|"warn"|secret|token|172\.17\./i);
+  assert.doesNotMatch(
+    storage.snapshot(),
+    /"ok"|"fail"|"warn"|secret|token|172\.17\./i,
+  );
   const restored = restorePublicDirectory(storage, NOW + 1000);
   const fleet = projectFleet(restored);
   assert.deepEqual(fleet.counts, { ok: 0, warn: 0, fail: 0, unknown: 2 });
@@ -66,22 +77,35 @@ test("invalid labels, private network addresses and malformed revision never per
   const storage = memoryStorage();
   for (const mutation of [
     { services: [{ name: "172.17.0.24", kind: "Resource", state: "ok" }] },
-    { services: [{ name: "https://private.example", kind: "Resource", state: "ok" }] },
+    {
+      services: [
+        { name: "https://private.example", kind: "Resource", state: "ok" },
+      ],
+    },
     { catalogRevision: "unverified" },
     { services: [{ name: "<script>", kind: "Resource", state: "ok" }] },
     { services: [{ name: "X", kind: "Invalid", state: "ok" }] },
     { services: [] },
   ]) {
-    assert.equal(persistPublicDirectory(storage, { ...source(), ...mutation }, NOW), false);
+    assert.equal(
+      persistPublicDirectory(storage, { ...source(), ...mutation }, NOW),
+      false,
+    );
     assert.equal(storage.snapshot(), "");
   }
 });
 
 test("storage denied or corrupted cache never prevents rendering", () => {
   const blocked = {
-    getItem: () => { throw Error("SecurityError"); },
-    setItem: () => { throw Error("QuotaExceededError"); },
-    removeItem: () => { throw Error("SecurityError"); },
+    getItem: () => {
+      throw Error("SecurityError");
+    },
+    setItem: () => {
+      throw Error("QuotaExceededError");
+    },
+    removeItem: () => {
+      throw Error("SecurityError");
+    },
   };
   assert.equal(restorePublicDirectory(blocked, NOW), null);
   assert.equal(persistPublicDirectory(blocked, source(), NOW), false);
@@ -109,7 +133,8 @@ test("cold start auto-retries without manual refresh or persisting OWNER data", 
 
 test("clearPublic also removes screen reader stale state", () => {
   const script = readFileSync(
-    new URL("../../nabla/api/assets/home-operations.js", import.meta.url), "utf8",
+    new URL("../../nabla/api/assets/home-operations.js", import.meta.url),
+    "utf8",
   );
   assert.match(script, /Répartition inconnue · aucune preuve récente/);
   assert.match(script, /meter\?\.setAttribute\(\s*"aria-label"/);

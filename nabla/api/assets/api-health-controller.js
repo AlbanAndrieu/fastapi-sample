@@ -10,8 +10,8 @@ import {
   resetHealthBoardRequest,
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
-import { ownerSessionAvailable } from "./api-owner-session.js";
 import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
+import { ownerSessionAvailable } from "./api-owner-session.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
 import { installSecurityControlIcons } from "./api-security-control-icons.js";
@@ -23,7 +23,8 @@ const HEALTH_BOARD_IDLE_POLL_MS = 30000;
 const HEALTH_BOARD_REFRESHING_POLL_MS = 5000;
 // Do not increase outbound diagnostic load when a homelab is unresponsive.
 const HEALTH_BOARD_ERROR_BACKOFF_MS = 60000;
-const CLOUD_COST_MODE = window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
+const CLOUD_COST_MODE =
+  window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
 const CLOUD_HEALTH_BOARD_IDLE_POLL_MS = 180000;
 const CLOUD_HEALTH_BOARD_REFRESHING_POLL_MS = 15000;
 const CLOUD_HEALTH_BOARD_ERROR_BACKOFF_MS = 180000;
@@ -129,7 +130,9 @@ function loadHealthBoards({
 }
 
 function scheduleAutomaticRefresh(
-  delayMs = CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_IDLE_POLL_MS : HEALTH_BOARD_IDLE_POLL_MS,
+  delayMs = CLOUD_COST_MODE
+    ? CLOUD_HEALTH_BOARD_IDLE_POLL_MS
+    : HEALTH_BOARD_IDLE_POLL_MS,
 ) {
   if (automaticRefreshTimer) window.clearTimeout(automaticRefreshTimer);
   automaticRefreshTimer = window.setTimeout(async () => {
@@ -142,10 +145,16 @@ function scheduleAutomaticRefresh(
     automaticRefreshInFlight = false;
     scheduleAutomaticRefresh(
       snapshot == null
-        ? (CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_ERROR_BACKOFF_MS : HEALTH_BOARD_ERROR_BACKOFF_MS)
+        ? CLOUD_COST_MODE
+          ? CLOUD_HEALTH_BOARD_ERROR_BACKOFF_MS
+          : HEALTH_BOARD_ERROR_BACKOFF_MS
         : snapshot.refreshing === true
-          ? (CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_REFRESHING_POLL_MS : HEALTH_BOARD_REFRESHING_POLL_MS)
-          : (CLOUD_COST_MODE ? CLOUD_HEALTH_BOARD_IDLE_POLL_MS : HEALTH_BOARD_IDLE_POLL_MS),
+          ? CLOUD_COST_MODE
+            ? CLOUD_HEALTH_BOARD_REFRESHING_POLL_MS
+            : HEALTH_BOARD_REFRESHING_POLL_MS
+          : CLOUD_COST_MODE
+            ? CLOUD_HEALTH_BOARD_IDLE_POLL_MS
+            : HEALTH_BOARD_IDLE_POLL_MS,
     );
   }, delayMs);
 }

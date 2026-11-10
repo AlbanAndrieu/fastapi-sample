@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
 import { readFileSync } from "node:fs";
+import { test } from "node:test";
 
 test("public Cloud API dashboard does not auto-poll diagnostics", () => {
   const controller = readFileSync(
@@ -12,7 +12,10 @@ test("public Cloud API dashboard does not auto-poll diagnostics", () => {
   assert.match(controller, /CLOUD_HEALTH_BOARD_REFRESHING_POLL_MS = 15000/);
   assert.match(controller, /CLOUD_HEALTH_BOARD_ERROR_BACKOFF_MS = 180000/);
   assert.match(controller, /if \(CLOUD_COST_MODE\) \{/);
-  assert.match(controller, /if \(!\(await ownerSessionAvailable\(\)\)\) return/);
+  assert.match(
+    controller,
+    /if \(!\(await ownerSessionAvailable\(\)\)\) return/,
+  );
   assert.match(controller, /void installAutomaticRefresh\(\)/);
 });
 
