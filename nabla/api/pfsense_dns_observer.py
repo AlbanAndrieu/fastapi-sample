@@ -265,6 +265,8 @@ async def _observe_posture_origin_bounded(
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
+        # The API key must never transit an ambient, possibly TLS-inspecting, HTTP(S)_PROXY.
+        trust_env=False,
     ) as client:
         system_path = paths["system"]
         system_elapsed_ms: int | None = None

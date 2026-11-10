@@ -43,11 +43,7 @@ class IdentitySettings:
 
 
 def _settings(identity: Literal["posture", "security"]) -> IdentitySettings:
-    provider = (
-        PfSensePostureProviderSettings()
-        if identity == "posture"
-        else PfSenseSecurityProviderSettings()
-    )
+    provider = PfSensePostureProviderSettings() if identity == "posture" else PfSenseSecurityProviderSettings()
     if not provider.base_url:
         raise ValueError(f"{identity} pfSense API URL is not configured")
     if not provider.api_key:
@@ -61,17 +57,11 @@ def _settings(identity: Literal["posture", "security"]) -> IdentitySettings:
 
 def _args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Validate the deployed pfSense posture/security keys without printing "
-            "credential material."
-        ),
+        description=("Validate the deployed pfSense posture/security keys without printing credential material."),
     )
     parser.add_argument(
         "--url",
-        help=(
-            "Override transport URL for both identities, e.g. "
-            "https://172.17.0.1:10443. Keys still come from the runtime environment."
-        ),
+        help=("Override transport URL for both identities, e.g. https://172.17.0.1:10443. Keys still come from the runtime environment."),
     )
     parser.add_argument(
         "--insecure",
@@ -94,8 +84,7 @@ def _probe_identity(
     passed = 0
 
     print(
-        f"identity={identity} target={base_url} verify_ssl={str(verify_ssl).lower()} "
-        f"key_present=yes",
+        f"identity={identity} target={base_url} verify_ssl={str(verify_ssl).lower()} key_present=yes",
     )
     timeout = httpx.Timeout(connect=3.0, read=6.0, write=3.0, pool=3.0)
     with httpx.Client(
@@ -104,6 +93,8 @@ def _probe_identity(
         timeout=timeout,
         follow_redirects=False,
         verify=verify_ssl,
+        # The API key must never transit an ambient, possibly TLS-inspecting, HTTP(S)_PROXY.
+        trust_env=False,
     ) as client:
         for expectation in expectations:
             request_headers = probe_request_headers(f"pfsense-auth-{identity}")
@@ -131,11 +122,7 @@ def _probe_identity(
                     payload = {}
                 if isinstance(payload, dict):
                     response_id = str(payload.get("response_id") or "").strip()
-            response_id_field = (
-                f" response_id={response_id}"
-                if response_id
-                else ""
-            )
+            response_id_field = f" response_id={response_id}" if response_id else ""
             print(
                 f"identity={identity} endpoint={expectation.endpoint} "
                 f"expected={expectation.expected_status} actual={response.status_code} "
@@ -144,8 +131,7 @@ def _probe_identity(
             )
             if response.status_code == 401:
                 print(
-                    "authentication_rejected=yes action=stop "
-                    "reason=avoid_login_protection_lockout",
+                    "authentication_rejected=yes action=stop reason=avoid_login_protection_lockout",
                 )
                 return passed, len(expectations), True
 
@@ -164,8 +150,7 @@ def main(argv: list[str] | None = None) -> int:
             settings = _settings(identity)
         except (ValidationError, ValueError) as exc:
             print(
-                f"identity={identity} result=configuration_error "
-                f"error={exc.__class__.__name__}",
+                f"identity={identity} result=configuration_error error={exc.__class__.__name__}",
             )
             totals[1] += len(
                 [row for row in EXPECTATIONS if row.identity == identity],
@@ -182,8 +167,7 @@ def main(argv: list[str] | None = None) -> int:
         totals[1] += expected
         if auth_rejected:
             print(
-                "matrix_aborted=yes reason=authentication_rejected "
-                "remaining_identities_skipped=yes",
+                "matrix_aborted=yes reason=authentication_rejected remaining_identities_skipped=yes",
             )
             break
 
