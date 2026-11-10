@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Literal
 
@@ -34,11 +35,22 @@ class SiteHealthV2(BaseModel):
     services: list[SiteHealthServiceV2] = Field(max_length=2000)
 
 
-def _verified_state(row: object) -> State:
+def _verified_state(row: object, snapshot_age_seconds: float = 0.0) -> State:
     if not isinstance(row, dict):
         return "unknown"
     if row.get("observation_stale") is True or row.get("probe_stale") is True:
         return "unknown"
+    age = row.get("probe_age_seconds")
+    limit = row.get("probe_stale_after_seconds")
+    # A cached snapshot keeps its original row ages. Advance the evidence
+    # clock by the board cache age before deciding whether it is still valid.
+    if isinstance(age, (int, float)) and not isinstance(age, bool) and (
+        isinstance(limit, (int, float)) and not isinstance(limit, bool)
+    ):
+        if not math.isfinite(age) or not math.isfinite(limit):
+            return "unknown"
+        if limit <= 0 or age + snapshot_age_seconds >= limit:
+            return "unknown"
     state = row.get("effective_state") or row.get("state")
     return state if state in ("ok", "warn", "fail") else "unknown"
 
@@ -59,6 +71,13 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
     if board_state != "fresh":
         return board_state, {}
 
+    raw_age = board.get("age_seconds")
+    snapshot_age_seconds = (
+        max(0.0, float(raw_age))
+        if isinstance(raw_age, (int, float)) and not isinstance(raw_age, bool)
+        and math.isfinite(raw_age)
+        else 0.0
+    )
     by_id: dict[str, dict[str, Any]] = {}
     duplicates: set[str] = set()
     for row in rows:
@@ -71,7 +90,10 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
             duplicates.add(key)
         else:
             by_id[key] = row
-    return board_state, {key: _verified_state(row) for key, row in by_id.items() if key not in duplicates}
+    return board_state, {
+        key: _verified_state(row, snapshot_age_seconds)
+        for key, row in by_id.items() if key not in duplicates
+    }
 
 
 def project_site_health_v2(
