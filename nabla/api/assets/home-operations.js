@@ -21,7 +21,10 @@ import {
 } from "./home-public-cache.js";
 
 const ROOT = document.getElementById("home-operations");
-const INTERVAL_MS = 30000;
+// Limit idle anonymous polling on FastAPI Cloud; manual refresh remains available.
+const INTERVAL_MS = window.location?.hostname?.endsWith(".fastapicloud.dev")
+  ? 60000
+  : 30000;
 const SERIES = Object.create(null);
 let CORRELATION_PAIRS = [];
 let HISTORY_DATA = null;

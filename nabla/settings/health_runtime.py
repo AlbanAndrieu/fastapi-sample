@@ -9,6 +9,12 @@ from pydantic import field_validator
 from nabla.settings.base import SettingsBase
 
 _DEFAULT_HEALTH_BOARD_CACHE_TTL_SECONDS = 30.0
+_DEFAULT_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS = 180.0
+_DEFAULT_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS = 90.0
+_MIN_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS = 60.0
+_MAX_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS = 600.0
+_MIN_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS = 15.0
+_MAX_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS = 300.0
 _MIN_HEALTH_BOARD_CACHE_TTL_SECONDS = 10.0
 _MAX_HEALTH_BOARD_CACHE_TTL_SECONDS = 300.0
 
@@ -40,6 +46,8 @@ class HealthRuntimeSettings(SettingsBase):
     """Environment-backed cache settings for health/runtime snapshots."""
 
     health_board_cache_ttl_seconds: float = _DEFAULT_HEALTH_BOARD_CACHE_TTL_SECONDS
+    cloud_health_board_cache_ttl_seconds: float = _DEFAULT_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS
+    cloud_health_board_failure_backoff_seconds: float = _DEFAULT_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS
     truenas_runtime_cache_ttl_seconds: float = _DEFAULT_TRUENAS_RUNTIME_CACHE_TTL_SECONDS
 
     @field_validator("health_board_cache_ttl_seconds", mode="before")
@@ -50,6 +58,26 @@ class HealthRuntimeSettings(SettingsBase):
             default=_DEFAULT_HEALTH_BOARD_CACHE_TTL_SECONDS,
             minimum=_MIN_HEALTH_BOARD_CACHE_TTL_SECONDS,
             maximum=_MAX_HEALTH_BOARD_CACHE_TTL_SECONDS,
+        )
+
+    @field_validator("cloud_health_board_cache_ttl_seconds", mode="before")
+    @classmethod
+    def _normalize_cloud_health_board_ttl(cls, value: object) -> float:
+        return _bounded_float(
+            value,
+            default=_DEFAULT_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS,
+            minimum=_MIN_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS,
+            maximum=_MAX_CLOUD_HEALTH_BOARD_CACHE_TTL_SECONDS,
+        )
+
+    @field_validator("cloud_health_board_failure_backoff_seconds", mode="before")
+    @classmethod
+    def _normalize_cloud_health_board_backoff(cls, value: object) -> float:
+        return _bounded_float(
+            value,
+            default=_DEFAULT_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS,
+            minimum=_MIN_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS,
+            maximum=_MAX_CLOUD_HEALTH_BOARD_FAILURE_BACKOFF_SECONDS,
         )
 
     @field_validator("truenas_runtime_cache_ttl_seconds", mode="before")
