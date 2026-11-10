@@ -420,7 +420,7 @@ function renderResourceHeatmap(snapshot) {
         const displayed = cell.value.toLocaleString("fr-FR", {
           maximumFractionDigits: cell.value < 1 ? 3 : 1,
         }) + " " + cell.unit;
-        tile.style.setProperty("--heat", String((cell.relativePercent ?? 0) / 100));
+        tile.style.setProperty("--heat-alpha", String(0.10 + (cell.relativePercent ?? 0) * 0.0066));
         tile.textContent = displayed;
         tile.setAttribute(
           "aria-label",
