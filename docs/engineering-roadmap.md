@@ -337,6 +337,17 @@ pour chaque service et refus WAN correct.
   légendes netdata réelles (`idle`, `used`/`free`, `received`/`sent`) ou
   adapter la conversion ; recette mobile de la nouvelle section.
 
+- [ ] **P0 — Bascule `sample.albandrieu.com` → `fastapi-sample.albandrieu.com` (10/11, CODED) :**
+  les sondes DNS (`dns_sample`) visent désormais le nouveau nom ; `compose.yml`
+  le déclarait déjà. Constat du 10/11 : aucun enregistrement DNS pour le
+  nouveau nom (le `tofu apply` du renommage, nabla-compose
+  `terraform/cloudflare`, n'a jamais été exécuté) alors que l'ancien nom
+  répond derrière Cloudflare Access. Jusqu'à l'apply, `dns_sample` reste en
+  `fail`/`nxdomain` : c'est l'état réel. **Preuve suivante :** apply
+  Cloudflare depuis la workstation, puis `dns_sample=ok` et défi Access (302)
+  sur `https://fastapi-sample.albandrieu.com/` ; ensuite retrait de l'ancien
+  nom des destinations Access.
+
 ## Documentation et séquence de reprise
 
 1. [Guide local-first](../.agents/skills/local-first-quality/SKILL.md) :
