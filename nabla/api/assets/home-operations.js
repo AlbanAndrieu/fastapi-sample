@@ -10,6 +10,7 @@ import {
   projectProbes,
   projectPrometheusHistory,
   projectResources,
+  projectResourceHeatmap,
   projectSecurity,
   projectServiceFootprint,
   sparklinePath,
@@ -213,6 +214,8 @@ function observe(name, at, value, target, label) {
 function clearPrivate({ purge = false } = {}) {
   LATEST_RESOURCE_TELEMETRY = null;
   element("home-footprint-bars")?.replaceChildren();
+  element("home-resource-heatmap")?.replaceChildren();
+  put("home-resource-heatmap-source", "Aucune mesure privée vérifiée");
   put("home-footprint-source", "Mesures non confirmées");
   put(
     "home-footprint-note",
@@ -371,6 +374,66 @@ function privateBoard(board) {
   return latency;
 }
 
+function renderResourceHeatmap(snapshot) {
+  const target = element("home-resource-heatmap");
+  if (!target) return;
+  target.replaceChildren();
+  const matrix = projectResourceHeatmap(snapshot);
+  if (!matrix || matrix.rows.length === 0) {
+    put("home-resource-heatmap-source", "Mesures absentes ou périmées · aucune valeur supposée");
+    return;
+  }
+  put(
+    "home-resource-heatmap-source",
+    matrix.measuredServices + "/" + matrix.declaredServices +
+      " services avec au moins une mesure · " + matrix.observedAt +
+      (matrix.truncated ? " · " + matrix.truncated + " autres non affichés" : ""),
+  );
+  const header = document.createElement("div");
+  header.className = "op-heatmap-row op-heatmap-head";
+  const first = document.createElement("span");
+  first.textContent = "Service";
+  header.append(first);
+  for (const dimension of matrix.dimensions) {
+    const title = document.createElement("span");
+    title.textContent = dimension.label;
+    title.title = dimension.label + " · " + dimension.unit;
+    header.append(title);
+  }
+  target.append(header);
+  for (const row of matrix.rows) {
+    const line = document.createElement("div");
+    line.className = "op-heatmap-row";
+    const name = document.createElement("strong");
+    name.className = "op-heatmap-name";
+    name.textContent = row.name;
+    name.title = row.name;
+    line.append(name);
+    for (const cell of row.cells) {
+      const tile = document.createElement("span");
+      tile.className = "op-heatmap-cell";
+      if (cell.value === null) {
+        tile.classList.add("op-heatmap-missing");
+        tile.textContent = "—";
+        tile.setAttribute("aria-label", row.name + " · " + cell.label + " : non mesuré");
+      } else {
+        const displayed = cell.value.toLocaleString("fr-FR", {
+          maximumFractionDigits: cell.value < 1 ? 3 : 1,
+        }) + " " + cell.unit;
+        tile.style.setProperty("--heat", String((cell.relativePercent ?? 0) / 100));
+        tile.textContent = displayed;
+        tile.setAttribute(
+          "aria-label",
+          row.name + " · " + cell.label + " : " + displayed +
+            " · intensité relative, pas capacité",
+        );
+      }
+      line.append(tile);
+    }
+    target.append(line);
+  }
+}
+
 function renderServiceFootprint(snapshot) {
   // Never expose this projection outside the already authenticated OWNER panel.
   const list = element("home-footprint-bars");
@@ -463,6 +526,7 @@ function renderServiceFootprint(snapshot) {
 function privateResources(snapshot) {
   LATEST_RESOURCE_TELEMETRY = snapshot;
   renderServiceFootprint(snapshot);
+  renderResourceHeatmap(snapshot);
   const resources = projectResources(snapshot);
   if (!resources) {
     put(
