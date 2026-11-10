@@ -135,3 +135,49 @@ ne pas lancer `fastapi deploy` dans une CI supplémentaire.
 - https://fastapicloud.com/docs/monitoring-and-performance/metrics/
 - https://fastapicloud.com/docs/advanced-features/autoscaling/
 - https://fastapicloud.com/docs/team-management/billing/usage-based-billing/
+
+## Correction UI et budget Hobby — 10 novembre 2026
+
+- La page `/api?operator=1&ui_full=1` importe explicitement le classifieur
+  `isTrueNasExposureCheck` du module de classification partagé.
+- Le drill-down TrueNAS s'aligne désormais sur le **début** du panneau
+  (`scrollIntoView({block:"start"})`) ; le schéma des protocoles reste
+  défilable horizontalement dans un conteneur borné.
+- Le panneau **FastAPI runtime** en mode Cloud présente les enveloppes
+  Hobby **prévues** (180 heures-réplicas Nano, 5 Go sortants, 500 minutes
+  de build par période). Les compteurs sont communs à l'équipe et
+  **ne sont pas** les consommations de l'application.
+- L'endpoint protégé `GET /api/runtime/resources` est appelé **une fois
+  sur action explicite OWNER**, sans rafraîchissement automatique.
+  Sa mémoire RSS de processus est comparée à la référence Nano de 500 MiB :
+  seuil d'information à 80 %, seuil critique à 100 %. Ce signal n'est
+  ni la mémoire totale du réplica ni une alerte de dépassement de quota.
+- Tant qu'il n'existe pas de source fiable pour les totaux de consommation
+  de l'équipe, les indicateurs de quota restent **unavailable**, et
+  aucune alerte de dépassement de quota mensuel n'est affichée.
+- La documentation officielle signale que l'usage n'est pas encore
+  facturé à la consommation ; aucune API de quota authentifiée exploitable
+  depuis ce frontend n'a été attestée.
+
+Tests du changement (sans Actions) :
+
+```bash
+node --check nabla/api/assets/api-cloud-budget.js
+node --check nabla/api/assets/api-sickz.js
+node --test tests/js/api-cloud-budget.test.mjs
+python -m pytest -q tests/unit/test_api_service_group_assets.py \
+  tests/unit/test_health_ui_operator_followup.py \
+  tests/unit/test_runtime_ui_contract.py
+```
+
+Recette à faire sur le SHA **déployé** : afficher la page Cloud avancée sans
+`ReferenceError` ; ouvrir le lien TrueNAS à 375 px et 1280 px de large ;
+confirmer que le titre reste visible et que le schéma défile sans débordement
+global ; ouvrir le budget Hobby, valider que la mesure est refusée hors OWNER
+et n'induit aucune requête périodique. Mesurer les véritables valeurs CPU,
+mémoire et réplicas dans la console Cloud (Metrics).
+
+Sources :
+https://fastapicloud.com/docs/team-management/billing/
+https://fastapicloud.com/docs/team-management/billing/usage-based-billing/
+https://fastapicloud.com/docs/monitoring-and-performance/metrics/

@@ -129,3 +129,30 @@ def test_runtime_refresh_preserves_operator_expansion_state() -> None:
     assert "server memory and selected DB totals" in javascript
     assert "panel.open =" not in javascript
     assert "Never change <details>.open from telemetry" in javascript
+
+def test_fastapi_cloud_budget_reports_real_limits_without_fabricated_usage() -> None:
+    cloud = render_api_root_page(
+        title_suffix="test",
+        app_version="1.0.0",
+        runtime_mode="fastapi_cloud",
+    )
+    local = render_api_root_page(
+        title_suffix="test",
+        app_version="1.0.0",
+        runtime_mode="homelab",
+    )
+    javascript = (ASSETS / "api-runtime.js").read_text(encoding="utf-8")
+    budget = (ASSETS / "api-cloud-budget.js").read_text(encoding="utf-8")
+    assert 'id="runtime-cloud-budget-title"' in cloud
+    assert "180 Nano replica-hours" in cloud
+    assert "500 minutes" in cloud
+    assert "5 GB" in cloud
+    assert "Actual team usage: unavailable" in cloud
+    assert 'id="runtime-cloud-process-refresh"' in cloud
+    assert 'id="runtime-cloud-process-refresh"' not in local
+    assert "installCloudProcessBudgetSample();" in javascript
+    assert 'fetch("/api/runtime/resources"' in budget
+    assert 'credentials: "same-origin"' in budget
+    assert "addEventListener(\"click\"" in budget
+    assert "setInterval" not in budget
+    assert "nanoProcessMemoryAssessment" in budget

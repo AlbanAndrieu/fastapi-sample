@@ -1,5 +1,6 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 import { escapeText } from "./api-health-ui.js";
+import { installCloudProcessBudgetSample } from "./api-cloud-budget.js";
 
 function setText(id, value) {
   const element = document.getElementById(id);
@@ -212,6 +213,7 @@ function render(snapshot) {
 }
 
 export function loadRuntimeTopology() {
+  installCloudProcessBudgetSample();
   fetchHealthBoard()
     .then(render)
     .catch((error) => {

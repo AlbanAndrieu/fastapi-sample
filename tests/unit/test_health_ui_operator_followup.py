@@ -174,3 +174,16 @@ def test_mobile_filter_navigation_is_compact_and_truenas_flow_is_centered() -> N
     assert "min-height: 44px" in stylesheet
     assert ".truenas-pipeline" in stylesheet
     assert "justify-content: safe center" in stylesheet
+
+def test_truenas_drilldown_starts_with_heading_in_viewport() -> None:
+    followup = (ASSETS / "api-health-ui-operator-followup.js").read_text(
+        encoding="utf-8",
+    )
+    css = (ASSETS / "api-truenas.css").read_text(encoding="utf-8")
+    navigation = followup.split("function openTrueNasDiagnostics()", maxsplit=1)[1]
+    navigation = navigation.split("function filterIsActive()", maxsplit=1)[0]
+    assert 'scrollIntoView({ behavior: "smooth", block: "start" })' in navigation
+    assert 'block: "center"' not in navigation
+    assert "scroll-margin-top: 1rem" in css
+    assert "max-width: 100%" in css
+    assert "overscroll-behavior-x: contain" in css
