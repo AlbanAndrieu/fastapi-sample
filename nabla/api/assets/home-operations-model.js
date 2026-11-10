@@ -596,3 +596,172 @@ export function temporalSparklinePath(
     })
     .join(" ");
 }
+
+// Live TrueNAS appliance pulse (OWNER only). Every value is validated; a
+// section that the server marked unavailable stays unknown in the UI.
+const PULSE_SECTIONS = Object.freeze([
+  "appliance",
+  "cpu",
+  "memory",
+  "network",
+  "storage",
+  "alerts",
+  "apps",
+]);
+const PULSE_MAX_POINTS = 400;
+
+function pulseSeries(rows, maximum) {
+  if (!Array.isArray(rows) || rows.length > PULSE_MAX_POINTS) return [];
+  const points = [];
+  let previous = -1;
+  for (const row of rows) {
+    if (
+      !Array.isArray(row) ||
+      row.length !== 2 ||
+      !Number.isSafeInteger(row[0]) ||
+      row[0] <= previous
+    )
+      return [];
+    const value = finite(row[1]);
+    if (value === null || value < 0 || (maximum !== null && value > maximum))
+      return [];
+    previous = row[0];
+    points.push({ at: new Date(row[0] * 1000).toISOString(), value });
+  }
+  return points;
+}
+
+function percent(value) {
+  const number = finite(value);
+  return number !== null && number >= 0 && number <= 100 ? number : null;
+}
+
+function nonNegative(value) {
+  const number = finite(value);
+  return number !== null && number >= 0 ? number : null;
+}
+
+function text(value, limit = 160) {
+  return typeof value === "string" ? value.slice(0, limit) : "";
+}
+
+export function projectAppliancePulse(payload, nowMs = Date.now()) {
+  if (
+    payload?.schema_version !== 1 ||
+    payload?.model !== "owner-appliance-pulse" ||
+    payload?.source !== "truenas_middleware" ||
+    payload?.synthetic !== false ||
+    !["observed", "partial"].includes(payload?.state) ||
+    !hasFreshTimestamp(payload.observed_at, nowMs)
+  )
+    return null;
+  const section = {};
+  for (const key of PULSE_SECTIONS) section[key] = record(payload[key]);
+  const observed = (key) => section[key].state === "observed";
+  const load = record(section.appliance.load);
+  const impacts = (Array.isArray(payload.impacts) ? payload.impacts : [])
+    .filter(
+      (item) =>
+        item &&
+        typeof item.id === "string" &&
+        STATES.includes(item.state) &&
+        typeof item.evidence === "string",
+    )
+    .slice(0, 20)
+    .map((item) => ({
+      id: item.id,
+      from: text(item.from, 32),
+      to: text(item.to, 32),
+      state: item.state,
+      evidence: text(item.evidence),
+      linked: Array.isArray(item.linked)
+        ? item.linked.filter((entry) => typeof entry === "string").slice(0, 20)
+        : [],
+    }));
+  const alertLevels = {};
+  for (const [level, value] of Object.entries(
+    record(section.alerts.by_level),
+  )) {
+    if (/^[A-Z_]{1,16}$/.test(level) && count(value) !== null)
+      alertLevels[level] = value;
+  }
+  const appCounts = {};
+  for (const [state, value] of Object.entries(record(section.apps.counts))) {
+    if (/^[A-Z_]{1,16}$/.test(state) && count(value) !== null)
+      appCounts[state] = value;
+  }
+  return {
+    observedAt: payload.observed_at,
+    partial: payload.state === "partial",
+    pressure: validState(payload.pressure_state),
+    appliance: {
+      observed: observed("appliance"),
+      version: text(section.appliance.version, 64) || null,
+      cores: count(section.appliance.cores),
+      load1: nonNegative(load["1m"]),
+      loadPerCore: nonNegative(section.appliance.load_per_core_1m),
+      uptimeSeconds: nonNegative(section.appliance.uptime_seconds),
+    },
+    cpu: {
+      state: text(section.cpu.state, 32) || "unavailable",
+      busyPercent: percent(section.cpu.busy_percent),
+      series: pulseSeries(section.cpu.series, 100),
+    },
+    memory: {
+      state: text(section.memory.state, 32) || "unavailable",
+      usedPercent: percent(section.memory.used_percent),
+      series: pulseSeries(section.memory.series, 100),
+    },
+    network: {
+      observed: observed("network"),
+      throughput: nonNegative(section.network.throughput),
+      label: text(section.network.vertical_label, 48) || null,
+      interfaces: (Array.isArray(section.network.physical)
+        ? section.network.physical
+        : []
+      )
+        .filter((row) => row && typeof row.name === "string")
+        .map((row) => ({
+          name: row.name.slice(0, 32),
+          linkUp: row.link_up === true,
+        })),
+      series: pulseSeries(section.network.series, null),
+    },
+    storage: {
+      observed: observed("storage"),
+      worstUsedPercent: percent(section.storage.worst_used_percent),
+      pools: (Array.isArray(section.storage.pools) ? section.storage.pools : [])
+        .filter((row) => row && typeof row.name === "string")
+        .map((row) => ({
+          name: row.name.slice(0, 64),
+          status: text(row.status, 32),
+          healthy: row.healthy === true,
+          usedPercent: percent(row.used_percent),
+        })),
+    },
+    alerts: {
+      observed: observed("alerts"),
+      active: count(section.alerts.active),
+      byLevel: alertLevels,
+      items: (Array.isArray(section.alerts.items) ? section.alerts.items : [])
+        .filter((row) => row && typeof row.klass === "string")
+        .slice(0, 20)
+        .map((row) => ({
+          klass: row.klass.slice(0, 64),
+          level: text(row.level, 16),
+          dismissed: row.dismissed === true,
+          text: text(row.text),
+        })),
+    },
+    apps: {
+      observed: observed("apps"),
+      total: count(section.apps.total),
+      counts: appCounts,
+      crashed: (Array.isArray(section.apps.crashed) ? section.apps.crashed : [])
+        .filter((entry) => typeof entry === "string")
+        .slice(0, 20),
+    },
+    impacts,
+    errors: Object.keys(record(payload.errors)).slice(0, 20),
+  };
+}

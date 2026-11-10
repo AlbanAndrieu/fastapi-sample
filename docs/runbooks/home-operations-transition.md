@@ -32,14 +32,14 @@ démarrage du processus.
 1. L'affichage public ne lit que `/api/ui/services` et rend la distribution.
 2. Le navigateur interroge `/api/ui/session` en mode same-origin.
 3. Si `authenticated !== true`, aucun endpoint détaillé n'est demandé
-   depuis la racine. Un lien mène à `/api?operator=1`.
+    depuis la racine. Un lien mène à `/api?operator=1`.
 4. Si la session est reconnue, la page lit les **caches** :
-   `/api/health-board` et `/api/topology-telemetry`.
+    `/api/health-board` et `/api/topology-telemetry`.
 5. La protection serveur existante demeure l'autorité.
-   Le client n'envoie aucun cookie ou clé dans une URL ou un stockage local.
+    Le client n'envoie aucun cookie ou clé dans une URL ou un stockage local.
 6. Le serveur ne doit jamais faire confiance au seul JavaScript pour
-   autoriser l'accès à ces endpoints ; revoir l'allowlist de lecture
-   publique avant d'exposer la page sur un réseau non autorisé.
+    autoriser l'accès à ces endpoints ; revoir l'allowlist de lecture
+    publique avant d'exposer la page sur un réseau non autorisé.
 
 ## Interprétation et diagnostic
 
@@ -111,27 +111,71 @@ et comporte une CSP limitant les scripts et connexions au même domaine,
 avec `frame-ancestors 'none'`.
 
 
+## Pulse TrueNAS en direct (08/11)
+
+Constat du 8 novembre sur FastAPI Cloud : les sections CPU/mémoire/réseau
+restaient vides, car elles dépendent de Prometheus (LAN uniquement :
+`/api/home/metrics/history` répond `not_executed`, `/api/topology-telemetry`
+`not_configured`). L'API TrueNAS, elle, est joignable et authentifiée depuis
+le Cloud (observateur dédié). L'accueil propriétaire lit donc désormais
+`GET /api/home/appliance/pulse` : un instantané **en direct** de l'appliance,
+sans Prometheus, avec cache 30 s et échéance 8 s.
+
+Appels middleware, tous en lecture seule et documentés, dans une seule session
+authentifiée ; chacun est optionnel et son échec est classé (`errors`) sans
+texte d'erreur :
+
+| Méthode | Rôle TrueNAS | Signal |
+| --- | --- | --- |
+| `system.info` | `READONLY_ADMIN` | version, cœurs, charge 1/5/15 min, charge par cœur, uptime |
+| `alert.list` | `ALERT_LIST_READ` | alertes actives par niveau, classe, texte sans HTML (160 car.) |
+| `pool.query` | lecture | capacité, santé, fragmentation, scrub par pool |
+| `interface.query` | lecture | interfaces physiques/LAG et état de lien |
+| `app.query` | lecture | états des Apps (RUNNING/STOPPED/CRASHED/DEPLOYING) |
+| `reporting.netdata_graphs` | `REPORTING_READ` | libellés d'axe (`vertical_label`) |
+| `reporting.netdata_get_data` | `REPORTING_READ` | séries 1 h : `cpu`, `memory`, `interface` (liens physiques actifs) |
+
+Les séries netdata ne sont converties que si leur légende est reconnue
+(`idle` pour le CPU, `used`/`free` pour la mémoire, `received`/`sent` pour le
+réseau) ; sinon la section indique `legend_unrecognized` avec la légende
+observée, sans valeur inventée. Les pourcentages sont des ratios, donc
+indépendants des unités netdata ; le débit réseau porte le libellé d'axe
+renvoyé par TrueNAS.
+
+**Interdépendances** (`impacts`) : associations calculées uniquement entre
+signaux du même instantané — capacité du pool ↔ alertes stockage, santé des
+pools, charge par cœur ↔ services, mémoire ↔ Apps `CRASHED`, flotte d'Apps ↔
+alertes Apps, niveaux d'alertes, liens physiques inactifs. Chaque ligne porte
+l'état `ok`/`warn`/`fail`, la preuve et les identifiants liés ; aucune
+causalité n'est affirmée. `pressure_state` est le pire des états.
+
+Recette : depuis une session OWNER, `GET /api/home/appliance/pulse` doit
+répondre `state=observed` (ou `partial` avec `errors` listant les méthodes
+refusées, à corriger par les rôles de la clé d'observation). Sans session :
+refus. Tout paramètre de requête : 422. Les erreurs middleware n'apparaissent
+que sous forme de classification (`stage:ExceptionType`).
+
 ## Conditions d'acceptation — TrueNAS et FastAPI Cloud
 
 1. Sur TrueNAS : `FASTAPI_RUNTIME_MODE=homelab` et
-   `HOMELAB_PROMETHEUS_URL` configurés pour un Prometheus de confiance.
+    `HOMELAB_PROMETHEUS_URL` configurés pour un Prometheus de confiance.
 2. Depuis une session OWNER autorisée, vérifier :
-   `GET /api/home/metrics/history?window=1h`, puis `24h`, puis `7d`.
-   Contrôler `model`, `state`, `step_seconds`, `series` et la durée.
+    `GET /api/home/metrics/history?window=1h`, puis `24h`, puis `7d`.
+    Contrôler `model`, `state`, `step_seconds`, `series` et la durée.
 3. Vérifier dans Prometheus la présence des métriques cAdvisor pour le
-   conteneur Compose `sample` (ou l'un des noms prévus).
+    conteneur Compose `sample` (ou l'un des noms prévus).
 4. Confirmer l'instrumentation HTTP `http_request_duration_seconds_bucket`,
-   sous le job `fastapi_sample` ; si absente, p95 doit rester inconnu.
+    sous le job `fastapi_sample` ; si absente, p95 doit rester inconnu.
 5. Confirmer l'enregistrement `nabla:service:synthetic_availability_ratio_5m`
-   pour le service Gatus correspondant ; une série manquante n'est pas 0 %.
+    pour le service Gatus correspondant ; une série manquante n'est pas 0 %.
 6. Sans session OWNER, l'historique répond par un refus.
-   La règle de lecture publique temporaire n'y donne pas accès.
+    La règle de lecture publique temporaire n'y donne pas accès.
 7. En Cloud, le même endpoint ne doit jamais joindre Prometheus LAN ;
-   son résultat est `not_executed` si appelé par une session autorisée.
+    son résultat est `not_executed` si appelé par une session autorisée.
 8. Contrôler que `/` affiche la synthèse publique sans bloquer
-   et que `/demo/sensors` reste une démonstration distincte.
+    et que `/demo/sensors` reste une démonstration distincte.
 9. Vérifier les cas 302/403 (Access), 429, timeout, série ambiguë
-   et série périmée : jamais un statut sain inventé.
+    et série périmée : jamais un statut sain inventé.
 10. Vérifier les captures desktop/mobile (CSS autonome, sans CDN) et
     confirmer le SHA réellement déployé sur les deux plateformes.
 
@@ -155,18 +199,18 @@ publiques dès que l'agrégat devient frais.
 **Comportement de `/` :**
 
 1. Au chargement, lire éventuellement `sessionStorage` pour afficher
-   **uniquement les noms et catégories publics**, tous `UNKNOWN`.
+    **uniquement les noms et catégories publics**, tous `UNKNOWN`.
 2. Lancer immédiatement `/api/ui/services` et `/api/ui/session`
-   en parallèle, mais afficher les cartes dès la réponse du catalogue,
-   sans attendre la vérification de session.
+    en parallèle, mais afficher les cartes dès la réponse du catalogue,
+    sans attendre la vérification de session.
 3. Lorsque le résultat est `pending` ou `stale`, relire automatiquement
-   après **2, 4, 8, 15 et 30 secondes**, puis revenir à l'intervalle
-   habituel de **30 secondes**. Les onglets masqués ne sondent pas.
+    après **2, 4, 8, 15 et 30 secondes**, puis revenir à l'intervalle
+    habituel de **30 secondes**. Les onglets masqués ne sondent pas.
 4. Une réponse publique `401/403/404` efface le cache de session ; aucun
-   ancien nom n'est affiché comme preuve autorisée, et aucune tempête
-   de retries n'est déclenchée.
+    ancien nom n'est affiché comme preuve autorisée, et aucune tempête
+    de retries n'est déclenchée.
 5. Si le réseau tombe, un ancien inventaire public peut rester visible,
-   mais **jamais** ses anciens états ou ses diagnostics propriétaires.
+    mais **jamais** ses anciens états ou ses diagnostics propriétaires.
 
 | Couche | Stockage | TTL / politique | Contenu |
 | --- | --- | --- | --- |

@@ -3,6 +3,7 @@ import {
   appendObservation,
   pearsonCorrelation,
   projectAggregateNetworkFlow,
+  projectAppliancePulse,
   projectFleet,
   projectLatency,
   projectProbeMatrix,
@@ -246,6 +247,229 @@ function clearPrivate({ purge = false } = {}) {
   put("home-history-status", "Historique non confirmé");
   put("home-p95", "—");
   put("home-gatus", "—");
+  clearPulse("TrueNAS · aucun instantané");
+}
+
+const PULSE_FIELDS = [
+  "home-pulse-load",
+  "home-pulse-cpu",
+  "home-pulse-memory",
+  "home-pulse-network",
+  "home-pulse-storage",
+  "home-pulse-alerts",
+  "home-pulse-apps",
+];
+
+function clearPulse(message) {
+  for (const id of PULSE_FIELDS) put(id, "—");
+  for (const id of [
+    "home-pulse-load-detail",
+    "home-pulse-cpu-detail",
+    "home-pulse-memory-detail",
+    "home-pulse-network-detail",
+    "home-pulse-storage-detail",
+    "home-pulse-alerts-detail",
+    "home-pulse-apps-detail",
+  ])
+    put(id, "Non mesuré");
+  for (const id of [
+    "home-pulse-cpu-history",
+    "home-pulse-memory-history",
+    "home-pulse-network-history",
+  ]) {
+    element(id)?.replaceChildren();
+  }
+  put("home-pulse-source", message);
+  put("home-pulse-impacts-summary", "Aucune interdépendance mesurée");
+  element("home-pulse-impacts")?.replaceChildren();
+  const led = element("home-pulse-led");
+  if (led) led.dataset.state = "unknown";
+}
+
+function pulseSparkline(target, points, label) {
+  const node = element(target);
+  if (!node) return;
+  if (points.length < 2) {
+    node.replaceChildren();
+    node.setAttribute("aria-label", label + " : série TrueNAS insuffisante");
+    return;
+  }
+  const startMs = Date.parse(points[0].at);
+  const endMs = Date.parse(points[points.length - 1].at);
+  const path = temporalSparklinePath(points, {
+    startMs,
+    endMs,
+    maxGapMs: 15 * 60000,
+  });
+  if (!path) {
+    node.replaceChildren();
+    return;
+  }
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 420 108");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  svg.setAttribute(
+    "aria-label",
+    label + " · " + points.length + " points TrueNAS",
+  );
+  const grid = document.createElementNS(NS, "path");
+  grid.setAttribute("d", "M0 54 L420 54");
+  grid.setAttribute("class", "op-spark-grid");
+  const trace = document.createElementNS(NS, "path");
+  trace.setAttribute("d", path);
+  trace.setAttribute("class", "op-spark-line");
+  svg.append(grid, trace);
+  node.replaceChildren(svg);
+}
+
+function privatePulse(payload) {
+  const pulse = projectAppliancePulse(payload);
+  if (!pulse) {
+    const state =
+      typeof payload?.state === "string" ? payload.state : "inaccessible";
+    clearPulse("API TrueNAS · " + state + " · aucune valeur supposée");
+    return null;
+  }
+  const led = element("home-pulse-led");
+  if (led) led.dataset.state = pulse.pressure;
+  put(
+    "home-pulse-source",
+    "API TrueNAS " +
+      (pulse.appliance.version || "") +
+      " · " +
+      pulse.observedAt +
+      (pulse.partial ? " · partiel (" + pulse.errors.join(", ") + ")" : ""),
+  );
+  metric("home-pulse-load", pulse.appliance.loadPerCore, 2);
+  put(
+    "home-pulse-load-detail",
+    pulse.appliance.load1 !== null && pulse.appliance.cores !== null
+      ? "charge 1 min " +
+          pulse.appliance.load1.toFixed(2) +
+          " sur " +
+          pulse.appliance.cores +
+          " cœurs"
+      : "system.info indisponible",
+  );
+  metric("home-pulse-cpu", pulse.cpu.busyPercent, 0, " %");
+  put(
+    "home-pulse-cpu-detail",
+    pulse.cpu.state === "observed"
+      ? "netdata · dernière heure"
+      : pulse.cpu.state === "legend_unrecognized"
+        ? "légende netdata non reconnue"
+        : "série indisponible",
+  );
+  pulseSparkline("home-pulse-cpu-history", pulse.cpu.series, "CPU occupé %");
+  metric("home-pulse-memory", pulse.memory.usedPercent, 0, " %");
+  put(
+    "home-pulse-memory-detail",
+    pulse.memory.state === "observed"
+      ? "utilisée / total netdata"
+      : pulse.memory.state === "legend_unrecognized"
+        ? "légende netdata non reconnue"
+        : "série indisponible",
+  );
+  pulseSparkline(
+    "home-pulse-memory-history",
+    pulse.memory.series,
+    "Mémoire utilisée %",
+  );
+  metric(
+    "home-pulse-network",
+    pulse.network.throughput,
+    0,
+    pulse.network.label ? " " + pulse.network.label : "",
+  );
+  const linksUp = pulse.network.interfaces
+    .filter((row) => row.linkUp)
+    .map((row) => row.name);
+  put(
+    "home-pulse-network-detail",
+    pulse.network.observed
+      ? linksUp.length
+        ? "RX+TX " + linksUp.join(", ")
+        : "aucun lien physique actif"
+      : "interface.query indisponible",
+  );
+  pulseSparkline(
+    "home-pulse-network-history",
+    pulse.network.series,
+    "Débit RX+TX",
+  );
+  metric("home-pulse-storage", pulse.storage.worstUsedPercent, 1, " %");
+  put(
+    "home-pulse-storage-detail",
+    pulse.storage.observed
+      ? pulse.storage.pools
+          .map(
+            (pool) =>
+              pool.name +
+              " " +
+              pool.status +
+              (pool.usedPercent !== null
+                ? " " + pool.usedPercent.toFixed(0) + " %"
+                : ""),
+          )
+          .join(" · ") || "aucun pool"
+      : "pool.query indisponible",
+  );
+  put("home-pulse-alerts", pulse.alerts.active);
+  put(
+    "home-pulse-alerts-detail",
+    pulse.alerts.observed
+      ? Object.entries(pulse.alerts.byLevel)
+          .map(([level, value]) => level + " " + value)
+          .join(" · ") || "aucune alerte active"
+      : "alert.list indisponible",
+  );
+  const counts = pulse.apps.counts;
+  put("home-pulse-apps", pulse.apps.total);
+  put(
+    "home-pulse-apps-detail",
+    pulse.apps.observed
+      ? (counts.RUNNING || 0) +
+          " RUNNING · " +
+          (counts.STOPPED || 0) +
+          " STOPPED · " +
+          (counts.CRASHED || 0) +
+          " CRASHED · " +
+          (counts.DEPLOYING || 0) +
+          " DEPLOYING"
+      : "app.query indisponible",
+  );
+  const target = element("home-pulse-impacts");
+  if (target) {
+    target.replaceChildren(
+      ...pulse.impacts.map((impact) => {
+        const li = document.createElement("li");
+        li.className = "op-check";
+        const heading = document.createElement("div");
+        heading.className = "op-check-heading";
+        const label = document.createElement("strong");
+        label.textContent = impact.from + " → " + impact.to;
+        const badge = document.createElement("span");
+        badge.className = "op-check-state op-check-state-" + impact.state;
+        badge.textContent = impact.state.toUpperCase();
+        heading.append(label, badge);
+        const detail = document.createElement("p");
+        detail.textContent =
+          impact.evidence +
+          (impact.linked.length ? " · " + impact.linked.join(", ") : "");
+        li.append(heading, detail);
+        return li;
+      }),
+    );
+  }
+  put(
+    "home-pulse-impacts-summary",
+    pulse.impacts.length +
+      " associations du même instantané · pression " +
+      pulse.pressure.toUpperCase() +
+      " · aucune causalité déduite",
+  );
+  return pulse;
 }
 
 function renderProbeMatrix(board) {
@@ -788,11 +1012,16 @@ async function refresh() {
       put("home-observed", "Mode public · détails réservés au propriétaire");
       clearPrivate({ purge: true });
     } else {
-      const [boardResult, telemetryResult] = await Promise.allSettled([
-        fetchJSON("/api/health-board", 8000),
-        fetchJSON("/api/topology-telemetry", 6000),
-      ]);
+      const [boardResult, telemetryResult, pulseResult] =
+        await Promise.allSettled([
+          fetchJSON("/api/health-board", 8000),
+          fetchJSON("/api/topology-telemetry", 6000),
+          fetchJSON("/api/home/appliance/pulse", 10000),
+        ]);
       clearPrivate();
+      privatePulse(
+        pulseResult.status === "fulfilled" ? pulseResult.value : null,
+      );
       let latency = null;
       if (
         boardResult.status === "fulfilled" &&
