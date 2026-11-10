@@ -134,6 +134,8 @@ async def _get_pfsense_liveness(
         timeout=timeout,
         verify=verify_ssl,
         follow_redirects=False,
+        # The API key must never transit an ambient, possibly TLS-inspecting, HTTP(S)_PROXY.
+        trust_env=False,
     ) as client:
         for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
             attempts = attempt

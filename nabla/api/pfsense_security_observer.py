@@ -360,14 +360,15 @@ async def _fetch_snort2c(
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
+        # The API key must never transit an ambient, possibly TLS-inspecting, HTTP(S)_PROXY.
+        trust_env=False,
     ) as client:
         for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
             attempts = attempt
             try:
                 headers = probe_request_headers("pfsense-security")
                 logger.debug(
-                    "pfSense security request origin=%s probe=%s request_id=%s "
-                    "traceparent=%s path=%s",
+                    "pfSense security request origin=%s probe=%s request_id=%s traceparent=%s path=%s",
                     headers.get("Nabla-Probe-Origin", "unknown"),
                     headers.get("Nabla-Probe-Name", "unknown"),
                     headers.get("Nabla-Probe-Request-ID", "unknown"),
@@ -461,10 +462,7 @@ async def observe_pfsense_ingress_block(
     settings: PfSenseSecuritySettings | None = None,
 ) -> dict[str, Any]:
     """Read snort2c and attribute only fresh evidence to the exact egress IP."""
-    if (
-        settings is None
-        and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
-    ):
+    if settings is None and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
         return {
             "state": "telemetry_disabled",
             "telemetry_available": False,
@@ -472,19 +470,12 @@ async def observe_pfsense_ingress_block(
             "engine": "snort",
             "firewall": "pfSense/PF",
             "mechanism": "snort2c",
-            "evidence": (
-                "Authenticated pfSense security telemetry is disabled in this "
-                "runtime to avoid Login Protection/sshguard coupling"
-            ),
+            "evidence": ("Authenticated pfSense security telemetry is disabled in this runtime to avoid Login Protection/sshguard coupling"),
             "control_path": {
                 "mode": "disabled",
                 "independent_from_wan_filter": False,
                 "blind_spot": False,
-                "detail": (
-                    "FastAPI Cloud uses transport-only WAN observation; "
-                    "authenticated pfSense telemetry is owned by the trusted "
-                    "homelab runtime"
-                ),
+                "detail": ("FastAPI Cloud uses transport-only WAN observation; authenticated pfSense telemetry is owned by the trusted homelab runtime"),
             },
         }
     configured = settings or PfSenseSecuritySettings.from_environment()
