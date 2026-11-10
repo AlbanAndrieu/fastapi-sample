@@ -19,7 +19,7 @@ from nabla.api.runtime_environment import homelab_runtime_detected
 
 _CLOUD_SESSION_URL = "https://fastapi-sample.fastapicloud.dev/api/ui/session"
 _DOH_URL = "https://cloudflare-dns.com/dns-query"
-_DNS_HOSTS = ("sample.albandrieu.com", "fastapi-sample.fastapicloud.dev")
+_DNS_HOSTS = ("fastapi-sample.albandrieu.com", "fastapi-sample.fastapicloud.dev")
 _TIMEOUT_SECONDS = 2.5
 _CACHE_TTL_SECONDS = 90.0
 _lock = asyncio.Lock()
@@ -87,7 +87,8 @@ async def _probe_cloud_session(client: httpx.AsyncClient) -> dict[str, Any]:
 
 
 async def _probe_cloudflare_resolver(
-    client: httpx.AsyncClient, hostname: str,
+    client: httpx.AsyncClient,
+    hostname: str,
 ) -> dict[str, Any]:
     """Cloudflare recursive DoH resolver evidence, NOT authoritative-zone health."""
     try:
@@ -108,12 +109,11 @@ async def _probe_cloudflare_resolver(
             return {"state": "unknown", "category": "invalid_dns_payload"}
         rcode = payload["Status"]
         answers = payload.get("Answer")
-        record_count = sum(
-            type(answer.get("type")) is int and answer["type"] == 1
-            and isinstance(answer.get("data"), str)
-            for answer in answers
-            if isinstance(answer, dict)
-        ) if isinstance(answers, list) else 0
+        record_count = (
+            sum(type(answer.get("type")) is int and answer["type"] == 1 and isinstance(answer.get("data"), str) for answer in answers if isinstance(answer, dict))
+            if isinstance(answers, list)
+            else 0
+        )
         if rcode == 3:
             state, category = "fail", "nxdomain"
         elif rcode == 0 and record_count > 0:
@@ -152,7 +152,9 @@ async def _probe_origin(client: httpx.AsyncClient) -> dict[str, Any]:
 
 
 async def fetch_external_connection_probes(
-    *, client: httpx.AsyncClient | None = None, enabled: bool | None = None,
+    *,
+    client: httpx.AsyncClient | None = None,
+    enabled: bool | None = None,
 ) -> dict[str, Any]:
     """Single-flight with 90s caching; disabled outside explicitly trusted LAN.
 
@@ -172,13 +174,19 @@ async def fetch_external_connection_probes(
 
     now = time.monotonic()
     if _cache.payload is not None and now - _cache.created_monotonic < _CACHE_TTL_SECONDS:
-        return {**deepcopy(_cache.payload), "cache_source": "memory",
-                "cache_age_seconds": round(now - _cache.created_monotonic, 3)}
+        return {
+            **deepcopy(_cache.payload),
+            "cache_source": "memory",
+            "cache_age_seconds": round(now - _cache.created_monotonic, 3),
+        }
     async with _lock:
         now = time.monotonic()
         if _cache.payload is not None and now - _cache.created_monotonic < _CACHE_TTL_SECONDS:
-            return {**deepcopy(_cache.payload), "cache_source": "memory",
-                    "cache_age_seconds": round(now - _cache.created_monotonic, 3)}
+            return {
+                **deepcopy(_cache.payload),
+                "cache_source": "memory",
+                "cache_age_seconds": round(now - _cache.created_monotonic, 3),
+            }
         try:
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(_TIMEOUT_SECONDS),
@@ -191,14 +199,20 @@ async def fetch_external_connection_probes(
                 "state": "unavailable",
                 "observed_at": utc_now(),
                 "scope": "outside_in_from_truenas",
-                "cloud": {"state": "unknown", "category": "probe_error",
-                          "exception_type": type(exc).__name__},
+                "cloud": {
+                    "state": "unknown",
+                    "category": "probe_error",
+                    "exception_type": type(exc).__name__,
+                },
                 "cloudflare_public_dns": {},
             }
         _cache.payload = payload
         _cache.created_monotonic = time.monotonic()
-        return {**deepcopy(payload), "cache_source": "origin",
-                "cache_age_seconds": 0.0}
+        return {
+            **deepcopy(payload),
+            "cache_source": "origin",
+            "cache_age_seconds": 0.0,
+        }
 
 
 def reset_external_connection_probes() -> None:

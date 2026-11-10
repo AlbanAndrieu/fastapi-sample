@@ -19,22 +19,25 @@ def test_healthy_scrape_does_not_mask_down_origin_or_access_protection() -> None
             "internal_probe_enabled": True,
         },
         "cloudflare": {
-            "status_confirmed": True, "stale": False,
+            "status_confirmed": True,
+            "stale": False,
             "tunnels": [{"status": "healthy"}],
             "access_observer_state": "ok",
         },
     }
     metrics = {
-        "state": "degraded", "configured": True,
+        "state": "degraded",
+        "configured": True,
         "generated_at": "2026-11-04T15:00:00Z",
         "exporter_jobs": {"fastapi_sample": 1.0, "truenas_node": 0.0},
     }
     external = {
-        "state": "observed", "observed_at": "2026-11-04T15:00:00Z",
+        "state": "observed",
+        "observed_at": "2026-11-04T15:00:00Z",
         "scope": "outside_in_from_truenas",
         "cloud": {"state": "warn", "http_status": 302, "origin_verified": False},
         "cloudflare_public_dns": {
-            "sample.albandrieu.com": {"state": "ok"},
+            "fastapi-sample.albandrieu.com": {"state": "ok"},
             "fastapi-sample.fastapicloud.dev": {"state": "ok"},
         },
     }
@@ -73,11 +76,14 @@ def test_missing_telemetry_and_unexecuted_cloud_probes_are_unknown() -> None:
 
 def test_inactive_tunnel_inventory_is_not_misreported_healthy() -> None:
     report = build_connection_matrix(
-        {"cloudflare": {
-            "status_confirmed": True, "stale": False,
-            "tunnels": [{"status": "inactive"}],
-            "access_observer_state": "ok",
-        }},
+        {
+            "cloudflare": {
+                "status_confirmed": True,
+                "stale": False,
+                "tunnels": [{"status": "inactive"}],
+                "access_observer_state": "ok",
+            },
+        },
         {"state": "not_configured", "configured": False},
         {"state": "not_executed"},
     )
@@ -88,8 +94,13 @@ def test_inactive_tunnel_inventory_is_not_misreported_healthy() -> None:
 
 def test_gatus_raw_up_fallback_is_telemetry_only() -> None:
     report = build_connection_matrix(
-        {}, {"state": "degraded", "configured": True,
-             "synthetic_probes": {"gatus_up": 1.0}}, {"state": "not_executed"},
+        {},
+        {
+            "state": "degraded",
+            "configured": True,
+            "synthetic_probes": {"gatus_up": 1.0},
+        },
+        {"state": "not_executed"},
     )
     row = _rows(report)["scrape_gatus"]
     assert row["state"] == "ok"
@@ -98,17 +109,32 @@ def test_gatus_raw_up_fallback_is_telemetry_only() -> None:
 
 def test_connection_categories_remain_bounded_and_actionable() -> None:
     report = build_connection_matrix(
-        {"truenas": {"api": {
-            "reachable": False, "phase": "authentication", "stage": "missing_api_key"
-        }}},
-        {"state": "telemetry_unavailable", "configured": True,
-         "error_kind": "authentication_rejected", "http_status": 403},
-        {"state": "observed",
-         "cloud": {"state": "warn", "category": "access_protected",
-                   "http_status": 302},
-         "cloudflare_public_dns": {
-             "sample.albandrieu.com": {"state": "fail", "category": "nxdomain"},
-         }},
+        {
+            "truenas": {
+                "api": {
+                    "reachable": False,
+                    "phase": "authentication",
+                    "stage": "missing_api_key",
+                },
+            },
+        },
+        {
+            "state": "telemetry_unavailable",
+            "configured": True,
+            "error_kind": "authentication_rejected",
+            "http_status": 403,
+        },
+        {
+            "state": "observed",
+            "cloud": {
+                "state": "warn",
+                "category": "access_protected",
+                "http_status": 302,
+            },
+            "cloudflare_public_dns": {
+                "fastapi-sample.albandrieu.com": {"state": "fail", "category": "nxdomain"},
+            },
+        },
     )
     rows = _rows(report)
     assert rows["truenas_api"]["diagnostic_category"] == "truenas_auth"
@@ -125,16 +151,24 @@ def test_truenas_sample_runtime_and_probe_evidence_are_independent() -> None:
             "checked_at": "2026-11-04T17:00:00Z",
             "truenas_runtime_stale": False,
             "services": [
-                {"id": "sample", "runtime_state": "RUNNING", "state": "ok"}
+                {"id": "sample", "runtime_state": "RUNNING", "state": "ok"},
             ],
             "public_probe_results": [
-                {"id": "sample", "state": "warn", "http_status": 403,
-                 "probe_source": "origin", "probe_stale": False}
+                {
+                    "id": "sample",
+                    "state": "warn",
+                    "http_status": 403,
+                    "probe_source": "origin",
+                    "probe_stale": False,
+                },
             ],
             "internal_services": [],
         },
-        {"configured": True, "state": "healthy",
-         "exporter_jobs": {"fastapi_sample": 1.0}},
+        {
+            "configured": True,
+            "state": "healthy",
+            "exporter_jobs": {"fastapi_sample": 1.0},
+        },
         {"state": "not_executed"},
     )
     rows = _rows(report)
@@ -150,8 +184,12 @@ def test_stale_sample_runtime_cannot_claim_container_healthy() -> None:
             "truenas_runtime_stale": True,
             "services": [{"id": "sample", "runtime_state": "RUNNING"}],
             "internal_services": [
-                {"id": "sample", "state": "ok", "probe_stale": True,
-                 "probe_source": "memory"}
+                {
+                    "id": "sample",
+                    "state": "ok",
+                    "probe_stale": True,
+                    "probe_source": "memory",
+                },
             ],
         },
         {},
