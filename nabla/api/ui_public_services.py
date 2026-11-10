@@ -92,7 +92,6 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
     These are *labels only*, explicitly identified as a stale bootstrap snapshot.
     No internal URI, IP, port, runtime detail, or unverified state is serialized.
     """
-    catalog = packaged_homelab_catalog()
     try:
         board = await asyncio.wait_for(
             health_board.get_health_board_snapshot(request),
@@ -107,6 +106,8 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
         cached = await read_public_directory_redis()
         if cached is not None:
             return cached
+    # Loaded only after the Redis short-circuit: a shared inventory needs no bootstrap.
+    catalog = packaged_homelab_catalog()
     by_label: dict[str, list[str]] = {}
     for service in catalog.services:
         label = service.name.strip()
@@ -152,7 +153,8 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
         return await _bootstrap_public_service_directory(request)
     try:
         catalog = await asyncio.wait_for(
-            fetch_site_catalog_v2(), timeout=_PUBLIC_CATALOG_DEADLINE_SECONDS,
+            fetch_site_catalog_v2(),
+            timeout=_PUBLIC_CATALOG_DEADLINE_SECONDS,
         )
     except (SiteCatalogV2Unavailable, TimeoutError):
         # Bound repeated failed GitHub attempts across anonymous UI refreshes.
