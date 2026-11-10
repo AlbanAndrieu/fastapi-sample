@@ -1,4 +1,9 @@
 .truenas-platform {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  scroll-margin-top: 1rem;
   margin-top: 1.5rem;
   padding: 1rem;
   border: 1px solid #333333;
@@ -7,6 +12,7 @@
 }
 
 .truenas-platform-heading {
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -15,6 +21,11 @@
 
 .truenas-platform-title {
   margin-top: 0;
+  overflow-wrap: anywhere;
+}
+
+.truenas-platform-heading > div {
+  min-width: 0;
 }
 
 .truenas-platform-state {
@@ -105,6 +116,9 @@
 }
 
 .truenas-pipeline {
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-x: contain;
   display: flex;
   align-items: stretch;
   overflow-x: auto;
