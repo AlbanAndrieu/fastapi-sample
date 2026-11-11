@@ -262,7 +262,8 @@ def test_truenas_profiler_policy_is_unchanged(monkeypatch):
     assert cloud_profiling_allowed() is True
 
 
-def test_cloud_profiler_gate_does_not_import_profiler_dependencies(monkeypatch):
+@pytest.mark.asyncio
+async def test_cloud_profiler_gate_does_not_import_profiler_dependencies(monkeypatch):
     from contextlib import AsyncExitStack
     from nabla import app_factory
 
@@ -279,5 +280,5 @@ def test_cloud_profiler_gate_does_not_import_profiler_dependencies(monkeypatch):
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", guarded_import)
-    with AsyncExitStack() as stack:
+    async with AsyncExitStack() as stack:
         app_factory._enter_profilers(stack)
