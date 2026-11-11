@@ -11,10 +11,11 @@
 
 ## Required checks
 
-The ruleset requires these pull-request checks:
+The ruleset requires this pull-request check:
 
 - `Test dependencies and optionally build Python package`
-- `Docker CI / Build Docker`
+
+`Docker CI / Build Docker` is not required: its caller job is skipped on pull requests that do not touch Docker, so the check is never created and would block them forever. A skipped required job counts as passed, a missing check does not.
 
 `MegaLinter / MegaLinter` is not required yet: it fails on `master` (2026-11-10). Add it back to `main.json` and to the live ruleset once it is green.
 
@@ -72,9 +73,8 @@ Do not add the general GitHub Actions identity as the release bypass. The object
 Before changing enforcement to **Active**, verify that:
 
 1. `Test dependencies and optionally build Python package` is green;
-2. `Docker CI / Build Docker` is green;
-3. `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` are configured;
-4. the dedicated release App is present in the ruleset bypass list (`main.json` lists it as Integration `4676280`).
+2. `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` are configured;
+3. the dedicated release App is present in the ruleset bypass list (`main.json` lists it as Integration `4676280`).
 
 Then change the live ruleset enforcement from **Disabled** to **Active**. Done on 2026-11-10, when the OpenClaw `coder` agent got write access to this repository.
 

@@ -44,10 +44,6 @@
           {
             "context": "Test dependencies and optionally build Python package",
             "integration_id": 15368
-          },
-          {
-            "context": "Docker CI / Build Docker",
-            "integration_id": 15368
           }
         ],
         "strict_required_status_checks_policy": true
