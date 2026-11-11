@@ -151,7 +151,10 @@ def test_process_snapshot_keeps_billing_unknown_when_cgroup_available(monkeypatc
     process.memory_info.return_value = SimpleNamespace(rss=90)
     process.cpu_times.return_value = SimpleNamespace(user=3.0, system=2.0)
     process.num_threads.return_value = 1
-    process.oneshot.return_value.__enter__.return_value = process
+    context = Mock()
+    context.__enter__ = Mock(return_value=process)
+    context.__exit__ = Mock(return_value=False)
+    process.oneshot.return_value = context
     monkeypatch.setattr(runtime_cost_observer.psutil, "Process", lambda: process)
     result = runtime_cost_observer.snapshot_process_resources()
     assert result["cgroup"]["memory_limit_percent"] == 20
