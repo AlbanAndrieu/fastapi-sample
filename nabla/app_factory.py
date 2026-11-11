@@ -9,8 +9,8 @@ application without PostgreSQL, Redis, observability, MCP or RAG side effects:
     uv run uvicorn --factory nabla.app_factory:create_minimal_app
 """
 
-from collections.abc import AsyncIterator
 import os
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 
