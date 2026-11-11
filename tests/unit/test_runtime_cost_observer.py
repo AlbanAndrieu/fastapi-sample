@@ -72,3 +72,88 @@ def test_owner_receives_one_bounded_snapshot_without_metrics_loop(monkeypatch):
     assert response.json()["rss_bytes"] == 1024
     assert response.headers["cache-control"] == "private, no-store"
     read.assert_called_once_with()
+
+
+def test_cgroup_v2_owner_sample_reads_real_limits_without_network(monkeypatch):
+    values = {
+        "memory.current": str(420 * 1024 * 1024),
+        "memory.max": str(500 * 1024 * 1024),
+        "cpu.max": "10000 100000",
+        "cpu.stat": "usage_usec 12345678\nnr_periods 7",
+        "memory.events": "oom 2\noom_kill 1\n",
+    }
+    monkeypatch.setattr(
+        runtime_cost_observer,
+        "_read_cgroup_file",
+        lambda name: values.get(name),
+    )
+    result = runtime_cost_observer.snapshot_cgroup_resources()
+    assert result["memory_current_bytes"] == 420 * 1024 * 1024
+    assert result["memory_limit_bytes"] == 500 * 1024 * 1024
+    assert result["memory_limit_percent"] == 84.0
+    assert result["cpu_quota_cores"] == 0.1
+    assert result["cpu_usage_seconds_total"] == 12.3457
+    assert result["oom_kill_count"] == 1
+    assert "cpu_utilization_percent" not in result
+    assert "billing_usage" not in result
+
+
+def test_cgroup_missing_and_unlimited_are_unknown_not_zero(monkeypatch):
+    values = {
+        "memory.current": "1000",
+        "memory.max": "max",
+        "cpu.max": "max 100000",
+        "cpu.stat": "usage_usec NaN",
+    }
+    monkeypatch.setattr(
+        runtime_cost_observer,
+        "_read_cgroup_file",
+        lambda name: values.get(name),
+    )
+    result = runtime_cost_observer.snapshot_cgroup_resources()
+    assert result["memory_current_bytes"] == 1000
+    assert result["memory_limit_bytes"] is None
+    assert result["memory_limit_percent"] is None
+    assert result["cpu_quota_cores"] is None
+    assert result["cpu_usage_seconds_total"] is None
+    assert result["oom_kill_count"] is None
+
+
+def test_cgroup_rejects_malformed_and_oversized_values(monkeypatch):
+    values = {
+        "memory.current": "-1",
+        "memory.max": "9" * 150,
+        "cpu.max": "nope zero",
+        "cpu.stat": "usage_usec Inf\nother 10",
+        "memory.events": "oom_kill -1",
+    }
+    monkeypatch.setattr(
+        runtime_cost_observer,
+        "_read_cgroup_file",
+        lambda name: values.get(name),
+    )
+    result = runtime_cost_observer.snapshot_cgroup_resources()
+    assert result["memory_current_bytes"] is None
+    assert result["memory_limit_bytes"] is None
+    assert result["memory_limit_percent"] is None
+    assert result["cpu_quota_cores"] is None
+    assert result["cpu_usage_seconds_total"] is None
+    assert result["oom_kill_count"] is None
+
+
+def test_process_snapshot_keeps_billing_unknown_when_cgroup_available(monkeypatch):
+    monkeypatch.setattr(
+        runtime_cost_observer,
+        "snapshot_cgroup_resources",
+        lambda: {"memory_current_bytes": 100, "memory_limit_percent": 20},
+    )
+    process = Mock()
+    process.memory_info.return_value = SimpleNamespace(rss=90)
+    process.cpu_times.return_value = SimpleNamespace(user=3.0, system=2.0)
+    process.num_threads.return_value = 1
+    process.oneshot.return_value.__enter__.return_value = process
+    monkeypatch.setattr(runtime_cost_observer.psutil, "Process", lambda: process)
+    result = runtime_cost_observer.snapshot_process_resources()
+    assert result["cgroup"]["memory_limit_percent"] == 20
+    assert result["billing_usage"] is None
+    assert result["cpu_utilization_percent"] is None
