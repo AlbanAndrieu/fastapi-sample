@@ -9,6 +9,7 @@ application without PostgreSQL, Redis, observability, MCP or RAG side effects:
     uv run uvicorn --factory nabla.app_factory:create_minimal_app
 """
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
@@ -22,7 +23,7 @@ from nabla.asgi_transport_guard import OpsASGITransportGuard
 from nabla.api import demo, info, integration, keycloak, v1, v2
 from nabla.api import appwrite_route, brave_route, google_search_route, ping, tavily_route
 from nabla.api.db.availability import require_database
-from nabla.api.runtime_environment import application_debug_enabled
+from nabla.api.runtime_environment import application_debug_enabled, fastapi_cloud_runtime_detected
 from nabla.app_features import AppFeatures
 from nabla.config import UNLEASH_ENABLED
 from nabla.config_settings import APP_NAME, APP_PREFIX_VERSION, APP_RUNTIME_VERSION, APP_VERSION, get_settings
@@ -55,8 +56,21 @@ def _build_app_lifespan(features: AppFeatures):
     return combined_lifespan
 
 
+def cloud_profiling_allowed() -> bool:
+    """Avoid sampling profilers on a Nano scale-to-zero replica by default.
+
+    Explicit opt-in preserves incident diagnostics. TrueNAS is unchanged.
+    """
+    if not fastapi_cloud_runtime_detected(os.getenv("APP_DOMAIN")):
+        return True
+    return os.getenv("FASTAPI_CLOUD_PROFILING_ENABLED", "").strip().lower() == "true"
+
+
 def _enter_profilers(stack: AsyncExitStack) -> None:
-    """Start Pyroscope/Datadog profilers and register their shutdown."""
+    """Start Pyroscope/Datadog profilers only if runtime budget allows."""
+    if not cloud_profiling_allowed():
+        logger.info("cloud_runtime_budget profilers=disabled reason=scale_to_zero")
+        return
     from nabla.config_settings import DD_PROFILING_ENABLED, PYROSCOPE_ENABLED, PYROSCOPE_ENDPOINT
     from nabla.utils.datadog_config import start_datadog_profiler, stop_datadog_profiler
     from nabla.utils.pyroscope_config import start_pyroscope, stop_pyroscope

@@ -47,3 +47,23 @@ test("server runtime marker determines profile, not arbitrary browser state", ()
     /if \(homepageCadence\(HOME_RUNTIME, ownerSessionActive\)\.pollEnabled\)/,
   );
 });
+
+test("Cloud OWNER cadence is fixed by the policy, not a hardcoded 60s timer", () => {
+  const controller = readFileSync(
+    new URL("../../nabla/api/assets/home-operations.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(controller, /const INTERVAL_MS = INITIAL_CADENCE\.pollIntervalMs/);
+  assert.doesNotMatch(controller, /CLOUD_RUNTIME \? 60000 : 30000/);
+  assert.equal(homepageCadence("fastapi_cloud", true).pollIntervalMs, 180000);
+});
+
+test("Cloud custom domain uses trusted server runtime marker for idle pause", () => {
+  const controller = readFileSync(
+    new URL("../../nabla/api/assets/home-operations.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(controller, /HOME_RUNTIME === "fastapi_cloud"/);
+  assert.match(controller, /cloudPollingIdle\(\)/);
+  assert.match(controller, /const INTERVAL_MS = INITIAL_CADENCE\.pollIntervalMs/);
+});

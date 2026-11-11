@@ -28,8 +28,11 @@ const HOME_RUNTIME = ROOT?.dataset?.runtimeMode || "local";
 const INITIAL_CADENCE = homepageCadence(HOME_RUNTIME, false);
 // Limit idle anonymous polling on FastAPI Cloud; manual refresh remains available.
 const CLOUD_RUNTIME =
+  HOME_RUNTIME === "fastapi_cloud" ||
   window.location?.hostname?.endsWith(".fastapicloud.dev") === true;
-const INTERVAL_MS = CLOUD_RUNTIME ? 60000 : 30000;
+// Follow the declared cadence policy: Cloud OWNER polls every 180 s, not
+// every 60 s. The former timer silently tripled request fan-out.
+const INTERVAL_MS = INITIAL_CADENCE.pollIntervalMs;
 const CLOUD_IDLE_POLL_PAUSE_MS = 5 * 60 * 1000;
 let lastCloudInteractionAt = Date.now();
 let cloudPollingPaused = false;

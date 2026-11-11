@@ -231,3 +231,54 @@ def test_cloud_disabled_gauges_report_unobserved_not_zero(monkeypatch):
     for gauge in gauges:
         gauge.set.assert_called_once()
         assert str(gauge.set.call_args.args[0]).lower() == "nan"
+
+
+def test_cloud_profiler_sampling_is_disabled_by_default(monkeypatch):
+    from nabla.app_factory import cloud_profiling_allowed
+
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deployment-test")
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.delenv("FASTAPI_CLOUD_PROFILING_ENABLED", raising=False)
+    assert cloud_profiling_allowed() is False
+
+
+def test_cloud_profiler_sampling_requires_explicit_opt_in(monkeypatch):
+    from nabla.app_factory import cloud_profiling_allowed
+
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deployment-test")
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.setenv("FASTAPI_CLOUD_PROFILING_ENABLED", "true")
+    assert cloud_profiling_allowed() is True
+    monkeypatch.setenv("FASTAPI_CLOUD_PROFILING_ENABLED", "false")
+    assert cloud_profiling_allowed() is False
+
+
+def test_truenas_profiler_policy_is_unchanged(monkeypatch):
+    from nabla.app_factory import cloud_profiling_allowed
+
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deployment-test")
+    monkeypatch.delenv("FASTAPI_CLOUD_PROFILING_ENABLED", raising=False)
+    assert cloud_profiling_allowed() is True
+
+
+@pytest.mark.asyncio
+async def test_cloud_profiler_gate_does_not_import_profiler_dependencies(monkeypatch):
+    from contextlib import AsyncExitStack
+    from nabla import app_factory
+
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deployment-test")
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.delenv("FASTAPI_CLOUD_PROFILING_ENABLED", raising=False)
+    # Any profiler import would be a regression in cold-start resource usage.
+    import builtins
+    original_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name in {"nabla.utils.datadog_config", "nabla.utils.pyroscope_config"}:
+            raise AssertionError("Cloud should not import profiler modules")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    async with AsyncExitStack() as stack:
+        app_factory._enter_profilers(stack)

@@ -420,3 +420,20 @@ session anonyme, télémétrie indisponible) et confirmation de la source
 cAdvisor sur TrueNAS. Aucun déploiement revendiqué.
 
 Références : [cAdvisor](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md), [Grafana Node Graph](https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/node-graph/), [Akvorado](https://github.com/akvorado/akvorado), [Apache ECharts](https://echarts.apache.org/en/feature.html).
+
+- [ ] **P0 — Budget Nano FastAPI Cloud, 11 novembre 2026 (CODED) :**
+  réparer l'incohérence du polling OWNER (60 s effectifs contre 180 s
+  prévus), et désactiver par défaut Pyroscope/Datadog sur Cloud
+  (`FASTAPI_CLOUD_PROFILING_ENABLED=true` pour les réactiver).
+  TrueNAS et contrôles OWNER inchangés. Tests de contrats ajoutés.
+  **Reste** : validation pytest/Node sur le checkout, recette Cloud
+  CPU/mémoire/réplicas par le panneau privé, confirmation du déploiement.
+  Runbook : [FastAPI Cloud](runbooks/fastapi-cloud-runtime-cost-guard.md).
+
+  **Mesures supplémentaires CODED :** lecture cgroup v2 sur action OWNER
+  uniquement (`memory.current`, `memory.max`, quota CPU, OOM),
+  affichage de la limite cgroup observée en priorité sur la référence
+  Nano, sans promettre une consommation mensuelle connue. Tests Python
+  de formats illimités/invalides et de lecture plafonnée à 4 Kio ;
+  tests JS de la nouvelle présentation. Le maximum de réplicas Hobby
+  est à vérifier manuellement, sans changement automatique.

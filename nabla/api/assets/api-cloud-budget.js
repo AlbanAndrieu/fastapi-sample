@@ -11,6 +11,22 @@ export function nanoProcessMemoryAssessment(rssBytes) {
   return { state, percentage };
 }
 
+export function cgroupMemoryAssessment(cgroup) {
+  const used = cgroup?.memory_current_bytes;
+  const limit = cgroup?.memory_limit_bytes;
+  if (
+    typeof used !== "number" || !Number.isFinite(used) || used < 0 ||
+    typeof limit !== "number" || !Number.isFinite(limit) || limit <= 0
+  ) {
+    return { state: "unknown", percentage: null };
+  }
+  const percentage = 100 * used / limit;
+  return {
+    state: percentage >= 100 ? "danger" : percentage >= 80 ? "warning" : "unknown",
+    percentage,
+  };
+}
+
 export function installCloudProcessBudgetSample() {
   const button = document.getElementById("runtime-cloud-process-refresh");
   if (!button || button.dataset.bound === "true") return;
@@ -39,20 +55,30 @@ export function installCloudProcessBudgetSample() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const sample = await response.json();
       const rss = sample?.rss_bytes;
-      const assessed = nanoProcessMemoryAssessment(rss);
-      if (assessed.percentage === null) throw new Error("Process RSS not reported");
-      memory.textContent = `${(rss / (1024 * 1024)).toFixed(1)} MiB process RSS · ${assessed.percentage.toFixed(1)}% of Nano 500 MiB`;
+      const processAssessed = nanoProcessMemoryAssessment(rss);
+      if (processAssessed.percentage === null) throw new Error("Process RSS not reported");
+      const cgroup = sample?.cgroup;
+      const containerAssessed = cgroupMemoryAssessment(cgroup);
+      const actualCgroup = containerAssessed.percentage !== null;
+      const assessed = actualCgroup ? containerAssessed : processAssessed;
+      memory.textContent = actualCgroup
+        ? `${(cgroup.memory_current_bytes / (1024 * 1024)).toFixed(1)} MiB container · ${assessed.percentage.toFixed(1)}% of measured cgroup limit · ${(rss / (1024 * 1024)).toFixed(1)} MiB process RSS`
+        : `${(rss / (1024 * 1024)).toFixed(1)} MiB process RSS · ${assessed.percentage.toFixed(1)}% of Nano 500 MiB`;
       container.dataset.severity = assessed.state;
       const cpuSeconds = sample?.process_cpu_seconds_total;
       const cpuNote = typeof cpuSeconds === "number" && Number.isFinite(cpuSeconds)
         ? ` CPU time: ${cpuSeconds.toFixed(1)} s cumulative (not CPU%).`
         : "";
+      const sourceLabel = actualCgroup ? "cgroup memory limit" : "Nano reference";
+      const oom = Number.isSafeInteger(cgroup?.oom_kill_count) && cgroup.oom_kill_count >= 0
+        ? ` Cgroup OOM kills (cumulative): ${cgroup.oom_kill_count}.`
+        : "";
       if (assessed.state === "danger") {
-        status.textContent = `⚠ Process RSS exceeds the Nano reference. Confirm actual replica size and provider Metrics.${cpuNote}`;
+        status.textContent = `⚠ Memory reaches/exceeds the ${sourceLabel}. Confirm provider Metrics.${cpuNote}${oom}`;
       } else if (assessed.state === "warning") {
-        status.textContent = `⚠ Process RSS approaches the Nano reference (≥80%). Confirm full replica memory in provider Metrics.${cpuNote}`;
+        status.textContent = `⚠ Memory approaches the ${sourceLabel} (≥80%). Verify replica memory in provider Metrics.${cpuNote}${oom}`;
       } else {
-        status.textContent = `Process RSS is below 80% of the Nano reference. Total replica memory, compute hours and billed usage are still unknown.${cpuNote}`;
+        status.textContent = `Memory is below 80% of the ${sourceLabel}. This is one instant, not compute hours or account billing.${cpuNote}${oom}`;
       }
     } catch (error) {
       memory.textContent = "Unavailable";

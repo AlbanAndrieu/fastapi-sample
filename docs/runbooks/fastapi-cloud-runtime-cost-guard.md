@@ -181,3 +181,91 @@ Sources :
 https://fastapicloud.com/docs/team-management/billing/
 https://fastapicloud.com/docs/team-management/billing/usage-based-billing/
 https://fastapicloud.com/docs/monitoring-and-performance/metrics/
+
+## Profilers continus et cadence OWNER — 11 novembre 2026
+
+Le navigateur Cloud affichait une politique OWNER de **180 secondes**,
+mais `home-operations.js` utilisait un timer codé à **60 secondes**.
+Le timer consomme désormais la valeur unique de `home-cost-policy.js`.
+Pour un onglet OWNER actif, le maximum théorique d'actualisations
+périodiques passe de 60 à **20 par heure** (hors chargement initial,
+clic manuel, changement de fenêtre, reprise de visibilité et warm-up).
+Ce n'est pas une mesure de CPU, mais une réduction déterministe des
+appels périodiques, à vérifier dans l'onglet Network.
+
+Les profilers Pyroscope et Datadog, qui échantillonnent continuellement
+le processus et peuvent ralentir le cold-start, sont maintenant **inactifs
+par défaut sur FastAPI Cloud**. L'instrumentation native, Sentry et
+les endpoints de diagnostics existants restent accessibles.
+Sur TrueNAS les profilers ne changent pas.
+
+Pour activer temporairement ces profilers lors d'un incident :
+
+```dotenv
+FASTAPI_CLOUD_PROFILING_ENABLED=true
+```
+
+Ne pas activer les profilers sur une offre Nano en fonctionnement normal ;
+réactiver seulement pour une fenêtre de diagnostic et mesurer
+l'évolution CPU/RSS dans **Dashboard → App → Metrics**.
+
+> **Mesures réelles de consommation :** le tableau privé de FastAPI Cloud
+> présente CPU vCPU, mémoire (bytes) et réplicas. Les valeurs ne peuvent pas
+> être déduites du code ni de `/api/runtime/resources`. À ce jour,
+> l'API publique de consommation de l'équipe n'est pas disponible et les
+> totaux d'usage du tableau de facturation ne sont pas encore affichés,
+> selon la documentation du fournisseur.
+
+### Validation spécifique
+
+```bash
+node --test tests/js/home-cost-policy.test.mjs
+python -m pytest -q tests/unit/test_cloud_runtime_cost_guard.py
+```
+
+Après déploiement, comparer sur deux fenêtres identiques avec un OWNER
+connecté et l'onglet visible : appels `/api/ui/services` par heure,
+CPU vCPU, mémoire, réplicas, éventuels OOM/restarts.
+Ne pas prétendre à un gain CPU chiffré sans les métriques fournisseur.
+
+## Lecture cgroup du conteneur — 11 novembre 2026
+
+L'endpoint OWNER **déjà existant** `GET /api/runtime/resources`,
+consulté uniquement sur clic, joint maintenant un objet `cgroup` :
+
+- `memory_current_bytes`, `memory_limit_bytes`, `memory_limit_percent`
+  lorsque Linux cgroup v2 publie `memory.current` et `memory.max` ;
+- `cpu_quota_cores` depuis `cpu.max`, `cpu_usage_seconds_total`
+  depuis `cpu.stat` (compteur cumulé, **pas un pourcentage CPU**) ;
+- `oom_kill_count` depuis `memory.events`, compteur cumulé.
+
+Chaque fichier lu est strictement allowlisté et plafonné à 4 Kio.
+Aucun parcours du système de fichiers, aucune interrogation réseau,
+aucun échantillonnage permanent. Toute valeur absente, illimitée ou
+invalide reste `null`, jamais zéro simulé.
+
+Le panneau OWNER privilégie une consommation mémoire **réellement
+rapportée à la limite cgroup** lorsque ces deux valeurs sont disponibles,
+avec avertissement à 80 % et danger à 100 %. Il affiche séparément le RSS
+du processus Python. Sinon, il conserve son comparatif indicatif au Nano
+500 MiB, sans le présenter comme la mesure du conteneur.
+
+**Limite de preuve :** `memory.current` inclut les charges mémoire du
+cgroup et peut différer de la métrique provider ; `cpu.stat` est cumulatif
+et ne donne pas une moyenne vCPU sans deux horodatages. Ces mesures ne
+représentent ni la mémoire facturée, ni les heures-réplicas, ni les
+totaux d'équipe. Les vraies courbes CPU/mémoire/réplicas sont dans
+**FastAPI Cloud → Application → Metrics**.
+
+### Réglage de sécurité budgétaire (manuel, sans application automatique)
+
+Sur Hobby, le minimum de réplicas est fixé à zéro par la plateforme.
+Si une seule instance suffit, limiter le maximum à **1** dans
+**Application → Scaling** réduit le plafond de ressources simultanées,
+au prix d'une baisse de capacité sous charge. Ce réglage ne garantit
+pas un budget mensuel et n'a pas été modifié par cette PR.
+
+Valider avant/après sur la même fenêtre 30 minutes, avec un trafic
+représentatif : pic et moyenne vCPU, RAM, réplicas, OOM et volume de
+requêtes. Les totaux mensuels partagés ne sont pas disponibles dans le
+tableau de facturation au moment de cette livraison.
