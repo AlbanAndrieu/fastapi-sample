@@ -69,7 +69,7 @@ export function installCloudProcessBudgetSample() {
       const cpuNote = typeof cpuSeconds === "number" && Number.isFinite(cpuSeconds)
         ? ` CPU time: ${cpuSeconds.toFixed(1)} s cumulative (not CPU%).`
         : "";
-      const sourceLabel = actualCgroup ? "cgroup memory limit" : "Nano RSS reference";
+      const sourceLabel = actualCgroup ? "cgroup memory limit" : "Nano reference";
       const oom = Number.isSafeInteger(cgroup?.oom_kill_count) && cgroup.oom_kill_count >= 0
         ? ` Cgroup OOM kills (cumulative): ${cgroup.oom_kill_count}.`
         : "";
