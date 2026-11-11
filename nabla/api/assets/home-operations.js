@@ -617,7 +617,8 @@ function renderResourceHeatmap(snapshot) {
   const target = element("home-resource-heatmap");
   if (!target) return;
   target.replaceChildren();
-  const matrix = projectResourceHeatmap(snapshot);
+  const selected = element("home-resource-heatmap-sort")?.value || "memory_bytes";
+  const matrix = projectResourceHeatmap(snapshot, Date.now(), selected);
   if (!matrix || matrix.rows.length === 0) {
     put(
       "home-resource-heatmap-source",
@@ -625,6 +626,9 @@ function renderResourceHeatmap(snapshot) {
     );
     return;
   }
+  const sortLabel =
+    matrix.dimensions.find((dimension) => dimension.key === matrix.sortBy)
+      ?.label || "RAM";
   put(
     "home-resource-heatmap-source",
     matrix.measuredServices +
@@ -632,6 +636,8 @@ function renderResourceHeatmap(snapshot) {
       matrix.declaredServices +
       " services avec au moins une mesure · " +
       matrix.observedAt +
+      " · tri : " +
+      sortLabel +
       (matrix.truncated
         ? " · " + matrix.truncated + " autres non affichés"
         : ""),
@@ -1205,6 +1211,11 @@ if (ROOT) {
   element("home-footprint-metric")?.addEventListener("change", () => {
     if (!element("home-operator-detail")?.hidden && LATEST_RESOURCE_TELEMETRY) {
       renderServiceFootprint(LATEST_RESOURCE_TELEMETRY);
+    }
+  });
+  element("home-resource-heatmap-sort")?.addEventListener("change", () => {
+    if (!element("home-operator-detail")?.hidden && LATEST_RESOURCE_TELEMETRY) {
+      renderResourceHeatmap(LATEST_RESOURCE_TELEMETRY);
     }
   });
   element("home-history-window")?.addEventListener("change", (event) => {
