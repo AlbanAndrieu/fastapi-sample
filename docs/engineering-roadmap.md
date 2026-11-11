@@ -419,3 +419,11 @@ Références : [cAdvisor](https://github.com/google/cadvisor/blob/master/docs/st
   **Reste** : validation pytest/Node sur le checkout, recette Cloud
   CPU/mémoire/réplicas par le panneau privé, confirmation du déploiement.
   Runbook : [FastAPI Cloud](runbooks/fastapi-cloud-runtime-cost-guard.md).
+
+  **Mesures supplémentaires CODED :** lecture cgroup v2 sur action OWNER
+  uniquement (`memory.current`, `memory.max`, quota CPU, OOM),
+  affichage de la limite cgroup observée en priorité sur la référence
+  Nano, sans promettre une consommation mensuelle connue. Tests Python
+  de formats illimités/invalides et de lecture plafonnée à 4 Kio ;
+  tests JS de la nouvelle présentation. Le maximum de réplicas Hobby
+  est à vérifier manuellement, sans changement automatique.

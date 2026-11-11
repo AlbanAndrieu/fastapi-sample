@@ -14,7 +14,6 @@ import psutil
 from nabla.api.platform_health_diagnostics import utc_now
 
 
-
 # Fixed Linux cgroup v2 paths. Read only after OWNER authorization; no
 # filesystem crawling, no environment inspection and no periodic background job.
 _CGROUP_DIR = Path("/sys/fs/cgroup")
@@ -25,10 +24,11 @@ def _read_cgroup_file(name: str) -> str | None:
     if name not in {"cpu.max", "cpu.stat", "memory.current", "memory.max", "memory.events"}:
         return None
     try:
-        path = _CGROUP_DIR / name
-        if not path.is_file() or path.stat().st_size > _MAX_CGROUP_FILE_BYTES:
-            return None
-        return path.read_text(encoding="ascii")[:_MAX_CGROUP_FILE_BYTES]
+        # cgroupfs may report a zero st_size for virtual files. Bound the
+        # actual read, not a misleading stat() size.
+        with (_CGROUP_DIR / name).open(encoding="ascii") as handle:
+            value = handle.read(_MAX_CGROUP_FILE_BYTES + 1)
+        return value if len(value) <= _MAX_CGROUP_FILE_BYTES else None
     except (OSError, UnicodeError):
         return None
 
@@ -84,6 +84,7 @@ def snapshot_cgroup_resources() -> dict[str, object]:
         "sample_type": "single_observation",
         "source": "linux_cgroup_v2",
     }
+
 
 def snapshot_process_resources() -> dict[str, object]:
     """Read local RSS and cumulative CPU time in one low-cost psutil pass."""

@@ -227,3 +227,45 @@ Après déploiement, comparer sur deux fenêtres identiques avec un OWNER
 connecté et l'onglet visible : appels `/api/ui/services` par heure,
 CPU vCPU, mémoire, réplicas, éventuels OOM/restarts.
 Ne pas prétendre à un gain CPU chiffré sans les métriques fournisseur.
+
+## Lecture cgroup du conteneur — 11 novembre 2026
+
+L'endpoint OWNER **déjà existant** `GET /api/runtime/resources`,
+consulté uniquement sur clic, joint maintenant un objet `cgroup` :
+
+- `memory_current_bytes`, `memory_limit_bytes`, `memory_limit_percent`
+  lorsque Linux cgroup v2 publie `memory.current` et `memory.max` ;
+- `cpu_quota_cores` depuis `cpu.max`, `cpu_usage_seconds_total`
+  depuis `cpu.stat` (compteur cumulé, **pas un pourcentage CPU**) ;
+- `oom_kill_count` depuis `memory.events`, compteur cumulé.
+
+Chaque fichier lu est strictement allowlisté et plafonné à 4 Kio.
+Aucun parcours du système de fichiers, aucune interrogation réseau,
+aucun échantillonnage permanent. Toute valeur absente, illimitée ou
+invalide reste `null`, jamais zéro simulé.
+
+Le panneau OWNER privilégie une consommation mémoire **réellement
+rapportée à la limite cgroup** lorsque ces deux valeurs sont disponibles,
+avec avertissement à 80 % et danger à 100 %. Il affiche séparément le RSS
+du processus Python. Sinon, il conserve son comparatif indicatif au Nano
+500 MiB, sans le présenter comme la mesure du conteneur.
+
+**Limite de preuve :** `memory.current` inclut les charges mémoire du
+cgroup et peut différer de la métrique provider ; `cpu.stat` est cumulatif
+et ne donne pas une moyenne vCPU sans deux horodatages. Ces mesures ne
+représentent ni la mémoire facturée, ni les heures-réplicas, ni les
+totaux d'équipe. Les vraies courbes CPU/mémoire/réplicas sont dans
+**FastAPI Cloud → Application → Metrics**.
+
+### Réglage de sécurité budgétaire (manuel, sans application automatique)
+
+Sur Hobby, le minimum de réplicas est fixé à zéro par la plateforme.
+Si une seule instance suffit, limiter le maximum à **1** dans
+**Application → Scaling** réduit le plafond de ressources simultanées,
+au prix d'une baisse de capacité sous charge. Ce réglage ne garantit
+pas un budget mensuel et n'a pas été modifié par cette PR.
+
+Valider avant/après sur la même fenêtre 30 minutes, avec un trafic
+représentatif : pic et moyenne vCPU, RAM, réplicas, OOM et volume de
+requêtes. Les totaux mensuels partagés ne sont pas disponibles dans le
+tableau de facturation au moment de cette livraison.

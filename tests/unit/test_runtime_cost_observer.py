@@ -160,3 +160,13 @@ def test_process_snapshot_keeps_billing_unknown_when_cgroup_available(monkeypatc
     assert result["cgroup"]["memory_limit_percent"] == 20
     assert result["billing_usage"] is None
     assert result["cpu_utilization_percent"] is None
+
+
+def test_cgroup_file_reads_are_bounded_and_allowlisted(tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime_cost_observer, "_CGROUP_DIR", tmp_path)
+    (tmp_path / "memory.current").write_text("100", encoding="ascii")
+    (tmp_path / "memory.max").write_text("9" * 5000, encoding="ascii")
+    assert runtime_cost_observer._read_cgroup_file("memory.current") == "100"
+    assert runtime_cost_observer._read_cgroup_file("memory.max") is None
+    assert runtime_cost_observer._read_cgroup_file("etc/passwd") is None
+    assert runtime_cost_observer._read_cgroup_file("missing") is None
