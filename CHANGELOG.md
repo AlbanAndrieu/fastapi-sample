@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.31.2...1.32.0) (2026-11-11)
+
+
+### Features
+
+* **home:** trier la heatmap cAdvisor par CPU, RAM, FS ou réseau ([#418](https://github.com/AlbanAndrieu/fastapi-sample/issues/418)) ([bbb2457](https://github.com/AlbanAndrieu/fastapi-sample/commit/bbb24575624316edb69fe6273fd6b190d8e16136))
+
 ## [1.31.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.31.1...1.31.2) (2026-11-11)
 
 

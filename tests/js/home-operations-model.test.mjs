@@ -813,3 +813,63 @@ test("resource heatmap stays bounded and never infers a missing service", () => 
     null,
   );
 });
+
+test("resource heatmap sort reveals CPU-heavy services hidden by RAM ordering", () => {
+  const services = Object.fromEntries(
+    Array.from({ length: 13 }, (_, index) => [
+      "memory-" + index,
+      { memory_bytes: (index + 10) * 1048576, cpu_cores: 0.1 },
+    ]),
+  );
+  services["cpu-heavy"] = {
+    memory_bytes: 1048576,
+    cpu_cores: 6,
+    network_bytes_per_second: 1024,
+  };
+  const source = {
+    schema_version: 1,
+    resource_source: "truenas_cadvisor",
+    state: "healthy",
+    generated_at: AT,
+    resources: services,
+  };
+  const byMemory = projectResourceHeatmap(source, NOW);
+  assert.equal(byMemory.sortBy, "memory_bytes");
+  assert.equal(byMemory.rows.length, 12);
+  assert.equal(byMemory.rows.some((row) => row.name === "cpu-heavy"), false);
+
+  const byCPU = projectResourceHeatmap(source, NOW, "cpu_cores");
+  assert.equal(byCPU.sortBy, "cpu_cores");
+  assert.equal(byCPU.rows[0].name, "cpu-heavy");
+  assert.equal(byCPU.rows[0].cells[0].relativePercent, 100);
+  assert.equal(byCPU.rows[0].cells[3].value, 1);
+  assert.equal(byCPU.rows[0].cells[3].relativePercent, 100);
+  assert.equal(projectResourceHeatmap(source, NOW, "invalid").sortBy, "memory_bytes");
+});
+
+test("resource heatmap scales columns only against visible rows", () => {
+  const resources = Object.fromEntries(
+    Array.from({ length: 12 }, (_, index) => [
+      "mem-" + index,
+      { memory_bytes: (index + 10) * 1048576, cpu_cores: index + 1 },
+    ]),
+  );
+  resources["hidden-cpu-giant"] = { memory_bytes: 1, cpu_cores: 1000 };
+  const result = projectResourceHeatmap(
+    {
+      schema_version: 1,
+      resource_source: "truenas_cadvisor",
+      state: "healthy",
+      generated_at: AT,
+      resources,
+    },
+    NOW,
+    "memory_bytes",
+  );
+  assert.equal(result.rows.some((row) => row.name === "hidden-cpu-giant"), false);
+  assert.equal(
+    result.rows.find((row) => row.name === "mem-11").cells[0].relativePercent,
+    100,
+  );
+  assert.equal(result.truncated, 1);
+});

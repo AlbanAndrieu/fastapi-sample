@@ -268,6 +268,13 @@
                 <h3 id="home-resource-heatmap-heading">Carte thermique des ressources</h3>
                 <p>12 services maximum · intensités relatives par colonne</p>
               </div>
+              <label class="op-field-label" for="home-resource-heatmap-sort">Classer les services par</label>
+              <select id="home-resource-heatmap-sort" class="op-select" aria-label="Classer les services de la carte thermique">
+                <option value="memory_bytes">Mémoire active (RAM)</option>
+                <option value="cpu_cores">CPU consommé</option>
+                <option value="fs_bytes">FS conteneur</option>
+                <option value="network_bytes_per_second">Débit réseau RX + TX</option>
+              </select>
               <p class="op-correlation-footnote" id="home-resource-heatmap-source">Aucune mesure privée vérifiée</p>
               <div class="op-heatmap-scroll" role="region" aria-labelledby="home-resource-heatmap-heading" tabindex="0">
                 <div id="home-resource-heatmap" class="op-heatmap" aria-live="off"></div>
