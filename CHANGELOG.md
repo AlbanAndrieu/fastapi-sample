@@ -1,3 +1,10 @@
+## [1.31.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.31.1...1.31.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** bump pillow ([#416](https://github.com/AlbanAndrieu/fastapi-sample/issues/416)) ([6ba0d5d](https://github.com/AlbanAndrieu/fastapi-sample/commit/6ba0d5de0af51a7c550681f4e5bb21ef4fa51bd7))
+
 ## [1.31.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.31.0...1.31.1) (2026-11-11)
 
 
