@@ -409,4 +409,14 @@ merge ou déploiement implicite.
 - **Flux réseau P1 :** utiliser les séries RX/TX des conteneurs (cAdvisor) et les dimensions IPFIX/NetFlow d'Akvorado pour une vue Sankey *uniquement si source, destination, protocole et échantillonnage sont vérifiés*. Le débit global pfSense ne peut pas être attribué à une dépendance de catalogue.
 - **Coût Cloud P0 :** aucune requête supplémentaire ajoutée à l'accueil ; le public Cloud utilise le snapshot autorisé sans réveil périodique. La métrologie CPU/réplicas se mesure sur FastAPI Cloud, pas à partir des CPU cAdvisor TrueNAS.
 
+**11/11 — CODED, recette non exécutée :** enrichissement de la heatmap OWNER-only
+avec tri local CPU/RAM/FS/réseau, sans nouvel endpoint ni requête réseau.
+Le maximum de chaque colonne est calculé sur les 12 lignes **affichées** ;
+les mesures absentes restent distinctes des zéros mesurés. Tests Node
+de sélection / normalisation ajoutés. **Preuves restantes :** `node --test
+tests/js/home-operations-model.test.mjs`, `just ui-quick`, gate L2/L3 sur
+le SHA final, puis recette navigateur OWNER (petit écran, changement de tri,
+session anonyme, télémétrie indisponible) et confirmation de la source
+cAdvisor sur TrueNAS. Aucun déploiement revendiqué.
+
 Références : [cAdvisor](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md), [Grafana Node Graph](https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/node-graph/), [Akvorado](https://github.com/akvorado/akvorado), [Apache ECharts](https://echarts.apache.org/en/feature.html).
