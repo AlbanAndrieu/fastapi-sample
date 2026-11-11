@@ -867,6 +867,9 @@ test("resource heatmap scales columns only against visible rows", () => {
     "memory_bytes",
   );
   assert.equal(result.rows.some((row) => row.name === "hidden-cpu-giant"), false);
-  assert.equal(result.rows.find((row) => row.name === "mem-11").cells[0].relativePercent, 100);
+  assert.equal(
+    result.rows.find((row) => row.name === "mem-11").cells[0].relativePercent,
+    100,
+  );
   assert.equal(result.truncated, 1);
 });
