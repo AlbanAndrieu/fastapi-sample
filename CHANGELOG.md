@@ -1,3 +1,19 @@
+## [1.31.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.31.0...1.31.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **health:** keep homelab evidence and the blocked stage on deadline [skip ci] ([#413](https://github.com/AlbanAndrieu/fastapi-sample/issues/413)) ([1624899](https://github.com/AlbanAndrieu/fastapi-sample/commit/162489924cc83623ccac733e1f7713c9336cbe61))
+* **probes:** resolve fastapi-sample.albandrieu.com for the TrueNAS staging DNS probe ([#408](https://github.com/AlbanAndrieu/fastapi-sample/issues/408)) ([e8b7b30](https://github.com/AlbanAndrieu/fastapi-sample/commit/e8b7b30e3f17abcc18446684262598caa133ac13)), closes [#397](https://github.com/AlbanAndrieu/fastapi-sample/issues/397) [#330](https://github.com/AlbanAndrieu/fastapi-sample/issues/330) [#403](https://github.com/AlbanAndrieu/fastapi-sample/issues/403)
+* **security:** keep pfSense API key clients off ambient proxies [skip ci] ([#412](https://github.com/AlbanAndrieu/fastapi-sample/issues/412)) ([de5607b](https://github.com/AlbanAndrieu/fastapi-sample/commit/de5607b15255041477db623ee7d4c1b4f15d3c9a))
+* **ui:** TrueNAS exposure ReferenceError, viewport drill-down and Hobby budget ([#409](https://github.com/AlbanAndrieu/fastapi-sample/issues/409)) ([199f399](https://github.com/AlbanAndrieu/fastapi-sample/commit/199f3991f696128c5c01aaad36c10c4a1f754ac6))
+
+
+### Performance Improvements
+
+* **cloud:** limiter CPU, sondes et refresh du health-board FastAPI Cloud ([#406](https://github.com/AlbanAndrieu/fastapi-sample/issues/406)) ([d3c04c6](https://github.com/AlbanAndrieu/fastapi-sample/commit/d3c04c627f27e2f046477289d105b0e4754286bf))
+* **cloud:** réduire les tickers, sondes publiques et réveils de réplicas FastAPI Cloud ([#405](https://github.com/AlbanAndrieu/fastapi-sample/issues/405)) ([c1cdad0](https://github.com/AlbanAndrieu/fastapi-sample/commit/c1cdad015e45d7947eb19f4eca3eb13b740b7014)), closes [#406](https://github.com/AlbanAndrieu/fastapi-sample/issues/406)
+
 # [1.31.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.30.0...1.31.0) (2026-11-10)
 
 
