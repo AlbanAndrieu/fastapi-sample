@@ -181,3 +181,49 @@ Sources :
 https://fastapicloud.com/docs/team-management/billing/
 https://fastapicloud.com/docs/team-management/billing/usage-based-billing/
 https://fastapicloud.com/docs/monitoring-and-performance/metrics/
+
+## Profilers continus et cadence OWNER — 11 novembre 2026
+
+Le navigateur Cloud affichait une politique OWNER de **180 secondes**,
+mais `home-operations.js` utilisait un timer codé à **60 secondes**.
+Le timer consomme désormais la valeur unique de `home-cost-policy.js`.
+Pour un onglet OWNER actif, le maximum théorique d'actualisations
+périodiques passe de 60 à **20 par heure** (hors chargement initial,
+clic manuel, changement de fenêtre, reprise de visibilité et warm-up).
+Ce n'est pas une mesure de CPU, mais une réduction déterministe des
+appels périodiques, à vérifier dans l'onglet Network.
+
+Les profilers Pyroscope et Datadog, qui échantillonnent continuellement
+le processus et peuvent ralentir le cold-start, sont maintenant **inactifs
+par défaut sur FastAPI Cloud**. L'instrumentation native, Sentry et
+les endpoints de diagnostics existants restent accessibles.
+Sur TrueNAS les profilers ne changent pas.
+
+Pour activer temporairement ces profilers lors d'un incident :
+
+```dotenv
+FASTAPI_CLOUD_PROFILING_ENABLED=true
+```
+
+Ne pas activer les profilers sur une offre Nano en fonctionnement normal ;
+réactiver seulement pour une fenêtre de diagnostic et mesurer
+l'évolution CPU/RSS dans **Dashboard → App → Metrics**.
+
+> **Mesures réelles de consommation :** le tableau privé de FastAPI Cloud
+> présente CPU vCPU, mémoire (bytes) et réplicas. Les valeurs ne peuvent pas
+> être déduites du code ni de `/api/runtime/resources`. À ce jour,
+> l'API publique de consommation de l'équipe n'est pas disponible et les
+> totaux d'usage du tableau de facturation ne sont pas encore affichés,
+> selon la documentation du fournisseur.
+
+### Validation spécifique
+
+```bash
+node --test tests/js/home-cost-policy.test.mjs
+python -m pytest -q tests/unit/test_cloud_runtime_cost_guard.py
+```
+
+Après déploiement, comparer sur deux fenêtres identiques avec un OWNER
+connecté et l'onglet visible : appels `/api/ui/services` par heure,
+CPU vCPU, mémoire, réplicas, éventuels OOM/restarts.
+Ne pas prétendre à un gain CPU chiffré sans les métriques fournisseur.
