@@ -413,8 +413,8 @@ merge ou déploiement implicite.
 avec tri local CPU/RAM/FS/réseau, sans nouvel endpoint ni requête réseau.
 Le maximum de chaque colonne est calculé sur les 12 lignes **affichées** ;
 les mesures absentes restent distinctes des zéros mesurés. Tests Node
-de sélection / normalisation ajoutés. **Preuves restantes :** `node --test
-tests/js/home-operations-model.test.mjs`, `just ui-quick`, gate L2/L3 sur
+de sélection / normalisation ajoutés. **Preuves restantes :** `node --test tests/js/home-operations-model.test.mjs`,
+`just ui-quick`, gate L2/L3 sur
 le SHA final, puis recette navigateur OWNER (petit écran, changement de tri,
 session anonyme, télémétrie indisponible) et confirmation de la source
 cAdvisor sur TrueNAS. Aucun déploiement revendiqué.
