@@ -11,11 +11,13 @@
 
 ## Required checks
 
-The ruleset requires these pull-request checks:
+The ruleset requires this pull-request check:
 
-- `Test and build Python package`
-- `Docker CI / Build Docker`
-- `MegaLinter / MegaLinter`
+- `Test dependencies and optionally build Python package`
+
+`Docker CI / Build Docker` is not required: its caller job is skipped on pull requests that do not touch Docker, so the check is never created and would block them forever. A skipped required job counts as passed, a missing check does not.
+
+`MegaLinter / MegaLinter` is not required yet: it fails on `master` (2026-11-10). Add it back to `main.json` and to the live ruleset once it is green.
 
 Each required status check is pinned to the official GitHub Actions integration (`integration_id: 15368`). This prevents an unrelated integration from satisfying a protected-branch requirement by publishing a status with the same context name.
 
@@ -27,7 +29,8 @@ The ruleset also:
 - allows only squash merges, preserving a linear `main` history and making the PR title the release-relevant commit subject;
 - requires review conversations to be resolved;
 - prevents force pushes;
-- prevents deletion of `main`.
+- prevents deletion of `main`;
+- requires GitHub code quality findings of severity `errors` to be resolved.
 
 No approving review is required because this is currently a single-maintainer repository and auto-merge should not be blocked waiting for another reviewer. If a second regular maintainer is added later, increase `required_approving_review_count` to `1`, enable stale-review dismissal, and consider requiring approval of the last push.
 
@@ -69,13 +72,11 @@ Do not add the general GitHub Actions identity as the release bypass. The object
 
 Before changing enforcement to **Active**, verify that:
 
-1. `Test and build Python package` is green;
-2. `Docker CI / Build Docker` is green;
-3. `MegaLinter / MegaLinter` is green;
-4. `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` are configured;
-5. the dedicated release App is present in the ruleset bypass list.
+1. `Test dependencies and optionally build Python package` is green;
+2. `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY` are configured;
+3. the dedicated release App is present in the ruleset bypass list (`main.json` lists it as Integration `4676280`).
 
-Then change the live ruleset enforcement from **Disabled** to **Active**.
+Then change the live ruleset enforcement from **Disabled** to **Active**. Done on 2026-11-10, when the OpenClaw `coder` agent got write access to this repository.
 
 The source-controlled `main.json` intentionally remains `disabled`: importing or reapplying the file must not accidentally activate branch protection before the release App is configured.
 

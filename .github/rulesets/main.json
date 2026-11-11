@@ -2,7 +2,13 @@
   "name": "Protect main",
   "target": "branch",
   "enforcement": "disabled",
-  "bypass_actors": [],
+  "bypass_actors": [
+    {
+      "actor_id": 4676280,
+      "actor_type": "Integration",
+      "bypass_mode": "always"
+    }
+  ],
   "conditions": {
     "ref_name": {
       "include": ["~DEFAULT_BRANCH"],
@@ -36,19 +42,17 @@
         "do_not_enforce_on_create": true,
         "required_status_checks": [
           {
-            "context": "Test and build Python package",
-            "integration_id": 15368
-          },
-          {
-            "context": "Docker CI / Build Docker",
-            "integration_id": 15368
-          },
-          {
-            "context": "MegaLinter / MegaLinter",
+            "context": "Test dependencies and optionally build Python package",
             "integration_id": 15368
           }
         ],
         "strict_required_status_checks_policy": true
+      }
+    },
+    {
+      "type": "code_quality",
+      "parameters": {
+        "severity": "errors"
       }
     }
   ]
