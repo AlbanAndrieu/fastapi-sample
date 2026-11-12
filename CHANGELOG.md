@@ -1,3 +1,15 @@
+## [1.32.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.32.0...1.32.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **python:** épingler .python-version sur 3.13 au lieu du patch 3.13.17 ([#420](https://github.com/AlbanAndrieu/fastapi-sample/issues/420)) ([d084915](https://github.com/AlbanAndrieu/fastapi-sample/commit/d08491582e94f0ceca97664a89498fd9c95cc9e3)), closes [#417](https://github.com/AlbanAndrieu/fastapi-sample/issues/417)
+
+
+### Performance Improvements
+
+* **cloud:** réduire CPU Nano, corriger polling OWNER et mesurer les limites cgroup ([#419](https://github.com/AlbanAndrieu/fastapi-sample/issues/419)) ([ec6371b](https://github.com/AlbanAndrieu/fastapi-sample/commit/ec6371bb9491c2711f873dafe298927dfcb9a89d))
+
 # [1.32.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.31.2...1.32.0) (2026-11-11)
 
 
