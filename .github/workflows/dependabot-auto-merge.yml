@@ -7,7 +7,7 @@ name: Dependabot auto-merge
 # of these commits waits for the next push to master (semantic-release keeps them).
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   auto-merge:
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'AlbanAndrieu/fastapi-sample'
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'AlbanAndrieu/fastapi-sample'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
