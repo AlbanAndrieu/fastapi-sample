@@ -36,15 +36,8 @@ def audit(root: Path, candidate: str) -> dict[str, object]:
     if locked_python != required:
         raise ValueError("uv.lock and pyproject.toml disagree")
     packages = lock_data.get("package", [])
-    native_wheels = [
-        str(package["name"])
-        for package in packages
-        if any(
-            "cp313" in str(wheel.get("url", ""))
-            for wheel in package.get("wheels", [])
-        )
-    ]
-    if not (root / ".python-version").read_text(encoding="utf-8").strip().startswith("3.13."):
+    native_wheels = [str(package["name"]) for package in packages if any("cp313" in str(wheel.get("url", "")) for wheel in package.get("wheels", []))]
+    if not re.fullmatch(r"3\.13(\.\d+)?", (root / ".python-version").read_text(encoding="utf-8").strip()):
         raise ValueError(".python-version is not the approved 3.13 runtime")
     return {
         "status": "BLOCKED_PENDING_RESOLUTION",

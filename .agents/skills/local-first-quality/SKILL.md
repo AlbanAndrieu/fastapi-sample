@@ -44,7 +44,7 @@ du répertoire courant, seulement pour les étapes inaccessibles à l'agent.
   de shell peut charger des secrets et provoquer des installations.
 - scripts/agent-worktree-python.sh --check est **sans mutation**
   et son comportement par défaut. --sync déclenche volontairement
-  uv sync --locked --python 3.13.17 dans la .venv locale.
+  uv sync --locked --python 3.13 dans la .venv locale.
   Cette synchronisation peut télécharger des dépendances ; elle
   n'écrit pas uv.lock ni n'installe le Python manquant.
 - L1 ciblé précède L2 puis la gate L3 complète. Déclarer NOT_RUN

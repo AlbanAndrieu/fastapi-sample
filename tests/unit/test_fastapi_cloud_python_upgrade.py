@@ -37,10 +37,23 @@ def test_canary_fails_if_lock_disagrees_with_manifest(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "uv.lock").write_text(
-        'requires-python = "==3.14.*"\n', encoding="utf-8",
+        'requires-python = "==3.14.*"\n',
+        encoding="utf-8",
     )
     (tmp_path / ".python-version").write_text("3.13.17\n", encoding="utf-8")
     with pytest.raises(ValueError, match="disagree"):
+        cloud_upgrade.audit(tmp_path, "3.14.9")
+
+
+@pytest.mark.parametrize("pin", ["3.14", "3.130", "3.13.x"])
+def test_canary_rejects_a_pin_outside_313(tmp_path: Path, pin: str) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "sample"\nrequires-python = "==3.13.*"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "uv.lock").write_text('requires-python = "==3.13.*"\n', encoding="utf-8")
+    (tmp_path / ".python-version").write_text(pin + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"approved 3\.13 runtime"):
         cloud_upgrade.audit(tmp_path, "3.14.9")
 
 
@@ -50,13 +63,13 @@ def test_probe_uses_disposable_copy_and_offline_uv(tmp_path: Path, monkeypatch: 
     probe_evidence = tmp_path / "evidence.json"
     uv_stub = bin_dir / "uv"
     uv_stub.write_text(
-        '#!/usr/bin/env python3\n'
-        'import json, os, pathlib, sys\n'
-        'data = {\n'
+        "#!/usr/bin/env python3\n"
+        "import json, os, pathlib, sys\n"
+        "data = {\n"
         '  "argv": sys.argv[1:],\n'
         '  "project": pathlib.Path("pyproject.toml").read_text(),\n'
         '  "offline": os.getenv("UV_OFFLINE"),\n'
-        '}\n'
+        "}\n"
         'pathlib.Path(os.environ["EVIDENCE_FILE"]).write_text(json.dumps(data))\n',
         encoding="utf-8",
     )
