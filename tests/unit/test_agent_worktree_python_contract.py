@@ -26,7 +26,7 @@ class WorktreePythonContract(unittest.TestCase):
         uv = self.bin / "uv"
         uv.write_text("""#!/usr/bin/env bash
 set -euo pipefail
-[[ "$1" == sync && "$2" == --locked && "$3" == --python && "$4" == 3.13.17 ]]
+[[ "$1" == sync && "$2" == --locked && "$3" == --python && "$4" == 3.13 ]]
 [[ "$UV_PROJECT_ENVIRONMENT" == "$MOCK_ROOT/.venv" ]]
 [[ "$UV_PYTHON_DOWNLOADS" == never && -z "${VIRTUAL_ENV:-}" ]]
 printf 'sync\\n' >> "$MOCK_TRACE"
