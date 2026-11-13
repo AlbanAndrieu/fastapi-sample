@@ -75,23 +75,35 @@ def validate_markdown(source: Path, root: Path = ROOT) -> list[str]:
     return errors
 
 
-def default_markdown_files(root: Path = ROOT) -> list[Path]:
+def default_markdown_files(
+    root: Path = ROOT, *, include_archives: bool = True
+) -> list[Path]:
     """Return canonical Markdown documentation files for a full manual check."""
 
     files = [root / "README.md", root / "AGENTS.md"]
     files.extend(sorted((root / "docs").rglob("*.md")))
-    return [path for path in files if path.is_file()]
+    return [
+        path for path in files
+        if path.is_file()
+        and (include_archives or "archive" not in path.relative_to(root).parts)
+    ]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("paths", nargs="*", type=Path)
+    parser.add_argument(
+        "--active-only", action="store_true",
+        help="validate active docs without rechecking frozen archive snapshots",
+    )
     args = parser.parse_args()
 
+    if args.paths and args.active_only:
+        parser.error("--active-only cannot be combined with explicit paths")
     sources = [
         path if path.is_absolute() else ROOT / path
         for path in args.paths
-    ] or default_markdown_files()
+    ] or default_markdown_files(include_archives=not args.active_only)
 
     errors = [
         error
