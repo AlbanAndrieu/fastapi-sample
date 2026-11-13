@@ -5,7 +5,7 @@ Les commandes de contrôle doivent partir des **recettes Just**, qui délèguent
 | Objectif | Point d'entrée unique | Type |
 | --- | --- | --- |
 | Identifier la tâche et la première vérification | `just agent-context auto` | Lecture seule, offline |
-| Documentation et liens actifs principaux | `just docs-links` | Python stdlib, offline |
+| Documentation active et liens locaux | `just docs-links` | Python stdlib, offline ; archives figées exclues |
 | Tests JS de l’interface Cloud | `just ui-quick` | Node local |
 | Tests Python bornés | `just test` | pytest, environnement déjà préparé |
 | Correction de style explicite | `just fix` | Peut modifier les fichiers |

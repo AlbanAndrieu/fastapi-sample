@@ -78,9 +78,9 @@ def inferred_task(paths: list[str]) -> str:
     # Route documentation-only changes to a cheap offline link audit.
     # Mixed changes still take the owning code/quality route.
     if paths and all(
-        path.endswith(".md") and (
-            path in {"README.md", "AGENTS.md"} or path.startswith("docs/")
-        ) for path in paths
+        path.endswith(".md")
+        and (path in {"README.md", "AGENTS.md"} or path.startswith("docs/"))
+        for path in paths
     ):
         return "docs"
     if any(path.startswith("nabla/api/assets/") or path.startswith("tests/js/")

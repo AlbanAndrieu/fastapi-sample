@@ -13,7 +13,7 @@ agent-context task="auto":
 
 # Fast, dependency-free documentation L1 (canonical index + active roadmap).
 docs-links:
-    python3 scripts/check_docs_links.py README.md docs/README.md docs/engineering-roadmap.md
+    python3 scripts/check_docs_links.py --active-only
 
 # Default FastAPI UI L1: Node only; no npm install, browser or GitHub Actions.
 ui-quick:

@@ -43,7 +43,7 @@ Le provisionnement LiteLLM staging est documenté dans
 ## Agents et contrôles locaux
 
 - [Règles de contribution](../AGENTS.md) : priorité des instructions et sécurité.
-- [Scripts et points d'entrée](../scripts/README.md) : un seul lanceur par usage ; pour une modification uniquement documentaire, `just agent-context auto` propose `just docs-links` (aucun réseau, aucune CI).
+- [Scripts et points d'entrée](../scripts/README.md) : un seul lanceur par usage ; pour une modification uniquement documentaire, `just agent-context auto` propose `just docs-links` (tous les Markdown actifs, archives figées exclues ; aucun réseau, aucune CI).
 - [Skill local-first](../.agents/skills/local-first-quality/SKILL.md) :
   L0 contexte, L1 ciblé, L2 convergence et L3 publication.
 - [Reprise OpenCode d'une PR](../.opencode/commands/continue-pr.md) :
