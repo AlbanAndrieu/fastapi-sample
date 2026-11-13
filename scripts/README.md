@@ -15,6 +15,8 @@ Les commandes de contrôle doivent partir des **recettes Just**, qui délèguent
 
 Les modules `scripts/ci/` et les helpers de quality gate restent les composants internes. `scripts/agent-quality-gate.sh` supervise une seule gate ; `scripts/run-pytest-compact.sh` est le lanceur canonique Python. Les scripts de diagnostic spécialisés restent dans leur domaine (`scripts/truenas/`, `scripts/pfsense/`).
 
+Le tableau d'identifiants E01–E14 a été archivé après la consolidation F01–F11. Ne lancer qu'une seule gate documentaire canonique `just docs-links` ; `scripts/check_docs_links.py --active-only` n'est qu'une implémentation, pas une seconde entrée à maintenir.
+
 Une modification exclusivement documentaire suit : `just agent-context auto` → `just docs-links` → relecture du diff. Une modification mixte (code et docs) garde le contrôle du code ; le routeur ne doit jamais transformer un test non exécuté en PASS.
 
 À conserver en archive : rapports détaillés de PR, relevés runtime historiques et commandes d'incident. **Ne pas supprimer** un vieux lanceur avant inventaire de ses consommateurs, remplacement documenté et test de compatibilité.
