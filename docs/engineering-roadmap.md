@@ -4,6 +4,21 @@
 
 Une PR fusionnée n'est pas une acceptation runtime. Utiliser `CODED` (code fusionné), `TESTED` (tests exécutés sur SHA exact), `DEPLOYED` (image/SHA déployé identifié), `ACCEPTED` (comportement constaté sur cette image), `NOT_RUN` et `NOT_VERIFIED` (absence de preuve). Les refus Cloudflare `DENIED` et les diagnostics non exécutés ne sont pas `DOWN`.
 
+## Rattachement au portefeuille Homelab unique
+
+L'ordre **déjà validé** est **H01 → H02 → H05** : H01 (CSI Talos) et H02 (restauration PostgreSQL) appartiennent à Compose ; FastAPI ne prétend pas valider ces opérations. Le portefeuille [H01–H19](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md) est l'unique arbitrage entre dépôts.
+
+| Homelab | Actions FastAPI à réceptionner | Propriétaire de la mutation |
+| --- | --- | --- |
+| **H05** | **F03** (couverture + fraîcheur), **F09** (connexion Cloud/TrueNAS) ; preuves Gatus/Prometheus | Compose pour les exporters et cibles, FastAPI pour la projection |
+| **H06** | **F01** (UI/OWNER), **F02** (FinOps Cloud Nano) | FastAPI, sans réveil ou exposition supplémentaire |
+| **H04** | **F05** (DNS/Access), preuves négatives | Compose pour DNS/Tunnel/Access |
+| **H14** | **F06–F07** (Operations Overview, heatmap OWNER) | FastAPI et sources mesurées côté Compose |
+| **H17** | **F11** (catalogue V2 et suppression ordonnée des vues legacy) | Compose → FastAPI → Site Alban |
+| **H19** | Aucune bascule Home Assistant dans FastAPI | Compose |
+
+Les anciens identifiants **E01–E14** de #423 sont conservés comme [table de correspondance en archive](archive/2026-11-13-roadmap-reconciliation.md), pas comme seconde roadmap active. Aucun passage de `CODED` à `ACCEPTED` sans preuve runtime datée.
+
 ## P0 — Recette de production, sécurité et budget
 
 | ID | État code au 13/11 | À faire et critère de clôture |
@@ -13,8 +28,9 @@ Une PR fusionnée n'est pas une acceptation runtime. Utiliser `CODED` (code fusi
 | **F03 — Couverture des sondes** | Calculs et classifications **CODED**, preuve fraîche **NOT_VERIFIED** | Rapprocher `entityRef`/`catalogRevision`, Gatus, Prometheus et observation directe ; exposer `UP`, `DOWN`, `NO_SAMPLE`, `NOT_MONITORED`, `DENIED`, `STALE` sans faux vert. Les 67,9 % evidence / 7,1 % healthy du 05/11 restent une **ancienne mesure**, non une situation actuelle. [Couverture](runbooks/cloud-probe-evidence-coverage.md) et [acceptation](runbooks/fastapi-observability-acceptance.md). |
 | **F04 — Qualité et publication locale** | Corrections CI et gates **CODED** ; HEAD actuel **NOT_VERIFIED** | `just ui-quick` puis L2 (`scripts/agent-quality-gate.sh --fix`) et L3 (`scripts/agent-publish.sh`) au SHA exact ; vérifier les suites et obtenir **deux runs master** consécutifs réels avant de clôturer [issues/355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355). Aucun FAIL/timeout converti en PASS. [Qualité](../.agents/skills/local-first-quality/SKILL.md). |
 | **F05 — Identité publique et accès** | Cible `fastapi-sample.albandrieu.com` **CODED** ; DNS final **NOT_VERIFIED** | `nabla-compose` possède l'apply OpenTofu, la route Tunnel et Access. FastAPI vérifie séparément santé LAN, réponse 302/403 Access, CDN/WAF, Cloud et DNS `dns_sample` ; ne pas exempter le WAF pour faire passer une sonde. [Contrat réseau](fastapi-sample-cloudflare-network-contract.md). |
+| **F11 — Catalogue Backstage V2** | **CODED**, réception **NOT_VERIFIED** : `x-nabla.exposure` et relations `entityRef` fusionnées dans [Compose #365](https://github.com/AlbanAndrieu/nabla-compose/pull/365) ; consommateur [FastAPI #424](https://github.com/AlbanAndrieu/fastapi-sample/pull/424) **fusionné le 13/11** | Après fusion de #424 : comparer `catalogRevision` sur `/api/site/catalog/v2`, `/api/site/health/v2`, `/api/homelab-services` et `/sickz` ; vérifications LAN et Cloud sans fausse exposition pfSense ou Garage Admin. Supprimer le point d'entrée legacy **seulement après** migration Site Alban. [Contrat](gatus-python-monitoring-convergence.md). |
 
-**Done P0** : SHA effectivement servi, OWNER et anonymous recettés sur navigateur, budget observé et sondes expliquées avec leur fraîcheur. Aucun droit supplémentaire implicite.
+**Done P0** : SHA effectivement servi, OWNER et anonymous recettés sur navigateur, budget observé et sondes expliquées avec leur fraîcheur ; **F11** réclame une parité Backstage V2 séparée. Aucun droit supplémentaire implicite.
 
 ## P1 — Qualité de l'observabilité et expérience opérateur
 
