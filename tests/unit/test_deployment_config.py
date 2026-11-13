@@ -224,10 +224,10 @@ def test_fastapi_cloud_cli_lock_is_current() -> None:
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
 
-    assert '"fastapi-cloud-cli>=0.26.0"' in project
-    assert 'name = "fastapi-cloud-cli"\nversion = "0.26.0"' in lock
-    assert 'name = "rich-toolkit"\nversion = "0.20.5"' in lock
-    assert 'name = "fastapi-cloud-cli"\nversion = "0.24.0"' not in lock
+    assert '"fastapi-cloud-cli>=0.28.0"' in project
+    assert 'name = "fastapi-cloud-cli"\nversion = "0.28.0"' in lock
+    assert 'name = "rich-toolkit"\nversion = "0.20.6"' in lock
+    assert 'name = "fastapi-cloud-cli"\nversion = "0.26.0"' not in lock
 
 
 def test_cloud_debug_is_guarded_by_application_not_deploy_workflow() -> None:
