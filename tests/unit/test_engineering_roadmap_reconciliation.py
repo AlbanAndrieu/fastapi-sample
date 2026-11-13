@@ -15,7 +15,8 @@ def test_active_roadmap_has_one_owner_per_operational_layer() -> None:
     for marker in ("NOT_VERIFIED", "issues/355", "deux runs master", "RoutePolicy", "engineering-backlog.md", "archive/2026-10-29/engineering-roadmap-before-consolidation.md"):
         assert marker in text
     assert "Cloudflare Tunnel et secrets" in text
-    assert "FastAPI possède API" in text
+    assert "Compose pour les exporters et cibles, FastAPI pour la projection" in text
+    assert "Compose pour DNS/Tunnel/Access" in text
     assert "H01 → H02 → H05" in text
     assert "H17" in text and "F11" in text
 
