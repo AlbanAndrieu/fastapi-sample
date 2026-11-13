@@ -79,7 +79,7 @@ def inferred_task(paths: list[str]) -> str:
     # Mixed changes still take the owning code/quality route.
     if paths and all(
         path.endswith(".md")
-        and (path in {"README.md", "AGENTS.md"} or path.startswith("docs/"))
+        and (path == "README.md" or path.startswith("docs/"))
         for path in paths
     ):
         return "docs"

@@ -64,6 +64,13 @@ class RouterContracts(unittest.TestCase):
         self.assertEqual(result["firstCheck"], "just docs-links")
         self.assertEqual(result["runtime"], "NOT_RUN")
 
+    def test_agent_policy_change_keeps_quality_route(self) -> None:
+        (self.repo / "AGENTS.md").write_text("# Agent policy\n", encoding="utf-8")
+        with patch.object(router, "ROOT", self.repo):
+            result = router.context("auto", 10)
+        self.assertEqual(result["task"], "quality")
+        self.assertEqual(result["firstCheck"], "just test-local-first")
+
     def test_mixed_docs_and_code_keep_code_gate(self) -> None:
         path = self.repo / "docs/engineering-roadmap.md"
         path.parent.mkdir(parents=True)
