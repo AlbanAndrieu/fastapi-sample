@@ -11,6 +11,10 @@ default:
 agent-context task="auto":
     python3 scripts/agent-task-context.py --task "{{task}}"
 
+# Fast, dependency-free documentation L1 (canonical index + active roadmap).
+docs-links:
+    python3 scripts/check_docs_links.py --active-only
+
 # Default FastAPI UI L1: Node only; no npm install, browser or GitHub Actions.
 ui-quick:
     node --test tests/js/api-public-fast-start.test.mjs tests/js/api-rich-observer-refresh.test.mjs tests/js/api-chromium-preflight-runner.test.mjs tests/js/api-owner-rich-entry-sequencing.test.mjs tests/js/api-owner-session-interaction.test.mjs tests/js/precommit-node-local-contract.test.mjs

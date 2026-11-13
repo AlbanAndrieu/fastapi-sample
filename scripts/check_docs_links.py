@@ -75,17 +75,18 @@ def validate_markdown(source: Path, root: Path = ROOT) -> list[str]:
     return errors
 
 
-def default_markdown_files(root: Path = ROOT, active_only: bool = False) -> list[Path]:
-    """List Markdown documents; optional fast pass excludes immutable archives."""
+def default_markdown_files(
+    root: Path = ROOT, *, include_archives: bool = True
+) -> list[Path]:
+    """Return canonical Markdown documentation files for a full manual check."""
 
     files = [root / "README.md", root / "AGENTS.md"]
-    docs = root / "docs"
-    files.extend(
-        path
-        for path in sorted(docs.rglob("*.md"))
-        if not (active_only and (docs / "archive") in path.parents)
-    )
-    return [path for path in files if path.is_file()]
+    files.extend(sorted((root / "docs").rglob("*.md")))
+    return [
+        path for path in files
+        if path.is_file()
+        and (include_archives or "archive" not in path.relative_to(root).parts)
+    ]
 
 
 def main() -> int:
@@ -93,14 +94,16 @@ def main() -> int:
     parser.add_argument("paths", nargs="*", type=Path)
     parser.add_argument(
         "--active-only", action="store_true",
-        help="check current documentation without scanning immutable docs/archive",
+        help="validate active docs without rechecking frozen archive snapshots",
     )
     args = parser.parse_args()
 
+    if args.paths and args.active_only:
+        parser.error("--active-only cannot be combined with explicit paths")
     sources = [
         path if path.is_absolute() else ROOT / path
         for path in args.paths
-    ] or default_markdown_files(active_only=args.active_only)
+    ] or default_markdown_files(include_archives=not args.active_only)
 
     errors = [
         error

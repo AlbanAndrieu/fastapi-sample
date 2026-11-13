@@ -1,4 +1,5 @@
 """FastAPI roadmap only tracks unreconciled acceptance, not completed code work."""
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]

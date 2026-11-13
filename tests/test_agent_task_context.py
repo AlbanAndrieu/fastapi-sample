@@ -1,4 +1,5 @@
 """Dependency-free tests for the FastAPI local-first agent task router."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -21,8 +22,13 @@ spec.loader.exec_module(router)
 
 def call(repo: Path, *args: str) -> None:
     process = subprocess.run(
-        ["git", *args], cwd=repo, stdin=subprocess.DEVNULL,
-        capture_output=True, text=True, timeout=6, check=False,
+        ["git", *args],
+        cwd=repo,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=6,
+        check=False,
     )
     if process.returncode:
         raise AssertionError("synthetic git setup failed")
@@ -36,9 +42,7 @@ class RouterContracts(unittest.TestCase):
         call(self.repo, "init", "-q", "-b", "master")
         (self.repo / "README.md").write_text("initial\n", encoding="utf-8")
         call(self.repo, "add", "README.md")
-        call(self.repo, "-c", "user.name=Offline Test",
-             "-c", "user.email=test@example.invalid",
-             "commit", "-qm", "baseline")
+        call(self.repo, "-c", "user.name=Offline Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "baseline")
         call(self.repo, "switch", "-q", "-c", "fix/agent-ui")
 
     def test_infer_ui_only_and_one_narrow_check(self) -> None:
@@ -53,6 +57,35 @@ class RouterContracts(unittest.TestCase):
         self.assertEqual(result["localGate"], "NOT_RUN")
         self.assertEqual(result["runtime"], "NOT_RUN")
         self.assertEqual(result["prState"], "NOT_CHECKED")
+
+    def test_docs_only_use_local_link_check(self) -> None:
+        path = self.repo / "docs/engineering-roadmap.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("# Roadmap\n", encoding="utf-8")
+        with patch.object(router, "ROOT", self.repo):
+            result = router.context("auto", 10)
+        self.assertEqual(result["task"], "docs")
+        self.assertEqual(result["firstCheck"], "just docs-links")
+        self.assertEqual(result["runtime"], "NOT_RUN")
+
+    def test_agent_policy_change_keeps_quality_route(self) -> None:
+        (self.repo / "AGENTS.md").write_text("# Agent policy\n", encoding="utf-8")
+        with patch.object(router, "ROOT", self.repo):
+            result = router.context("auto", 10)
+        self.assertEqual(result["task"], "quality")
+        self.assertEqual(result["firstCheck"], "just test-local-first")
+
+    def test_mixed_docs_and_code_keep_code_gate(self) -> None:
+        path = self.repo / "docs/engineering-roadmap.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("# Roadmap\n", encoding="utf-8")
+        code = self.repo / "nabla/api/assets/status.js"
+        code.parent.mkdir(parents=True)
+        code.write_text("export const status = true;\n", encoding="utf-8")
+        with patch.object(router, "ROOT", self.repo):
+            result = router.context("auto", 10)
+        self.assertEqual(result["task"], "ui")
+        self.assertEqual(result["firstCheck"], "just ui-quick")
 
     def test_explicit_cloud_task_never_triggers_network(self) -> None:
         with patch.object(router, "ROOT", self.repo):

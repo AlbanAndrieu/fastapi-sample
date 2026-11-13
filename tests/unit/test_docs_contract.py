@@ -64,6 +64,6 @@ def test_active_only_excludes_archive_without_changing_full_contract(tmp_path: P
     historical.write_text("# Historical\n", encoding="utf-8")
 
     full = default_markdown_files(tmp_path)
-    quick = default_markdown_files(tmp_path, active_only=True)
+    quick = default_markdown_files(tmp_path, include_archives=False)
     assert active in full and active in quick
     assert historical in full and historical not in quick
