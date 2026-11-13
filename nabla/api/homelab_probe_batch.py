@@ -7,7 +7,7 @@ import time
 from typing import Any, Literal
 
 from nabla.api.health_probe_utils import elapsed_ms
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.homelab_probe_phase_tracker import (
     DEADLINE_PHASES,
     clear_probe_phase,
@@ -26,7 +26,7 @@ _TIMING_PHASES = (
 
 
 def _probe_deadline_result(
-    service: HomelabService,
+    service: CatalogRoute,
     *,
     scope: ProbeScope,
 ) -> dict[str, Any]:
@@ -41,8 +41,8 @@ def _probe_deadline_result(
         "error": "service probe fan-out budget exceeded",
     }
     if scope == "internal":
-        result["host"] = service.internal_host
-        result["port"] = service.internal_port
+        result["host"] = service.backend_host
+        result["port"] = service.backend_port
     else:
         result["url"] = service.public_https_probe_url
         result["http_status"] = 0
@@ -51,7 +51,7 @@ def _probe_deadline_result(
 
 
 def _probe_exception_result(
-    service: HomelabService,
+    service: CatalogRoute,
     exc: BaseException,
     *,
     scope: ProbeScope,
@@ -80,7 +80,7 @@ def _timing_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 async def collect_bounded_probe_batch(
-    probes: list[tuple[HomelabService, asyncio.Task[dict[str, Any]]]],
+    probes: list[tuple[CatalogRoute, asyncio.Task[dict[str, Any]]]],
     *,
     scope: ProbeScope,
     enabled: bool = True,
@@ -126,11 +126,13 @@ async def collect_bounded_probe_batch(
                 # A child may be cancelled independently before the budget
                 # expires. Treat this as unknown, not as a DOWN origin.
                 cancelled = _probe_deadline_result(service, scope=scope)
-                cancelled.update({
-                    "timed_out": False,
-                    "error_kind": "probe_cancelled",
-                    "error": "probe task cancelled before batch deadline",
-                })
+                cancelled.update(
+                    {
+                        "timed_out": False,
+                        "error_kind": "probe_cancelled",
+                        "error": "probe task cancelled before batch deadline",
+                    },
+                )
                 results.append(cancelled)
             except Exception as exc:
                 results.append(
@@ -153,13 +155,7 @@ async def collect_bounded_probe_batch(
     # did not complete a network observation.
     cancelled_count = sum(task.cancelled() for task in done)
     states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
-    deadline_phase_counts = {
-        phase: sum(
-            row.get("timed_out") is True and row.get("deadline_phase") == phase
-            for row in results
-        )
-        for phase in DEADLINE_PHASES
-    }
+    deadline_phase_counts = {phase: sum(row.get("timed_out") is True and row.get("deadline_phase") == phase for row in results) for phase in DEADLINE_PHASES}
     return results, {
         "scope": scope,
         "enabled": enabled,

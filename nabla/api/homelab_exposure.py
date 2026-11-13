@@ -14,7 +14,7 @@ from nabla.api.cloudflare_tunnels import (
     CloudflareAccessControlPlaneObservation,
     CloudflareTunnelObservation,
 )
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 
 _DIRECT_EXTERNAL_SUFFIX = ".int.albandrieu.com"
 
@@ -94,10 +94,10 @@ def _access_by_hostname(
     return result
 
 
-def _declared_edge_mode(service: HomelabService) -> str:
-    if service.tunnel_secure is True:
+def _declared_edge_mode(service: CatalogRoute) -> str:
+    if service.cloudflare_edge is True:
         return "cloudflare"
-    if service.tunnel_secure is False:
+    if service.cloudflare_edge is False:
         return "direct"
     return "unspecified"
 
@@ -172,11 +172,11 @@ def _access_reasons(
 
 
 def _origin_reconciliation(
-    service: HomelabService,
+    service: CatalogRoute,
     tunnel: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], str | None]:
-    expected_host = (service.internal_host or "").lower().rstrip(".") or None
-    expected_port = service.internal_port
+    expected_host = (service.backend_host or "").lower().rstrip(".") or None
+    expected_port = service.backend_port
     observed_service = str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
     observed_host, observed_port = _origin_host_port(observed_service)
     comparable = bool(expected_host and expected_port and observed_host and observed_port)
@@ -209,15 +209,15 @@ def _unique_reasons(*groups: Iterable[str]) -> list[str]:
 
 
 def _declared_risk_reasons(
-    service: HomelabService,
+    service: CatalogRoute,
     *,
     tunnel: dict[str, Any] | None,
 ) -> list[str]:
-    if not service.external or service.endpoint_enabled is False:
+    if not service.public:
         return []
-    host = _hostname(service.tunnel_url) or ""
+    host = _hostname(service.url) or ""
     reasons: list[str] = []
-    if service.tunnel_secure is False:
+    if service.cloudflare_edge is False:
         if host.endswith(_DIRECT_EXTERNAL_SUFFIX):
             reasons.append(
                 "External *.int.albandrieu.com endpoint bypasses Cloudflare Tunnel/Access and is directly exposed",
@@ -226,7 +226,7 @@ def _declared_risk_reasons(
             reasons.append(
                 "Direct external exposure bypasses Cloudflare Tunnel/Access",
             )
-    if service.tunnel_secure is True and not service.effective_cloudflare_access_required:
+    if service.cloudflare_edge is True and not service.access_required:
         suffix = " with an observed Tunnel ingress" if tunnel else ""
         reasons.append(
             f"external=true declares a Cloudflare edge{suffix} but Cloudflare Access is disabled; anonymous exposure may be possible",
@@ -276,10 +276,10 @@ def _service_token_risk_reasons(
 
 
 def _control_plane_risk_reasons(
-    service: HomelabService,
+    service: CatalogRoute,
     snapshot: CloudflareExposureSnapshot,
 ) -> tuple[list[str], list[str]]:
-    if not service.external or not service.effective_cloudflare_access_required:
+    if not service.public or not service.access_required:
         return [], []
     if not snapshot.configured:
         return [
@@ -302,12 +302,12 @@ def _control_plane_risk_reasons(
 
 
 def _unexpected_private_exposure_reasons(
-    service: HomelabService,
+    service: CatalogRoute,
     *,
     tunnel: dict[str, Any] | None,
     access: dict[str, Any] | None,
 ) -> list[str]:
-    if service.external and service.endpoint_enabled is not False:
+    if service.public:
         return []
     reasons: list[str] = []
     if tunnel:
@@ -334,7 +334,7 @@ def _risk_state(
 
 
 def _service_exposure(
-    service: HomelabService,
+    service: CatalogRoute,
     row: dict[str, Any],
     *,
     tunnel: dict[str, Any] | None,
@@ -342,7 +342,7 @@ def _service_exposure(
     snapshot: CloudflareExposureSnapshot,
 ) -> dict[str, Any]:
     edge_mode = _declared_edge_mode(service)
-    access_required = service.effective_cloudflare_access_required
+    access_required = service.access_required
     origin, origin_warning = _origin_reconciliation(service, tunnel)
     observed = {
         "public_https_reachable": (bool(row.get("reachable")) if row.get("http_status", 0) or row.get("reachable") else None),
@@ -360,13 +360,13 @@ def _service_exposure(
         "cloudflare_access_public_policy_count": (access.get("cloudflare_access_public_policy_count") if access else 0),
     }
     declared = {
-        "external": service.external,
-        "endpoint_enabled": service.endpoint_enabled,
+        "external": service.public,
+        "endpoint_enabled": True,
         "edge_mode": edge_mode,
         "cloudflare_access_required": access_required,
-        "security_exception_declared": bool(service.security_exception),
-        "internal_host": service.internal_host,
-        "internal_port": service.internal_port,
+        "security_exception_declared": bool(service.risk_reason),
+        "internal_host": service.backend_host,
+        "internal_port": service.backend_port,
     }
 
     private_exposure = _unexpected_private_exposure_reasons(
@@ -374,7 +374,7 @@ def _service_exposure(
         tunnel=tunnel,
         access=access,
     )
-    if not service.external or service.endpoint_enabled is False:
+    if not service.public:
         return {
             "state": "mismatch" if private_exposure else "not_applicable",
             "reasons": private_exposure,
@@ -419,7 +419,7 @@ def _service_exposure(
 
 def enrich_service_exposure(
     rows: list[dict[str, Any]],
-    services: Iterable[HomelabService],
+    services: Iterable[CatalogRoute],
     snapshot: CloudflareExposureSnapshot,
 ) -> list[dict[str, Any]]:
     """Attach edge evidence and security risk without changing application health."""

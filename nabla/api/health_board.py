@@ -132,7 +132,7 @@ async def _build_homelab_snapshot(
     )
     from nabla.api.db.database import engine
     from nabla.api.demo.socket.redis import redis
-    from nabla.api.homelab_catalog import fetch_homelab_services
+    from nabla.api.catalog_routes import fetch_catalog_routes
     from nabla.api.homelab_health import build_homelab_health_payload
     from nabla.api.homelab_health_evidence import (
         prepare_homelab_reconciliation_context,
@@ -142,7 +142,7 @@ async def _build_homelab_snapshot(
     from nabla.api.provider_credentials import infrastructure_provider_credentials
 
     _enter_stage(progress, "catalog")
-    services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
+    services = list(catalog_services) if catalog_services is not None else await fetch_catalog_routes()
     homelab_task = (
         homelab_payload
         if homelab_payload is not None
@@ -384,14 +384,14 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
 
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     """Reuse one provider context while keeping standalone health endpoints independent."""
-    from nabla.api.homelab_catalog import fetch_homelab_services
+    from nabla.api.catalog_routes import fetch_catalog_routes
     from nabla.api.homelab_health import build_homelab_health_payload
     from nabla.api.homelab_health_evidence import prepare_homelab_reconciliation_context
     from nabla.api.platform_metrics import fetch_platform_metrics
     from nabla.api.connection_matrix import build_connection_matrix
     from nabla.api.external_connection_probes import fetch_external_connection_probes
 
-    services = await fetch_homelab_services()
+    services = await fetch_catalog_routes()
     provider_phases_ms: dict[str, float] = {}
     reconciliation_task = asyncio.create_task(
         prepare_homelab_reconciliation_context(services, timings_ms=provider_phases_ms),

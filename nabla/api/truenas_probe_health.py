@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from typing import Any, Literal
 
+from nabla.integrations.truenas_client import truenas_url
+
 HealthState = Literal["ok", "warn", "fail"]
 _DEFAULT_TRUENAS_LAN_HOST = "172.17.0.24"
 _DEFAULT_TRUENAS_LAN_PORT = 7000
@@ -91,3 +93,14 @@ def truenas_public_ingress_state(
     if tls_state in {"fail", "blocked"}:
         return "warn"
     return "warn"
+
+
+async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
+    """Return only the primary TrueNAS HTTPS check for legacy global health.
+
+    Per-service homelab reachability is sampled, cached and reconciled by
+    ``build_homelab_health_payload``. Re-probing every public homelab endpoint
+    here made those services compete with core dependencies for one 8-second
+    aggregate budget and produced false ``deadline`` failures.
+    """
+    return [("albandrieu_truenas", truenas_url().rstrip("/") + "/", "TrueNAS HTTPS", None)]

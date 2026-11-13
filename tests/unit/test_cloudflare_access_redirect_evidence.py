@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from nabla.api import homelab_health
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -125,13 +125,7 @@ async def test_homelab_health_reprobes_access_redirect_with_service_token(
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
-    service = HomelabService(
-        id="karakeep",
-        name="Karakeep",
-        tunnelUrl="https://karakeep.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("karakeep", "https://karakeep.albandrieu.com", title="Karakeep", public=True, edge="cloudflare")
 
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),

@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from nabla.api import homelab_health
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 @pytest.mark.asyncio
@@ -35,13 +35,7 @@ async def test_cloudflare_access_probe_uses_service_token_for_origin_health(
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage",
-        tunnelUrl="https://garage.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage", public=True, edge="cloudflare")
 
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
@@ -87,13 +81,7 @@ async def test_cloudflare_access_probe_stays_warning_when_service_token_is_block
             },
         ),
     )
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage",
-        tunnelUrl="https://garage.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage", public=True, edge="cloudflare")
 
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
@@ -124,13 +112,7 @@ async def test_protected_public_probe_without_edge_confirmation_remains_warning(
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage",
-        tunnelUrl="https://garage.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage", public=True, edge="cloudflare")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(
             lambda request: httpx.Response(403, request=request),
@@ -160,13 +142,7 @@ async def test_missing_authenticated_http_status_does_not_claim_failure(
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage",
-        tunnelUrl="https://garage.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage", public=True, edge="cloudflare")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(
             lambda request: httpx.Response(403, request=request),
@@ -196,13 +172,7 @@ async def test_access_success_without_origin_evidence_does_not_report_healthy(
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge)
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage",
-        tunnelUrl="https://garage.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage", public=True, edge="cloudflare")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(
             lambda request: httpx.Response(403, request=request),
@@ -232,13 +202,7 @@ async def test_access_token_rejection_is_explicit_diagnostic_not_origin_down(
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge)
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage",
-        tunnelUrl="https://garage.albandrieu.com",
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage", public=True, edge="cloudflare")
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(
             lambda request: httpx.Response(403, request=request),
@@ -274,12 +238,12 @@ async def test_access_secondary_probe_eligibility_is_explicit(
     """Only an Access-required service answering with an edge status is re-probed."""
     edge_probe = AsyncMock(return_value={"cloudflare_access_signal": True})
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
-    service = HomelabService(
-        id="ittools",
-        name="IT Tools",
-        tunnelUrl="https://ittools.albandrieu.com",
-        tunnelSecure=tunnel_secure,
-        external=True,
+    service = v2_service(
+        "ittools",
+        "https://ittools.albandrieu.com",
+        title="IT Tools",
+        public=True,
+        edge="cloudflare" if tunnel_secure else "direct",
     )
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(status, request=request)),

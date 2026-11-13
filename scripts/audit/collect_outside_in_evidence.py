@@ -107,10 +107,24 @@ def collect(
     return {"observations": observations}
 
 
+def catalog_routes(catalog: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Index Backstage v2 ``x-nabla.exposure`` routes by entity ref (+ ``#route``)."""
+    rows: dict[str, dict[str, Any]] = {}
+    for entity in catalog.get("entities", []):
+        routes = (entity.get("x-nabla") or {}).get("exposure") or []
+        for route in routes:
+            key = entity["entityRef"] if len(routes) == 1 else f"{entity['entityRef']}#{route['name']}"
+            hostnames = route.get("hostnames") or []
+            port = f":{route['port']}" if route.get("port") else ""
+            url = f"https://{hostnames[0]}{port}" if hostnames else None
+            rows[key] = {"id": key, "tunnelUrl": url, "external": route.get("visibility") == "public"}
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--catalog", type=Path, required=True, help="homelab-services.json")
-    parser.add_argument("--ids", required=True, help="comma-separated service ids")
+    parser.add_argument("--catalog", type=Path, required=True, help="Backstage v2 entities.json")
+    parser.add_argument("--ids", required=True, help="comma-separated entity refs (ref#route if several)")
     parser.add_argument("--declared-output", type=Path, required=True)
     parser.add_argument("--observed-output", type=Path, required=True)
     parser.add_argument(
@@ -122,13 +136,13 @@ def main() -> int:
     args = parser.parse_args()
     wanted = [item.strip() for item in args.ids.split(",") if item.strip()]
     catalog = json.loads(args.catalog.read_text(encoding="utf-8"))
-    by_id = {row.get("id"): row for row in catalog.get("services", []) if isinstance(row, dict)}
+    by_id = catalog_routes(catalog)
     missing = [service_id for service_id in wanted if service_id not in by_id]
     if missing:
         parser.error(f"unknown service ids: {', '.join(missing)}")
     services = [by_id[service_id] for service_id in wanted]
     declared = {
-        "catalog_revision": str(catalog.get("revision") or "unknown"),
+        "catalog_revision": str(catalog.get("catalogRevision") or "unknown"),
         "services": [{"id": row["id"], "external": row.get("external") is True} for row in services],
     }
     args.declared_output.write_text(json.dumps(declared, indent=2) + "\n", encoding="utf-8")

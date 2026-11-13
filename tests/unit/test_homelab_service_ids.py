@@ -1,4 +1,4 @@
-"""Stable-ID regression tests for homelab catalog and health snapshots."""
+"""Stable-ID regression tests for Backstage v2 routes and health snapshots."""
 
 import asyncio
 from unittest.mock import AsyncMock, Mock
@@ -7,33 +7,30 @@ import httpx
 import pytest
 
 from nabla.api import homelab_health
-from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_service_health import build_reconciled_service_health
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
-def test_effective_endpoint_uses_stable_id_when_url_is_missing() -> None:
-    service = HomelabService(name="Prometheus - albandrieu", external=False)
+def test_route_without_hostname_keeps_entity_name_navigation_identity() -> None:
+    service = v2_service("prometheus-albandrieu", backend=("172.17.0.24", 9090))
 
-    assert service.service_id == "prometheus-albandrieu"
-    assert service.effective_endpoint_url == "https://prometheus-albandrieu.albandrieu.com"
-
-
-def test_effective_endpoint_preserves_explicit_url() -> None:
-    service = HomelabService(
-        name="Prometheus",
-        tunnelUrl="https://metrics.albandrieu.com",
-        external=False,
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=None,
+        tunnels=[],
     )
 
-    assert service.effective_endpoint_url == "https://metrics.albandrieu.com"
+    assert rows[0]["id"] == "prometheus-albandrieu"
+    assert rows[0]["entity_ref"] == "component:default/prometheus-albandrieu"
+    assert rows[0]["url"] == "https://prometheus-albandrieu.albandrieu.com/"
+    assert rows[0]["url_derived"] is True
 
 
 @pytest.mark.asyncio
 async def test_public_snapshot_uses_catalog_service_id() -> None:
-    service = HomelabService(
-        name="Langfuse",
-        tunnelUrl="https://langfuse.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("langfuse-web", "https://langfuse.albandrieu.com", title="Langfuse", public=True)
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, request=request)
@@ -45,20 +42,20 @@ async def test_public_snapshot_uses_catalog_service_id() -> None:
             service,
         )
 
-    assert service.service_id == "langfuse"
-    assert snapshot["id"] == "langfuse"
+    assert service.service_id == "langfuse-web"
+    assert snapshot["id"] == "langfuse-web"
     assert snapshot["name"] == "Langfuse"
     assert snapshot["url"] == "https://langfuse.albandrieu.com/"
 
 
 @pytest.mark.asyncio
 async def test_internal_snapshot_uses_same_service_id(monkeypatch) -> None:
-    service = HomelabService(
-        name="Langfuse",
-        tunnelUrl="https://langfuse.albandrieu.com",
-        internalHost="172.17.0.24",
-        internalPort=3000,
-        external=True,
+    service = v2_service(
+        "langfuse-web",
+        "https://langfuse.albandrieu.com",
+        title="Langfuse",
+        public=True,
+        backend=("172.17.0.24", 3000),
     )
     writer = Mock()
     writer.wait_closed = AsyncMock()
@@ -73,6 +70,6 @@ async def test_internal_snapshot_uses_same_service_id(monkeypatch) -> None:
         service,
     )
 
-    assert snapshot["id"] == service.service_id == "langfuse"
+    assert snapshot["id"] == service.service_id == "langfuse-web"
     assert snapshot["host"] == "172.17.0.24"
     assert snapshot["port"] == 3000

@@ -6,11 +6,10 @@ import asyncio
 import time
 from typing import Any, Iterable
 
-from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.catalog_routes import CatalogRoute, fetch_catalog_routes
 from nabla.api.homelab_declared import fetch_declared_service_catalog
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
 from nabla.api.homelab_exposure import enrich_service_exposure, observe_cloudflare_exposure
-from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_performance import (
     HOMELAB_HEALTH_PERF_PHASES,
     record_homelab_phase,
@@ -23,8 +22,8 @@ from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 
 
-def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str]:
-    return frozenset(service.internal_host for service in services if service.service_id == "truenas" and service.internal_host)
+def _truenas_internal_hosts(services: Iterable[CatalogRoute]) -> frozenset[str]:
+    return frozenset(service.backend_host for service in services if service.service_id == "truenas" and service.backend_host)
 
 
 def _selected_truenas_endpoint_stage(payload: dict[str, Any]) -> dict[str, Any]:
@@ -176,7 +175,7 @@ def _enrich_truenas_flow(
 
 
 async def prepare_homelab_reconciliation_context(
-    services: list[HomelabService],
+    services: list[CatalogRoute],
     *,
     timings_ms: dict[str, float] | None = None,
 ) -> dict[str, Any]:
@@ -357,7 +356,7 @@ async def reconcile_homelab_health_payload(
     """Reconcile probes without repeating TrueNAS/Cloudflare/pfSense reads."""
     reconciliation_started = time.perf_counter()
     if context is None:
-        services = await fetch_homelab_services()
+        services = await fetch_catalog_routes()
         context = await prepare_homelab_reconciliation_context(services)
     else:
         services = context["services"]

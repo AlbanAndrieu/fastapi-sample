@@ -16,7 +16,6 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from nabla.api.homelab_declared import DeclaredServiceCatalog
-from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.owner_ui_session import owner_ui_authenticated
@@ -145,18 +144,39 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
 
     @app.get(
         "/api/homelab-services",
-        response_model=HomelabCatalog,
-        response_model_exclude_none=True,
         tags=["Homelab"],
-        summary="FastAPI-owned homelab exposure catalog",
+        summary="Deprecated route view of the Backstage v2 exposure intent",
     )
-    async def get_homelab_services():
-        """Compatibility read only: v2 consumers must use /api/site/catalog/v2."""
+    async def get_homelab_services() -> dict[str, Any]:
+        """Compatibility read for the deployed Site until it reads /api/site/catalog/v2.
+
+        Projected from Backstage v2 route intent only; delete with this endpoint
+        once the Site Alban v2 PR is merged.
+        """
         if not _legacy_homelab_http_enabled():
             raise HTTPException(status_code=410, detail="Legacy catalog retired")
-        from nabla.api.homelab_catalog import fetch_homelab_catalog
+        from nabla.api.catalog_routes import fetch_catalog_routes
 
-        return await fetch_homelab_catalog()
+        services = []
+        for route in await fetch_catalog_routes():
+            row = {
+                "id": route.service_id,
+                "entityRef": route.entity_ref,
+                "route": route.route,
+                "name": route.name,
+                "description": route.description,
+                "external": route.public,
+                "tunnelUrl": route.url,
+                "tunnelSecure": route.cloudflare_edge,
+                "cloudflareAccessRequired": route.access_required,
+                "healthPath": route.probe_path,
+                "securityException": route.risk_reason,
+                "internalHost": route.backend_host,
+                "internalPort": route.backend_port,
+                "internalSecure": route.backend_tls,
+            }
+            services.append({key: value for key, value in row.items() if value is not None})
+        return {"version": 2, "services": services}
 
     @app.get(
         "/api/homelab/declared-services",

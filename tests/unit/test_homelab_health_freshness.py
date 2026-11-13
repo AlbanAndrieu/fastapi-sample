@@ -1,12 +1,12 @@
 """Freshness regression tests for reconciled homelab health evidence."""
 
 from nabla.api.homelab_health_evidence import build_reconciled_service_health
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
 
 
 def test_runtime_only_stale_observation_is_exposed_on_service_row() -> None:
-    service = HomelabService(service_id="database", name="Database")
+    service = v2_service("database", title="Database")
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2000-01-01T00:00:00Z",
         configured=True,
@@ -17,7 +17,7 @@ def test_runtime_only_stale_observation_is_exposed_on_service_row() -> None:
                 app_id="database",
                 name="Database",
                 state="ACTIVE",
-            )
+            ),
         ],
         error="TrueNAS refresh failed; serving last known good snapshot",
     )
@@ -42,12 +42,7 @@ def test_runtime_only_stale_observation_is_exposed_on_service_row() -> None:
 
 
 def test_current_direct_probe_takes_freshness_precedence_over_stale_runtime() -> None:
-    service = HomelabService(
-        service_id="service",
-        name="Service",
-        tunnelUrl="https://service.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("service", "https://service.albandrieu.com", title="Service", public=True, edge=None)
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2000-01-01T00:00:00Z",
         configured=True,
@@ -68,7 +63,7 @@ def test_current_direct_probe_takes_freshness_precedence_over_stale_runtime() ->
                 "http_status": 200,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=runtime,
@@ -84,7 +79,7 @@ def test_current_direct_probe_takes_freshness_precedence_over_stale_runtime() ->
 
 
 def test_stopped_truenas_app_without_workloads_remains_failed() -> None:
-    service = HomelabService(service_id="n8n", name="n8n")
+    service = v2_service("n8n")
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2099-01-01T00:00:00Z",
         configured=True,

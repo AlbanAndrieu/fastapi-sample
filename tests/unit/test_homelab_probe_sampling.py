@@ -9,19 +9,29 @@ import pytest
 from nabla.api import homelab_health
 from nabla.api import homelab_probe_policy
 from nabla.api import homelab_probe_evidence
-from nabla.api.homelab_catalog import _apply_exposure_overrides
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
-def _service(service_id: str, port: int, *, priority: int | None = None) -> HomelabService:
-    return HomelabService(
-        id=service_id,
-        name=service_id,
-        internalHost="172.17.0.24",
-        internalPort=port,
-        external=False,
-        probePriority=priority,
-    )
+# Deployment-unit probePolicy (rank, position) of the nabla-compose catalog.
+_V2_PROBE_POLICY = {
+    "garage": (0, 0),
+    "garage-admin": (0, 1),
+    "garage-webui": (0, 2),
+    "postgresql": (3, 0),
+    "redis": (4, 0),
+    "vaultwarden": (6, 0),
+    "sentry": (7, 0),
+    "prometheus": (8, 0),
+    "grafana": (9, 0),
+    "n8n": (10, 0),
+    "pyroscope": (11, 0),
+}
+
+
+def _service(service_id: str, port: int, *, priority: int | None = None) -> CatalogRoute:
+    rank, position = (priority, 0) if priority is not None else _V2_PROBE_POLICY.get(service_id, (None, 0))
+    return v2_service(service_id, backend=("172.17.0.24", port), rank=rank, position=position)
 
 
 def test_probe_subset_keeps_priority_services_and_rotates_remainder(
@@ -71,7 +81,7 @@ def test_probe_subset_deduplicates_service_ids_before_sampling() -> None:
     selected_ids = [service.service_id for service in selected]
     assert len(selected_ids) == len(set(selected_ids)) == 12
     chosen = next(service for service in selected if service.service_id == "duplicate")
-    assert chosen.internal_port == first.internal_port
+    assert chosen.backend_port == first.backend_port
 
 
 def test_probe_cache_metadata_exposes_source_age_and_ttl() -> None:
@@ -127,8 +137,8 @@ def test_garage_private_apis_remain_in_internal_sampling_under_load() -> None:
 def test_private_garage_is_not_eligible_for_public_probing() -> None:
     admin = _service("garage-admin", 3903)
     s3 = _service("garage", 3900)
-    assert admin.external is False
-    assert s3.external is False
+    assert admin.public is False
+    assert s3.public is False
     assert admin.public_https_probe_url is None
     assert s3.public_https_probe_url is None
 
@@ -235,7 +245,7 @@ def test_saturated_tiny_budgets_report_no_rotation_interval(limit: int) -> None:
 
 
 def test_priority_overflow_is_ranked_and_independent_of_catalog_order() -> None:
-    ranked = list(homelab_probe_policy._PRIORITY_SERVICE_ORDER)
+    ranked = list(_V2_PROBE_POLICY)
     background = [_service(f"background-{i}", 27000 + i) for i in range(16)]
     catalog_orders = [ranked, list(reversed(ranked)), sorted(ranked)]
 
@@ -246,7 +256,7 @@ def test_priority_overflow_is_ranked_and_independent_of_catalog_order() -> None:
         rotated = homelab_probe_policy.rotated_priority_ids(services, limit=12)
 
         assert [item.service_id for item in selected[:10]] == ranked[:10]
-        assert rotated == ["n8n", "pyroscope"]
+        assert rotated == ["pyroscope"]
         for service_id in rotated:
             demoted = next(item for item in services if item.service_id == service_id)
             assert (
@@ -281,10 +291,10 @@ def test_evidence_coverage_excludes_stale_and_deadline_samples() -> None:
     assert summary["coverage_percent"] == 50.0
 
 
-def test_catalog_probe_priority_replaces_bootstrap_order() -> None:
+def test_catalog_probe_priority_orders_ranked_routes() -> None:
     services = [
-        _service("garage", 3900),
-        _service("garage-admin", 3903),
+        v2_service("garage", backend=("172.17.0.24", 3900)),
+        v2_service("garage-admin", backend=("172.17.0.24", 3903)),
         *[_service(f"background-{i}", 29000 + i, priority=20 - i) for i in range(3)],
         *[_service(f"filler-{i}", 29100 + i) for i in range(20)],
     ]
@@ -314,27 +324,17 @@ def test_catalog_priority_overflow_rotates_highest_ranks_last() -> None:
     assert homelab_probe_policy.rotated_priority_ids(services, limit=12) == ["ranked-10", "ranked-11"]
 
 
-def test_bootstrap_order_applies_without_catalog_priority() -> None:
-    services = [_service("n8n", 5678), _service("garage", 3900)]
+def test_unranked_routes_only_rotate() -> None:
+    services = [v2_service("n8n"), v2_service("garage")]
 
-    assert homelab_probe_policy.priority_source(services) == "bootstrap"
-    assert [item.service_id for item in homelab_probe_policy._ranked_priorities(services)] == ["garage", "n8n"]
+    assert homelab_probe_policy.priority_source(services) == "none"
+    assert homelab_probe_policy._ranked_priorities(services) == []
 
 
 @pytest.mark.parametrize("invalid", [True, -1, 1001, "1"])
 def test_probe_priority_rejects_non_integer_ranks(invalid: object) -> None:
     with pytest.raises(ValueError):
-        HomelabService(id="garage", name="garage", probePriority=invalid)
-
-
-def test_exposure_override_propagates_probe_priority() -> None:
-    merged = _apply_exposure_overrides(
-        {"services": [{"id": "garage", "name": "Garage S3 API"}]},
-        {"services": [{"name": "Garage S3 API", "probePriority": 0}]},
-    )
-
-    assert merged["services"][0]["probePriority"] == 0
-    assert HomelabService.model_validate(merged["services"][0]).probe_priority == 0
+        v2_service("garage", rank=invalid)
 
 
 def test_catalog_coverage_is_distinct_from_rotating_probe_slots():
@@ -356,10 +356,7 @@ def test_curated_public_cards_exclude_private_garage_apis() -> None:
 
 
 def test_cycle_estimate_includes_never_observed_priority_overflow() -> None:
-    services = [
-        _service(f"service-{index}", 22000 + index, priority=index if index < 12 else None)
-        for index in range(28)
-    ]
+    services = [_service(f"service-{index}", 22000 + index, priority=index if index < 12 else None) for index in range(28)]
     assert homelab_probe_policy.estimated_full_cycle_seconds(services, limit=12) == 270.0
     assert homelab_probe_policy.estimated_full_cycle_seconds(services[:2], limit=12) == 30.0
     assert homelab_probe_policy.estimated_full_cycle_seconds(services, limit=0) is None
@@ -382,7 +379,8 @@ def test_scope_summary_identifies_missing_evidence_without_lan_endpoints() -> No
         assert len(merged) == 1
         assert summary["estimated_full_cycle_seconds"] == 30.0
         assert {item["id"] for item in summary["unobserved_slots"]} == {
-            "service-1", "service-2"
+            "service-1",
+            "service-2",
         }
         assert all("host" not in item and "port" not in item for item in summary["unobserved_slots"])
         assert summary["evidence"]["known"] == 1

@@ -14,7 +14,7 @@ import os
 import re
 from typing import Any
 
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.homelab_probe_evidence import MAX_PROBE_EVIDENCE_RETENTION_SEC
 from nabla.utils.environment import env_bool
 from nabla.utils.logger import logger
@@ -27,13 +27,24 @@ _IO_BUDGET_SECONDS = 0.5
 
 # Retain scalar, non-secret diagnostics. Origin URLs and host data come only
 # from the locally approved catalog when an entry is rehydrated.
-_FIELDS = frozenset({
-    "reachable", "http_status", "state", "tls_trusted", "latency_ms",
-    "anonymous_http_status", "origin_reached", "dns_state", "error_kind",
-    "public_probe_auth_mode", "public_probe_verification",
-    "cloudflare_access_signal", "cloudflare_default_deny",
-    "cloudflare_service_token_rejected",
-})
+_FIELDS = frozenset(
+    {
+        "reachable",
+        "http_status",
+        "state",
+        "tls_trusted",
+        "latency_ms",
+        "anonymous_http_status",
+        "origin_reached",
+        "dns_state",
+        "error_kind",
+        "public_probe_auth_mode",
+        "public_probe_verification",
+        "cloudflare_access_signal",
+        "cloudflare_default_deny",
+        "cloudflare_service_token_rejected",
+    },
+)
 
 
 def _key(service_id: str) -> str | None:
@@ -47,7 +58,7 @@ def _key(service_id: str) -> str | None:
 def resolve_redis_client() -> Any | None:
     """Import Redis integration only after the opt-in; core API stays usable."""
     try:
-        from nabla.api.external_probe_cache_redis import resolve_redis_client as resolver
+        from nabla.api.external_probe_cache_redis import resolve_redis_client as resolver  # noqa: PLC0415
     except (ImportError, RuntimeError):
         return None
     return resolver()
@@ -74,7 +85,7 @@ def _safe_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 async def read_public_probe_evidence(
-    candidates: list[HomelabService],
+    candidates: list[CatalogRoute],
 ) -> tuple[list[dict[str, Any]], bool]:
     """Fetch prior public observations for this catalog, if explicitly enabled."""
     client = _client()
@@ -92,27 +103,22 @@ async def read_public_probe_evidence(
         return [], False
     entries = []
     for service, raw in zip(candidates, raw_values, strict=False):
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8", errors="replace")
-        if not isinstance(raw, str):
+        text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+        if not isinstance(text, str):
             continue
         try:
-            envelope = json.loads(raw)
+            envelope = json.loads(text)
         except (TypeError, ValueError):
             continue
-        if (
-            isinstance(envelope, dict)
-            and envelope.get("schema") == _SCHEMA
-            and envelope.get("service_id") == service.service_id
-            and isinstance(envelope.get("row"), dict)
-        ):
+        if isinstance(envelope, dict) and envelope.get("schema") == _SCHEMA and envelope.get("service_id") == service.service_id and isinstance(envelope.get("row"), dict):
             envelope["row"] = _safe_row(envelope["row"])
             entries.append(envelope)
     return entries, True
 
 
 async def write_public_probe_evidence(
-    rows: list[dict[str, Any]], checked_at: str,
+    rows: list[dict[str, Any]],
+    checked_at: str,
 ) -> bool:
     """Persist only new public-origin observations with a bounded Redis TTL."""
     client = _client()
@@ -133,16 +139,13 @@ async def write_public_probe_evidence(
             "row": _safe_row(row),
         }
         commands.append(
-            (key, json.dumps(envelope, sort_keys=True, separators=(",", ":")))
+            (key, json.dumps(envelope, sort_keys=True, separators=(",", ":"))),
         )
     try:
         if commands:
             await asyncio.wait_for(
                 asyncio.gather(
-                    *(
-                        client.set(key, value, ex=int(MAX_PROBE_EVIDENCE_RETENTION_SEC))
-                        for key, value in commands
-                    )
+                    *(client.set(key, value, ex=int(MAX_PROBE_EVIDENCE_RETENTION_SEC)) for key, value in commands),
                 ),
                 timeout=_IO_BUDGET_SECONDS,
             )

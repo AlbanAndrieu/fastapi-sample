@@ -6,7 +6,6 @@ import pytest
 
 import nabla.api.homelab_runtime as homelab_runtime
 from nabla.api.homelab_declared import DeclaredServiceCatalog, RuntimeBinding
-from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import (
     TrueNASRuntimeSnapshot,
     _catalog_membership_drift,
@@ -15,6 +14,7 @@ from nabla.api.homelab_runtime import (
     match_runtime_binding,
 )
 from nabla.api.homelab_topology import HomelabTopology
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 async def _no_catalog_membership_drift(_services):
@@ -282,9 +282,7 @@ async def test_status_matches_declared_service_by_container_service(
             "type": "Reconciled",
             "status": "True",
             "reason": "InSync",
-            "message": (
-                "Declared runtime identity matches one observed provider resource."
-            ),
+            "message": ("Declared runtime identity matches one observed provider resource."),
         },
     ]
     assert payload["services"][0]["observed"]["appId"] == "litellm-albandrieu"
@@ -421,22 +419,14 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
 async def test_catalog_membership_drift_flags_uptime_kuma_contract_split(
     monkeypatch,
 ) -> None:
-    presentation = HomelabCatalog.model_validate(
-        {
-            "version": 1,
-            "services": [
-                {
-                    "id": "uptime-kuma",
-                    "name": "Uptime Kuma",
-                    "internalHost": "172.17.0.24",
-                    "internalPort": 31050,
-                    "tunnelUrl": "https://uptime-kuma.albandrieu.com",
-                    "tunnelSecure": True,
-                    "external": False,
-                },
-            ],
-        },
-    )
+    presentation = [
+        v2_service(
+            "uptime-kuma",
+            "https://uptime-kuma.albandrieu.com",
+            title="Uptime Kuma",
+            backend=("172.17.0.24", 31050),
+        ),
+    ]
     topology = HomelabTopology.model_validate(
         {
             "version": 1,
@@ -460,7 +450,7 @@ async def test_catalog_membership_drift_flags_uptime_kuma_contract_split(
 
     monkeypatch.setattr(
         homelab_runtime,
-        "fetch_homelab_catalog",
+        "fetch_catalog_routes",
         fake_presentation,
     )
     monkeypatch.setattr(

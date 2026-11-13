@@ -7,18 +7,12 @@ import asyncio
 import pytest
 
 from nabla.api import homelab_health, homelab_probe_policy
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
-def _service(index: int) -> HomelabService:
-    return HomelabService(
-        id=f"service-{index}",
-        name=f"Service {index}",
-        internalHost="172.17.0.24",
-        internalPort=20_000 + index,
-        tunnelUrl=f"https://service-{index}.albandrieu.com",
-        external=True,
-    )
+def _service(index: int) -> CatalogRoute:
+    return v2_service(f"service-{index}", f"https://service-{index}.albandrieu.com", title=f"Service {index}", public=True, edge=None, backend=("172.17.0.24", 20_000 + index))
 
 
 @pytest.mark.asyncio
@@ -65,8 +59,8 @@ async def test_production_scale_catalog_keeps_probe_fanout_bounded_and_cached(
         return {
             "id": service.service_id,
             "name": service.name,
-            "host": service.internal_host,
-            "port": service.internal_port,
+            "host": service.backend_host,
+            "port": service.backend_port,
             "reachable": True,
             "state": "ok",
             "latency_ms": 1,
@@ -118,7 +112,7 @@ async def test_fanout_deadline_cancels_queued_probes_without_late_burst(
     blocker = asyncio.Event()
     started: list[str] = []
 
-    async def blocked_probe(service: HomelabService) -> dict[str, object]:
+    async def blocked_probe(service: CatalogRoute) -> dict[str, object]:
         async with semaphore:
             started.append(service.service_id)
             await blocker.wait()
