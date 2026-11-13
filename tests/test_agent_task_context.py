@@ -1,4 +1,5 @@
 """Dependency-free tests for the FastAPI local-first agent task router."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -21,8 +22,13 @@ spec.loader.exec_module(router)
 
 def call(repo: Path, *args: str) -> None:
     process = subprocess.run(
-        ["git", *args], cwd=repo, stdin=subprocess.DEVNULL,
-        capture_output=True, text=True, timeout=6, check=False,
+        ["git", *args],
+        cwd=repo,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=6,
+        check=False,
     )
     if process.returncode:
         raise AssertionError("synthetic git setup failed")
@@ -36,9 +42,7 @@ class RouterContracts(unittest.TestCase):
         call(self.repo, "init", "-q", "-b", "master")
         (self.repo / "README.md").write_text("initial\n", encoding="utf-8")
         call(self.repo, "add", "README.md")
-        call(self.repo, "-c", "user.name=Offline Test",
-             "-c", "user.email=test@example.invalid",
-             "commit", "-qm", "baseline")
+        call(self.repo, "-c", "user.name=Offline Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "baseline")
         call(self.repo, "switch", "-q", "-c", "fix/agent-ui")
 
     def test_infer_ui_only_and_one_narrow_check(self) -> None:

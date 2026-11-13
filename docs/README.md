@@ -74,4 +74,4 @@ Les preuves et décisions anciennes sont conservées, sans statut courant :
 4. **Historique archivé** : ne pas effacer les causes ni les procédures utiles.
 5. **Preuves distinctes** : `CODED`, `TESTED`, `DEPLOYED`, `ACCEPTED`.
 6. **Un seul propriétaire par domaine** : liens entre dépôts, sans recopier
-   secrets, catalogues ou configurations d'appliance.
+    secrets, catalogues ou configurations d'appliance.
