@@ -7,7 +7,7 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 
 | Besoin | Document canonique |
 | --- | --- |
-| **Que reste-t-il à faire ?** | [Roadmap active P0/P1/P2](engineering-roadmap.md) |
+| **Que reste-t-il à faire ?** | [Roadmap d’ingénierie F01–F10](engineering-roadmap.md) (historique du 13/11 archivé) |
 | **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
 | **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
 | **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
@@ -15,6 +15,10 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | **Règles sécurité homelab ?** | [Guardrails](homelab-security-roadmap.md) |
 | **RTO/RPO et continuité ?** | [Business Impact Analysis](business-impact-analysis.md) |
 | **Points d'entrée et dashboards ?** | [Entrypoints](entrypoints-and-dashboards.md) |
+
+La [roadmap infrastructure Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md) et les [roadmaps du Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/README.md) restent distinctes : les dépendances sont liées, pas dupliquées.
+
+Le [portefeuille Homelab](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md) présente les arbitrages inter-dépôts. Le [journal de réconciliation](archive/2026-11-13-roadmap-reconciliation.md) conserve la trace des travaux transférés.
 
 ## Runbooks opérateur
 
@@ -41,6 +45,7 @@ Le provisionnement LiteLLM staging est documenté dans
 ## Agents et contrôles locaux
 
 - [Règles de contribution](../AGENTS.md) : priorité des instructions et sécurité.
+- [Scripts et points d'entrée](../scripts/README.md) : un seul lanceur par usage ; pour une modification uniquement documentaire, `just agent-context auto` propose `just docs-links` (tous les Markdown actifs, archives figées exclues ; aucun réseau, aucune CI).
 - [Skill local-first](../.agents/skills/local-first-quality/SKILL.md) :
   L0 contexte, L1 ciblé, L2 convergence et L3 publication.
 - [Reprise OpenCode d'une PR](../.opencode/commands/continue-pr.md) :
@@ -58,6 +63,7 @@ Les documents de référence restent accessibles :
 
 Les preuves et décisions anciennes sont conservées, sans statut courant :
 
+- [Roadmap intégrale figée le 13 novembre](archive/2026-11-13/engineering-roadmap-before-reconciliation.md)
 - [Roadmap détaillée du 29 octobre](archive/2026-10-29/engineering-roadmap-before-consolidation.md)
 - [Ancienne roadmap du 24 octobre](archive/2026-10-24/engineering-roadmap.md)
 - [Historique intégral du gel UI d'octobre](archive/2026-10-30/fastapi-cloud-api-ui-freeze-20261026-history.md)
@@ -70,4 +76,4 @@ Les preuves et décisions anciennes sont conservées, sans statut courant :
 4. **Historique archivé** : ne pas effacer les causes ni les procédures utiles.
 5. **Preuves distinctes** : `CODED`, `TESTED`, `DEPLOYED`, `ACCEPTED`.
 6. **Un seul propriétaire par domaine** : liens entre dépôts, sans recopier
-   secrets, catalogues ou configurations d'appliance.
+    secrets, catalogues ou configurations d'appliance.

@@ -1,219 +1,46 @@
 # Roadmap active — FastAPI Sample
 
-**Révisée le 30 octobre 2026.** Ce document ne liste que les travaux
-**non acceptés** et leur prochaine preuve. Les preuves datées sont dans
-[le registre d'incidents](incidents.md), les commandes dans
-[les runbooks](README.md) et les demandes anciennes à requalifier dans
-[le backlog historique](engineering-backlog.md).
+> **Réconciliation du 13 novembre 2026.** Ce document suit exclusivement les travaux FastAPI **non acceptés**. Vue de décision transversale : [portefeuille Homelab](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md). Configuration TrueNAS, CSI, pfSense, Cloudflare Tunnel et secrets : [roadmap nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md).
 
-**États :** `CODED` = présent dans Git ; `TESTED` = testé sur un SHA exact ;
-`DEPLOYED` = SHA/image identifié sur l'environnement ;
-`ACCEPTED` = comportement constaté sur cet environnement.
-`NOT_RUN`, `UNVERIFIED`, `DENIED` et un merge ne sont pas des succès runtime.
+Une PR fusionnée n'est pas une acceptation runtime. Utiliser `CODED` (code fusionné), `TESTED` (tests exécutés sur SHA exact), `DEPLOYED` (image/SHA déployé identifié), `ACCEPTED` (comportement constaté sur cette image), `NOT_RUN` et `NOT_VERIFIED` (absence de preuve). Les refus Cloudflare `DENIED` et les diagnostics non exécutés ne sont pas `DOWN`.
 
-## Vue d'ensemble et ordre d'exécution
+## P0 — Recette de production, sécurité et budget
 
-Priorité propriétaire (31/10) : (1) recette navigateur Cloud avec SHA
-attesté, (2) Gatus/Prometheus ; le reste suit.
+| ID | État code au 13/11 | À faire et critère de clôture |
+| --- | --- | --- |
+| **F01 — Cloud UI et OWNER** | **CODED** (#382, #383, #390), recette récente **NOT_VERIFIED** | Attester `/v2/version` sur Cloud et TrueNAS, tester dans Chromium `/api`, `ui_safe=1`, `ui_full=1`, `operator=1` et combinaison OWNER ; absence de gel JS, défilement du panneau TrueNAS, aucun détail privé anonyme. [Recette](runbooks/fastapi-truenas-owner-acceptance-20261029.md). |
+| **F02 — FinOps FastAPI Cloud Nano** | **CODED** : PR [#419](https://github.com/AlbanAndrieu/fastapi-sample/pull/419) fusionnée le 11/11 ; **NOT_VERIFIED** en production | Mesurer le **CPU vCPU**, la RAM, les réplicas et latences dans FastAPI Cloud Metrics avant/après à trafic comparable. Vérifier polling OWNER 180 s, absence de polling public, profilage Cloud inactif par défaut, cgroup v2 à la demande. Ne pas confondre CPU processus, cAdvisor TrueNAS et métriques de facturation. [Budget runtime](runbooks/fastapi-cloud-runtime-cost-guard.md). |
+| **F03 — Couverture des sondes** | Calculs et classifications **CODED**, preuve fraîche **NOT_VERIFIED** | Rapprocher `entityRef`/`catalogRevision`, Gatus, Prometheus et observation directe ; exposer `UP`, `DOWN`, `NO_SAMPLE`, `NOT_MONITORED`, `DENIED`, `STALE` sans faux vert. Les 67,9 % evidence / 7,1 % healthy du 05/11 restent une **ancienne mesure**, non une situation actuelle. [Couverture](runbooks/cloud-probe-evidence-coverage.md) et [acceptation](runbooks/fastapi-observability-acceptance.md). |
+| **F04 — Qualité et publication locale** | Corrections CI et gates **CODED** ; HEAD actuel **NOT_VERIFIED** | `just ui-quick` puis L2 (`scripts/agent-quality-gate.sh --fix`) et L3 (`scripts/agent-publish.sh`) au SHA exact ; vérifier les suites et obtenir **deux runs master** consécutifs réels avant de clôturer [issues/355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355). Aucun FAIL/timeout converti en PASS. [Qualité](../.agents/skills/local-first-quality/SKILL.md). |
+| **F05 — Identité publique et accès** | Cible `fastapi-sample.albandrieu.com` **CODED** ; DNS final **NOT_VERIFIED** | `nabla-compose` possède l'apply OpenTofu, la route Tunnel et Access. FastAPI vérifie séparément santé LAN, réponse 302/403 Access, CDN/WAF, Cloud et DNS `dns_sample` ; ne pas exempter le WAF pour faire passer une sonde. [Contrat réseau](fastapi-sample-cloudflare-network-contract.md). |
 
-| Priorité | Chantier | Dernière preuve vérifiable | Prochain jalon |
-| --- | --- | --- | --- |
-| **P0 (1)** | Recette navigateur | 31/10 Cloud `1.26.3` : `?ui_full=1` gèle le thread (boucle `MutationObserver` du drawer, cause prouvée par pile CDP) ; correctif fusionné ([#390](https://github.com/AlbanAndrieu/fastapi-sample/pull/390), `5f6b6fff`) ; `build_revision` Cloud `null` | Déployer `5f6b6fff`, rejouer les 5 modes Chromium sur l'image et attester le SHA |
-| **P0 (2)** | Gatus / Prometheus | 85 sondes déclarées, **61 UP / 24 DOWN** historiques (26/10) ; `up{job="fastapi_sample"}=1` signalé le 30/10, 22/28 targets globalement UP | Comparer état et fraîcheur par service, confirmer auth scrape et corriger les exporters défaillants |
-| **P0** | UI Cloud riche + OWNER, [PR #383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383) fusionnée le 30/10 | `just ui-quick` **37/37 PASS** au SHA `cb43c27b` sur TrueNAS et workstation ; L2 a modifié six JS lors du formatage | Revoir le diff, publier les corrections sur la PR, L1/L2/L3 sur le HEAD final |
-| **P0** | Qualité de `master` et [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355) | Sur `7fbd2f61` : 28 échecs pytest ; correctifs **1879 pytest + 35 Node PASS** et L2 PASS sur une branche de travail distincte, non équivalents à une preuve actuelle de `master` | Gate complète au HEAD candidat, puis deux runs master réussis avant clôture de #355 |
-| **P1** | OWNER mobile + TrueNAS Docker | Ancien build `0266f20d` refusé en étape 3/6 ; dernière recette réussie `fa13c08d` | Classer le journal privé, accepter un build 6/6 récent, puis session OWNER authentifiée en HTTPS |
-| **P1** | Cartes et graphe | UI et liens prévus dans le code, recette interactive non attestée | Navigation par ID canonique, filtres mobiles, états DNS/TCP/TLS/HTTP/auth/métriques et horodatage |
-| **P2** | Sécurité, intégrations et dépendances | Contrats, pilotes et tests partiels existants | Recettes RoutePolicy, traces, Renovate, DefectDojo, LiteLLM et documentation d'ownership |
+**Done P0** : SHA effectivement servi, OWNER et anonymous recettés sur navigateur, budget observé et sondes expliquées avec leur fraîcheur. Aucun droit supplémentaire implicite.
 
-## P0 — Livraison sûre du tableau Cloud et rétablissement de la qualité
+## P1 — Qualité de l'observabilité et expérience opérateur
 
-- [x] **CODED :** PR [#382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382)
-  **fusionnée le 30/10**, avec catalogue léger, mode `ui_safe=1`,
-  entrée OWNER et correctifs d'observateurs DOM. Fusion ≠ déploiement.
-- [x] **CODED, pas ACCEPTED :** [#383](https://github.com/AlbanAndrieu/fastapi-sample/pull/383)
-  ordonne le chargement du contrôleur OWNER avant les imports riches,
-  conserve le catalogue et refuse toute élévation de droits par URL.
-- [x] **TESTED L1 :** `just ui-quick` 37/37 PASS sur `cb43c27b` ;
-  autres preuves de l'ancien HEAD restent historiques. Aucun Chromium E2E
-  sur l'image Cloud actuelle.
-- [ ] **L2 :** revoir les **six fichiers JS** modifiés par pre-commit dans
-  le worktree isolé ; ne pas les écraser. Publier uniquement les
-  corrections approuvées en `[skip ci]`, puis exécuter `just ui-quick`
-  et `bash scripts/agent-quality-gate.sh --fix` avec Node **et npm**.
-  L2 était bloqué par `nodeenv`, puis par npm manquant sur TrueNAS,
-  puis interrompu par le formatteur sur workstation ; aucun bypass.
-- [ ] **L3 :** sur un HEAD propre, exécuter `bash scripts/agent-publish.sh`,
-  sans GitHub Actions. Contrôler les rapports du SHA exact et la sécurité.
-- [ ] **Recette Cloud :** identifier l'image/SHA effectivement déployé,
-  mesurer en vrai Chromium `/api`, `?ui_safe=1`, `?ui_full=1`,
-  `?operator=1` et `?operator=1&ui_full=1` (avant/après session).
-  Séparer `main_thread_unresponsive`, `ui_loading_without_content`
-  et `http_access_restricted`. **31/10 :** seul `?ui_full=1` est
-  `main_thread_unresponsive` sur `1.26.3` ; cause et correctif dans
-  [incidents](incidents.md). Reste : rejouer après déploiement, puis
-  exposer un SHA Cloud (`/v2/version` rend `build_revision: null`).
-- [ ] **Publication :** faire relire puis déployer via le circuit autorisé,
-  sans merge ou déploiement automatique ; confirmer les interactions sur
-  l'image déployée.
-- [ ] **Qualité master :** vérifier la présence sur `master` des correctifs
-  aux 28 anciens échecs et exécuter la suite complète. Ne fermer
-  [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355)
-  qu'après deux runs réels `master` consécutifs verts. **31/10 :** sur
-  `08f8f5f6` (1.26.3), 3 contrats échouaient (taille et fin de
-  `api-health.js` après #383, phrases de roadmap) ; corrigés sur
-  `fix/ui-full-drawer-observer-loop-20261031` avec 1884 pytest et
-  `just ui-quick` 40/40, L2/L3 PASS sur le SHA de la PR. Reste : runs `master` au HEAD exact.
+| ID | État | Preuve et prochaine action |
+| --- | --- | --- |
+| **F06 — Accueil Operations Overview** | Démonstration météo remplacée dans [#396](https://github.com/AlbanAndrieu/fastapi-sample/pull/396), **CODED** ; runtime **NOT_VERIFIED** | Confirmer rendu sans clic, caches publics sans information OWNER, froid/chaud et mode déconnecté ; la démo est uniquement sur `/demo/sensors`. [Transition](runbooks/home-operations-transition.md). |
+| **F07 — Heatmap et ressources** | Tri cAdvisor CPU/RAM/FS/RX+TX [#418](https://github.com/AlbanAndrieu/fastapi-sample/pull/418) fusionné ; **CODED**, recette OWNER **NOT_RUN** | Test Node, session OWNER mobile et anonyme, `0` mesuré distinct de l'absence `—`, échelle max sur les lignes visibles ; compléter occupation **ZFS dataset** sans l'inférer de `container_fs_usage_bytes`, NetFlow/Sankey seulement avec flux sourcés. [Transition](runbooks/home-operations-transition.md). |
+| **F08 — Runtime TrueNAS et démarrage** | PostgreSQL `fastapisample` TLS 1.3/`verify-full` et réception Sentry documentés le 13/11 côté Compose ; démarrage lent encore ouvert | Isoler trois pauses d'environ 1 min avant Unleash, Logfire et Sentry ; instrumenter par phase avec borne de durée, vérifier `/health`, `/readyz`, les sondes Prometheus et le chemin LiteLLM/OpenRAG sans régression. **Déploiement et APP ID appartiennent à Compose**. [Runbook](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/runbooks/fastapi-sample-truenas-diagnostics.md). |
+| **F09 — Projections et intégrations** | Vue couches réseau/Cloudflare/Prometheus **CODED** ; **NOT_VERIFIED** au runtime | Valider cache L1/L2 Redis opt-in sans mélange d'environnements, critères `unknown/warn` et âge des preuves ; authentification scrape, pas de sonde WAN pfSense interdite. [Connexions](runbooks/truenas-cloud-connection-probes.md). |
+| **F10 — Scans et DefectDojo** | Endpoints et export privés préparés, import **NOT_VERIFIED** | Product/engagement et RBAC limités, import LAN sans secret, suivi asynchrone jusqu'à `Processed`, déduplication et refus inter-produit ; coordination avec les ressources Compose, sans importer des secrets en CI. [Import privé](runbooks/defectdojo-fastapi-private-import.md). |
 
-- [ ] **CI bornée et sécurité Actions (31/10) :** le workflow
-  [master-red #65](https://github.com/AlbanAndrieu/fastapi-sample/actions/runs/41195829678)
-  a échoué sur Zizmor : deux usages de `pypa/gh-action-pypi-publish`
-  v1.14.2 vulnérable et six annotations `actions/setup-python` non exactes.
-  La [PR #391](https://github.com/AlbanAndrieu/fastapi-sample/pull/391)
-  est fusionnée : elle corrige ces références et borne les jobs via
-  `timeout-minutes`, avec deadlines pour les suites pytest et tests de contrat.
-  **CODED dans master** ; actionlint/Zizmor et gate L2/L3
-  sur le commit final restent à vérifier sans gaspillage de CI. Les timeouts
-  doivent donner un FAIL explicite, jamais un faux PASS. Après fusion,
-  vérifier un run `master` complet et ne clôturer #355 qu'avec preuves.
+**Done P1** : couverture sans fausses classifications, interface mobile utilisable, sondes et métriques attribuées à leur source, aucun secret émis dans le navigateur.
 
-**Done P0 :** tableau riche interactif sans gel ; accès OWNER disponible
-sans import riche ; droits serveur préservés ; tests et SHA Cloud tracés ;
-`master` réellement validé.
+## P2 — Architecture, sécurité et dette technique
 
-## P1 — Acceptation TrueNAS, observabilité et UX
+- **RoutePolicy/ASGI/JWT** : HTTP, WebSocket, MCP/A2A et consommateurs PUBLIC/SERVICE/OWNER/INTERNAL ; éprouver JWKS/JWT, mauvais issuer/audience, perte JWKS et route denial avant `OPS_ROUTE_POLICY_STRICT`. **Non activé par simple refactoring.**
+- **OIDC Keycloak** : identité FastAPI distincte de PostgreSQL OAuth, gestion MFA et révocation ; architecture et exposition Keycloak appartiennent à Compose.
+- **Fédération TrueNAS → Cloud** : agrégats signés, datés, minimisés et authentifiés ; aucun accès LAN depuis Cloud, aucune IP privée ni secret dans un DTO public.
+- **Qualité des scripts** : `scripts/ci/quality-git.sh` pour la base Git, `quality-lock.sh` pour `flock -o`, `quality-timeout.sh` pour les échéances, `run-pytest-bounded.sh` pour la CI. Conserver le rapport lisible `run-pytest-compact.sh` pour les sessions locales. **Ne pas refusionner ces CLI dont les contrats de sortie diffèrent**. Retirer les hooks dupliqués prek/ruff/gitlint uniquement après tests ciblés.
+- **Maintenance** : Renovate et Helm sans automerge, qualité Python et Node, revue des tests et règles sécurité de PR. Les chantiers anciens non requalifiés restent dans [engineering-backlog.md](engineering-backlog.md), jamais automatiquement P0.
 
-- [ ] **TrueNAS :** classifier en lecture seule le build Docker échoué
-  avant toute nouvelle construction, puis obtenir un 6/6 et identifier
-  l'image en service. Cette opération appartient à
-  [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
-  **31/10, 14:11 UTC :** depuis le LAN, `172.17.0.24:8091` refuse la
-  connexion (hôte joignable sur 443/7000) ; `sample.albandrieu.com`
-  renvoie 302 Cloudflare Access sur tous les chemins. Côté Cloud, Keycloak
-  répond par la page challenge « Just a moment… » (403), distincte du
-  Default-Deny : elle reste `reachable: false`. Cause du `:8091` : l'App
-  TrueNAS `sample` a été supprimée, et `update-fastapi-sample.sh` échouait
-  en `app.update` (`ENOENT App sample does not exist`). Correctif
-  nabla-compose `fix/sample-update-creates-missing-app-20261031` :
-  `app.create` si l'App manque. Preuve suivante : script 6/6 sur TrueNAS,
-  `/health` 200 sur `:8091`, et challenge Keycloak classé.
-- [ ] **OWNER mobile :** vérifier depuis une source approuvée le bouton
-  `Unlock diagnostics`, `authenticated=true`, la session HTTPS et
-  le refus hors LAN/allowlist ; `readOnlyDiagnostics=true` n'est pas OWNER.
-  Distinguer 401 (clé), 403 (source/origine), 503 (configuration).
-- [ ] **Gatus :** comparer 85 sondes historiques au catalogue réel, classer
-  `UP / DOWN / NO_SAMPLE / MISSING_MONITOR / NOT_MONITORED`, confirmer
-  leur fraîcheur et traiter les échecs sans les masquer.
-- [ ] **Prometheus :** consolider la preuve du scrape
-  `up{job="fastapi_sample"} == 1` avec authentification dédiée ;
-  auditer Postgres/Redis/pfSense exporters. Un `401` anonyme sur
-  `/metrics` est attendu, non une panne.
-- [ ] **Cartes/Topologie :** rapprocher les IDs canoniques et les unités
-  Garage S3/Admin/UI, garantir les liens upstream/downstream cliquables,
-  détails `DNS → TCP → TLS → HTTP → auth → metrics`, origine des mesures,
-  âge/staleness, statuts d'accès et parcours mobile/clavier.
-- [ ] **Exposition :** distinguer Cloudflare Access `302/403`, sonde
-  outside-in, état LAN, API pfSense et perte réelle d'un workload.
-- [ ] **Sémantique santé TrueNAS (diagnostic 30/10, 20:30 UTC) :**
-  `sample` RUNNING/`in_sync`, `/health` 200, mais `/healthz` `degraded`
-  par le seul Keycloak (`403` Cloudflare Access Default-Deny, service
-  différé) ; Pyroscope `/` 200 alors que `/ready` répond 503 ;
-  `/v2/version` = 1.25.0 avec `build_revision=null` (`master` 1.26.0).
-  **CODED/TESTED (non commité, non déployé) :** Keycloak Default-Deny
-  classé `unknown`/warn, sonde Pyroscope sur `/ready` (révèle
-  « Metastore not ready »), argument Docker `BUILD_REVISION`, build arg
-  `FASTAPI_SAMPLE_BUILD_REVISION` dans `compose.yml` et, dans `release.yml`,
-  `BUILD_REVISION` = `git rev-parse HEAD` du tag extrait (`github.sha` est
-  le HEAD par défaut du dispatch, pas le tag). Restent : export du SHA par
-  `scripts/truenas/update-fastapi-sample.sh` (nabla-compose), gate L2/L3.
-  Preuve suivante : `/v2/version` avec SHA complet sur TrueNAS et sur
-  l'image GHCR de la prochaine release (label
-  `org.opencontainers.image.revision` = commit du tag), `/healthz` sans
-  Keycloak en échec, Pyroscope `/ready` 200 après réparation du metastore.
-- [ ] **Compose unique et hostname public (31/10) :** nabla-compose supprime
-  `apps/sample/` et déploie ce `compose.yml` via son sous-module
-  `apps/fastapi-sample` ; hostname public `sample.albandrieu.com` →
-  `fastapi-sample.albandrieu.com` (interne `sample.int.albandrieu.com`,
-  App `sample` et secrets inchangés). Ordre : fusionner cette PR, puis
-  pointer le sous-module nabla-compose sur son commit. DNS, route tunnel et
-  Access Cloudflare passent en OpenTofu dans une PR nabla-compose séparée.
-  Preuve suivante : `update-fastapi-sample.sh` 6/6, puis
-  `https://fastapi-sample.albandrieu.com/health` 200 via Access ; la
-  campagne ZAP pointe vers ce hostname.
-- [ ] **Réconciliation TrueNAS (même diagnostic, owner
-  [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose)) :**
-  `unbound` requis `unknown` (timeout API pfSense `services`),
-  `uptime-kuma` public `502`, 3 `binding_conflict` (`hello-nginx` et
-  `sentry-edge` sur le même `nginx`, `redis` multiple), 41 `declared_only`
-  / 41 `observed_only` dont écarts de nom (`homeassistant`,
-  `elasticsearch`, `hermes`, `graylog`). Preuve suivante : bindings
-  uniques, noms alignés, `unbound` et `uptime-kuma` OK avec preuve fraîche.
-- [ ] **Comparaison des sondes Cloud / TrueNAS / local (04/11, 19:10–19:20 UTC,
-  `v0+1.27.0`, `build_revision=null` partout) :** lecture seule, GET
-  séquentiels. **TrueNAS `NOT_RUN`** depuis un conteneur cloud :
-  `sample.int` sans DNS public, `sample.albandrieu.com` → 302 Access
-  (attendu), `fastapi-sample.albandrieu.com` sans enregistrement DNS. Vue
-  indirecte via Cloud : App `sample` RUNNING/`in_sync`, image
-  `fastapi-sample:local`, **aucune sonde HTTP** de cette instance.
-  Cloud : `/readyz` ready, `/healthz` et `/api/homelab/health` `degraded`,
-  cache 30 s (froid 3–6,5 s, chaud ≈0,7 s). Constats à traiter :
-  (a) `/sickz` public, sans cache ni limite SlowAPI, ≈68 groupes sondés par
-  requête, 8,6–11 s de bout en bout (fan-out 8 s puis enrichissement
-  séquentiel ≤6 s) ; (b) posture pfSense Cloud en `ConnectTimeout` alors que
-  WAN 10443 est volontairement fermé à Cloud (nabla-compose) : phase de
-  6,1 s à chaque tentative d'origine (demi-ouverture, au plus toutes les
-  900 s), 27 ms quand le disjoncteur la supprime ; Service Token refusé
-  par Access pour adguardhome, affine, freshrss et keycloak ; joplin sans
-  DNS (déclaré `external=true`) ; (c) sonde Tavily avec
-  la requête `"."` rejetée (`Query is invalid.`) ; (d) OVH `openstack_me` :
-  credential inexistant côté Cloud (rotation opérateur) ; (e) depuis l'egress
-  Cloud, Keycloak reçoit le challenge Cloudflare (403) et LiteLLM 403 sur
-  les trois chemins, alors que `/health/liveliness` répond 200 depuis un
-  autre egress externe ; (f) owner nabla-compose : `hello.int` (200) et
-  `s3.int` (403 S3) joignables depuis Internet via l'IP WAN, sans Cloudflare,
-  Vaultwarden en bypass Access « Everyone » sur tout le hostname, Homarr
-  CRASHED, Graylog/Lidarr STOPPED (Lidarr avec ingress tunnel). Preuve
-  suivante : même campagne depuis le LAN (TrueNAS `:8091` + workstation),
-  `/sickz` mis en cache ou limité, `PFSENSE_AUTHENTICATED_PROBES_ENABLED`
-  aligné sur la politique WAN, Tavily/OVH verts, `*.int` refusés au
-  frontal WAN hors exceptions revues.
-  **CODED/TESTED L1 (non déployé) :** (a) cache `/sickz` 60 s single-flight
-  (`nabla/api/sickz_cache.py`, purge avec `/api/health-board/cache/reset`) ;
-  (c) sonde Tavily via `GET /usage` (`nabla/api/tavily_health.py`) ;
-  (e) page challenge Cloudflare classée `warn`/non vérifiée pour Keycloak et
-  LiteLLM ; skill `fastapi-cloud` et doc pfSense alignés sur
-  `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` côté Cloud. Restent opérateur
-  (runbook nabla-compose `docs/runbooks/2026-11-04-probe-remediation.md`) :
-  apply des routes Tunnel, Service Auth Access, bypass Vaultwarden par
-  chemins, OVH, Graylog/Lidarr/Homarr/bitcoind, déploiement TrueNAS de
-  dependency-track, netbox, scanopy, joplin, ntopng et plumber, migration
-  canonique Home Assistant. Preuve suivante : déploiement Cloud au SHA de
-  cette PR, `/sickz` en `probe_cache.source=cache` au 2ᵉ appel, `/healthz`
-  sans `Query is invalid.`.
-  **05/11 :** `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` appliqué sur Cloud
-  (constaté : `transport_only`, `telemetry_disabled`) ; smoke de production
-  aligné sur ce contrat. Décision propriétaire : **pas d'exception WAF** ;
-  Keycloak/LiteLLM restent `warn` (`edge_block=challenge`) depuis Cloud, la
-  preuve de santé vient de l'observateur TrueNAS LAN.
-  **05/11 (suite) :** sonde OVH désactivée par défaut
-  (`OVH_API_PROBE_ENABLED=true` pour la réactiver) et SDK `ovh` importé
-  paresseusement (le runtime minimal `uv sync --no-default-groups` ne
-  démarrait pas) ; LiteLLM n'est plus publié sur Internet : sonde ignorée
-  par défaut, URL LAN sur TrueNAS (`compose.yml`). Preuve suivante : CI
-  « Validate minimal FastAPI Cloud runtime » verte, `/healthz` Cloud sans
-  `openstack_me` ni `litellm` en échec, `litellm` `reachable=true` sur
-  TrueNAS.
-  **07/11 :** `_EXPORTER_JOBS` reflète les jobs Prometheus `dependency_track`
-  et `netbox` déclarés dans `nabla-compose` (PR #330) ; ils apparaissent
-  dans `platform_metrics.exporter_jobs` dès que les Apps TrueNAS démarrent.
-  Preuve suivante : `up{job="dependency_track"}` et `up{job="netbox"}` = 1
-  côté LAN et les deux jobs présents dans `/api/health-board`.
+## Travaux terminés et documents de preuve
 
-**Done P1 :** affichage détaillé non bloquant sur smartphone, OWNER
-authentifié, aucun voyant vert sans preuve fraîche, couverture explicable
-pour chaque service et refus WAN correct.
+Les livraisons **CODED** déjà fusionnées (#382, #383, #390, #396, #418, #419) ne doivent plus être planifiées comme implémentations à refaire : seules leurs **recettes sans preuve** restent dans F01–F09. Les mesures et dysfonctionnements d'octobre ne sont pas l'état courant.
 
-## P2 — Travaux différés après stabilisation
+Historique : [archive avant consolidation](archive/2026-10-29/engineering-roadmap-before-consolidation.md), [registre d'incidents](incidents.md), [journal de réconciliation du 13/11](archive/2026-11-13-roadmap-reconciliation.md), [guide documentation](README.md).
 
 - [ ] **Qualité locale / prépublication :** [PR #392](https://github.com/AlbanAndrieu/fastapi-sample/pull/392)
   centralise l'exécution pytest bornée. Le même lot regroupe la résolution

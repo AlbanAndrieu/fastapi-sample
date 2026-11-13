@@ -1,10 +1,11 @@
 """Real PostgreSQL coverage for the notes migration and CRUD roundtrip.
 
-Run only against a disposable database, for example::
+Set LOCAL_TEST_DATABASE_URL to the URL of a disposable PostgreSQL database.
+For example, start a local database and run::
 
     docker run --rm -d --name notes-pg -e POSTGRES_PASSWORD=<pw> \
         -p 127.0.0.1:55432:5432 postgres:17-alpine
-    NOTES_POSTGRES_INTEGRATION_URL=postgresql://postgres:<pw>@127.0.0.1:55432/postgres \
+    NOTES_POSTGRES_INTEGRATION_URL="$LOCAL_TEST_DATABASE_URL" \
         uv run pytest tests/integration/test_notes_postgres.py -m integration
 
 The tests drop and recreate the ``note`` table; never point them at a shared,
