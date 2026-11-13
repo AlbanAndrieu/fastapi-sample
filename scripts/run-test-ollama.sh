@@ -24,7 +24,7 @@ echo "http://0.0.0.0:8091/llm/mcp"
 export OLLAMA_HOST="http://172.17.0.57:11434"
 # export OLLAMA_HOST="http://172.17.0.24:30068"
 
-export DEFAULT_MODEL="qwen3:4b" # qwen3.5:2b
+export DEFAULT_MODEL="bonsai-2:9b"
 
 ollama pull ${DEFAULT_MODEL}
 
