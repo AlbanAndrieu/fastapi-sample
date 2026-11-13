@@ -3,6 +3,7 @@
 Read-only. No remote fetch, dependency installation, CI, secret inspection,
 or runtime calls. Output describes evidence to collect, never test success.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,6 +29,7 @@ SKILLS = {
     "truenas": ["local-first-quality", "homelab-runtime-status"],
     "metrics": ["local-first-quality", "homelab-service-contract"],
     "api": ["local-first-quality", "fastapi"],
+    "docs": ["local-first-quality"],
     "quality": ["local-first-quality"],
 }
 DEFAULT_MAX_PATHS = 24
@@ -36,8 +38,13 @@ DEFAULT_MAX_PATHS = 24
 def git(*arguments: str) -> tuple[bool, str]:
     try:
         command = subprocess.run(
-            ["git", *arguments], cwd=ROOT, stdin=subprocess.DEVNULL,
-            capture_output=True, text=True, timeout=6, check=False,
+            ["git", *arguments],
+            cwd=ROOT,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=6,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return False, ""
@@ -77,20 +84,13 @@ def changed_paths(base: str, base_state: str) -> list[str]:
 def inferred_task(paths: list[str]) -> str:
     # Route documentation-only changes to a cheap offline link audit.
     # Mixed changes still take the owning code/quality route.
-    if paths and all(
-        path.endswith(".md")
-        and (path == "README.md" or path.startswith("docs/"))
-        for path in paths
-    ):
+    if paths and all(path.endswith(".md") and (path == "README.md" or path.startswith("docs/")) for path in paths):
         return "docs"
-    if any(path.startswith("nabla/api/assets/") or path.startswith("tests/js/")
-           for path in paths):
+    if any(path.startswith("nabla/api/assets/") or path.startswith("tests/js/") for path in paths):
         return "ui"
-    if any("cloud" in path and path.startswith(("scripts/", "nabla/", "tests/"))
-           for path in paths):
+    if any("cloud" in path and path.startswith(("scripts/", "nabla/", "tests/")) for path in paths):
         return "cloud"
-    if any("platform_metrics" in path or "prometheus" in path or "metrics-auth" in path
-           for path in paths):
+    if any("platform_metrics" in path or "prometheus" in path or "metrics-auth" in path for path in paths):
         return "metrics"
     if any("truenas" in path or "homelab" in path for path in paths):
         return "truenas"

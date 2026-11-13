@@ -1,55 +1,45 @@
-# Roadmap d’ingénierie — FastAPI Sample
+# Roadmap active — FastAPI Sample
 
-**Réconciliée le 13 novembre 2026.** Une tâche ci-dessous représente un **résultat à réceptionner** et non une PR à créer. Les observations datées, checklists historiques et descriptions des anciens correctifs sont conservées dans l’[archive du 13 novembre](archive/2026-11-13/engineering-roadmap-before-reconciliation.md).
+> **Réconciliation du 13 novembre 2026.** Ce document suit exclusivement les travaux FastAPI **non acceptés**. Vue de décision transversale : [portefeuille Homelab](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md). Configuration TrueNAS, CSI, pfSense, Cloudflare Tunnel et secrets : [roadmap nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md).
 
-**Statuts :** CODED (présent dans Git), TESTED (vérifié au SHA exact), DEPLOYED (révision déployée identifiée), ACCEPTED (fonctionnement constaté sur l’environnement cible). Un merge, un 401/403 d’accès, un NOT_RUN ou une preuve obsolète ne sont pas une réception.
+Une PR fusionnée n'est pas une acceptation runtime. Utiliser `CODED` (code fusionné), `TESTED` (tests exécutés sur SHA exact), `DEPLOYED` (image/SHA déployé identifié), `ACCEPTED` (comportement constaté sur cette image), `NOT_RUN` et `NOT_VERIFIED` (absence de preuve). Les refus Cloudflare `DENIED` et les diagnostics non exécutés ne sont pas `DOWN`.
 
-## Décisions de priorité à arbitrer
+## P0 — Recette de production, sécurité et budget
 
-| Choix | Groupe | Résultat attendu | Dépendance |
-| --- | --- | --- | --- |
-| **F1 — P0 (recommandé)** | E01–E04 | Stable en production, budget Cloud mesuré, qualité et identité de build | Accès navigateur / panneau FastAPI Cloud |
-| **F2 — P0/P1** | E05–E08 | Sondes crédibles et parcours OWNER sur TrueNAS + Cloud | Compose, collecte LAN |
-| **F3 — P1/P2** | E09–E14 | UX enrichie, dette maîtrisée et fonctionnalités avancées | A et B acceptés |
-
-Le choix F1–F3 porte sur l’**ordre des travaux FastAPI**. Pour arbitrer entre tous les dépôts, utiliser la [vue générale G1–G7 de Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md). Aucune validation de production n’a été effectuée dans cette réconciliation documentaire.
-
-## P0 — Publication, coût et contrôles
-
-| ID | Action à réceptionner | État documenté et preuve de fin |
+| ID | État code au 13/11 | À faire et critère de clôture |
 | --- | --- | --- |
-| **E01** | **Cloud navigateur et SHA** : 5 variantes de /api (normal, ui_safe, ui_full, operator et operator+ui_full) ; aucun gel, premier rendu sans clic, smartphone et transitions de session | Correctif du drawer [#390](https://github.com/AlbanAndrieu/fastapi-sample/pull/390) **fusionné** ; mesurer avec Chromium et confirmer /v2/version sur le binaire Cloud, sans attribuer build_revision=null à un succès |
-| **E02** | **FinOps Cloud Nano** : limiter polling, reconstruction des sondes, profilage et fan-out ; établir baseline CPU, RAM, réplicas et latence avant/après sur fenêtres identiques | Optimisations **CODED** dont [#405](https://github.com/AlbanAndrieu/fastapi-sample/pull/405) fusionnée ; chiffres de consommation **NOT_MEASURED** ; [runbook](runbooks/fastapi-cloud-runtime-cost-guard.md) |
-| **E03** | **Quality gate local-first au HEAD exact** : just ui-quick, tests ciblés, L2 puis L3, tests de contrat, contrôle des scripts et deux runs master réellement verts si fermeture de [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355) souhaitée | CI bornée [#391](https://github.com/AlbanAndrieu/fastapi-sample/pull/391) et pytest mutualisé [#392](https://github.com/AlbanAndrieu/fastapi-sample/pull/392) **fusionnés** ; nouveaux résultats au SHA courant **NOT_RUN** |
-| **E04** | **DNS / release / autorisation** : attester fastapi-sample.albandrieu.com et l’accès Cloudflare ; garder les frontières public/SERVICE/OWNER ; identifier la révision TrueNAS | DNS, Tunnel, règles et déploiement **propriétés de [Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md)** ; [runbook de recette](runbooks/fastapi-truenas-owner-acceptance-20261029.md) ; pas d’apply implicite |
+| **F01 — Cloud UI et OWNER** | **CODED** (#382, #383, #390), recette récente **NOT_VERIFIED** | Attester `/v2/version` sur Cloud et TrueNAS, tester dans Chromium `/api`, `ui_safe=1`, `ui_full=1`, `operator=1` et combinaison OWNER ; absence de gel JS, défilement du panneau TrueNAS, aucun détail privé anonyme. [Recette](runbooks/fastapi-truenas-owner-acceptance-20261029.md). |
+| **F02 — FinOps FastAPI Cloud Nano** | **CODED** : PR [#419](https://github.com/AlbanAndrieu/fastapi-sample/pull/419) fusionnée le 11/11 ; **NOT_VERIFIED** en production | Mesurer le **CPU vCPU**, la RAM, les réplicas et latences dans FastAPI Cloud Metrics avant/après à trafic comparable. Vérifier polling OWNER 180 s, absence de polling public, profilage Cloud inactif par défaut, cgroup v2 à la demande. Ne pas confondre CPU processus, cAdvisor TrueNAS et métriques de facturation. [Budget runtime](runbooks/fastapi-cloud-runtime-cost-guard.md). |
+| **F03 — Couverture des sondes** | Calculs et classifications **CODED**, preuve fraîche **NOT_VERIFIED** | Rapprocher `entityRef`/`catalogRevision`, Gatus, Prometheus et observation directe ; exposer `UP`, `DOWN`, `NO_SAMPLE`, `NOT_MONITORED`, `DENIED`, `STALE` sans faux vert. Les 67,9 % evidence / 7,1 % healthy du 05/11 restent une **ancienne mesure**, non une situation actuelle. [Couverture](runbooks/cloud-probe-evidence-coverage.md) et [acceptation](runbooks/fastapi-observability-acceptance.md). |
+| **F04 — Qualité et publication locale** | Corrections CI et gates **CODED** ; HEAD actuel **NOT_VERIFIED** | `just ui-quick` puis L2 (`scripts/agent-quality-gate.sh --fix`) et L3 (`scripts/agent-publish.sh`) au SHA exact ; vérifier les suites et obtenir **deux runs master** consécutifs réels avant de clôturer [issues/355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355). Aucun FAIL/timeout converti en PASS. [Qualité](../.agents/skills/local-first-quality/SKILL.md). |
+| **F05 — Identité publique et accès** | Cible `fastapi-sample.albandrieu.com` **CODED** ; DNS final **NOT_VERIFIED** | `nabla-compose` possède l'apply OpenTofu, la route Tunnel et Access. FastAPI vérifie séparément santé LAN, réponse 302/403 Access, CDN/WAF, Cloud et DNS `dns_sample` ; ne pas exempter le WAF pour faire passer une sonde. [Contrat réseau](fastapi-sample-cloudflare-network-contract.md). |
 
-**Gate P0 :** E01 et E02 mesurés sur la version déployée, E03 sur la même révision, E04 sans nouvelle exposition. Tout verdict incomplet reste NOT_VERIFIED.
+**Done P0** : SHA effectivement servi, OWNER et anonymous recettés sur navigateur, budget observé et sondes expliquées avec leur fraîcheur. Aucun droit supplémentaire implicite.
 
-## P1 — Observabilité, réseau et interface
+## P1 — Qualité de l'observabilité et expérience opérateur
 
-| ID | Action à réceptionner | État documenté et preuve de fin |
+| ID | État | Preuve et prochaine action |
 | --- | --- | --- |
-| **E05** | **Couverture des sondes Cloud** : expliquer les slots éligibles, 16 warnings et preuves manquantes ; distinguer DENIED, STALE, UNKNOWN, FAILED et DOWN | Dernière baseline citée : 19/28 slots observés (67,9 %) et 2/28 healthy (7,1 %), **historique non actualisé** ; fraîcheur et échantillonnage sur Cloud à revérifier ; [runbook](runbooks/cloud-probe-evidence-coverage.md) |
-| **E06** | **Gatus / Prometheus** : réconcilier catalogue, âge, exports, jobs absents et 401 attendu sur /metrics ; vérifier les 85 sondes historiques contre la configuration actuelle | 61 UP / 24 DOWN était un état **26/10**, non un diagnostic courant ; [acceptation](runbooks/fastapi-observability-acceptance.md) ; les jobs/exporters sont déployés par Compose |
-| **E07** | **OWNER TrueNAS / mobile** : /health 200, /healthz cohérent, sessions autorisées LAN, refus WAN, détails et métriques privées absents en SERVICE | Recette 6/6, image active et clés/Access à attester sur l’instance réelle ; la sémantique de Keycloak challenge et Pyroscope ready doit être conservée ; [runbook](runbooks/fastapi-truenas-owner-acceptance-20261029.md) |
-| **E08** | **Connexions TrueNAS ↔ Cloud / Cloudflare / Prometheus** : DNS/TCP/TLS/HTTP/auth et provenance par service, test extérieur et LAN sans faux positif | Connecteurs [#396](https://github.com/AlbanAndrieu/fastapi-sample/pull/396) **fusionnés** ; réception LAN et en production non démontrée ; [runbook](runbooks/truenas-cloud-connection-probes.md) |
-| **E09** | **Accueil et cartes** : affichage utile dès le chargement, cache public expurgé, états de dégradation et non-régression mobile/clavier/lecteur d’écran | Météo fictive remplacée en code par Operations Overview ([#396](https://github.com/AlbanAndrieu/fastapi-sample/pull/396)) ; vérifier le runtime ; [runbook](runbooks/home-operations-transition.md) |
-| **E10** | **Ressources et topologie** : heatmap OWNER CPU/RAM/FS/RX-TX, cAdvisor et pulse TrueNAS, filtres et identifiants canoniques | Prototype et réduction du réveil Cloud [#405](https://github.com/AlbanAndrieu/fastapi-sample/pull/405) **fusionnés** ; zéro ≠ absent ; CSS/mobile et provenance à réceptionner ; ne pas confondre container_fs et ZFS |
+| **F06 — Accueil Operations Overview** | Démonstration météo remplacée dans [#396](https://github.com/AlbanAndrieu/fastapi-sample/pull/396), **CODED** ; runtime **NOT_VERIFIED** | Confirmer rendu sans clic, caches publics sans information OWNER, froid/chaud et mode déconnecté ; la démo est uniquement sur `/demo/sensors`. [Transition](runbooks/home-operations-transition.md). |
+| **F07 — Heatmap et ressources** | Tri cAdvisor CPU/RAM/FS/RX+TX [#418](https://github.com/AlbanAndrieu/fastapi-sample/pull/418) fusionné ; **CODED**, recette OWNER **NOT_RUN** | Test Node, session OWNER mobile et anonyme, `0` mesuré distinct de l'absence `—`, échelle max sur les lignes visibles ; compléter occupation **ZFS dataset** sans l'inférer de `container_fs_usage_bytes`, NetFlow/Sankey seulement avec flux sourcés. [Transition](runbooks/home-operations-transition.md). |
+| **F08 — Runtime TrueNAS et démarrage** | PostgreSQL `fastapisample` TLS 1.3/`verify-full` et réception Sentry documentés le 13/11 côté Compose ; démarrage lent encore ouvert | Isoler trois pauses d'environ 1 min avant Unleash, Logfire et Sentry ; instrumenter par phase avec borne de durée, vérifier `/health`, `/readyz`, les sondes Prometheus et le chemin LiteLLM/OpenRAG sans régression. **Déploiement et APP ID appartiennent à Compose**. [Runbook](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/runbooks/fastapi-sample-truenas-diagnostics.md). |
+| **F09 — Projections et intégrations** | Vue couches réseau/Cloudflare/Prometheus **CODED** ; **NOT_VERIFIED** au runtime | Valider cache L1/L2 Redis opt-in sans mélange d'environnements, critères `unknown/warn` et âge des preuves ; authentification scrape, pas de sonde WAN pfSense interdite. [Connexions](runbooks/truenas-cloud-connection-probes.md). |
+| **F10 — Scans et DefectDojo** | Endpoints et export privés préparés, import **NOT_VERIFIED** | Product/engagement et RBAC limités, import LAN sans secret, suivi asynchrone jusqu'à `Processed`, déduplication et refus inter-produit ; coordination avec les ressources Compose, sans importer des secrets en CI. [Import privé](runbooks/defectdojo-fastapi-private-import.md). |
 
-## P2 — Réduction de dette et extensions
+**Done P1** : couverture sans fausses classifications, interface mobile utilisable, sondes et métriques attribuées à leur source, aucun secret émis dans le navigateur.
 
-| ID | Action à réceptionner | Condition de reprise |
-| --- | --- | --- |
-| **E11** | **Scripts, hooks et tests** : consolider les lanceurs pytest/quality, éliminer doublons Ruff/commitizen et vérifier prek/hk, worktrees/verrous après SIGKILL | Garder une gate canonique et des tests de contrat ; aucun contournement de hook pour produire un PASS |
-| **E12** | **Contrats API et tracing** : RoutePolicy/JWT/JWKS pour HTTP, WebSocket et MCP ; traceparent / X-Nabla-Trace-ID entre FastAPI et Site Alban | Tests négatifs d’autorisation et compatibilité des consommateurs avant mode strict |
-| **E13** | **Intégrations et maintien** : Renovate/Helm (automerge=false), Betterleaks/Trivy/CodeQL, DefectDojo, Sentry/Pyroscope, LiteLLM/OpenRAG | Inventaire et preuve par consommateur ; les scans actifs restent sous autorisation |
-| **E14** | **Extensions observabilité** : fédération d’agrégats TrueNAS → Cloud, métriques ZFS dédiées et flux Akvorado attribuables | Source, droits, échantillonnage et fraîcheur démontrés ; aucune donnée réseau privée publique |
+## P2 — Architecture, sécurité et dette technique
 
-## Propriété et sources de vérité
+- **RoutePolicy/ASGI/JWT** : HTTP, WebSocket, MCP/A2A et consommateurs PUBLIC/SERVICE/OWNER/INTERNAL ; éprouver JWKS/JWT, mauvais issuer/audience, perte JWKS et route denial avant `OPS_ROUTE_POLICY_STRICT`. **Non activé par simple refactoring.**
+- **OIDC Keycloak** : identité FastAPI distincte de PostgreSQL OAuth, gestion MFA et révocation ; architecture et exposition Keycloak appartiennent à Compose.
+- **Fédération TrueNAS → Cloud** : agrégats signés, datés, minimisés et authentifiés ; aucun accès LAN depuis Cloud, aucune IP privée ni secret dans un DTO public.
+- **Qualité des scripts** : `scripts/ci/quality-git.sh` pour la base Git, `quality-lock.sh` pour `flock -o`, `quality-timeout.sh` pour les échéances, `run-pytest-bounded.sh` pour la CI. Conserver le rapport lisible `run-pytest-compact.sh` pour les sessions locales. **Ne pas refusionner ces CLI dont les contrats de sortie diffèrent**. Retirer les hooks dupliqués prek/ruff/gitlint uniquement après tests ciblés.
+- **Maintenance** : Renovate et Helm sans automerge, qualité Python et Node, revue des tests et règles sécurité de PR. Les chantiers anciens non requalifiés restent dans [engineering-backlog.md](engineering-backlog.md), jamais automatiquement P0.
 
-- **FastAPI Sample** : collecteurs, DTO, interface /api, qualité Python/JS, cache de preuve, authentification serveur et réception runtime de l’API.
-- **[nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md)** : Apps TrueNAS, pfSense, PostgreSQL, Gatus/Prometheus, DNS/Tunnel, secrets, déploiements et observations LAN.
-- **[Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/homelab-roadmap.md)** : cartes Next.js, ReactFlow/C4, cache navigateur, UI OWNER/SERVICE. [Qualité site](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/quality-roadmap.md).
-- **[Bababou](https://github.com/AlbanAndrieu/nabla-site-bababou/blob/master/docs/roadmap.md)** et **[OpenClaw](https://github.com/AlbanAndrieu/nabla-openclaw/blob/master/docs/roadmap.md)** : leurs chantiers autonomes, notamment FinOps Vercel ; ne pas recopier ici.
+## Travaux terminés et documents de preuve
 
-**Documentation** : [index](README.md) · [incidents](incidents.md) · [backlog ancien à requalifier](engineering-backlog.md) · [historique complet avant le 13/11](archive/2026-11-13/engineering-roadmap-before-reconciliation.md). Les comptes rendus datés restent en archive ; les commandes dans les runbooks.
+Les livraisons **CODED** déjà fusionnées (#382, #383, #390, #396, #418, #419) ne doivent plus être planifiées comme implémentations à refaire : seules leurs **recettes sans preuve** restent dans F01–F09. Les mesures et dysfonctionnements d'octobre ne sont pas l'état courant.
+
+Historique : [archive avant consolidation](archive/2026-10-29/engineering-roadmap-before-consolidation.md), [registre d'incidents](incidents.md), [journal de réconciliation du 13/11](archive/2026-11-13-roadmap-reconciliation.md), [guide documentation](README.md).
+
+**Souveraineté :** FastAPI possède API, endpoints, statuts, auth des routes, tests et interface ; Compose possède TrueNAS, secrets, Cloudflare, Gatus et Prometheus ; Site Alban possède le rendu Next.js. Toute validation affirme son environnement, son SHA et sa date.
