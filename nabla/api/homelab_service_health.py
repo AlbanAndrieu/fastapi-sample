@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelObservation
 from nabla.api.homelab_declared import RuntimeBinding
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot, match_runtime_binding
 
 HealthState = str
@@ -70,7 +70,7 @@ def _observation_age_seconds(observed_at: str | None) -> int | None:
 
 
 def _runtime_app_for_service(
-    service: HomelabService,
+    service: CatalogRoute,
     runtime: TrueNASRuntimeSnapshot | None,
     binding: RuntimeBinding | None,
 ) -> ObservedApp | None:
@@ -88,7 +88,8 @@ def _runtime_app_for_service(
             app_matches = [app for app in runtime.apps if app.app_id == binding.app_id]
             return app_matches[0] if len(app_matches) == 1 else None
         return None
-    candidates = {candidate for candidate in (_key(service.source_id), _key(service.service_id), _key(service.name)) if candidate}
+    # Join on catalog identity (entity name, route id), never on display names.
+    candidates = {_key(service.service_id), _key(service.entity_ref.split("/", 1)[1])}
     matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
@@ -106,7 +107,7 @@ def _runtime_state(app: ObservedApp | None) -> HealthState | None:
 
 def _primary_container_state(
     app: ObservedApp | None,
-    service: HomelabService,
+    service: CatalogRoute,
     binding: RuntimeBinding | None,
 ) -> str | None:
     """Match a primary workload by explicit binding or exact application identity.
@@ -125,10 +126,7 @@ def _primary_container_state(
         )
         if value
     }
-    matches = [
-        container for container in app.containers
-        if _key(container.service_name) in candidates
-    ]
+    matches = [container for container in app.containers if _key(container.service_name) in candidates]
     if len(matches) != 1 or not matches[0].state:
         return None
     return matches[0].state.strip().upper() or None
@@ -241,7 +239,7 @@ def _freshness(
 def _enrich_service_row(
     row: dict[str, Any],
     *,
-    service: HomelabService,
+    service: CatalogRoute,
     runtime: TrueNASRuntimeSnapshot | None,
     cloudflare_stale: bool,
     cloudflare_status_confirmed: bool | None,
@@ -250,11 +248,9 @@ def _enrich_service_row(
     direct_result: dict[str, Any] | None,
 ) -> None:
     """Attach optional notes/provider fields without inflating reconciliation complexity."""
-    if service.health_note:
-        row["health_note"] = service.health_note
     if runtime is not None:
         row["runtime_stale"] = runtime.stale
-    if service.external and cloudflare_status_confirmed is False:
+    if service.public and cloudflare_status_confirmed is False:
         row["cloudflare_status_confirmed"] = False
         row["cloudflare_warning"] = cloudflare_warning or "⚠️ Cloudflare global status could not be confirmed"
     if tunnel_evidence is not None:
@@ -267,13 +263,13 @@ def _enrich_service_row(
 
 
 def _lan_probe_execution(
-    service: HomelabService,
+    service: CatalogRoute,
     result: dict[str, Any] | None,
     *,
     enabled: bool | None,
 ) -> str:
     """Record whether an actual LAN probe ran, separately from app health."""
-    if not service.internal_host or service.internal_port is None:
+    if not service.backend_host or service.backend_port is None:
         return "not-configured"
     if enabled is False:
         return "disabled"
@@ -285,7 +281,7 @@ def _lan_probe_execution(
 
 
 def build_reconciled_service_health(
-    services: list[HomelabService],
+    services: list[CatalogRoute],
     *,
     public_results: list[dict[str, Any]],
     internal_results: list[dict[str, Any]],
@@ -304,7 +300,8 @@ def build_reconciled_service_health(
     tunnels_by_host = _tunnel_by_hostname(tunnels)
     rows: list[dict[str, Any]] = []
     for service in services:
-        endpoint_url = service.effective_endpoint_url
+        # Navigation/health identity only; public exposure still needs a public route.
+        endpoint_url = service.url or f"https://{service.service_id}.albandrieu.com"
         url = _normalized_url(endpoint_url)
         direct_result = direct_by_url.get(url) if url else None
         internal_result = internal_by_id.get(service.service_id)
@@ -313,11 +310,7 @@ def build_reconciled_service_health(
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         primary_container_state = _primary_container_state(app, service, binding)
         primary_container_issue = (
-            runtime is not None
-            and runtime.reachable
-            and not runtime.stale
-            and primary_container_state is not None
-            and primary_container_state not in _RUNNING_APP_STATES
+            runtime is not None and runtime.reachable and not runtime.stale and primary_container_state is not None and primary_container_state not in _RUNNING_APP_STATES
         )
         runtime_missing = _runtime_binding_missing(binding, runtime, app)
         container_identity_drift = bool(
@@ -330,11 +323,11 @@ def build_reconciled_service_health(
             and not any(container.service_name == "openwebui" for container in app.containers)
             and any(container.service_name == "open-webui" for container in app.containers)
             and runtime is not None
-            and not runtime.stale
+            and not runtime.stale,
         )
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
-        tunnel_health = None if not service.external or cloudflare_stale or cloudflare_status_confirmed is False else _tunnel_state(tunnel_status)
+        tunnel_health = None if not service.public or cloudflare_stale or cloudflare_status_confirmed is False else _tunnel_state(tunnel_status)
         direct_stale = bool(direct_result and direct_result.get("probe_stale") is True)
         direct_health = str(direct_result.get("state")) if direct_result and not direct_stale else None
         internal_stale = bool(internal_result and internal_result.get("probe_stale") is True)
@@ -347,7 +340,7 @@ def build_reconciled_service_health(
             internal=internal_health,
             runtime=runtime_health,
             tunnel=tunnel_health,
-            external=service.external,
+            external=service.public,
             direct_http_status=int(direct_result.get("http_status", 0)) if direct_result and not direct_stale else 0,
             application_error=application_error,
             runtime_missing=runtime_missing,
@@ -366,15 +359,17 @@ def build_reconciled_service_health(
         )
         row: dict[str, Any] = {
             "id": service.service_id,
+            # Catalog join key: Backstage entity ref plus route name.
+            "entity_ref": service.entity_ref,
+            "route": service.route,
             "name": service.name,
             "url": url or endpoint_url,
-            "url_derived": service.tunnel_url is None,
+            "url_derived": service.url is None,
             # Declared configuration, not a successful probe or public URL.
             # Used only by the detailed homelab diagnostics projection.
             "internal_endpoint_url": (
-                f"{'https' if service.internal_secure else 'http'}://"
-                f"{service.internal_host}:{service.internal_port}"
-                if service.internal_host and service.internal_port is not None
+                f"{'https' if service.backend_tls else 'http'}://{service.backend_host}:{service.backend_port}"
+                if service.backend_host and service.backend_port is not None
                 else None
             ),
             "reachable": bool(
@@ -392,8 +387,8 @@ def build_reconciled_service_health(
             ),
             "internal_probe_stale": internal_stale,
             "direct_probe_stale": direct_stale,
-            "exposure_intent": "public" if service.external else "internal",
-            "unexpected_tunnel_route": bool(not service.external and tunnel_evidence is not None),
+            "exposure_intent": "public" if service.public else "internal",
+            "unexpected_tunnel_route": bool(not service.public and tunnel_evidence is not None),
             "runtime_state": app.state if app else None,
             "runtime_app": app.app_id if app else None,
             "runtime_primary_container_state": primary_container_state,

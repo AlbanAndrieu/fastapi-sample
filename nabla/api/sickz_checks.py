@@ -16,7 +16,7 @@ from nabla.api.health_probe_utils import (
     probe_https_tls_trusted,
     unverified_ssl_context,
 )
-from nabla.api.homelab_catalog import homelab_sickz_catalog_for_sickz
+from nabla.api.catalog_routes import sickz_catalog
 from nabla.api.probe_budget import ProbeBudget
 from nabla.api.runtime_environment import known_paas_runtime_detected
 from nabla.api.sickz_pfsense import (
@@ -278,13 +278,14 @@ async def _load_homelab_catalog(
     if not _targets_equal_default_catalog_mode(settings.sickz_targets):
         return [], _RowMaps(), False
     catalog = await budget.run(
-        homelab_sickz_catalog_for_sickz,
+        sickz_catalog,
         timeout_value=lambda: None,
     )
     if catalog is None:
         return [], _RowMaps(), True
-    groups, icon_by_tunnel, name_by_tunnel, policy_by_tunnel = catalog
-    return groups, _RowMaps(icon_by_tunnel, name_by_tunnel, policy_by_tunnel), False
+    # Icons are Site presentation only: the v2 catalog carries none.
+    groups, name_by_tunnel, policy_by_tunnel = catalog
+    return groups, _RowMaps(None, name_by_tunnel, policy_by_tunnel), False
 
 
 def _internal_skip_checks(groups: list[list[str]], row_maps: _RowMaps) -> dict[str, Any]:

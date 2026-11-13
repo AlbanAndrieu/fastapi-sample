@@ -7,7 +7,7 @@ from datetime import datetime
 import time
 from typing import Any, Literal
 
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.homelab_probe_diagnostics import classify_probe_diagnostic
 from nabla.api.homelab_probe_phase_tracker import DEADLINE_PHASES
 from nabla.api.homelab_probe_policy import (
@@ -84,7 +84,7 @@ def _annotated(
 
 def _cadence_by_service(
     scope: Scope,
-    eligible_services: list[HomelabService],
+    eligible_services: list[CatalogRoute],
 ) -> dict[str, float | None]:
     limit = MAX_PUBLIC_PROBES_PER_REFRESH if scope == "public" else MAX_INTERNAL_PROBES_PER_REFRESH
     return {
@@ -97,11 +97,60 @@ def _cadence_by_service(
     }
 
 
+def _adopt_shared_entries(
+    store: dict[str, _ProbeEvidence],
+    shared_entries: list[dict[str, Any]],
+    eligible_services: list[CatalogRoute],
+    cadence_by_id: dict[str, float | None],
+    clock: float,
+) -> None:
+    """Rebase Redis UTC timestamps to this process's monotonic clock (not shareable across workers)."""
+    catalog = {service.service_id: service for service in eligible_services}
+    epoch_now = time.time()
+    for envelope in shared_entries:
+        if not isinstance(envelope, dict):
+            continue
+        service_id = envelope.get("service_id")
+        service = catalog.get(service_id) if isinstance(service_id, str) else None
+        row = envelope.get("row")
+        observed_at = envelope.get("observed_at")
+        if service is None or not isinstance(row, dict) or not isinstance(observed_at, str):
+            continue
+        if row.get("state") not in {"ok", "warn", "fail"}:
+            continue
+        try:
+            observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+            if observed.tzinfo is None:
+                continue
+            age = epoch_now - observed.timestamp()
+        except (ValueError, OverflowError):
+            continue
+        if age < -30 or age >= MAX_PROBE_EVIDENCE_RETENTION_SEC:
+            continue
+        safe_row = {
+            **row,
+            "id": service.service_id,
+            "name": service.name,
+            "url": service.public_https_probe_url,
+        }
+        entry = _ProbeEvidence(
+            row=safe_row,
+            observed_at=observed_at,
+            recorded_at=clock - max(0.0, age),
+            interval_seconds=cadence_by_id.get(service_id),
+        )
+        if age >= _retention_seconds(entry):
+            continue
+        previous = store.get(service_id)
+        if previous is None or entry.recorded_at > previous.recorded_at:
+            store[service_id] = entry
+
+
 def merge_probe_evidence(
     scope: Scope,
     *,
     current_results: list[dict[str, Any]],
-    eligible_services: list[HomelabService],
+    eligible_services: list[CatalogRoute],
     checked_at: str,
     now: float | None = None,
     shared_entries: list[dict[str, Any]] | None = None,
@@ -112,48 +161,8 @@ def merge_probe_evidence(
     eligible_ids = {service.service_id for service in eligible_services}
     cadence_by_id = _cadence_by_service(scope, eligible_services)
 
-    # Redis envelopes carry UTC timestamps: monotonic clocks cannot be shared
-    # across workers. Rebase their age to this process's monotonic clock.
     if scope == "public" and shared_entries:
-        catalog = {service.service_id: service for service in eligible_services}
-        epoch_now = time.time()
-        for envelope in shared_entries:
-            if not isinstance(envelope, dict):
-                continue
-            service_id = envelope.get("service_id")
-            service = catalog.get(service_id) if isinstance(service_id, str) else None
-            row = envelope.get("row")
-            observed_at = envelope.get("observed_at")
-            if service is None or not isinstance(row, dict) or not isinstance(observed_at, str):
-                continue
-            if row.get("state") not in {"ok", "warn", "fail"}:
-                continue
-            try:
-                observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
-                if observed.tzinfo is None:
-                    continue
-                age = epoch_now - observed.timestamp()
-            except (ValueError, OverflowError):
-                continue
-            if age < -30 or age >= MAX_PROBE_EVIDENCE_RETENTION_SEC:
-                continue
-            safe_row = {
-                **row,
-                "id": service.service_id,
-                "name": service.name,
-                "url": service.public_https_probe_url,
-            }
-            entry = _ProbeEvidence(
-                row=safe_row,
-                observed_at=observed_at,
-                recorded_at=clock - max(0.0, age),
-                interval_seconds=cadence_by_id.get(service_id),
-            )
-            if age >= _retention_seconds(entry):
-                continue
-            previous = store.get(service_id)
-            if previous is None or entry.recorded_at > previous.recorded_at:
-                store[service_id] = entry
+        _adopt_shared_entries(store, shared_entries, eligible_services, cadence_by_id, clock)
 
     for service_id, entry in list(store.items()):
         entry.interval_seconds = cadence_by_id.get(service_id)
@@ -179,11 +188,7 @@ def merge_probe_evidence(
                 if row.get("deadline_phase") in DEADLINE_PHASES:
                     retained["last_probe_attempt_deadline_phase"] = row["deadline_phase"]
                     elapsed = row.get("deadline_phase_elapsed_ms")
-                    retained["last_probe_attempt_deadline_phase_elapsed_ms"] = (
-                        elapsed
-                        if type(elapsed) is int and 0 <= elapsed <= 60_000
-                        else None
-                    )
+                    retained["last_probe_attempt_deadline_phase_elapsed_ms"] = elapsed if type(elapsed) is int and 0 <= elapsed <= 60_000 else None
                 merged[service_id] = retained
             else:
                 transient = _ProbeEvidence(

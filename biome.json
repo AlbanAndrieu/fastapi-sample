@@ -16,6 +16,7 @@
       "!uv.lock",
       "!Pipfile.lock",
       "!trivy-sbom.json",
+      "!nabla/api/data/catalog-snapshot.json",
       "!report"
     ]
   },

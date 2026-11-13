@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import time
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,6 +11,8 @@ import pytest
 from nabla.api import ui_public_directory_redis as cache
 from nabla.api import ui_public_services
 from nabla.api.ui_public_services import PublicUiService, PublicUiServices
+from tests.unit.catalog_v2_fixture import catalog as v2_catalog
+from tests.unit.catalog_v2_fixture import entity
 
 
 class MemoryRedis:
@@ -43,7 +44,8 @@ def _projection() -> PublicUiServices:
 def _enable(monkeypatch, redis: MemoryRedis) -> None:
     monkeypatch.setenv("NABLA_PUBLIC_DIRECTORY_REDIS_ENABLED", "true")
     monkeypatch.setenv(
-        "NABLA_PUBLIC_DIRECTORY_REDIS_NAMESPACE", "fastapi-cloud-tests",
+        "NABLA_PUBLIC_DIRECTORY_REDIS_NAMESPACE",
+        "fastapi-cloud-tests",
     )
     monkeypatch.setattr(cache, "resolve_redis_client", lambda: redis)
 
@@ -101,6 +103,7 @@ async def test_redis_errors_are_nonblocking(monkeypatch) -> None:
     class Unavailable:
         async def set(self, *_args, **_kwargs):
             raise ConnectionError("no Redis")
+
         async def get(self, *_args, **_kwargs):
             raise ConnectionError("no Redis")
 
@@ -115,14 +118,15 @@ async def test_pending_bootstrap_uses_redis_without_fabricating_green(monkeypatc
     _enable(monkeypatch, redis)
     await cache.write_public_directory_redis(_projection())
     monkeypatch.setattr(
-        ui_public_services.health_board, "get_health_board_snapshot",
+        ui_public_services.health_board,
+        "get_health_board_snapshot",
         AsyncMock(return_value={"state": "pending"}),
     )
 
     def no_bootstrap():
         raise AssertionError("Should use Redis first for pending evidence")
 
-    monkeypatch.setattr(ui_public_services, "packaged_homelab_catalog", no_bootstrap)
+    monkeypatch.setattr(ui_public_services, "load_catalog_snapshot", no_bootstrap)
     result = await ui_public_services._bootstrap_public_service_directory(None)
     assert result.boardState == "pending"
     assert [row.name for row in result.services] == ["Gatus", "TrueNAS"]
@@ -135,18 +139,19 @@ async def test_fresh_bootstrap_prefers_current_board_to_old_redis(monkeypatch) -
     _enable(monkeypatch, redis)
     await cache.write_public_directory_redis(_projection())
     monkeypatch.setattr(
-        ui_public_services.health_board, "get_health_board_snapshot",
-        AsyncMock(return_value={
-            "state": "fresh",
-            "homelab": {"services": [{"id": "gatus", "effective_state": "ok"}]},
-        }),
+        ui_public_services.health_board,
+        "get_health_board_snapshot",
+        AsyncMock(
+            return_value={
+                "state": "fresh",
+                "homelab": {"services": [{"id": "gatus", "effective_state": "ok"}]},
+            },
+        ),
     )
     monkeypatch.setattr(
         ui_public_services,
-        "packaged_homelab_catalog",
-        lambda: SimpleNamespace(services=[
-            SimpleNamespace(name="Gatus", service_id="gatus"),
-        ]),
+        "load_catalog_snapshot",
+        lambda: v2_catalog(entity("gatus", title="Gatus")),
     )
     result = await ui_public_services._bootstrap_public_service_directory(None)
     assert result.boardState == "fresh"

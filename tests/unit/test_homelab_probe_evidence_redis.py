@@ -8,7 +8,7 @@ import json
 import pytest
 
 from nabla.api import homelab_probe_evidence, homelab_probe_evidence_redis
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 class FakeRedis:
@@ -32,21 +32,26 @@ async def test_redis_public_only_survives_worker_reset_without_sensitive_fields(
     monkeypatch.setenv("HOMELAB_PUBLIC_PROBE_EVIDENCE_REDIS_ENABLED", "true")
     monkeypatch.setenv("HOMELAB_PROBE_EVIDENCE_NAMESPACE", "cloud_test")
     monkeypatch.setattr(homelab_probe_evidence_redis, "resolve_redis_client", lambda: fake)
-    service = HomelabService(
-        id="gatus", name="Gatus", external=True,
-        tunnelUrl="https://gatus.example.org", tunnelSecure=False,
-    )
+    service = v2_service("gatus", "https://gatus.example.org", title="Gatus", public=True, edge="direct")
     observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     row = {
-        "id": "gatus", "state": "warn", "reachable": True, "http_status": 403,
+        "id": "gatus",
+        "state": "warn",
+        "reachable": True,
+        "http_status": 403,
         "public_probe_verification": "access_protected_origin_unverified",
         "probe_source": "origin",
-        "host": "172.17.0.24", "url": "https://gatus.example.org",
+        "host": "172.17.0.24",
+        "url": "https://gatus.example.org",
         "token": "must-never-persist",
     }
-    assert await homelab_probe_evidence_redis.write_public_probe_evidence(
-        [row], observed_at
-    ) is True
+    assert (
+        await homelab_probe_evidence_redis.write_public_probe_evidence(
+            [row],
+            observed_at,
+        )
+        is True
+    )
     stored = json.dumps(fake.data)
     assert "172.17.0.24" not in stored
     assert "must-never-persist" not in stored
@@ -55,19 +60,20 @@ async def test_redis_public_only_survives_worker_reset_without_sensitive_fields(
     homelab_probe_evidence.reset_probe_evidence()
     try:
         entries, shared = await homelab_probe_evidence_redis.read_public_probe_evidence(
-            [service]
+            [service],
         )
         assert shared is True
         results = homelab_probe_evidence.merge_probe_evidence(
-            "public", current_results=[], eligible_services=[service],
-            checked_at=observed_at, shared_entries=entries,
+            "public",
+            current_results=[],
+            eligible_services=[service],
+            checked_at=observed_at,
+            shared_entries=entries,
         )
         assert len(results) == 1
         assert results[0]["probe_source"] == "memory"
         assert results[0]["state"] == "warn"
-        assert results[0]["public_probe_verification"] == (
-            "access_protected_origin_unverified"
-        )
+        assert results[0]["public_probe_verification"] == ("access_protected_origin_unverified")
     finally:
         homelab_probe_evidence.reset_probe_evidence()
 

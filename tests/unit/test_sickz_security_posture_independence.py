@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from nabla.api import sickz_policy
-from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 @pytest.mark.asyncio
@@ -14,12 +14,7 @@ async def test_sickz_security_policy_does_not_turn_red_only_because_app_crashed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     url = "https://bichon.albandrieu.com/"
-    service = HomelabService(
-        name="Bichon",
-        tunnel_url=url,
-        tunnel_secure=False,
-        external=False,
-    )
+    service = v2_service("bichon", url, title="Bichon")
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-10-25T01:00:00Z",
         configured=True,
@@ -39,19 +34,21 @@ async def test_sickz_security_policy_does_not_turn_red_only_because_app_crashed(
     async def edge(_url, **_kwargs):
         return {"cloudflare_http_evidence": False}
 
-    monkeypatch.setattr(sickz_policy, "fetch_homelab_services", services)
+    monkeypatch.setattr(sickz_policy, "fetch_catalog_routes", services)
     monkeypatch.setattr(sickz_policy, "_observe_cloudflare", cloudflare)
     monkeypatch.setattr(sickz_policy, "fetch_truenas_runtime", truenas)
     monkeypatch.setattr(sickz_policy, "_probe_http_edge_evidence", edge)
 
     result = await sickz_policy.enrich_sickz_policy(
-        {"checks": {
-            "bichon": {
-                "tunnel_url": url,
-                "reachable": False,
-                "http_status": 502,
-            }
-        }}
+        {
+            "checks": {
+                "bichon": {
+                    "tunnel_url": url,
+                    "reachable": False,
+                    "http_status": 502,
+                },
+            },
+        },
     )
     check = result["checks"]["bichon"]
     assert check["security_policy_status"] == "ok"

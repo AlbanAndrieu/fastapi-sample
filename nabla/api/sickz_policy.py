@@ -21,8 +21,7 @@ from nabla.api.cloudflare_tunnels import (
     observe_cloudflare_access_applications,
     observe_cloudflare_tunnels,
 )
-from nabla.api.homelab_catalog import fetch_homelab_services
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute, fetch_catalog_routes
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot, fetch_truenas_runtime
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.sickz_cloudflare_policy import (
@@ -108,26 +107,19 @@ async def _observe_cloudflare() -> tuple[
 
 
 def _runtime_app_for_service(
-    service: HomelabService,
+    service: CatalogRoute,
     runtime: TrueNASRuntimeSnapshot,
 ) -> ObservedApp | None:
     if not runtime.reachable:
         return None
-    candidates = {
-        candidate
-        for candidate in (
-            _key(service.source_id),
-            _key(service.service_id),
-            _key(service.name),
-        )
-        if candidate
-    }
+    # Join on catalog identity (entity name, route id), never on display names.
+    candidates = {_key(service.service_id), _key(service.entity_ref.split("/", 1)[1])}
     matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
 def _runtime_evidence(
-    service: HomelabService,
+    service: CatalogRoute,
     runtime: TrueNASRuntimeSnapshot,
     http_status: int | None,
 ) -> dict[str, Any]:
@@ -242,7 +234,7 @@ def _direct_external_policy(
 
 
 def _classify_service(
-    service: HomelabService,
+    service: CatalogRoute,
     check: dict[str, Any],
     *,
     tunnel_evidence: dict[str, Any] | None,
@@ -257,9 +249,9 @@ def _classify_service(
     tls_value = check.get("tls_trusted")
     tls_trusted = tls_value if isinstance(tls_value, bool) else None
     http_status = _observed_http_status(check)
-    host = _hostname(service.tunnel_url) or ""
+    host = _hostname(service.url) or ""
 
-    if not service.external:
+    if not service.public:
         if tunnel_evidence is not None:
             return (
                 "fail",
@@ -277,7 +269,7 @@ def _classify_service(
             )
         return "ok", "external=false and the endpoint is not reachable from the external probe."
 
-    if service.tunnel_secure is False:
+    if service.cloudflare_edge is False:
         return _direct_external_policy(
             host=host,
             reachable=reachable,
@@ -286,7 +278,7 @@ def _classify_service(
             http_evidence=http_evidence,
         )
 
-    if service.tunnel_secure is True:
+    if service.cloudflare_edge is True:
         return _secure_external_policy(
             reachable=reachable,
             tls_trusted=tls_trusted,
@@ -295,7 +287,7 @@ def _classify_service(
             observer_configured=observer_configured,
             tunnel_observer_error=observer_error,
             access_observer_error=access_observer_error,
-            access_required=service.effective_cloudflare_access_required,
+            access_required=service.access_required,
             access_evidence=access_evidence,
             http_evidence=http_evidence,
         )
@@ -311,7 +303,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("status") == "skipped_internal_network":
         return payload
 
-    services_task = asyncio.create_task(fetch_homelab_services())
+    services_task = asyncio.create_task(fetch_catalog_routes())
     cloudflare_task = asyncio.create_task(_observe_cloudflare())
     runtime_task = asyncio.create_task(fetch_truenas_runtime())
     services, cloudflare_result, runtime = await asyncio.gather(
@@ -327,12 +319,12 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         access_observer_error,
     ) = cloudflare_result
 
-    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.tunnel_url)) is not None}
+    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.url)) is not None}
     tunnels_by_host = _tunnels_by_hostname(tunnel_observations)
     access_by_host = _access_by_hostname(access_observations)
 
     checks = {key: dict(value) if isinstance(value, dict) else value for key, value in payload.get("checks", {}).items()}
-    matched: list[tuple[str, dict[str, Any], HomelabService]] = []
+    matched: list[tuple[str, dict[str, Any], CatalogRoute]] = []
     for key, check in checks.items():
         if not isinstance(check, dict):
             continue
@@ -344,9 +336,9 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
     evidence_results = await asyncio.gather(
         *(
             _probe_http_edge_evidence(
-                service.tunnel_url or "",
+                service.url or "",
                 allow_service_token=bool(
-                    service.external and (service.tunnel_secure is True or service.effective_cloudflare_access_required),
+                    service.public and (service.cloudflare_edge is True or service.access_required),
                 ),
             )
             for _, _, service in matched
@@ -358,7 +350,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         evidence_results,
         strict=True,
     ):
-        host = _hostname(service.tunnel_url) or ""
+        host = _hostname(service.url) or ""
         tunnel_evidence = tunnels_by_host.get(host)
         access_evidence = access_by_host.get(host)
         http_status = _observed_http_status(check)
@@ -383,15 +375,15 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         if failure_detail:
             policy_status = "fail"
             policy_detail = f"{policy_detail} {failure_detail}".strip()
-        if service.security_exception:
-            policy_detail = f"{policy_detail} Known policy exception: {service.security_exception}".strip()
+        if service.risk_reason:
+            policy_detail = f"{policy_detail} Known policy exception: {service.risk_reason}".strip()
 
         check.update(
             {
-                "external": service.external,
-                "tunnel_secure": service.tunnel_secure,
-                "cloudflare_access_required": service.effective_cloudflare_access_required,
-                "security_exception": service.security_exception,
+                "external": service.public,
+                "tunnel_secure": service.cloudflare_edge,
+                "cloudflare_access_required": service.access_required,
+                "security_exception": service.risk_reason,
                 "policy_status": policy_status,
                 "policy_detail": policy_detail,
                 "security_policy_status": security_policy_status,

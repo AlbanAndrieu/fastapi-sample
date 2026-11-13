@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import time
 
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 
 HEALTH_CACHE_TTL_SEC = 30.0
 MAX_PROBE_CONCURRENCY = 4
@@ -15,46 +15,21 @@ SERVICE_FANOUT_BUDGET_SEC = 4.0
 MAX_INTERNAL_PROBES_PER_REFRESH = 12
 MAX_PUBLIC_PROBES_PER_REFRESH = 12
 
-# Bootstrap fallback, used only while no catalog service declares
-# ``probePriority`` (owned by nabla-compose). Ranked, not merely flagged: when
-# priorities exceed the fixed budget, the lowest-ranked ones move to rotation
-# deterministically, independent of catalog order. Garage stays first so its
-# three distinct internal targets are observed.
-_PRIORITY_SERVICE_ORDER: tuple[str, ...] = (
-    "garage",
-    "garage-admin",
-    "garage-webui",
-    "postgresql",
-    "redis",
-    "cloudflared",
-    "vaultwarden",
-    "sentry",
-    "prometheus",
-    "grafana",
-    "n8n",
-    "pyroscope",
-)
-_PRIORITY_SERVICE_IDS = frozenset(_PRIORITY_SERVICE_ORDER)
-_PRIORITY_RANK = {service_id: rank for rank, service_id in enumerate(_PRIORITY_SERVICE_ORDER)}
+
+def priority_source(services: list[CatalogRoute]) -> str:
+    """Report whether any rank comes from the Backstage v2 ``probePolicy``."""
+    return "catalog" if any(item.probe_rank is not None for item in services) else "none"
 
 
-def priority_source(services: list[HomelabService]) -> str:
-    """Report whether ranks come from the catalog or the bootstrap fallback."""
-    return "catalog" if any(item.probe_priority is not None for item in services) else "bootstrap"
+def _ranked_priorities(services: list[CatalogRoute]) -> list[CatalogRoute]:
+    """Order ranked routes by the deployment-unit ``probePolicy`` (rank, position)."""
+    ranked = [item for item in services if item.probe_rank is not None]
+    return sorted(ranked, key=lambda item: (item.probe_rank, item.probe_position, item.service_id))
 
 
-def _ranked_priorities(services: list[HomelabService]) -> list[HomelabService]:
-    """Order priority services by catalog rank, never mixing the two rank spaces."""
-    if priority_source(services) == "catalog":
-        ranked = [item for item in services if item.probe_priority is not None]
-        return sorted(ranked, key=lambda item: (item.probe_priority, item.service_id))
-    ranked = [item for item in services if item.service_id in _PRIORITY_SERVICE_IDS]
-    return sorted(ranked, key=lambda item: _PRIORITY_RANK[item.service_id])
-
-
-def _unique_services(services: list[HomelabService]) -> list[HomelabService]:
+def _unique_services(services: list[CatalogRoute]) -> list[CatalogRoute]:
     """Keep the first declaration for each service id to avoid duplicate probes."""
-    unique: list[HomelabService] = []
+    unique: list[CatalogRoute] = []
     seen: set[str] = set()
     for service in services:
         service_id = service.service_id
@@ -66,9 +41,9 @@ def _unique_services(services: list[HomelabService]) -> list[HomelabService]:
 
 
 def _probe_partitions(
-    services: list[HomelabService],
+    services: list[CatalogRoute],
     limit: int,
-) -> tuple[list[HomelabService], list[HomelabService]]:
+) -> tuple[list[CatalogRoute], list[CatalogRoute]]:
     """Reserve rotating slots even when priority count reaches the probe budget."""
     if limit <= 0:
         return [], []
@@ -81,7 +56,7 @@ def _probe_partitions(
 
 
 def rotated_priority_ids(
-    services: list[HomelabService],
+    services: list[CatalogRoute],
     *,
     limit: int,
 ) -> list[str]:
@@ -95,11 +70,11 @@ def rotated_priority_ids(
 
 
 def select_probe_subset(
-    services: list[HomelabService],
+    services: list[CatalogRoute],
     *,
     limit: int,
     now: float | None = None,
-) -> list[HomelabService]:
+) -> list[CatalogRoute]:
     """Always preserve rotating capacity and bounded Garage coverage."""
     services = _unique_services(services)
     if limit <= 0:
@@ -117,9 +92,9 @@ def select_probe_subset(
 
 
 def estimated_probe_interval_seconds(
-    service: HomelabService,
+    service: CatalogRoute,
     *,
-    eligible_services: list[HomelabService],
+    eligible_services: list[CatalogRoute],
     limit: int,
 ) -> float | None:
     """Estimate probe interval under the same fixed/rotating budget policy."""
@@ -139,7 +114,7 @@ def estimated_probe_interval_seconds(
 
 
 def estimated_full_cycle_seconds(
-    eligible_services: list[HomelabService],
+    eligible_services: list[CatalogRoute],
     *,
     limit: int,
 ) -> float | None:
