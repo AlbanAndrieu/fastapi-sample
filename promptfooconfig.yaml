@@ -9,7 +9,7 @@ prompts:
   - "Write a concise, funny tweet about {{topic}}"
 
 providers:
-  # Workstation GPU model behind LiteLLM "qwen"; same num_ctx and think, or ollama reloads it.
+  # Workstation GPU model behind LiteLLM "qwen"; same num_ctx, or ollama reloads it.
   - id: "ollama:chat:bonsai-2:9b"
     config:
       num_ctx: 32768

@@ -9,7 +9,7 @@ from fastmcp import Client as MCPClient
 
 # Default model if DEFAULT_MODEL is unset or empty
 OLLAMA_MODEL = (os.getenv("DEFAULT_MODEL") or "").strip() or "bonsai-2:9b"
-# Same num_ctx and think as the workstation LiteLLM "qwen" route: any difference reloads the model on the 6 GB GPU.
+# Same num_ctx as the workstation LiteLLM "qwen" route, or ollama reloads the model on the 6 GB GPU.
 OLLAMA_OPTIONS = {"num_ctx": 32768}
 
 MCP_SERVER_URL = "http://127.0.0.1:8091/llm/mcp/"
