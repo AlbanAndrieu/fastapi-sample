@@ -8,11 +8,11 @@
 
 | Choix | Groupe | Résultat attendu | Dépendance |
 | --- | --- | --- | --- |
-| **A — P0 (recommandé)** | E01–E04 | Stable en production, budget Cloud mesuré, qualité et identité de build | Accès navigateur / panneau FastAPI Cloud |
-| **B — P0/P1** | E05–E08 | Sondes crédibles et parcours OWNER sur TrueNAS + Cloud | Compose, collecte LAN |
-| **C — P1/P2** | E09–E14 | UX enrichie, dette maîtrisée et fonctionnalités avancées | A et B acceptés |
+| **F1 — P0 (recommandé)** | E01–E04 | Stable en production, budget Cloud mesuré, qualité et identité de build | Accès navigateur / panneau FastAPI Cloud |
+| **F2 — P0/P1** | E05–E08 | Sondes crédibles et parcours OWNER sur TrueNAS + Cloud | Compose, collecte LAN |
+| **F3 — P1/P2** | E09–E14 | UX enrichie, dette maîtrisée et fonctionnalités avancées | A et B acceptés |
 
-Le choix porte sur l’**ordre d’exécution** ; aucune validation de production n’a été effectuée dans cette réconciliation documentaire.
+Le choix F1–F3 porte sur l’**ordre des travaux FastAPI**. Pour arbitrer entre tous les dépôts, utiliser la [vue générale G1–G7 de Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md). Aucune validation de production n’a été effectuée dans cette réconciliation documentaire.
 
 ## P0 — Publication, coût et contrôles
 
