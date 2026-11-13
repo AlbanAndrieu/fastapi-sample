@@ -19,7 +19,7 @@
 > sont **fusionnées**. La [PR #382](https://github.com/AlbanAndrieu/fastapi-sample/pull/382)
 > reste **Draft** et traite la visibilité du panneau OWNER sur mobile.
 > Leur état Git ne prouve pas un déploiement TrueNAS.
-> La [roadmap active consolidée](../engineering-roadmap.md) fait foi
+> La [roadmap active consolidée](../../engineering-roadmap.md) fait foi
 > pour les priorités ; les observations ci-dessous sont datées et conservées.
 
 **26 octobre 2026 — P0, correctif candidat non déployé.**
@@ -36,12 +36,12 @@ chaque changement. Deux mutations **inconditionnelles** assurent
 un recyclage sans fin même après stabilisation :
 
 1. `api-health-ui-final-followup.js`, `stabilizeProbeSlots` :
-   `strip.appendChild(probe)` pour *tous* les badges à chaque frame.
-   Réinsérer un nœud existant le déplace et déclenche `childList`.
+    `strip.appendChild(probe)` pour *tous* les badges à chaque frame.
+    Réinsérer un nœud existant le déplace et déclenche `childList`.
 2. `api-global-service-filter.js`, `renderStatusChips` :
-   `button.innerHTML = ...` à chaque frame, sans contrôle des valeurs
-   déjà affichées. `renderActiveFilters` remplace également ses
-   enfants même quand le filtre n'a pas changé.
+    `button.innerHTML = ...` à chaque frame, sans contrôle des valeurs
+    déjà affichées. `renderActiveFilters` remplace également ses
+    enfants même quand le filtre n'a pas changé.
 
 `api-health-ui-polish.js` réécrivait en plus systématiquement
 `note.textContent` de la ligne pfSense. Ces opérations peuvent
@@ -289,14 +289,14 @@ pas encore le test de la page réelle après déploiement.
 **Séquence opérateur sans déploiement parallèle** :
 
 1. Laisser se terminer la commande TrueNAS déjà en cours qui
-   déploie le commit **`fa13c08d`** ; recueillir ses étapes
-   `3/6` à `6/6` et les éventuelles erreurs.
+    déploie le commit **`fa13c08d`** ; recueillir ses étapes
+    `3/6` à `6/6` et les éventuelles erreurs.
 2. Depuis le worktree FastAPI qui contient #380, relancer
-   `node scripts/diagnose-production-api-ui-freeze.mjs truenas`
-   puis `node scripts/diagnose-production-api-ui-freeze.mjs cloud`.
+    `node scripts/diagnose-production-api-ui-freeze.mjs truenas`
+    puis `node scripts/diagnose-production-api-ui-freeze.mjs cloud`.
 3. Après revue/validation de #380, tester son commit immuable
-   sur TrueNAS et comparer `main_thread_unresponsive` à
-   `sampled`. Ne pas conclure au succès avant cette preuve.
+    sur TrueNAS et comparer `main_thread_unresponsive` à
+    `sampled`. Ne pas conclure au succès avant cette preuve.
 
 Les GET Python vers Cloud et `sample.albandrieu.com` renvoient
 `403`, alors que Chromium reçoit `200` depuis Cloud :
@@ -306,8 +306,8 @@ plus interprétable pour l'UI locale.
 
 ## Nouvelle réception opérateur après #379 sur TrueNAS (27/10)
 
-`FASTAPI_SAMPLE_REF=fa13c08db05ce8ce086d2366e1f35706913f05be
-./scripts/truenas/update-fastapi-sample.sh` a **terminé 6/6** :
+Le commit `fa13c08db05ce8ce086d2366e1f35706913f05be` a été sélectionné via `FASTAPI_SAMPLE_REF`.
+La commande `./scripts/truenas/update-fastapi-sample.sh` a **terminé 6/6** :
 HTTP healthy 4/4, Prometheus/Gatus contrat OK, observer OK,
 pfSense RBAC `warning` facultatif. L'image ne publie toujours
 pas `build_revision`, mais la provenance de la construction est
@@ -355,16 +355,16 @@ version comme un échec du mode de secours.
 ## Contrôle Chrome sans secrets
 
 1. Ouvrir DevTools → **Performance** ; enregistrer 5 s sur
-   `/api`, puis arrêter.
+    `/api`, puis arrêter.
 2. Repérer les longues tâches JS (`requestAnimationFrame`,
-   `MutationObserver`) et le temps `Scripting`.
+    `MutationObserver`) et le temps `Scripting`.
 3. Dans Network, filtrer `Doc`, `Fetch/XHR`, `JS` ; contrôler
-   les statuts/latences et l'éventuel échec d'import de modules.
+    les statuts/latences et l'éventuel échec d'import de modules.
 4. Après le déploiement du hotfix, recharger sans cache, vérifier
-   que les compteurs ne restent pas sur Loading et qu'un clic
-   sur filtre ou détail reste réactif.
+    que les compteurs ne restent pas sur Loading et qu'un clic
+    sur filtre ou détail reste réactif.
 5. Avec TrueNAS simulé indisponible, confirmer le repli
-   `UNKNOWN`/stale et **aucune boucle de render**.
+    `UNKNOWN`/stale et **aucune boucle de render**.
 
 N'utiliser ni `fastapi deploy`, ni modification d'environnement,
 ni mutation TrueNAS dans cette procédure de diagnostic. La plateforme
@@ -477,22 +477,22 @@ La sonde HTTP directe a produit les résultats suivants :
 **Corrections dans #381, pas encore déployées :**
 
 1. Le préflight `node ... truenas --preflight` utilise désormais
-   directement le `python3` natif sans invoquer mise/uv ni télécharger de
-   paquet. Si Playwright Python manque, il produit
-   `state=playwright_python_missing`, `network_requests_sent=0`.
-   `--native` permet aussi le test navigateur depuis ce même Python,
-   **uniquement si le module Python et le binaire Chromium sont présents**.
+    directement le `python3` natif sans invoquer mise/uv ni télécharger de
+    paquet. Si Playwright Python manque, il produit
+    `state=playwright_python_missing`, `network_requests_sent=0`.
+    `--native` permet aussi le test navigateur depuis ce même Python,
+    **uniquement si le module Python et le binaire Chromium sont présents**.
 2. Le runner capture stderr localement, ne le reproduit jamais, et ne
-   publie qu'une classe d'échec fixe (mise/uv/dépendance/résolution/etc.).
-   La navigation échouée, le refus HTTP 403 et le blocage réel
-   `main_thread_unresponsive` restent des états distincts.
+    publie qu'une classe d'échec fixe (mise/uv/dépendance/résolution/etc.).
+    La navigation échouée, le refus HTTP 403 et le blocage réel
+    `main_thread_unresponsive` restent des états distincts.
 3. La sonde HTTP a un délai de 3 s pour `/api` et
-   `/api/ui/session`, et de **7 s pour `/api/ui/services`** afin de
-   mesurer son délai réel au-delà du plafond client 6,5 s.
+    `/api/ui/session`, et de **7 s pour `/api/ui/services`** afin de
+    mesurer son délai réel au-delà du plafond client 6,5 s.
 4. La route publique serveur borne désormais la récupération Backstage
-   à 1,5 s, l'instantané de santé à 0,7 s, puis affiche un inventaire
-   embarqué et **des états UNKNOWN** si la preuve vivante manque.
-   Deux tests asynchrones isolent les dépendances qui ne répondent jamais.
+    à 1,5 s, l'instantané de santé à 0,7 s, puis affiche un inventaire
+    embarqué et **des états UNKNOWN** si la preuve vivante manque.
+    Deux tests asynchrones isolent les dépendances qui ne répondent jamais.
 
 **Validation locale recommandée depuis le worktree PR #381 :**
 
@@ -581,17 +581,17 @@ gèle de ce téléphone sans une mesure Chromium sur son runtime.
 **Contrat #382 :**
 
 1. Une entrée `Owner access` est présente dans la navigation HTML même
-   lorsque le JavaScript du catalogue échoue.
+    lorsque le JavaScript du catalogue échoue.
 2. `/api?operator=1` reste sur le catalogue public rapide et fait
-   apparaître immédiatement `Unlock diagnostics`, via un module léger.
+    apparaître immédiatement `Unlock diagnostics`, via un module léger.
 3. `/api?ui_full=1` déclenche *uniquement sur demande* le tableau riche.
-   `?operator=1&ui_full=1` combine les deux sans double binding.
+    `?operator=1&ui_full=1` combine les deux sans double binding.
 4. Le retour depuis 4G/5G vers le Wi-Fi revalide l’état de session sur
-   les événements `online`, `pageshow` et `visibilitychange`. Aucun
-   événement réseau n’authentifie OWNER automatiquement.
+    les événements `online`, `pageshow` et `visibilitychange`. Aucun
+    événement réseau n’authentifie OWNER automatiquement.
 5. `?ui_safe=1` garde la priorité et ne monte pas la connexion OWNER.
-   Les routes privées requièrent toujours une clé correcte, un cookie
-   signé et une source approuvée.
+    Les routes privées requièrent toujours une clé correcte, un cookie
+    signé et une source approuvée.
 
 **Recette sans CI et sans toucher aux secrets :**
 
