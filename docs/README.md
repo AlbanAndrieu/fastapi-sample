@@ -7,7 +7,7 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 
 | Besoin | Document canonique |
 | --- | --- |
-| **Que reste-t-il à faire ?** | [Roadmap active P0/P1/P2](engineering-roadmap.md) |
+| **Que reste-t-il à faire ?** | [Roadmap active P0/P1/P2](engineering-roadmap.md) et [arbitrage inter-dépôts](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md) |
 | **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
 | **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
 | **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
@@ -15,6 +15,10 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | **Règles sécurité homelab ?** | [Guardrails](homelab-security-roadmap.md) |
 | **RTO/RPO et continuité ?** | [Business Impact Analysis](business-impact-analysis.md) |
 | **Points d'entrée et dashboards ?** | [Entrypoints](entrypoints-and-dashboards.md) |
+
+## Historique de la réconciliation
+
+- [Décisions et éléments archivés le 13/11/2026](archive/2026-11-13-roadmap-reconciliation.md) : les PR déjà fusionnées ne sont pas à réimplémenter ; seules leurs recettes ouvertes restent dans la roadmap active.
 
 ## Runbooks opérateur
 
