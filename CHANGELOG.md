@@ -1,3 +1,10 @@
+## [1.33.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.0...1.33.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **docker:** verify optional Datadog SDK without starting exporter ([#427](https://github.com/AlbanAndrieu/fastapi-sample/issues/427)) ([04a6eee](https://github.com/AlbanAndrieu/fastapi-sample/commit/04a6eee8010a438c973320190051382fbafaed21))
+
 # [1.33.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.32.2...1.33.0) (2026-11-13)
 
 
