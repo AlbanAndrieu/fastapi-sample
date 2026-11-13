@@ -1,3 +1,15 @@
+# [1.33.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.32.2...1.33.0) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** bump astro ([#428](https://github.com/AlbanAndrieu/fastapi-sample/issues/428)) ([5b64e3a](https://github.com/AlbanAndrieu/fastapi-sample/commit/5b64e3a64ea2914ad038f38e15239128446c8255))
+
+
+### Features
+
+* **catalog:** lire l'inventaire homelab uniquement depuis le catalogue Backstage V2 ([#424](https://github.com/AlbanAndrieu/fastapi-sample/issues/424)) ([96db4e4](https://github.com/AlbanAndrieu/fastapi-sample/commit/96db4e43aeff2b1db249af34dff72baaf4b26562)), closes [nabla-compose#365](https://github.com/nabla-compose/issues/365)
+
 ## [1.32.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.32.1...1.32.2) (2026-11-13)
 
 

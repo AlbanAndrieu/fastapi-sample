@@ -12,7 +12,7 @@ from nabla.api.catalog_resource_model import (
     ReconciliationState,
     reconciliation_condition,
 )
-from nabla.api.homelab_catalog import fetch_homelab_catalog
+from nabla.api.catalog_routes import fetch_catalog_routes
 from nabla.api.homelab_runtime_models import (
     ObservedApp,
     ObservedContainer,
@@ -254,7 +254,7 @@ async def _catalog_membership_drift(
     """Compare presentation, declared-runtime and topology membership without failing status."""
     try:
         presentation, topology = await asyncio.gather(
-            fetch_homelab_catalog(),
+            fetch_catalog_routes(),
             fetch_homelab_topology(),
         )
     except Exception as exc:  # pragma: no cover - remote catalog/provider dependent
@@ -264,7 +264,8 @@ async def _catalog_membership_drift(
             "services": [],
         }
 
-    presentation_by_id = {service.service_id: service.name for service in presentation.services}
+    # shortcut: services.json and service-topology.json are keyed by entity name; join on the full entity ref once P2.1.f re-sources them from Backstage.
+    presentation_by_id = {route.entity_ref.split("/", 1)[1]: route.name for route in presentation}
     declared_by_id = {service.service_id: service.name for service in declared_services}
     topology_by_id = {node.id: node.name for node in topology.nodes}
     service_ids = sorted(

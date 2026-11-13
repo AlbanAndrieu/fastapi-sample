@@ -10,7 +10,7 @@ import httpx
 
 from nabla.api import truenas_probe_health
 from nabla.api.health_probe_utils import unverified_ssl_context, verified_ssl_context
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.truenas_diagnostics import append_truenas_api_stages, append_truenas_http_stage, collect_truenas_network_diagnostics, unmeasured_truenas_network_diagnostics
 from nabla.api.truenas_health_observer import (
@@ -116,11 +116,13 @@ def _internal_probe_task(
     return asyncio.create_task(
         internal_probe(
             semaphore,
-            HomelabService(
+            CatalogRoute(
+                entity_ref="resource:default/truenas",
+                route="tcp",
+                service_id="truenas-tcp",
                 name="TrueNAS TCP",
-                internalHost=internal_host,
-                internalPort=internal_port,
-                external=False,
+                backend_host=internal_host,
+                backend_port=internal_port,
             ),
         ),
     )

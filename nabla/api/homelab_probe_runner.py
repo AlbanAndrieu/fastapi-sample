@@ -14,7 +14,7 @@ import httpx
 
 from nabla.api.dns_probe import probe_dns_hostname
 from nabla.api.health_probe_utils import elapsed_ms, is_textual_response, looks_like_tls_error
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.homelab_probe_phase_tracker import mark_probe_phase
 from nabla.api.platform_health_diagnostics import short_error
 
@@ -219,7 +219,7 @@ async def probe_http_endpoint(
 async def probe_public_service(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
-    service: HomelabService,
+    service: CatalogRoute,
     *,
     http_probe: HttpProbe,
     edge_probe: EdgeProbe,
@@ -236,7 +236,7 @@ async def probe_public_service(
         url=url,
     )
     initial_status = int(result.get("http_status") or 0)
-    needs_edge_probe = service.effective_cloudflare_access_required and initial_status in _ACCESS_EDGE_HTTP_STATUSES
+    needs_edge_probe = service.access_required and initial_status in _ACCESS_EDGE_HTTP_STATUSES
     result["cloudflare_access_secondary_probe_eligible"] = needs_edge_probe
     result["cloudflare_access_secondary_probe_attempted"] = False
     if not needs_edge_probe:
@@ -284,13 +284,13 @@ async def probe_public_service(
 
 async def probe_internal_service(
     semaphore: asyncio.Semaphore,
-    service: HomelabService,
+    service: CatalogRoute,
     *,
     timeout_seconds: float,
 ) -> dict[str, Any]:
     """Probe one internal TCP target under the supplied timeout budget."""
-    host = service.internal_host
-    port = service.internal_port
+    host = service.backend_host
+    port = service.backend_port
     if not host or port is None:
         raise ValueError("service has no internal host/port target")
 

@@ -7,7 +7,8 @@ from nabla.api.cloudflare_tunnels import (
     CloudflareTunnelObservation,
 )
 from nabla.api.homelab_exposure import CloudflareExposureSnapshot, enrich_service_exposure
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 def _tunnel(
@@ -63,11 +64,11 @@ def _access(
     )
 
 
-def _row(service: HomelabService) -> dict[str, object]:
+def _row(service: CatalogRoute) -> dict[str, object]:
     return {
         "id": service.service_id,
         "name": service.name,
-        "url": service.effective_endpoint_url,
+        "url": service.url,
         "reachable": True,
         "http_status": 200,
         "state": "ok",
@@ -75,13 +76,7 @@ def _row(service: HomelabService) -> dict[str, object]:
 
 
 def test_cloudflare_tunnel_and_protected_access_match_declaration() -> None:
-    service = HomelabService(
-        name="Open WebUI",
-        tunnelUrl="https://openwebui.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=True,
-        external=True,
-    )
+    service = v2_service("openwebui", "https://openwebui.albandrieu.com", title="Open WebUI", public=True, edge="cloudflare", access=True)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("openwebui.albandrieu.com"),),
@@ -98,15 +93,7 @@ def test_cloudflare_tunnel_and_protected_access_match_declaration() -> None:
 
 
 def test_cloudflare_origin_matches_topology_host_and_port() -> None:
-    service = HomelabService(
-        name="2FAuth",
-        internalHost="172.17.0.24",
-        internalPort=30081,
-        tunnelUrl="https://2fauth.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=False,
-        external=True,
-    )
+    service = v2_service("2fauth", "https://2fauth.albandrieu.com", title="2FAuth", public=True, edge="cloudflare", access=False, backend=("172.17.0.24", 30081))
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(
@@ -126,15 +113,7 @@ def test_cloudflare_origin_matches_topology_host_and_port() -> None:
 
 
 def test_cloudflare_origin_mismatch_warns_without_changing_runtime_health() -> None:
-    service = HomelabService(
-        name="2FAuth",
-        internalHost="172.17.0.24",
-        internalPort=30081,
-        tunnelUrl="https://2fauth.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=False,
-        external=True,
-    )
+    service = v2_service("2fauth", "https://2fauth.albandrieu.com", title="2FAuth", public=True, edge="cloudflare", access=False, backend=("172.17.0.24", 30081))
     row = _row(service)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
@@ -156,13 +135,7 @@ def test_cloudflare_origin_mismatch_warns_without_changing_runtime_health() -> N
 
 
 def test_local_managed_tunnel_without_remote_ingress_is_incomplete() -> None:
-    service = HomelabService(
-        name="Garage",
-        tunnelUrl="https://garage-admin.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=False,
-        external=True,
-    )
+    service = v2_service("garage-admin", "https://garage-admin.albandrieu.com", title="Garage", public=True, edge="cloudflare", access=False)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_local_tunnel(),),
@@ -177,13 +150,7 @@ def test_local_managed_tunnel_without_remote_ingress_is_incomplete() -> None:
 
 
 def test_broad_cloudflare_access_bypass_is_mismatch() -> None:
-    service = HomelabService(
-        name="n8n",
-        tunnelUrl="https://n8n.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=True,
-        external=True,
-    )
+    service = v2_service("n8n", "https://n8n.albandrieu.com", public=True, edge="cloudflare", access=True)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("n8n.albandrieu.com"),),
@@ -199,13 +166,7 @@ def test_broad_cloudflare_access_bypass_is_mismatch() -> None:
 
 
 def test_direct_service_with_observed_tunnel_is_mismatch() -> None:
-    service = HomelabService(
-        name="TrueNAS",
-        tunnelUrl="https://truenas.albandrieu.com:7000",
-        tunnelSecure=False,
-        cloudflareAccessRequired=False,
-        external=True,
-    )
+    service = v2_service("truenas", "https://truenas.albandrieu.com:7000", title="TrueNAS", public=True, edge="direct", access=False)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("truenas.albandrieu.com"),),
@@ -218,13 +179,7 @@ def test_direct_service_with_observed_tunnel_is_mismatch() -> None:
 
 
 def test_access_observer_failure_is_incomplete_not_mismatch() -> None:
-    service = HomelabService(
-        name="Open WebUI",
-        tunnelUrl="https://openwebui.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=True,
-        external=True,
-    )
+    service = v2_service("openwebui", "https://openwebui.albandrieu.com", title="Open WebUI", public=True, edge="cloudflare", access=True)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("openwebui.albandrieu.com"),),

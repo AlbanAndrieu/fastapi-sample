@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from nabla.api import health_board, homelab_catalog, homelab_health
+from nabla.api import catalog_routes, health_board, homelab_health
 from nabla.api import homelab_health_evidence as evidence
 from nabla.api.homelab_performance import (
     HOMELAB_HEALTH_PERF_PHASES,
@@ -199,7 +199,7 @@ async def test_homelab_aggregate_reads_each_reconciliation_provider_once(
             "internal_probe_enabled": internal_enabled,
         }
 
-    monkeypatch.setattr(homelab_catalog, "fetch_homelab_services", services)
+    monkeypatch.setattr(catalog_routes, "fetch_catalog_routes", services)
     monkeypatch.setattr(homelab_health, "_probe_truenas", truenas)
     monkeypatch.setattr(homelab_health, "_cached_payload", None)
     monkeypatch.setattr(homelab_health, "_cached_at", 0.0)

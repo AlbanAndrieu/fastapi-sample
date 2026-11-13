@@ -8,16 +8,12 @@ import httpx
 import pytest
 
 from nabla.api import homelab_probe_batch, homelab_probe_runner
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
-def _public_service(service_id: str) -> HomelabService:
-    return HomelabService(
-        id=service_id,
-        name=service_id,
-        tunnelUrl=f"https://{service_id}.albandrieu.com",
-        external=True,
-    )
+def _public_service(service_id: str) -> CatalogRoute:
+    return v2_service(service_id, f"https://{service_id}.albandrieu.com", title=service_id, public=True, edge=None)
 
 
 @pytest.mark.asyncio
@@ -161,13 +157,7 @@ async def test_batch_timing_counts_only_observed_completed_results() -> None:
 
 @pytest.mark.asyncio
 async def test_access_secondary_latency_remains_distinct_from_http() -> None:
-    service = HomelabService(
-        id="garage-webui",
-        name="Garage Web UI",
-        external=True,
-        tunnelUrl="https://garage.albandrieu.com",
-        cloudflareAccessRequired=True,
-    )
+    service = v2_service("garage-webui", "https://garage.albandrieu.com", title="Garage Web UI", public=True, edge=None, access=True)
 
     async def http_probe(*_args, **_kwargs) -> dict[str, object]:
         return {

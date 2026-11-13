@@ -194,7 +194,7 @@ Incident-specific forensic evidence and recovery procedures remain in
 - [ ] Fix `nabla-compose/catalog/services.schema.json` so `internalUrl` matches
 - [ ] Replace service-id/display-name joins and three-way drift checks with
 - [ ] Consume authoritative BIA-derived business criticality beside
-- [ ] Remove `homelab-services.json` and `homelab-exposure-overrides.json` as
+- [x] Remove `homelab-services.json` and `homelab-exposure-overrides.json` as
 - [ ] Pin rollback evidence and validate stable entity refs, relation endpoints,
 - [ ] Add an explicit catalog revision/provenance field so deployed runtime,
 

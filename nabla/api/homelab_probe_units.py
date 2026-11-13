@@ -170,8 +170,28 @@ def select_probe_units(
     ]
 
 
+def _route_records(entities: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """One record per ``x-nabla.exposure`` route, grouped by its deployment unit."""
+    records = []
+    for entity in entities:
+        spec = entity.get("x-nabla") or {}
+        routes = spec.get("exposure") or []
+        policy = spec.get("probePolicy") or {}
+        for route in routes:
+            ref = str(entity.get("entityRef"))
+            records.append(
+                {
+                    "id": ref if len(routes) == 1 else f"{ref}#{route.get('name')}",
+                    "external": route.get("visibility") == "public",
+                    "deploymentUnitId": policy.get("deploymentUnit"),
+                    "probePriority": policy.get("rank"),
+                },
+            )
+    return records
+
+
 def main() -> int:
-    """Preview unit selections from a local catalog; never execute the probes."""
+    """Preview unit selections from a local entities.json; never execute the probes."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, required=True)
     parser.add_argument("--observer", choices=("internal", "public"), required=True)
@@ -179,10 +199,10 @@ def main() -> int:
     parser.add_argument("--cycle", type=int, default=0)
     args = parser.parse_args()
     payload = json.loads(args.catalog.read_text(encoding="utf-8"))
-    records = payload.get("services") if isinstance(payload, dict) else payload
-    if not isinstance(records, list) or any(not isinstance(item, dict) for item in records):
-        parser.error("catalog must contain a services array")
-    units = build_probe_units(records, observer=args.observer)
+    entities = payload.get("entities") if isinstance(payload, dict) else None
+    if not isinstance(entities, list) or any(not isinstance(item, dict) for item in entities):
+        parser.error("catalog must be a Backstage v2 entities.json")
+    units = build_probe_units(_route_records(entities), observer=args.observer)
     selected = select_probe_units(units, limit=args.limit, cycle=args.cycle)
     output = {
         "observer": args.observer,

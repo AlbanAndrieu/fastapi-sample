@@ -8,7 +8,8 @@ from nabla.api.cloudflare_tunnels import (
     CloudflareTunnelObservation,
 )
 from nabla.api.homelab_exposure import CloudflareExposureSnapshot, enrich_service_exposure
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.sickz_cloudflare_policy import service_auth_access_result as _service_auth_access_result
 
 
@@ -76,11 +77,11 @@ def _control_plane(
     )
 
 
-def _row(service: HomelabService) -> dict[str, object]:
+def _row(service: CatalogRoute) -> dict[str, object]:
     return {
         "id": service.service_id,
         "name": service.name,
-        "url": service.effective_endpoint_url,
+        "url": service.url,
         "reachable": True,
         "http_status": 200,
         "state": "ok",
@@ -91,14 +92,8 @@ def _row(service: HomelabService) -> dict[str, object]:
 
 def _protected_service(
     hostname: str = "openwebui.albandrieu.com",
-) -> HomelabService:
-    return HomelabService(
-        name="Open WebUI",
-        tunnelUrl=f"https://{hostname}",
-        tunnelSecure=True,
-        cloudflareAccessRequired=True,
-        external=True,
-    )
+) -> CatalogRoute:
+    return v2_service("openwebui", f"https://{hostname}", title="Open WebUI", public=True, edge="cloudflare", access=True)
 
 
 def test_protected_cloudflare_service_can_be_operational_without_risk() -> None:
@@ -193,13 +188,7 @@ def test_disabled_or_unmatched_project_service_token_is_at_risk() -> None:
 
 
 def test_direct_external_int_hostname_is_at_risk() -> None:
-    service = HomelabService(
-        name="Garage S3",
-        tunnelUrl="https://s3.int.albandrieu.com",
-        tunnelSecure=False,
-        cloudflareAccessRequired=False,
-        external=True,
-    )
+    service = v2_service("s3-int", "https://s3.int.albandrieu.com", title="Garage S3", public=True, edge="direct", access=False)
     snapshot = CloudflareExposureSnapshot(configured=True)
 
     row = enrich_service_exposure([_row(service)], [service], snapshot)[0]
@@ -211,13 +200,7 @@ def test_direct_external_int_hostname_is_at_risk() -> None:
 
 
 def test_cloudflare_tunnel_with_access_disabled_is_at_risk() -> None:
-    service = HomelabService(
-        name="Public dashboard",
-        tunnelUrl="https://dashboard.albandrieu.com",
-        tunnelSecure=True,
-        cloudflareAccessRequired=False,
-        external=True,
-    )
+    service = v2_service("dashboard", "https://dashboard.albandrieu.com", title="Public dashboard", public=True, edge="cloudflare", access=False)
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("dashboard.albandrieu.com"),),
@@ -231,12 +214,7 @@ def test_cloudflare_tunnel_with_access_disabled_is_at_risk() -> None:
 
 
 def test_private_service_with_observed_tunnel_is_at_risk() -> None:
-    service = HomelabService(
-        name="Private service",
-        tunnelUrl="https://private.albandrieu.com",
-        tunnelSecure=True,
-        external=False,
-    )
+    service = v2_service("private", "https://private.albandrieu.com", title="Private service", public=False, edge="cloudflare")
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("private.albandrieu.com"),),

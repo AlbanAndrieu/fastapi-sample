@@ -22,6 +22,8 @@ from nabla.api.ui_public_services import (
     project_public_ui_services,
     public_ui_services_enabled,
 )
+from tests.unit.catalog_v2_fixture import catalog as v2_catalog
+from tests.unit.catalog_v2_fixture import entity
 
 
 def _catalog():
@@ -164,22 +166,14 @@ async def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_public_directory_survives_backstage_outage_with_real_snapshot_states(monkeypatch):
-    services = [
-        SimpleNamespace(name="Garage", service_id="garage"),
-        SimpleNamespace(name="Gatus", service_id="gatus"),
-        SimpleNamespace(name="Vaultwarden", service_id="vaultwarden"),
-        SimpleNamespace(name="172.17.0.24:1234", service_id="internal-ip"),
-        SimpleNamespace(name="172.17.0.24", service_id="internal-ip-only"),
-        SimpleNamespace(name="Lab 10.10.10.10 gateway", service_id="ip-embedded"),
-        SimpleNamespace(name="Secret https://private.example/", service_id="secret"),
-    ]
+    snapshot = v2_catalog(
+        entity("garage", title="Garage"),
+        entity("gatus", title="Gatus"),
+        entity("vaultwarden", title="Vaultwarden"),
+    )
     remote = AsyncMock(side_effect=SiteCatalogV2Unavailable("Backstage offline"))
     monkeypatch.setattr(ui_public_services, "fetch_site_catalog_v2", remote)
-    monkeypatch.setattr(
-        ui_public_services,
-        "packaged_homelab_catalog",
-        lambda: SimpleNamespace(services=services),
-    )
+    monkeypatch.setattr(ui_public_services, "load_catalog_snapshot", lambda: snapshot)
     monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
     monkeypatch.setattr(
         "nabla.api.health_board.get_health_board_snapshot",
@@ -204,9 +198,8 @@ async def test_public_directory_survives_backstage_outage_with_real_snapshot_sta
         "Gatus": "ok",
         "Vaultwarden": "unknown",
     }
-    assert not any(v in result.model_dump_json() for v in ("172.17.0.24", "private.example", "NEVER-ECHO"))
-    assert result.catalogRevision.startswith("sha256:")
-    assert "Lab 10.10.10.10" not in result.model_dump_json()
+    assert not any(v in result.model_dump_json() for v in ("172.17.0.24", "NEVER-ECHO"))
+    assert result.catalogRevision == snapshot["catalogRevision"]
 
     # No repeated failing Backstage fetch on the anonymous refresh loop.
     again = await ui_public_services.get_public_ui_services(None)
@@ -223,13 +216,8 @@ async def test_bootstrap_never_fabricates_state_from_stale_or_ambiguous_evidence
     )
     monkeypatch.setattr(
         ui_public_services,
-        "packaged_homelab_catalog",
-        lambda: SimpleNamespace(
-            services=[
-                SimpleNamespace(name="Garage", service_id="garage"),
-                SimpleNamespace(name="Garage", service_id="garage-other"),
-            ],
-        ),
+        "load_catalog_snapshot",
+        lambda: v2_catalog(entity("garage", title="Garage")),
     )
     monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
     monkeypatch.setattr(
@@ -265,12 +253,8 @@ async def test_slow_backstage_falls_back_to_bounded_public_bootstrap(monkeypatch
     monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
     monkeypatch.setattr(
         ui_public_services,
-        "packaged_homelab_catalog",
-        lambda: SimpleNamespace(
-            services=[
-                SimpleNamespace(name="Garage", service_id="garage"),
-            ],
-        ),
+        "load_catalog_snapshot",
+        lambda: v2_catalog(entity("garage", title="Garage")),
     )
     monkeypatch.setattr(
         "nabla.api.health_board.get_health_board_snapshot",

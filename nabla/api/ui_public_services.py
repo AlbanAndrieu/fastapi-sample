@@ -8,10 +8,7 @@ No URLs, IPs, ports, dependencies, security posture or probe evidence escape.
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import os
-import re
 import time
 from typing import Literal
 
@@ -23,11 +20,12 @@ from nabla.api.ui_public_directory_redis import (
     read_public_directory_redis,
     write_public_directory_redis,
 )
-from nabla.api.homelab_catalog import packaged_homelab_catalog
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
     fetch_site_catalog_v2,
+    load_catalog_snapshot,
+    project_site_catalog_v2,
 )
 from nabla.api.site_health_v2 import project_site_health_v2, verified_health_by_service_id
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
@@ -36,8 +34,6 @@ State = Literal["ok", "warn", "fail", "unknown"]
 Kind = Literal["API", "Component", "Resource"]
 BoardState = Literal["fresh", "stale", "pending"]
 CatalogSource = Literal["backstage-v2", "bootstrap-snapshot"]
-_SAFE_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()+&-]{0,127}$")
-_IP_LABEL = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 class PublicUiService(BaseModel):
@@ -103,10 +99,10 @@ def _public_board_reader(request: Request):
 
 
 async def _bootstrap_public_service_directory(request: Request) -> PublicUiServices:
-    """Fail-safe packaged inventory when the canonical v2 source is unreachable.
+    """Fail-safe packaged Backstage v2 snapshot when the live source is unreachable.
 
-    These are *labels only*, explicitly identified as a stale bootstrap snapshot.
-    No internal URI, IP, port, runtime detail, or unverified state is serialized.
+    Same sanitized projection as the live catalog, explicitly identified as a
+    bootstrap snapshot. No internal URI, IP, port or runtime detail is serialized.
     """
     try:
         board = await asyncio.wait_for(
@@ -115,41 +111,21 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
         )
     except Exception:
         board = {"state": "pending"}
-    board_state, states = verified_health_by_service_id(board)
+    board_state, _ = verified_health_by_service_id(board)
     if board_state != "fresh":
         # A shared L2 entry is ONLY an inventory with UNKNOWN health. When
-        # in-process health is fresh, prefer real states from packaged labels.
+        # in-process health is fresh, prefer real states from the snapshot.
         cached = await read_public_directory_redis()
         if cached is not None:
             return cached
     # Loaded only after the Redis short-circuit: a shared inventory needs no bootstrap.
-    catalog = packaged_homelab_catalog()
-    by_label: dict[str, list[str]] = {}
-    for service in catalog.services:
-        label = service.name.strip()
-        if _SAFE_LABEL.fullmatch(label) and not _IP_LABEL.search(label):
-            by_label.setdefault(label, []).append(service.service_id)
-    services = [
-        PublicUiService(
-            name=name,
-            kind="Component",
-            state=states.get(identifiers[0], "unknown") if len(identifiers) == 1 else "unknown",
-        )
-        for name, identifiers in sorted(by_label.items(), key=lambda entry: entry[0].casefold())[:2000]
-    ]
-    if not services:
+    try:
+        catalog = project_site_catalog_v2(load_catalog_snapshot())
+    except (OSError, ValueError) as exc:
         # Do not fabricate service names when neither source is available.
-        raise SiteCatalogV2Unavailable("No verified public labels are available")
-    serialized = json.dumps(
-        [(service.name, service.kind) for service in services],
-        ensure_ascii=False,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return PublicUiServices(
-        catalogRevision="sha256:" + hashlib.sha256(serialized).hexdigest(),
-        boardState=board_state,
-        catalogSource="bootstrap-snapshot",
-        services=services,
+        raise SiteCatalogV2Unavailable("No verified public labels are available") from exc
+    return project_public_ui_services(catalog, board).model_copy(
+        update={"catalogSource": "bootstrap-snapshot"},
     )
 
 

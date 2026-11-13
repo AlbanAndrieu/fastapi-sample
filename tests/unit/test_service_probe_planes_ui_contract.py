@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from nabla.api.catalog_routes import routes_from_catalog
+from nabla.api.site_architecture_catalog import load_catalog_snapshot
+
 
 ASSETS = Path("nabla/api/assets")
 
@@ -91,23 +94,11 @@ def test_akvorado_targets_are_visible_without_claiming_flow_delivery() -> None:
     assert '["flow", "🌊", evidence.flow]' in planes
 
 
-def test_akvorado_services_are_internal_only_catalog_entries() -> None:
-    import json
-
-    catalog = json.loads(
-        (Path("nabla/api/data/homelab-services.json")).read_text(
-            encoding="utf-8"
-        )
-    )
-    services = {s.get("id"): s for s in catalog["services"]}
-    for name, port in (
-        ("akvorado-console", 31056),
-        ("akvorado-inlet", 31057),
-        ("akvorado-outlet", 31058),
-    ):
-        assert services[name]["external"] is False
-        assert services[name]["internalHost"] == "172.17.0.24"
-        assert services[name]["internalPort"] == port
+def test_akvorado_console_is_an_internal_only_catalog_route() -> None:
+    routes = {item.service_id: item for item in routes_from_catalog(load_catalog_snapshot())}
+    console = routes["akvorado-console"]
+    assert console.public is False
+    assert (console.backend_host, console.backend_port) == ("172.17.0.24", 31056)
 
 
 def test_cloud_cards_display_prometheus_without_fabricating_lan_evidence() -> None:

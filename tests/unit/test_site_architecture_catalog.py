@@ -64,7 +64,7 @@ def raw_fixture() -> dict:
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
-        ).encode("utf-8")
+        ).encode("utf-8"),
     ).hexdigest()
     return {"schemaVersion": 2, "model": "backstage", "catalogRevision": "sha256:" + digest, "entities": entities}
 
@@ -99,14 +99,17 @@ def test_revision_and_edges_fail_closed() -> None:
 
     raw = raw_fixture()
     raw["entities"][2]["spec"]["dependsOn"] = ["resource:default/unknown"]
-    raw["catalogRevision"] = "sha256:" + hashlib.sha256(
-        json.dumps(
-            sorted(raw["entities"], key=lambda e: e["entityRef"]),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
-    ).hexdigest()
+    raw["catalogRevision"] = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                sorted(raw["entities"], key=lambda e: e["entityRef"]),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode("utf-8"),
+        ).hexdigest()
+    )
     with pytest.raises(ValueError, match="unresolved"):
         v2.project_site_catalog_v2(raw)
 
@@ -122,7 +125,7 @@ def test_no_v1_translation_or_extra_wire_fields() -> None:
                 "catalogRevision": "sha256:" + "a" * 64,
                 "entities": [],
                 "services": [],
-            }
+            },
         )
 
 
@@ -141,7 +144,7 @@ def test_source_url_is_pinned_to_nabla_compose_https() -> None:
 async def test_no_packaged_or_expired_cache_fallback(monkeypatch) -> None:
     v2.reset_site_catalog_v2_cache()
     fetch = AsyncMock(side_effect=httpx.ConnectError("offline"))
-    monkeypatch.setattr(v2, "_download_site_catalog_v2", fetch)
+    monkeypatch.setattr(v2, "_download_catalog_v2", fetch)
     with pytest.raises(v2.SiteCatalogV2Unavailable):
         await v2.fetch_site_catalog_v2()
     assert fetch.await_count == 1
@@ -151,14 +154,16 @@ async def test_no_packaged_or_expired_cache_fallback(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_verified_v2_cache_expires_and_then_fails(monkeypatch) -> None:
     v2.reset_site_catalog_v2_cache()
-    expected = v2.project_site_catalog_v2(raw_fixture())
-    fetch = AsyncMock(return_value=expected)
-    monkeypatch.setattr(v2, "_download_site_catalog_v2", fetch)
+    raw = raw_fixture()
+    fetch = AsyncMock(return_value=raw)
+    monkeypatch.setattr(v2, "_download_catalog_v2", fetch)
+    expected = await v2.fetch_site_catalog_v2()
+    assert expected == v2.project_site_catalog_v2(raw)
     assert await v2.fetch_site_catalog_v2() is expected
-    assert await v2.fetch_site_catalog_v2() is expected
+    assert await v2.fetch_catalog_v2_source() is raw
     assert fetch.await_count == 1
     assert v2._cache is not None
-    v2._cache = (0.0, expected)
+    v2._cache = (0.0, raw, expected)
     fetch.side_effect = httpx.ConnectError("offline")
     with pytest.raises(v2.SiteCatalogV2Unavailable):
         await v2.fetch_site_catalog_v2()

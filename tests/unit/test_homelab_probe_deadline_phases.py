@@ -11,7 +11,8 @@ from nabla.api import (
     homelab_probe_batch,
     homelab_probe_runner,
 )
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import CatalogRoute
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_probe_evidence import merge_probe_evidence, reset_probe_evidence
 from nabla.api.homelab_probe_phase_tracker import (
     DEADLINE_PHASES,
@@ -21,13 +22,8 @@ from nabla.api.homelab_probe_phase_tracker import (
 )
 
 
-def _service(identifier: str) -> HomelabService:
-    return HomelabService(
-        id=identifier,
-        name=identifier,
-        tunnelUrl=f"https://{identifier}.example.com",
-        external=True,
-    )
+def _service(identifier: str) -> CatalogRoute:
+    return v2_service(identifier, f"https://{identifier}.example.com", title=identifier, public=True, edge=None)
 
 
 @pytest.mark.asyncio
@@ -64,10 +60,7 @@ async def test_budget_captures_all_fixed_phases_before_cancellation() -> None:
     assert all(row["error_kind"] == "deadline" for row in rows)
     assert all(row["reachable"] is False for row in rows)
     assert rows[0]["deadline_phase_elapsed_ms"] is None
-    assert all(
-        type(row["deadline_phase_elapsed_ms"]) is int
-        for row in rows[1:]
-    )
+    assert all(type(row["deadline_phase_elapsed_ms"]) is int for row in rows[1:])
     # The fixed tracker does not retain a cancelled task after the batch.
     for _, task in probes:
         assert task.cancelled()
@@ -82,16 +75,20 @@ async def test_runner_marks_queue_dns_http_and_access_without_real_network(
     semaphore = asyncio.Semaphore(1)
     await semaphore.acquire()
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(
-        lambda request: httpx.Response(200, request=request),
-    )) as client:
-        queued = asyncio.create_task(homelab_probe_runner.probe_http_endpoint(
-            client,
-            semaphore,
-            service_id="queued",
-            name="Queued",
-            url="https://queued.example.com",
-        ))
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, request=request),
+        ),
+    ) as client:
+        queued = asyncio.create_task(
+            homelab_probe_runner.probe_http_endpoint(
+                client,
+                semaphore,
+                service_id="queued",
+                name="Queued",
+                url="https://queued.example.com",
+            ),
+        )
         await asyncio.sleep(0.01)
         assert snapshot_probe_phase(queued)["deadline_phase"] == "waiting_on_semaphore"
         queued.cancel()
@@ -106,13 +103,15 @@ async def test_runner_marks_queue_dns_http_and_access_without_real_network(
             return {}
 
         monkeypatch.setattr(homelab_probe_runner, "probe_dns_hostname", slow_dns)
-        dns = asyncio.create_task(homelab_probe_runner.probe_http_endpoint(
-            client,
-            asyncio.Semaphore(1),
-            service_id="dns",
-            name="DNS",
-            url="https://dns.example.com",
-        ))
+        dns = asyncio.create_task(
+            homelab_probe_runner.probe_http_endpoint(
+                client,
+                asyncio.Semaphore(1),
+                service_id="dns",
+                name="DNS",
+                url="https://dns.example.com",
+            ),
+        )
         await asyncio.wait_for(dns_entered.wait(), timeout=1)
         assert snapshot_probe_phase(dns)["deadline_phase"] == "dns_in_progress"
         dns.cancel()
@@ -131,13 +130,15 @@ async def test_runner_marks_queue_dns_http_and_access_without_real_network(
 
         monkeypatch.setattr(homelab_probe_runner, "probe_dns_hostname", fast_dns)
         async with httpx.AsyncClient(transport=httpx.MockTransport(slow_http)) as blocked_client:
-            http_task = asyncio.create_task(homelab_probe_runner.probe_http_endpoint(
-                blocked_client,
-                asyncio.Semaphore(1),
-                service_id="http",
-                name="HTTP",
-                url="https://http.example.com",
-            ))
+            http_task = asyncio.create_task(
+                homelab_probe_runner.probe_http_endpoint(
+                    blocked_client,
+                    asyncio.Semaphore(1),
+                    service_id="http",
+                    name="HTTP",
+                    url="https://http.example.com",
+                ),
+            )
             await asyncio.wait_for(entered_http.wait(), timeout=1)
             assert snapshot_probe_phase(http_task)["deadline_phase"] == "head_get_in_progress"
             http_task.cancel()
@@ -154,19 +155,15 @@ async def test_runner_marks_queue_dns_http_and_access_without_real_network(
             await gate.wait()
             return {}
 
-        edge_task = asyncio.create_task(homelab_probe_runner.probe_public_service(
-            client,
-            asyncio.Semaphore(1),
-            HomelabService(
-                id="edge",
-                name="Edge",
-                external=True,
-                tunnelUrl="https://edge.example.com",
-                cloudflareAccessRequired=True,
+        edge_task = asyncio.create_task(
+            homelab_probe_runner.probe_public_service(
+                client,
+                asyncio.Semaphore(1),
+                v2_service("edge", "https://edge.example.com", title="Edge", public=True, edge=None, access=True),
+                http_probe=fake_probe,
+                edge_probe=slow_edge,
             ),
-            http_probe=fake_probe,
-            edge_probe=slow_edge,
-        ))
+        )
         await asyncio.wait_for(entered_edge.wait(), timeout=1)
         assert snapshot_probe_phase(edge_task)["deadline_phase"] == "access_secondary_in_progress"
         edge_task.cancel()
