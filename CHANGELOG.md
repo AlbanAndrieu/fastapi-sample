@@ -1,3 +1,10 @@
+## [1.33.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.1...1.33.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **roadmap:** rétablir la roadmap active et l'instantané après [#424](https://github.com/AlbanAndrieu/fastapi-sample/issues/424) ([#429](https://github.com/AlbanAndrieu/fastapi-sample/issues/429)) ([7b560da](https://github.com/AlbanAndrieu/fastapi-sample/commit/7b560da735e332561e46fdee3e62e4484acabe67)), closes [#422](https://github.com/AlbanAndrieu/fastapi-sample/issues/422)
+
 ## [1.33.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.0...1.33.1) (2026-11-13)
 
 
