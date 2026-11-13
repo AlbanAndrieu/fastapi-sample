@@ -48,8 +48,16 @@ spec:
         runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999
+        fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: app-var
+          emptyDir:
+            sizeLimit: 128Mi
       containers:
         - name: api
           # Replace with a verified build digest before deploying.
@@ -58,6 +66,11 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: app-var
+              mountPath: /code/jm-python/var
           envFrom:
             - configMapRef:
                 name: fastapi-sample-runtime
@@ -91,7 +104,7 @@ spec:
               memory: 1Gi
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false # Gunicorn/third-party libs not yet verified on read-only rootfs
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
 ---
