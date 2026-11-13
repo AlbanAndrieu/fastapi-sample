@@ -7,7 +7,7 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 
 | Besoin | Document canonique |
 | --- | --- |
-| **Que reste-t-il à faire ?** | [Roadmap d’ingénierie F01–F10](engineering-roadmap.md) (historique du 13/11 archivé) |
+| **Que reste-t-il à faire ?** | [Roadmap d’ingénierie F01–F11 et rattachements H](engineering-roadmap.md) (historique du 13/11 archivé) |
 | **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
 | **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
 | **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
