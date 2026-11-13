@@ -1,3 +1,10 @@
+## [1.32.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.32.1...1.32.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ci:** corriger Docker et MegaLinter après [#422](https://github.com/AlbanAndrieu/fastapi-sample/issues/422) et [#423](https://github.com/AlbanAndrieu/fastapi-sample/issues/423) ([#425](https://github.com/AlbanAndrieu/fastapi-sample/issues/425)) ([4e976b6](https://github.com/AlbanAndrieu/fastapi-sample/commit/4e976b63ff314470e7c6724bba9c012cb52cb0cb))
+
 ## [1.32.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.32.0...1.32.1) (2026-11-12)
 
 
