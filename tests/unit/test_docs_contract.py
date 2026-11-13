@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from scripts.check_docs_links import resolve_local_target, validate_markdown
+from scripts.check_docs_links import default_markdown_files, resolve_local_target, validate_markdown
 
 
 def test_validate_markdown_accepts_existing_local_external_and_anchor_links(
@@ -52,3 +52,18 @@ def test_resolve_local_target_ignores_non_file_links(tmp_path: Path) -> None:
     assert resolve_local_target(source, "#section", tmp_path) is None
     assert resolve_local_target(source, "mailto:test@example.com", tmp_path) is None
     assert resolve_local_target(source, "https://example.com", tmp_path) is None
+
+
+def test_active_only_excludes_archive_without_changing_full_contract(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    archive = docs / "archive" / "2026-10-29"
+    archive.mkdir(parents=True)
+    active = docs / "current.md"
+    active.write_text("# Current\n", encoding="utf-8")
+    historical = archive / "historical.md"
+    historical.write_text("# Historical\n", encoding="utf-8")
+
+    full = default_markdown_files(tmp_path)
+    quick = default_markdown_files(tmp_path, include_archives=False)
+    assert active in full and active in quick
+    assert historical in full and historical not in quick

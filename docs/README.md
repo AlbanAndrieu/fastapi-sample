@@ -7,7 +7,7 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 
 | Besoin | Document canonique |
 | --- | --- |
-| **Que reste-t-il à faire ?** | [Roadmap active priorisable E01–E14](engineering-roadmap.md) (historique du 13/11 archivé) |
+| **Que reste-t-il à faire ?** | [Roadmap d’ingénierie F01–F10](engineering-roadmap.md) (historique du 13/11 archivé) |
 | **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
 | **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
 | **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
@@ -17,6 +17,8 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | **Points d'entrée et dashboards ?** | [Entrypoints](entrypoints-and-dashboards.md) |
 
 La [roadmap infrastructure Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md) et les [roadmaps du Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/README.md) restent distinctes : les dépendances sont liées, pas dupliquées.
+
+Le [portefeuille Homelab](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md) présente les arbitrages inter-dépôts. Le [journal de réconciliation](archive/2026-11-13-roadmap-reconciliation.md) conserve la trace des travaux transférés.
 
 ## Runbooks opérateur
 

@@ -15,7 +15,11 @@ def _documents() -> dict[str, dict]:
 def test_talos_deployment_is_internal_only() -> None:
     docs = _documents()
     assert set(docs) == {
-        "Namespace", "ConfigMap", "Deployment", "Service", "NetworkPolicy",
+        "Namespace",
+        "ConfigMap",
+        "Deployment",
+        "Service",
+        "NetworkPolicy",
     }
     service = docs["Service"]
     assert service["spec"]["type"] == "ClusterIP"
@@ -30,11 +34,17 @@ def test_talos_pod_security_and_supply_chain() -> None:
     pod = _documents()["Deployment"]["spec"]["template"]["spec"]
     assert pod["automountServiceAccountToken"] is False
     assert pod["terminationGracePeriodSeconds"] == 130
+    assert pod["securityContext"]["fsGroup"] == 999
     assert pod["securityContext"]["runAsNonRoot"] is True
     assert pod["securityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
     container = pod["containers"][0]
     assert "@sha256:" in container["image"]
     assert container["securityContext"]["allowPrivilegeEscalation"] is False
+    assert container["securityContext"]["readOnlyRootFilesystem"] is True
+    volumes = {volume["name"]: volume for volume in pod["volumes"]}
+    mounts = {mount["mountPath"]: volumes[mount["name"]] for mount in container["volumeMounts"]}
+    assert set(mounts) == {"/tmp", "/code/jm-python/var"}  # noqa: S108 - assertions inspect mount paths only
+    assert all(volume["emptyDir"]["sizeLimit"] for volume in mounts.values())
     assert container["securityContext"]["capabilities"]["drop"] == ["ALL"]
     assert container["startupProbe"]["httpGet"]["path"] == "/health"
     assert container["readinessProbe"]["httpGet"]["path"] == "/health"
@@ -50,9 +60,7 @@ def test_talos_configuration_does_not_ship_secrets() -> None:
     assert env["OPS_ROUTE_POLICY_STRICT"] == "false"
     assert "DIAGNOSTICS_ACCESS_KEY" not in env
     assert "LITELLM_API_KEY" not in env
-    pod_env = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0][
-        "envFrom"
-    ]
+    pod_env = docs["Deployment"]["spec"]["template"]["spec"]["containers"][0]["envFrom"]
     assert pod_env[1]["secretRef"]["name"] == "fastapi-sample-runtime-secrets"
     assert pod_env[1]["secretRef"].get("optional") is not True
 
