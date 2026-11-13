@@ -8,8 +8,9 @@ import pytest
 from nabla.api import (
     cloudflare_exposure_observer,
     component_health,
+    catalog_routes,
     health_board,
-    homelab_catalog,
+    health_checks,
     platform_health,
 )
 from nabla.api.homelab_health_evidence import _cloudflare_posture_stage
@@ -252,8 +253,8 @@ async def test_legacy_healthz_homelab_rows_only_probe_primary_truenas(monkeypatc
     async def should_not_fetch_services():
         raise AssertionError("global /healthz must not enumerate homelab services")
 
-    monkeypatch.setattr(homelab_catalog, "fetch_homelab_services", should_not_fetch_services)
-    rows = await homelab_catalog.homelab_healthz_probe_rows()
+    monkeypatch.setattr(catalog_routes, "fetch_catalog_routes", should_not_fetch_services)
+    rows = await health_checks.homelab_healthz_probe_rows()
 
     assert rows == [
         (

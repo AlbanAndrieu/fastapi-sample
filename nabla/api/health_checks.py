@@ -26,7 +26,6 @@ from nabla.api.health_probe_utils import (
     normalize_probe_result_errors as _normalize_probe_result_errors,
     verified_ssl_context,
 )
-from nabla.api.homelab_catalog import homelab_healthz_probe_rows
 from nabla.api.integration_health import (
     enrich_integration_metadata,
     probe_appwrite_health,
@@ -40,6 +39,7 @@ from nabla.api.integration_health import (
     probe_unleash_client_features,
 )
 from nabla.api.tavily_health import probe_tavily_search
+from nabla.api.truenas_probe_health import homelab_healthz_probe_rows
 from nabla.api.probe_budget import ProbeBudget
 from nabla.config_settings import REDIS_URL, get_settings
 

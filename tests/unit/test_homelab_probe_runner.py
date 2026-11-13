@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from nabla.api import homelab_health
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 @pytest.mark.parametrize(
@@ -52,12 +52,7 @@ async def test_internal_tcp_probe_reports_reachability(monkeypatch) -> None:
         "connect_tcp",
         connect_tcp,
     )
-    service = HomelabService(
-        name="Internal service",
-        internalHost="192.168.1.30",
-        internalPort=8443,
-        external=False,
-    )
+    service = v2_service("internal-service", title="Internal service", public=False, backend=("192.168.1.30", 8443))
 
     result = await homelab_health._probe_internal_service(
         asyncio.Semaphore(1),
@@ -81,11 +76,7 @@ async def test_probe_preserves_real_http_status(status: int, state: str) -> None
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, request=request)
 
-    service = HomelabService(
-        name="Service",
-        tunnelUrl="https://service.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("service", "https://service.albandrieu.com", title="Service", public=True, edge=None)
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
         follow_redirects=True,
@@ -111,11 +102,7 @@ async def test_probe_retries_get_when_head_is_not_supported() -> None:
         status = 405 if request.method == "HEAD" else 200
         return httpx.Response(status, request=request)
 
-    service = HomelabService(
-        name="Service",
-        tunnelUrl="https://service.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("service", "https://service.albandrieu.com", title="Service", public=True, edge=None)
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
         follow_redirects=True,
@@ -136,11 +123,7 @@ async def test_probe_reports_tls_failure_as_red() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("certificate verify failed", request=request)
 
-    service = HomelabService(
-        name="Service",
-        tunnelUrl="https://service.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("service", "https://service.albandrieu.com", title="Service", public=True, edge=None)
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
         follow_redirects=True,
@@ -159,25 +142,15 @@ async def test_probe_reports_tls_failure_as_red() -> None:
 
 @pytest.mark.asyncio
 async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
-    fast = HomelabService(
-        name="Fast internal",
-        internalHost="192.0.2.10",
-        internalPort=8080,
-        external=False,
-    )
-    slow = HomelabService(
-        name="Slow internal",
-        internalHost="192.0.2.11",
-        internalPort=8081,
-        external=False,
-    )
+    fast = v2_service("fast-internal", title="Fast internal", public=False, backend=("192.0.2.10", 8080))
+    slow = v2_service("slow-internal", title="Slow internal", public=False, backend=("192.0.2.11", 8081))
 
     async def fast_probe():
         return {
             "id": fast.service_id,
             "name": fast.name,
-            "host": fast.internal_host,
-            "port": fast.internal_port,
+            "host": fast.backend_host,
+            "port": fast.backend_port,
             "reachable": True,
             "state": "ok",
             "latency_ms": 1,
@@ -188,8 +161,8 @@ async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
         return {
             "id": slow.service_id,
             "name": slow.name,
-            "host": slow.internal_host,
-            "port": slow.internal_port,
+            "host": slow.backend_host,
+            "port": slow.backend_port,
             "reachable": True,
             "state": "ok",
             "latency_ms": 1000,

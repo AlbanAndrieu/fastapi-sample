@@ -7,31 +7,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from nabla.api import health_board, homelab_catalog, homelab_health
-from nabla.api.homelab_models import HomelabCatalog, HomelabService
+from nabla.api import catalog_routes, health_board, health_checks, homelab_health
 from nabla.config import CORS_ORIGINS
 from nabla.routes import register_routes
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 @pytest.mark.asyncio
 async def test_health_snapshot_only_probes_approved_public_services(monkeypatch) -> None:
     services = [
-        HomelabService(
-            name="Langfuse",
-            tunnelUrl="https://langfuse.albandrieu.com",
-            external=True,
-        ),
-        HomelabService(
-            name="Disabled",
-            tunnelUrl="https://disabled.albandrieu.com",
-            external=True,
-            endpointEnabled=False,
-        ),
-        HomelabService(
-            name="Private",
-            tunnelUrl="https://hello.int.albandrieu.com",
-            external=False,
-        ),
+        v2_service("langfuse", "https://langfuse.albandrieu.com", title="Langfuse", public=True, edge=None),
+        v2_service("hello-int", "https://hello.int.albandrieu.com", title="Private", public=False),
     ]
     probe = AsyncMock(
         return_value={
@@ -57,7 +43,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
     monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
     monkeypatch.setattr(
         homelab_health,
-        "fetch_homelab_services",
+        "fetch_catalog_routes",
         AsyncMock(return_value=services),
     )
     monkeypatch.setattr(homelab_health, "_probe_public_service", probe)
@@ -80,20 +66,9 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
 @pytest.mark.asyncio
 async def test_internal_probes_cover_private_and_external_services(monkeypatch) -> None:
     services = [
-        HomelabService(
-            name="Private service",
-            internalHost="192.168.1.20",
-            internalPort=8080,
-            external=False,
-        ),
-        HomelabService(
-            name="Exposed service",
-            internalHost="192.168.1.21",
-            internalPort=3000,
-            tunnelUrl="https://service.albandrieu.com",
-            external=True,
-        ),
-        HomelabService(name="No internal endpoint", external=False),
+        v2_service("private-service", title="Private service", public=False, backend=("192.168.1.20", 8080)),
+        v2_service("service", "https://service.albandrieu.com", title="Exposed service", public=True, edge=None, backend=("192.168.1.21", 3000)),
+        v2_service("no-internal-endpoint", title="No internal endpoint", public=False),
     ]
     internal_probe = AsyncMock(
         side_effect=[
@@ -121,7 +96,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
     monkeypatch.setenv("HOMELAB_INTERNAL_PROBES_ENABLED", "true")
     monkeypatch.setattr(
         homelab_health,
-        "fetch_homelab_services",
+        "fetch_catalog_routes",
         AsyncMock(return_value=services),
     )
     monkeypatch.setattr(homelab_health, "_probe_internal_service", internal_probe)
@@ -167,14 +142,8 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
 
 
 @pytest.mark.asyncio
-async def test_global_health_rows_always_include_truenas(monkeypatch) -> None:
-    monkeypatch.setattr(
-        homelab_catalog,
-        "fetch_homelab_services",
-        AsyncMock(return_value=[]),
-    )
-
-    rows = await homelab_catalog.homelab_healthz_probe_rows()
+async def test_global_health_rows_always_include_truenas() -> None:
+    rows = await health_checks.homelab_healthz_probe_rows()
 
     assert rows[0][:3] == (
         "albandrieu_truenas",
@@ -197,16 +166,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
         "internal_probes_enabled": False,
         "internal_services": [],
     }
-    catalog = HomelabCatalog(
-        version=2,
-        services=[
-            HomelabService(
-                name="Langfuse",
-                tunnelUrl="https://langfuse.albandrieu.com",
-                external=True,
-            ),
-        ],
-    )
+    catalog = [v2_service("langfuse-web", "https://langfuse.albandrieu.com", title="Langfuse", public=True)]
     health_snapshot = {
         "schema_version": 6,
         "checked_at": health_payload["checked_at"],
@@ -232,8 +192,8 @@ def test_public_homelab_routes(monkeypatch) -> None:
         AsyncMock(return_value=health_payload),
     )
     monkeypatch.setattr(
-        homelab_catalog,
-        "fetch_homelab_catalog",
+        catalog_routes,
+        "fetch_catalog_routes",
         AsyncMock(return_value=catalog),
     )
 
@@ -263,7 +223,10 @@ def test_public_homelab_routes(monkeypatch) -> None:
     assert probes_response.json()["schema_version"] == 3
     assert catalog_response.status_code == 200
     assert catalog_response.json()["version"] == 2
-    assert catalog_response.json()["services"][0]["external"] is True
+    listed = catalog_response.json()["services"][0]
+    assert listed["external"] is True
+    assert listed["entityRef"] == "component:default/langfuse-web"
+    assert listed["tunnelUrl"] == "https://langfuse.albandrieu.com"
     assert not any("ORJSONResponse is deprecated" in str(item.message) for item in caught)
 
 
@@ -286,7 +249,7 @@ async def test_public_probes_do_not_inherit_ambient_http_proxy(monkeypatch) -> N
     monkeypatch.setenv("HTTPS_PROXY", "http://untrusted-proxy.invalid:8080")
     monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
     monkeypatch.setattr(homelab_health.httpx, "AsyncClient", capture_client)
-    monkeypatch.setattr(homelab_health, "fetch_homelab_services", AsyncMock(return_value=[]))
+    monkeypatch.setattr(homelab_health, "fetch_catalog_routes", AsyncMock(return_value=[]))
     monkeypatch.setattr(
         homelab_health,
         "_probe_truenas",

@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from nabla.api import homelab_catalog
-from nabla.api.homelab_models import HomelabService
+from nabla.api.catalog_routes import routes_from_catalog
+from nabla.api.site_architecture_catalog import load_catalog_snapshot
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "nabla" / "api" / "assets"
@@ -66,60 +67,24 @@ def test_cloudflare_access_diagnostics_use_backend_project_selection() -> None:
     assert r"service token\(s\) visible" in source
 
 
-def test_secure_int_hostname_requires_explicit_cloudflare_edge_classification() -> None:
-    service = HomelabService.model_validate(
-        {
-            "id": "joplin",
-            "name": "Joplin",
-            "external": True,
-            "tunnelUrl": "https://joplin.int.albandrieu.com",
-            "tunnelSecure": True,
-        },
-    )
+def test_secure_int_hostname_requires_cloudflare_access() -> None:
+    service = v2_service("joplin", "https://joplin.int.albandrieu.com", public=True)
 
-    assert service.effective_cloudflare_access_required is True
+    assert service.access_required is True
     assert service.public_https_probe_url == "https://joplin.int.albandrieu.com/"
 
     with pytest.raises(ValidationError, match="cannot disable Cloudflare Access"):
-        HomelabService.model_validate(
-            {
-                "id": "joplin",
-                "name": "Joplin",
-                "external": True,
-                "tunnelUrl": "https://joplin.int.albandrieu.com",
-                "tunnelSecure": True,
-                "cloudflareAccessRequired": False,
-            },
-        )
+        v2_service("joplin", "https://joplin.int.albandrieu.com", public=True, access=False)
 
 
-def test_packaged_catalog_matches_nabla_compose_197_exposure_baseline() -> None:
-    homelab_catalog.clear_homelab_catalog_cache()
-    try:
-        catalog = homelab_catalog._load_bootstrap_catalog()
-        by_name = {service.name: service for service in catalog.services}
+def test_packaged_snapshot_keeps_public_exposure_baseline() -> None:
+    by_id = {item.service_id: item for item in routes_from_catalog(load_catalog_snapshot())}
 
-        for name in (
-            "AdGuard Home",
-            "Prometheus",
-            "Uptime Kuma",
-            "Grafana",
-            "Gatus UI",
-            "Affine",
-            "FreshRSS",
-            "Clickhouse",
-        ):
-            assert by_name[name].external is True
+    for service_id in ("prometheus", "grafana", "gatus", "affine", "freshrss", "clickhouse", "scrutiny"):
+        assert by_id[service_id].public is True
+        assert by_id[service_id].access_required is True
 
-        joplin = by_name["Joplin"]
-        assert joplin.service_id == "joplin"
-        assert joplin.internal_host == "172.17.0.24"
-        assert joplin.internal_port == 22300
-        assert joplin.external is True
-        assert joplin.effective_cloudflare_access_required is True
-
-        scrutiny = by_name["Scrutiny"]
-        assert scrutiny.external is True
-        assert scrutiny.effective_cloudflare_access_required is True
-    finally:
-        homelab_catalog.clear_homelab_catalog_cache()
+    joplin = by_id["joplin"]
+    assert (joplin.backend_host, joplin.backend_port) == ("172.17.0.24", 22300)
+    # Owner decision 10/11: Joplin sync clients cannot pass an Access login.
+    assert (joplin.public, joplin.access_required) == (True, False)

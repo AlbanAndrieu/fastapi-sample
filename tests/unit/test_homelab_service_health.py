@@ -4,7 +4,7 @@ import pytest
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelIngress, CloudflareTunnelObservation
 from nabla.api.homelab_declared import RuntimeBinding
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
 from nabla.api.homelab_runtime_models import ObservedContainer
 from nabla.api.homelab_service_health import build_reconciled_service_health, reconcile_service_state
@@ -59,11 +59,7 @@ def test_service_state_evidence_matrix(
 
 
 def test_runtime_missing_with_http_200_is_drift_not_outage() -> None:
-    service = HomelabService(
-        name="Vaultwarden",
-        tunnelUrl="https://vaultwarden.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("vaultwarden", "https://vaultwarden.albandrieu.com", title="Vaultwarden", public=True, edge=None)
     rows = build_reconciled_service_health(
         [service],
         public_results=[
@@ -91,12 +87,13 @@ def test_runtime_missing_with_http_200_is_drift_not_outage() -> None:
 
 
 def test_stopped_runtime_is_authoritative_without_fresh_origin() -> None:
-    service = HomelabService(name="Open WebUI", external=False)
+    service = v2_service("openwebui", title="Open WebUI", public=False)
     rows = build_reconciled_service_health(
         [service],
         public_results=[],
         internal_results=[],
-        runtime=_runtime(ObservedApp(app_id="open-webui", name="Open WebUI", state="STOPPED")),
+        # TrueNAS app ids join on the catalog entity name, never on display names.
+        runtime=_runtime(ObservedApp(app_id="openwebui", name="Open WebUI", state="STOPPED")),
         tunnels=[],
     )
     assert rows[0]["runtime_state"] == "STOPPED"
@@ -104,7 +101,7 @@ def test_stopped_runtime_is_authoritative_without_fresh_origin() -> None:
 
 
 def test_stale_runtime_never_claims_missing_app() -> None:
-    service = HomelabService(name="Keycloak", external=False)
+    service = v2_service("keycloak", title="Keycloak", public=False)
     rows = build_reconciled_service_health(
         [service],
         public_results=[],
@@ -124,11 +121,7 @@ def test_stale_runtime_never_claims_missing_app() -> None:
 
 @pytest.mark.parametrize("tunnel_status", ["healthy", "down", "degraded"])
 def test_cloudflare_unconfirmed_warns_without_changing_healthy_origin(tunnel_status: str) -> None:
-    service = HomelabService(
-        name="n8n",
-        tunnelUrl="https://n8n.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("n8n", "https://n8n.albandrieu.com", public=True, edge=None)
     rows = build_reconciled_service_health(
         [service],
         public_results=[
@@ -166,11 +159,7 @@ def test_cloudflare_unconfirmed_warns_without_changing_healthy_origin(tunnel_sta
 
 
 def test_confirmed_down_tunnel_is_not_masked_by_http_403() -> None:
-    service = HomelabService(
-        name="2FAuth",
-        tunnelUrl="https://2fauth.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("2fauth", "https://2fauth.albandrieu.com", title="2FAuth", public=True, edge=None)
     tunnel = CloudflareTunnelObservation(
         tunnel_id="tunnel-1",
         name="homelab",
@@ -207,14 +196,7 @@ def test_confirmed_down_tunnel_is_not_masked_by_http_403() -> None:
 
 
 def test_private_garage_admin_uses_lan_health_without_tunnel_downgrade() -> None:
-    service = HomelabService(
-        id="garage-admin",
-        name="Garage Admin API",
-        internalHost="172.17.0.24",
-        internalPort=3903,
-        tunnelUrl="https://garage-admin.albandrieu.com",
-        external=False,
-    )
+    service = v2_service("garage-admin", "https://garage-admin.albandrieu.com", title="Garage Admin API", public=False, backend=("172.17.0.24", 3903))
     tunnel = CloudflareTunnelObservation(
         tunnel_id="old-route",
         name="legacy",
@@ -250,14 +232,7 @@ def test_private_garage_admin_uses_lan_health_without_tunnel_downgrade() -> None
 
 
 def test_stale_direct_application_error_does_not_override_fresh_lan_health() -> None:
-    service = HomelabService(
-        id="garage-admin",
-        name="Garage Admin API",
-        internalHost="172.17.0.24",
-        internalPort=3903,
-        tunnelUrl="https://garage-admin.albandrieu.com",
-        external=False,
-    )
+    service = v2_service("garage-admin", "https://garage-admin.albandrieu.com", title="Garage Admin API", public=False, backend=("172.17.0.24", 3903))
     rows = build_reconciled_service_health(
         [service],
         public_results=[
@@ -293,13 +268,7 @@ def test_stale_direct_application_error_does_not_override_fresh_lan_health() -> 
 
 
 def test_stale_internal_garage_evidence_is_not_current_health() -> None:
-    service = HomelabService(
-        id="garage",
-        name="Garage S3 API",
-        internalHost="172.17.0.24",
-        internalPort=3900,
-        external=False,
-    )
+    service = v2_service("garage", title="Garage S3 API", public=False, backend=("172.17.0.24", 3900))
     rows = build_reconciled_service_health(
         [service],
         public_results=[],
@@ -351,15 +320,7 @@ def test_access_evidence_is_exported_and_never_proves_origin_health(
     port: int,
     lan_state: str,
 ) -> None:
-    service = HomelabService(
-        id=service_id,
-        name=service_id,
-        internalHost="172.17.0.24",
-        internalPort=port,
-        tunnelUrl=url,
-        tunnelSecure=True,
-        external=True,
-    )
+    service = v2_service(service_id, url, title=service_id, public=True, edge="cloudflare", backend=("172.17.0.24", port))
     rows = build_reconciled_service_health(
         [service],
         public_results=[_access_blocked_public_row(service_id, f"{url}/")],
@@ -381,7 +342,7 @@ def test_access_evidence_is_exported_and_never_proves_origin_health(
 
 
 def test_true_nas_app_running_does_not_hide_exited_primary_prometheus() -> None:
-    service = HomelabService(id="prometheus", name="Prometheus", external=False)
+    service = v2_service("prometheus", title="Prometheus", public=False)
     app = ObservedApp(
         app_id="prometheus",
         name="prometheus",
@@ -393,8 +354,11 @@ def test_true_nas_app_running_does_not_hide_exited_primary_prometheus() -> None:
         ],
     )
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(app), tunnels=[],
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(app),
+        tunnels=[],
     )[0]
     assert row["runtime_state"] == "RUNNING"
     assert row["runtime_primary_container_state"] == "EXITED"
@@ -403,17 +367,22 @@ def test_true_nas_app_running_does_not_hide_exited_primary_prometheus() -> None:
 
 
 def test_exited_init_sidecar_does_not_degrade_running_primary() -> None:
-    service = HomelabService(id="gatus", name="Gatus", external=False)
+    service = v2_service("gatus", title="Gatus", public=False)
     app = ObservedApp(
-        app_id="gatus", name="gatus", state="RUNNING",
+        app_id="gatus",
+        name="gatus",
+        state="RUNNING",
         containers=[
             ObservedContainer(service_name="gatus", state="running"),
             ObservedContainer(service_name="migration", state="exited"),
         ],
     )
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(app), tunnels=[],
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(app),
+        tunnels=[],
     )[0]
     assert row["runtime_primary_container_state"] == "RUNNING"
     assert row["runtime_primary_container_issue"] is False
@@ -421,31 +390,41 @@ def test_exited_init_sidecar_does_not_degrade_running_primary() -> None:
 
 
 def test_ambiguous_primary_is_unknown_not_synthetic_success() -> None:
-    service = HomelabService(id="prometheus", name="Prometheus", external=False)
+    service = v2_service("prometheus", title="Prometheus", public=False)
     app = ObservedApp(
-        app_id="prometheus", name="prometheus", state="RUNNING",
+        app_id="prometheus",
+        name="prometheus",
+        state="RUNNING",
         containers=[
             ObservedContainer(service_name="prometheus", state="running"),
             ObservedContainer(service_name="prometheus", state="exited"),
         ],
     )
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(app), tunnels=[],
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(app),
+        tunnels=[],
     )[0]
     assert row["runtime_primary_container_state"] is None
     assert row["runtime_primary_container_issue"] is False
 
 
 def test_stale_runtime_container_issue_does_not_claim_current_failure() -> None:
-    service = HomelabService(id="prometheus", name="Prometheus", external=False)
+    service = v2_service("prometheus", title="Prometheus", public=False)
     app = ObservedApp(
-        app_id="prometheus", name="prometheus", state="RUNNING",
+        app_id="prometheus",
+        name="prometheus",
+        state="RUNNING",
         containers=[ObservedContainer(service_name="prometheus", state="exited")],
     )
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(app, stale=True), tunnels=[],
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(app, stale=True),
+        tunnels=[],
     )[0]
     assert row["runtime_primary_container_state"] == "EXITED"
     assert row["runtime_primary_container_issue"] is False
@@ -458,52 +437,76 @@ def test_stale_runtime_container_issue_does_not_claim_current_failure() -> None:
         (False, "172.17.0.24", 8085, [], "disabled"),
         (True, "172.17.0.24", 8085, [], "not-executed"),
         (True, None, None, [], "not-configured"),
-        (True, "172.17.0.24", 8085, [
-            {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "state": "fail", "reachable": False}
-        ], "failed"),
-        (True, "172.17.0.24", 8085, [
-            {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "state": "ok", "reachable": True}
-        ], "observed"),
-        (True, "172.17.0.24", 8085, [
-            {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "probe_stale": True, "state": "fail", "reachable": False}
-        ], "stale"),
+        (
+            True,
+            "172.17.0.24",
+            8085,
+            [
+                {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "state": "fail", "reachable": False},
+            ],
+            "failed",
+        ),
+        (
+            True,
+            "172.17.0.24",
+            8085,
+            [
+                {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "state": "ok", "reachable": True},
+            ],
+            "observed",
+        ),
+        (
+            True,
+            "172.17.0.24",
+            8085,
+            [
+                {"id": "gatus", "probe_observed_at": "2026-10-24T13:08:36Z", "probe_stale": True, "state": "fail", "reachable": False},
+            ],
+            "stale",
+        ),
     ],
 )
 def test_lan_probe_execution_is_not_docker_app_health(
-    enabled: bool, host: str | None, port: int | None,
-    results: list[dict], expected: str,
+    enabled: bool,
+    host: str | None,
+    port: int | None,
+    results: list[dict],
+    expected: str,
 ) -> None:
-    service = HomelabService(
-        id="gatus", name="Gatus", external=False,
-        internalHost=host, internalPort=port,
-    )
+    service = v2_service("gatus", title="Gatus", public=False, backend=(host, port))
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=results,
+        [service],
+        public_results=[],
+        internal_results=results,
         runtime=_runtime(ObservedApp(app_id="gatus", name="Gatus", state="RUNNING")),
-        tunnels=[], internal_probes_enabled=enabled,
+        tunnels=[],
+        internal_probes_enabled=enabled,
     )[0]
     assert row["runtime_state"] == "RUNNING"
     assert row["internal_probe_execution"] == expected
     assert row["internal_state"] is None or expected in {"observed", "failed", "stale"}
 
 
-
 def test_openwebui_legacy_container_is_runtime_identity_drift_not_missing_app() -> None:
-    service = HomelabService(
-        id="openwebui", name="Open WebUI",
-        internalHost="172.17.0.24", internalPort=31028,
-        external=False,
-    )
+    service = v2_service("openwebui", title="Open WebUI", public=False, backend=("172.17.0.24", 31028))
     old = ObservedApp(
-        app_id="openwebui", name="Open WebUI", state="RUNNING",
+        app_id="openwebui",
+        name="Open WebUI",
+        state="RUNNING",
         containers=[ObservedContainer(service_name="open-webui", state="running")],
     )
     binding = RuntimeBinding(
-        provider="truenas-app", appId="openwebui", containerService="openwebui",
+        provider="truenas-app",
+        appId="openwebui",
+        containerService="openwebui",
     )
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(old), tunnels=[], runtime_bindings={"openwebui": binding},
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(old),
+        tunnels=[],
+        runtime_bindings={"openwebui": binding},
     )[0]
     assert row["runtime_missing"] is False
     assert row["runtime_state"] == "RUNNING"
@@ -512,12 +515,18 @@ def test_openwebui_legacy_container_is_runtime_identity_drift_not_missing_app() 
     assert row["state"] == "warn"
 
     new = ObservedApp(
-        app_id="openwebui", name="Open WebUI", state="RUNNING",
+        app_id="openwebui",
+        name="Open WebUI",
+        state="RUNNING",
         containers=[ObservedContainer(service_name="openwebui", state="running")],
     )
     migrated = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(new), tunnels=[], runtime_bindings={"openwebui": binding},
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(new),
+        tunnels=[],
+        runtime_bindings={"openwebui": binding},
     )[0]
     assert migrated["runtime_missing"] is False
     assert migrated["runtime_container_identity_drift"] is False
@@ -526,17 +535,24 @@ def test_openwebui_legacy_container_is_runtime_identity_drift_not_missing_app() 
 
 
 def test_openwebui_ambiguous_appid_never_becomes_healthy() -> None:
-    service = HomelabService(id="openwebui", name="Open WebUI", external=False)
+    service = v2_service("openwebui", title="Open WebUI", public=False)
     binding = RuntimeBinding(
-        provider="truenas-app", appId="openwebui", containerService="openwebui",
+        provider="truenas-app",
+        appId="openwebui",
+        containerService="openwebui",
     )
     ambiguous = ObservedApp(
-        app_id="openwebui", name="Open WebUI", state="RUNNING",
+        app_id="openwebui",
+        name="Open WebUI",
+        state="RUNNING",
         containers=[ObservedContainer(service_name="open-webui", state="running")],
     )
     row = build_reconciled_service_health(
-        [service], public_results=[], internal_results=[],
-        runtime=_runtime(ambiguous, ambiguous), tunnels=[],
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(ambiguous, ambiguous),
+        tunnels=[],
         runtime_bindings={"openwebui": binding},
     )[0]
     assert row["runtime_missing"] is True
@@ -545,15 +561,7 @@ def test_openwebui_ambiguous_appid_never_becomes_healthy() -> None:
 
 
 def test_private_garage_s3_exposes_two_distinct_declared_navigation_urls() -> None:
-    service = HomelabService(
-        id="garage",
-        name="Garage S3 API",
-        internalHost="172.17.0.24",
-        internalPort=3900,
-        internalSecure=False,
-        tunnelUrl="https://s3.int.albandrieu.com",
-        external=False,
-    )
+    service = v2_service("garage", "https://s3.int.albandrieu.com", title="Garage S3 API", public=False, backend=("172.17.0.24", 3900, False))
     rows = build_reconciled_service_health(
         [service],
         public_results=[],

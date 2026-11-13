@@ -181,6 +181,7 @@ repos:
             Pipfile.lock|
             yarn.lock|
             sbom.json|
+            nabla/api/data/catalog-snapshot.json|
           )$
         # ----------------------------- 🔒 Security Tools ---------------------------- #
       - id: detect-private-key

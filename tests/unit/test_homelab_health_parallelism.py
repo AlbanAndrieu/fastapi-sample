@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 from nabla.api import homelab_health
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 
 
 @pytest.mark.asyncio
@@ -13,14 +13,7 @@ async def test_internal_probes_run_while_truenas_probe_is_pending(monkeypatch) -
     """A slow TrueNAS probe must not serialize independent internal probes."""
     release_truenas = asyncio.Event()
     internal_started = asyncio.Event()
-    services = [
-        HomelabService(
-            name="Internal service",
-            internalHost="192.0.2.10",
-            internalPort=8443,
-            external=False,
-        )
-    ]
+    services = [v2_service("internal-service", backend=("192.0.2.10", 8443))]
 
     async def fake_truenas_probe(*_args, **_kwargs):
         await release_truenas.wait()
@@ -37,8 +30,8 @@ async def test_internal_probes_run_while_truenas_probe_is_pending(monkeypatch) -
         return {
             "id": service.service_id,
             "name": service.name,
-            "host": service.internal_host,
-            "port": service.internal_port,
+            "host": service.backend_host,
+            "port": service.backend_port,
             "reachable": True,
             "state": "ok",
             "latency_ms": 1,
@@ -48,7 +41,7 @@ async def test_internal_probes_run_while_truenas_probe_is_pending(monkeypatch) -
         return services
 
     monkeypatch.setenv("HOMELAB_INTERNAL_PROBES_ENABLED", "true")
-    monkeypatch.setattr(homelab_health, "fetch_homelab_services", fake_services)
+    monkeypatch.setattr(homelab_health, "fetch_catalog_routes", fake_services)
     monkeypatch.setattr(homelab_health, "_probe_truenas", fake_truenas_probe)
     monkeypatch.setattr(homelab_health, "_probe_internal_service", fake_internal_probe)
     monkeypatch.setattr(homelab_health, "_cached_payload", None)

@@ -1,3 +1,4 @@
+# ruff: noqa: PLW0603 -- the module owns one lock-protected verified-catalog cache.
 """Authenticated sanitized Backstage v2 read model for the Site Alban server.
 
 Never turn the legacy services.json contract into a second catalog authority.
@@ -13,6 +14,8 @@ import logging
 import os
 import re
 import time
+from functools import lru_cache
+from pathlib import Path
 from secrets import compare_digest
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -26,6 +29,9 @@ _SOURCE_URL = os.getenv(
     "HOMELAB_CATALOG_V2_URL",
     "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/entities.json",
 ).strip()
+# Byte copy of nabla-compose catalog/generated/entities.json, refreshed by
+# scripts/refresh-catalog-snapshot.sh: a cold-start cache, never a third catalog.
+CATALOG_SNAPSHOT_PATH = Path(__file__).with_name("data") / "catalog-snapshot.json"
 _MAX_BYTES = 2_000_000
 _TIMEOUT_SECONDS = 5.0
 _CACHE_TTL_SECONDS = 300.0
@@ -86,7 +92,8 @@ class SiteArchitectureCatalogV2(BaseModel):
     entities: list[SiteV2Entity] = Field(min_length=1, max_length=2000)
 
 
-_cache: tuple[float, SiteArchitectureCatalogV2] | None = None
+# (expiry, verified source payload, sanitized site projection)
+_cache: tuple[float, dict[str, Any], SiteArchitectureCatalogV2] | None = None
 _refresh_lock = asyncio.Lock()
 
 
@@ -105,10 +112,7 @@ def _validated_source_url(url: str) -> str:
     ):
         raise ValueError("v2 catalog source must be the approved Nabla GitHub artifact")
     ref = parsed.path[len(prefix) : -len(suffix)]
-    if not ref or any(
-        part in ("", ".", "..") or not re.fullmatch(r"[A-Za-z0-9_.-]+", part)
-        for part in ref.split("/")
-    ):
+    if not ref or any(part in ("", ".", "..") or not re.fullmatch(r"[A-Za-z0-9_.-]+", part) for part in ref.split("/")):
         raise ValueError("v2 catalog revision must be a valid Git ref")
     return url
 
@@ -127,36 +131,54 @@ def _valid_ref(raw: Any, refs: set[str]) -> str:
     return raw
 
 
-def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
-    """Validate source revision then only copy reviewed fields into a v2 DTO.
-
-    catalogRevision is the digest of the FULL source graph, not the redacted
-    representation; clients use it as an origin version ID, not as a DTO checksum.
-    """
+def _verified_entities(raw: object) -> tuple[str, list[dict[str, Any]], set[str]]:
+    """Check schema, full-graph revision digest and unique refs before projecting."""
     if not isinstance(raw, dict) or raw.get("schemaVersion") != 2 or raw.get("model") != "backstage":
         raise ValueError("unsupported Backstage catalog schema")
     values = raw.get("entities")
-    if (
-        not isinstance(values, list)
-        or not 0 < len(values) <= 2000
-        or not all(isinstance(v, dict) for v in values)
-    ):
+    if not isinstance(values, list) or not 0 < len(values) <= 2000 or not all(isinstance(v, dict) for v in values):
         raise ValueError("invalid Backstage entities")
     revision = raw.get("catalogRevision")
     if not isinstance(revision, str) or not _REVISION_RE.fullmatch(revision):
         raise ValueError("invalid canonical revision")
     ordered = sorted(values, key=lambda entity: str(entity.get("entityRef") or ""))
     digest = hashlib.sha256(
-        json.dumps(ordered, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        json.dumps(ordered, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
     ).hexdigest()
     if not compare_digest(revision, "sha256:" + digest):
         raise ValueError("Backstage source revision mismatch")
     refs = {entity.get("entityRef") for entity in values}
-    if len(refs) != len(values) or not all(
-        isinstance(ref, str) and _REF_RE.fullmatch(ref) for ref in refs
-    ):
+    if len(refs) != len(values) or not all(isinstance(ref, str) and _REF_RE.fullmatch(ref) for ref in refs):
         raise ValueError("ambiguous Backstage entity refs")
+    return revision, ordered, refs
 
+
+def _reviewed_spec(source_spec: dict[str, Any], refs: set[str]) -> dict[str, str | list[str]]:
+    spec: dict[str, str | list[str]] = {}
+    for key in _SPEC_SCALARS:
+        field = source_spec.get(key)
+        if isinstance(field, str) and _TAG_RE.fullmatch(field):
+            spec[key] = field
+    for key in _SPEC_REFS:
+        value = source_spec.get(key)
+        if value is not None:
+            spec[key] = _valid_ref(value, refs)
+    for key in _SPEC_RELATIONS:
+        targets = source_spec.get(key)
+        if targets is not None:
+            if not isinstance(targets, list):
+                raise ValueError("invalid Backstage relations")
+            spec[key] = [_valid_ref(target, refs) for target in targets]
+    return spec
+
+
+def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
+    """Validate source revision then only copy reviewed fields into a v2 DTO.
+
+    catalogRevision is the digest of the FULL source graph, not the redacted
+    representation; clients use it as an origin version ID, not as a DTO checksum.
+    """
+    revision, ordered, refs = _verified_entities(raw)
     output: list[SiteV2Entity] = []
     for entity in ordered:
         metadata = entity.get("metadata")
@@ -190,11 +212,7 @@ def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
         raw_labels = metadata.get("labels") or {}
         if not isinstance(raw_labels, dict):
             raise ValueError("invalid Backstage labels")
-        labels = {
-            key: raw_labels[key]
-            for key in _CRITICALITY_LABELS
-            if raw_labels.get(key) in ("critical", "high", "medium", "low")
-        }
+        labels = {key: raw_labels[key] for key in _CRITICALITY_LABELS if raw_labels.get(key) in ("critical", "high", "medium", "low")}
         clean_metadata = SiteV2Metadata(
             name=name,
             namespace=namespace if namespace != "default" else None,
@@ -202,21 +220,7 @@ def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
             tags=tags or None,
             labels=labels or None,
         )
-        spec: dict[str, str | list[str]] = {}
-        for key in _SPEC_SCALARS:
-            field = source_spec.get(key)
-            if isinstance(field, str) and _TAG_RE.fullmatch(field):
-                spec[key] = field
-        for key in _SPEC_REFS:
-            value = source_spec.get(key)
-            if value is not None:
-                spec[key] = _valid_ref(value, refs)
-        for key in _SPEC_RELATIONS:
-            targets = source_spec.get(key)
-            if targets is not None:
-                if not isinstance(targets, list):
-                    raise ValueError("invalid Backstage relations")
-                spec[key] = [_valid_ref(target, refs) for target in targets]
+        spec = _reviewed_spec(source_spec, refs)
         output.append(
             SiteV2Entity(
                 kind=kind,
@@ -224,12 +228,12 @@ def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
                 sourcePath=source_path,
                 metadata=clean_metadata,
                 spec=spec,
-            )
+            ),
         )
     return SiteArchitectureCatalogV2(catalogRevision=revision, entities=output)
 
 
-async def _download_site_catalog_v2() -> SiteArchitectureCatalogV2:
+async def _download_catalog_v2() -> Any:
     url = _validated_source_url(_SOURCE_URL)
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(_TIMEOUT_SECONDS),
@@ -241,7 +245,15 @@ async def _download_site_catalog_v2() -> SiteArchitectureCatalogV2:
         response.raise_for_status()
         if len(response.content) > _MAX_BYTES:
             raise ValueError("authoritative catalog exceeds size budget")
-        return project_site_catalog_v2(response.json())
+        return response.json()
+
+
+@lru_cache(maxsize=1)
+def load_catalog_snapshot() -> dict[str, Any]:
+    """Packaged last-known-good entities.json, verified like the remote source."""
+    raw = json.loads(CATALOG_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    project_site_catalog_v2(raw)
+    return raw
 
 
 def site_catalog_failure_stage(exc: Exception) -> str:
@@ -257,31 +269,44 @@ def site_catalog_failure_stage(exc: Exception) -> str:
     return "unknown"
 
 
-async def fetch_site_catalog_v2() -> SiteArchitectureCatalogV2:
+async def _fetch_verified_catalog_v2() -> tuple[dict[str, Any], SiteArchitectureCatalogV2]:
     """Singleflight read: 5-minute cache of verified v2 only; never fall back."""
     global _cache
     now = time.monotonic()
     if _cache is not None and now < _cache[0]:
-        return _cache[1]
+        return _cache[1], _cache[2]
     async with _refresh_lock:
         now = time.monotonic()
         if _cache is not None and now < _cache[0]:
-            return _cache[1]
+            return _cache[1], _cache[2]
         try:
-            result = await _download_site_catalog_v2()
+            raw = await _download_catalog_v2()
+            projected = project_site_catalog_v2(raw)
         except SiteCatalogV2Unavailable:
             raise
         except (httpx.HTTPError, ValueError, TypeError, ValidationError, json.JSONDecodeError) as exc:
             stage = site_catalog_failure_stage(exc)
             logger.warning(
                 "Site Backstage v2 unavailable stage=%s exception_type=%s",
-                stage, type(exc).__name__,
+                stage,
+                type(exc).__name__,
             )
             raise SiteCatalogV2Unavailable(
-                "Authoritative Backstage v2 catalog unavailable", stage=stage,
+                "Authoritative Backstage v2 catalog unavailable",
+                stage=stage,
             ) from None
-        _cache = (time.monotonic() + _CACHE_TTL_SECONDS, result)
-        return result
+        _cache = (time.monotonic() + _CACHE_TTL_SECONDS, raw, projected)
+        return raw, projected
+
+
+async def fetch_site_catalog_v2() -> SiteArchitectureCatalogV2:
+    """Sanitized Site projection of the verified v2 source."""
+    return (await _fetch_verified_catalog_v2())[1]
+
+
+async def fetch_catalog_v2_source() -> dict[str, Any]:
+    """Revision-verified entities.json for server-side readers (route intent)."""
+    return (await _fetch_verified_catalog_v2())[0]
 
 
 def reset_site_catalog_v2_cache() -> None:

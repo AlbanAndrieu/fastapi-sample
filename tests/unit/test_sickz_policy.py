@@ -7,7 +7,7 @@ from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
     CloudflareAccessPolicyObservation,
 )
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
 from nabla.api.sickz_cloudflare_edge import (
     _ANONYMOUS_EDGE_HEADERS,
@@ -39,12 +39,7 @@ def _protected_access() -> dict:
 
 
 def test_private_service_reachable_is_policy_failure() -> None:
-    service = HomelabService(
-        name="Bichon",
-        tunnel_url="https://bichon.albandrieu.com",
-        tunnel_secure=False,
-        external=False,
-    )
+    service = v2_service("bichon", "https://bichon.albandrieu.com", title="Bichon", public=False, edge="direct")
 
     state, detail = _classify_service(
         service,
@@ -60,12 +55,7 @@ def test_private_service_reachable_is_policy_failure() -> None:
 
 
 def test_private_service_unreachable_is_policy_ok() -> None:
-    service = HomelabService(
-        name="ClickHouse",
-        tunnel_url="https://clickhouse.albandrieu.com",
-        tunnel_secure=True,
-        external=False,
-    )
+    service = v2_service("clickhouse", "https://clickhouse.albandrieu.com", title="ClickHouse", public=False, edge="cloudflare")
 
     state, detail = _classify_service(
         service,
@@ -81,12 +71,7 @@ def test_private_service_unreachable_is_policy_ok() -> None:
 
 
 def test_private_service_with_cloudflare_ingress_is_policy_failure() -> None:
-    service = HomelabService(
-        name="Bichon",
-        tunnel_url="https://bichon.albandrieu.com",
-        tunnel_secure=False,
-        external=False,
-    )
+    service = v2_service("bichon", "https://bichon.albandrieu.com", title="Bichon", public=False, edge="direct")
 
     state, detail = _classify_service(
         service,
@@ -105,12 +90,7 @@ def test_private_service_with_cloudflare_ingress_is_policy_failure() -> None:
 
 
 def test_private_service_with_access_application_is_policy_failure() -> None:
-    service = HomelabService(
-        name="Bichon",
-        tunnel_url="https://bichon.albandrieu.com",
-        tunnel_secure=False,
-        external=False,
-    )
+    service = v2_service("bichon", "https://bichon.albandrieu.com", title="Bichon", public=False, edge="direct")
 
     state, detail = _classify_service(
         service,
@@ -127,12 +107,7 @@ def test_private_service_with_access_application_is_policy_failure() -> None:
 
 
 def test_secure_external_service_with_tunnel_tls_and_access_is_ok() -> None:
-    service = HomelabService(
-        name="2FAuth",
-        tunnel_url="https://2fauth.albandrieu.com",
-        tunnel_secure=True,
-        external=True,
-    )
+    service = v2_service("2fauth", "https://2fauth.albandrieu.com", title="2FAuth", public=True, edge="cloudflare")
 
     state, detail = _classify_service(
         service,
@@ -153,12 +128,7 @@ def test_secure_external_service_with_tunnel_tls_and_access_is_ok() -> None:
 
 
 def test_secure_external_service_without_cloudflare_evidence_fails() -> None:
-    service = HomelabService(
-        name="2FAuth",
-        tunnel_url="https://2fauth.albandrieu.com",
-        tunnel_secure=True,
-        external=True,
-    )
+    service = v2_service("2fauth", "https://2fauth.albandrieu.com", title="2FAuth", public=True, edge="cloudflare")
 
     state, detail = _classify_service(
         service,
@@ -175,12 +145,7 @@ def test_secure_external_service_without_cloudflare_evidence_fails() -> None:
 
 
 def test_secure_external_service_with_invalid_tls_fails_even_with_tunnel() -> None:
-    service = HomelabService(
-        name="Vaultwarden",
-        tunnel_url="https://vaultwarden.albandrieu.com",
-        tunnel_secure=True,
-        external=True,
-    )
+    service = v2_service("vaultwarden", "https://vaultwarden.albandrieu.com", title="Vaultwarden", public=True, edge="cloudflare")
 
     state, detail = _classify_service(
         service,
@@ -200,12 +165,7 @@ def test_secure_external_service_with_invalid_tls_fails_even_with_tunnel() -> No
 
 
 def test_cloudflare_http_evidence_degrades_when_observers_fail() -> None:
-    service = HomelabService(
-        name="IT Tools",
-        tunnel_url="https://ittools.albandrieu.com",
-        tunnel_secure=True,
-        external=True,
-    )
+    service = v2_service("ittools", "https://ittools.albandrieu.com", title="IT Tools", public=True, edge="cloudflare")
 
     state, detail = _classify_service(
         service,
@@ -223,12 +183,7 @@ def test_cloudflare_http_evidence_degrades_when_observers_fail() -> None:
 
 
 def test_direct_int_external_service_is_always_warning_when_reachable() -> None:
-    service = HomelabService(
-        name="Garage",
-        tunnel_url="https://s3.int.albandrieu.com",
-        tunnel_secure=False,
-        external=True,
-    )
+    service = v2_service("s3-int", "https://s3.int.albandrieu.com", title="Garage", public=True, edge="direct")
 
     state, detail = _classify_service(
         service,
@@ -246,12 +201,7 @@ def test_direct_int_external_service_is_always_warning_when_reachable() -> None:
 
 
 def test_direct_int_external_service_stays_warning_when_probe_is_unreachable() -> None:
-    service = HomelabService(
-        name="Garage",
-        tunnel_url="https://s3.int.albandrieu.com",
-        tunnel_secure=False,
-        external=True,
-    )
+    service = v2_service("s3-int", "https://s3.int.albandrieu.com", title="Garage", public=True, edge="direct")
 
     state, detail = _classify_service(
         service,
@@ -267,12 +217,7 @@ def test_direct_int_external_service_stays_warning_when_probe_is_unreachable() -
 
 
 def test_direct_int_external_service_with_invalid_tls_is_failure() -> None:
-    service = HomelabService(
-        name="Garage",
-        tunnel_url="https://s3.int.albandrieu.com",
-        tunnel_secure=False,
-        external=True,
-    )
+    service = v2_service("s3-int", "https://s3.int.albandrieu.com", title="Garage", public=True, edge="direct")
 
     state, detail = _classify_service(
         service,
@@ -294,13 +239,7 @@ def test_n8n_broad_access_bypass_is_red_security_exception() -> None:
     stay red so the health board reminds us to narrow the public exception to the
     webhook path or replace it with Cloudflare Service Auth.
     """
-    service = HomelabService(
-        name="n8n",
-        tunnel_url="https://n8n.albandrieu.com",
-        tunnel_secure=True,
-        external=True,
-        cloudflare_access_required=True,
-    )
+    service = v2_service("n8n", "https://n8n.albandrieu.com", public=True, edge="cloudflare", access=True)
     access = {
         "cloudflare_access_observed": True,
         "cloudflare_access_public": True,
@@ -328,12 +267,7 @@ def test_n8n_broad_access_bypass_is_red_security_exception() -> None:
 
 
 def test_path_scoped_webhook_bypass_is_warning_not_full_host_failure() -> None:
-    service = HomelabService(
-        name="n8n",
-        tunnel_url="https://n8n.albandrieu.com",
-        tunnel_secure=True,
-        external=True,
-    )
+    service = v2_service("n8n", "https://n8n.albandrieu.com", public=True, edge="cloudflare")
     apps = [
         CloudflareAccessApplicationObservation(
             app_id="app-webhook",
@@ -372,12 +306,7 @@ def test_path_scoped_webhook_bypass_is_warning_not_full_host_failure() -> None:
 
 
 def test_bichon_crashed_runtime_and_bad_gateway_get_skull_evidence() -> None:
-    service = HomelabService(
-        name="Bichon",
-        tunnel_url="https://bichon.albandrieu.com",
-        tunnel_secure=False,
-        external=False,
-    )
+    service = v2_service("bichon", "https://bichon.albandrieu.com", title="Bichon", public=False, edge="direct")
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-08-26T17:00:00Z",
         configured=True,

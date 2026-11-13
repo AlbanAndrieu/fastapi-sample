@@ -437,3 +437,27 @@ Références : [cAdvisor](https://github.com/google/cadvisor/blob/master/docs/st
   de formats illimités/invalides et de lecture plafonnée à 4 Kio ;
   tests JS de la nouvelle présentation. Le maximum de réplicas Hobby
   est à vérifier manuellement, sans changement automatique.
+
+## P0 — Catalogue Backstage v2 seul (P2.1.d, 13 novembre 2026)
+
+- [ ] **CODED, non déployé :** `/sickz`, le tableau de santé, les politiques
+  Cloudflare et `/api/homelab-services` lisent uniquement les routes
+  `x-nabla.exposure` de `entities.json` (`nabla/api/catalog_routes.py`) ;
+  `homelab-services.json`, `homelab-exposure-overrides.json`,
+  `HomelabService` et les variables `HOMELAB_SERVICES_CATALOG_URL` /
+  `HOMELAB_EXPOSURE_OVERRIDES_URL` sont supprimés. Le démarrage à froid
+  utilise `nabla/api/data/catalog-snapshot.json`, copie octet par octet
+  régénérée par `scripts/refresh-catalog-snapshot.sh`.
+  **Ordre de fusion :** après nabla-compose #365, avant la suppression des
+  fichiers legacy dans nabla-compose et avant la PR Site Alban v2.
+  **Preuves restantes :** après déploiement, `/api/homelab-services`,
+  `/api/site/catalog/v2`, `/api/site/health/v2` et `/api/homelab/status`
+  répondent sur le même `catalogRevision` que nabla-compose `master`, et
+  `/sickz` garde les mêmes verdicts de politique (TrueNAS direct :7000,
+  Garage S3/Admin privés, pfSense refusé depuis Cloud).
+- [ ] **Après la PR Site Alban v2 :** supprimer `/api/homelab-services`.
+- [ ] **P2.1.f :** re-sourcer `service-topology.json` et `services.json`
+  (`homelab_topology.py`, `homelab_declared.py`) depuis les relations
+  Backstage, puis indexer les lignes du tableau de santé et
+  `/api/site/health/v2` sur l'entity ref complète (aujourd'hui `id` =
+  nom Backstage, suffixé du nom de route au-delà de la première).

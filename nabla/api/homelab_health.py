@@ -12,10 +12,9 @@ from typing import Any, Literal
 import httpx
 
 from nabla.api import homelab_probe_batch, homelab_probe_runner, truenas_probe_health
-from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.catalog_routes import CatalogRoute, fetch_catalog_routes
 from nabla.api.homelab_truenas_probe import probe_truenas
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
-from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
     evidence_summary,
     merge_probe_evidence,
@@ -63,7 +62,7 @@ _probe_http_endpoint = homelab_probe_runner.probe_http_endpoint
 async def _probe_public_service(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
-    service: HomelabService,
+    service: CatalogRoute,
 ) -> dict[str, Any]:
     """Compatibility facade for public HTTP/Cloudflare probing."""
     return await homelab_probe_runner.probe_public_service(
@@ -82,7 +81,7 @@ _probe_internal_service = partial(
 
 
 async def _collect_bounded_probe_batch(
-    probes: list[tuple[HomelabService, asyncio.Task[dict[str, Any]]]],
+    probes: list[tuple[CatalogRoute, asyncio.Task[dict[str, Any]]]],
     *,
     scope: Literal["public", "internal"],
     enabled: bool = True,
@@ -127,8 +126,8 @@ _BatchResult = tuple[list[dict[str, Any]], dict[str, Any]]
 
 
 async def _run_refresh_probes(
-    public_services: list[HomelabService],
-    internal_services: list[HomelabService],
+    public_services: list[CatalogRoute],
+    internal_services: list[CatalogRoute],
     *,
     public_eligible_count: int,
     internal_eligible_count: int,
@@ -199,7 +198,7 @@ def _finalize_scope(
     results: list[dict[str, Any]],
     summary: dict[str, Any],
     *,
-    candidates: list[HomelabService],
+    candidates: list[CatalogRoute],
     limit: int,
     enabled: bool,
     checked_at: str,
@@ -245,9 +244,9 @@ def _finalize_scope(
 
 
 def _catalog_coverage(
-    services: list[HomelabService],
-    public_candidates: list[HomelabService],
-    internal_candidates: list[HomelabService],
+    services: list[CatalogRoute],
+    public_candidates: list[CatalogRoute],
+    internal_candidates: list[CatalogRoute],
 ) -> dict[str, int]:
     """Return catalogue coverage, distinct from rotating probe-slot coverage."""
     # Count unique services only; one may contribute public and LAN slots.
@@ -260,16 +259,16 @@ def _catalog_coverage(
     }
 
 
-def _public_card_candidates(services: list[HomelabService]) -> list[dict[str, str]]:
+def _public_card_candidates(services: list[CatalogRoute]) -> list[dict[str, str]]:
     """Return curated public discovery names without private endpoint or probe evidence."""
     # Inventory does not attest that either service is available.
     public_labels = {"gatus": "Gatus", "garage-webui": "Garage Web UI"}
-    return [{"id": service.service_id, "name": public_labels[service.service_id]} for service in services if service.service_id in public_labels and service.external is True]
+    return [{"id": service.service_id, "name": public_labels[service.service_id]} for service in services if service.service_id in public_labels and service.public]
 
 
 async def build_homelab_health_payload(
     *,
-    catalog_services: list[HomelabService] | None = None,
+    catalog_services: list[CatalogRoute] | None = None,
 ) -> dict[str, Any]:
     """Return bounded, cached homelab probes with explicit sampling metadata."""
     global _cached_at, _cached_payload
@@ -284,9 +283,9 @@ async def build_homelab_health_payload(
             )
 
         refresh_started = time.perf_counter()
-        services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
+        services = list(catalog_services) if catalog_services is not None else await fetch_catalog_routes()
         public_candidates = [service for service in services if service.public_https_probe_url is not None]
-        internal_candidates = [service for service in services if service.internal_host and service.internal_port is not None]
+        internal_candidates = [service for service in services if service.backend_host and service.backend_port is not None]
         internal_enabled = internal_probes_enabled()
         public_services = _select_probe_subset(
             public_candidates,

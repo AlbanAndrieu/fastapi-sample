@@ -25,7 +25,7 @@ Sources vérifiables : [Gatus go.mod](https://github.com/TwiN/gatus/blob/master/
 - `nabla/api/prometheus_query.py` : requêtes PromQL instantanées fixes et validation stricte des résultats. **Réutiliser ce client** plutôt qu'ajouter un SDK Gatus tiers, un proxy ou un scraping public.
 - `nabla/api/synthetic_probe_comparison.py` : observations `gatus_via_prometheus`, comparaison des seuls transports compatibles et décision `shadow_only`. Les preuves `HTTP`/ `HTTPS` restent des observations applicatives distinctes des preuves `TCP`.
 - `nabla/api/homelab_dependency_health.py` : propagation des défaillances de dépendances de topologie, à garder distincte d'une absence de métriques.
-- `nabla/api/data/homelab-services.json` : catalogue projet ; aligner les IDs avec la source d'autorité `nabla-compose`, pas avec des labels arbitraires de Prometheus. Ne pas publier les chemins internes, adresses, jetons ou alertes privées.
+- `nabla/api/catalog_routes.py` : routes du catalogue Backstage v2 (`nabla/api/data/catalog-snapshot.json` en démarrage à froid) ; aligner les IDs sur les entity refs de la source d'autorité `nabla-compose`, pas avec des labels arbitraires de Prometheus. Ne pas publier les chemins internes, adresses, jetons ou alertes privées.
 
 **Ne pas ajouter de dépendance Python de supervision dans `pyproject.toml` pour ce seul objectif** : `httpx`, `anyio`, `dnspython`, `prometheus-client` et Pydantic y sont déjà présents. Ajouter Healthchecks signifierait déployer et maintenir une seconde application Django/DB pour un cas d'usage différent.
 

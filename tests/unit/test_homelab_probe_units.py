@@ -133,12 +133,13 @@ def test_offline_preview_does_not_attempt_network(
     capsys,
 ) -> None:
     catalog = tmp_path / "catalog.json"
+    garage = {"x-nabla": {"exposure": [{"name": "lan", "visibility": "lan"}], "probePolicy": {"deploymentUnit": "garage", "rank": 0}}}
     catalog.write_text(
         json.dumps(
             {
-                "services": [
-                    _component("garage", unit="truenas:garage"),
-                    _component("garage-admin", unit="truenas:garage"),
+                "entities": [
+                    {"entityRef": "component:default/garage", **garage},
+                    {"entityRef": "component:default/garage-admin", **garage},
                 ],
             },
         ),
@@ -154,6 +155,6 @@ def test_offline_preview_does_not_attempt_network(
     assert payload["execution_performed"] is False
     assert len(payload["selected_units"]) == 1
     assert payload["selected_units"][0]["component_ids"] == [
-        "garage",
-        "garage-admin",
+        "component:default/garage",
+        "component:default/garage-admin",
     ]

@@ -1,8 +1,8 @@
 # Cloudflare Tunnel read-only audit
 
 `nabla.api.cloudflare_tunnels` prepares a read-only observer for the homelab exposure audit.
-It is intentionally separate from the desired `HomelabCatalog`: Cloudflare is observed state,
-while `HomelabService.external` remains reviewed desired state.
+It is intentionally separate from the desired Backstage v2 route intent: Cloudflare is observed
+state, while `CatalogRoute.visibility` (`x-nabla.exposure`) remains reviewed desired state.
 
 ## Python SDK
 
@@ -56,8 +56,8 @@ instead of guessing that it is safe.
 The observer will later be compared against the desired homelab catalog:
 
 ```text
-HomelabCatalog desired state          Cloudflare observed state
-external=true/false                   hostname -> origin
+Catalog V2 x-nabla.exposure          Cloudflare observed state
+visibility + gatewayRef               hostname -> origin
           |                                  |
           +---------------+------------------+
                           v

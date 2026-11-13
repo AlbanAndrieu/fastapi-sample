@@ -3,17 +3,13 @@
 import asyncio
 
 from nabla.api import homelab_health_evidence as module
-from nabla.api.homelab_models import HomelabService
+from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 
 
 def test_runtime_error_and_cloudflare_uncertainty_are_preserved(monkeypatch) -> None:
-    service = HomelabService(
-        name="TrueNAS-dependent service",
-        tunnelUrl="https://example.albandrieu.com",
-        external=True,
-    )
+    service = v2_service("example", "https://example.albandrieu.com", title="TrueNAS-dependent service", public=True, edge=None)
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-09-10T18:00:00Z",
         configured=True,
@@ -54,7 +50,7 @@ def test_runtime_error_and_cloudflare_uncertainty_are_preserved(monkeypatch) -> 
     async def dns(**_kwargs):
         return {}
 
-    monkeypatch.setattr(module, "fetch_homelab_services", services)
+    monkeypatch.setattr(module, "fetch_catalog_routes", services)
     monkeypatch.setattr(module, "fetch_declared_service_catalog", declared)
     monkeypatch.setattr(module, "fetch_truenas_runtime", runtime_probe)
     monkeypatch.setattr(module, "observe_cloudflare_exposure", cloudflare_probe)
