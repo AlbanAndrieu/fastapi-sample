@@ -37,7 +37,7 @@ COPY --from=dependency-metadata /dependency/pyproject.toml /dependency/uv.lock .
 # Install only runtime groups. The package-read secret is optional so a normal
 # `docker compose build` works for the public dependency graph. Environments
 # that require the private GitLab index can still inject the BuildKit secret.
-# Smoke-test imports with an explicit local Datadog endpoint and no telemetry.
+# Check the optional Datadog SDK without initializing its native exporter during build.
 RUN --mount=type=secret,id=read-package-token,required=false \
     --mount=type=cache,target=/tmp/uv_cache \
     set -eux; \
@@ -58,9 +58,7 @@ RUN --mount=type=secret,id=read-package-token,required=false \
       --group open_telemetry \
       --group panda \
       --group temporal; \
-    DD_TRACE_ENABLED=false DD_INSTRUMENTATION_TELEMETRY_ENABLED=false \
-      DD_TRACE_AGENT_URL=http://127.0.0.1:8126 \
-      /code/.venv/bin/python -c "import cloudflare, ddtrace, truenas_api_client"
+    /code/.venv/bin/python -c "import cloudflare, truenas_api_client; from importlib.util import find_spec; assert find_spec('ddtrace') is not None, 'Datadog SDK missing'"
 
 FROM python:3.13-slim-trixie AS production
 
