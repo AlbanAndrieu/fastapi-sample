@@ -12,13 +12,14 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TASKS = ("auto", "ui", "cloud", "truenas", "metrics", "api", "quality")
+TASKS = ("auto", "ui", "cloud", "truenas", "metrics", "api", "docs", "quality")
 CHECKS = {
     "ui": "just ui-quick",
     "cloud": "just ui-quick",
     "truenas": "just test-runtime-evidence",
     "metrics": "bash scripts/run-pytest-compact.sh tests/unit/test_platform_metrics.py",
     "api": "just offline-l1",
+    "docs": "just docs-links",
     "quality": "just test-local-first",
 }
 SKILLS = {
@@ -74,6 +75,14 @@ def changed_paths(base: str, base_state: str) -> list[str]:
 
 
 def inferred_task(paths: list[str]) -> str:
+    # Route documentation-only changes to a cheap offline link audit.
+    # Mixed changes still take the owning code/quality route.
+    if paths and all(
+        path.endswith(".md") and (
+            path in {"README.md", "AGENTS.md"} or path.startswith("docs/")
+        ) for path in paths
+    ):
+        return "docs"
     if any(path.startswith("nabla/api/assets/") or path.startswith("tests/js/")
            for path in paths):
         return "ui"
