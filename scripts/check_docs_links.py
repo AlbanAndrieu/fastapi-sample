@@ -75,23 +75,32 @@ def validate_markdown(source: Path, root: Path = ROOT) -> list[str]:
     return errors
 
 
-def default_markdown_files(root: Path = ROOT) -> list[Path]:
-    """Return canonical Markdown documentation files for a full manual check."""
+def default_markdown_files(root: Path = ROOT, active_only: bool = False) -> list[Path]:
+    """List Markdown documents; optional fast pass excludes immutable archives."""
 
     files = [root / "README.md", root / "AGENTS.md"]
-    files.extend(sorted((root / "docs").rglob("*.md")))
+    docs = root / "docs"
+    files.extend(
+        path
+        for path in sorted(docs.rglob("*.md"))
+        if not (active_only and (docs / "archive") in path.parents)
+    )
     return [path for path in files if path.is_file()]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("paths", nargs="*", type=Path)
+    parser.add_argument(
+        "--active-only", action="store_true",
+        help="check current documentation without scanning immutable docs/archive",
+    )
     args = parser.parse_args()
 
     sources = [
         path if path.is_absolute() else ROOT / path
         for path in args.paths
-    ] or default_markdown_files()
+    ] or default_markdown_files(active_only=args.active_only)
 
     errors = [
         error

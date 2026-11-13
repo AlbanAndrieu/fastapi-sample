@@ -16,6 +16,13 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | **RTO/RPO et continuité ?** | [Business Impact Analysis](business-impact-analysis.md) |
 | **Points d'entrée et dashboards ?** | [Entrypoints](entrypoints-and-dashboards.md) |
 
+## Validation documentaire locale
+
+La vérification complète reste `python3 scripts/check_docs_links.py`. Pour une passe
+rapide pendant le refactoring, `python3 scripts/check_docs_links.py --active-only`
+contrôle README/AGENTS et la documentation active sans relire les archives
+immuables. Les liens sont vérifiés en lecture seule, sans accès réseau.
+
 ## Historique de la réconciliation
 
 - [Décisions et éléments archivés le 13/11/2026](archive/2026-11-13-roadmap-reconciliation.md) : les PR déjà fusionnées ne sont pas à réimplémenter ; seules leurs recettes ouvertes restent dans la roadmap active.
