@@ -63,5 +63,5 @@ def test_pfsense_recovery_points_to_platform_owner() -> None:
 def test_documentation_owner_is_explicit_in_agent_guide() -> None:
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
-    assert "Documentation ownership across Nabla repositories" in agents
+    assert "Mission, safety and ownership" in agents
     assert "nabla-compose" in agents
