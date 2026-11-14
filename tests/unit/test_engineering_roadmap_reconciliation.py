@@ -19,6 +19,12 @@ def test_active_roadmap_has_one_owner_per_operational_layer() -> None:
     assert "Compose pour DNS/Tunnel/Access" in text
     assert "H02/G1 → H01 → H05" in text
     assert "H17" in text and "F11" in text
+    assert "H05/F03+F09 → H17/F11" in text
+    assert text.index("| **P0.1 — H05**") < text.index("| **P0.2 — H17**")
+    p0 = text.split("## P0 —", 1)[1].split("## P1 —", 1)[0]
+    assert p0.index("| **F03 —") < p0.index("| **F09 —") < p0.index("| **F11 —")
+    p1 = text.split("## P1 —", 1)[1].split("## P2 —", 1)[0]
+    assert "| **F09 —" not in p1
 
 
 def test_archived_snapshot_is_pinned_to_previous_commit() -> None:
