@@ -1,10 +1,12 @@
 ---
 name: homelab-service-contract
-description: Detect cross-repository drift between nabla-compose declarations, TrueNAS runtime observations, fastapi-sample reconciliation/health APIs, and nabla-site-alban presentation.
+description: >-
+  Detect cross-repository drift between nabla-compose declarations, TrueNAS
+  runtime observations, fastapi-sample reconciliation/health APIs, and
+  nabla-site-alban presentation.
 license: Apache-2.0
 role: reviewer
 ---
-
 # Homelab service contract
 
 ## Goal
@@ -64,13 +66,11 @@ When `external: false`:
 - public probes must not run solely because a stale URL exists;
 - internal monitoring must be modeled independently from exposure.
 
-## Catalog generation
+## Canonical Backstage V2 catalog
 
-Generate declared services and topology from the same `nabla-compose` scan so they cannot drift through independent hand editing. Generated artifacts must be deterministic and CI must fail when checked-in output is stale.
+`nabla-compose/catalog/generated/entities.json` is the canonical generated declaration. Verify `catalogRevision`, complete `entityRef` identities, and `x-nabla.runtime` / `x-nabla.exposure` before comparing observed runtime. The FastAPI snapshot is a validated cold cache, not a second authority.
 
-`catalog/services.json` contains code-owned service declarations. `catalog/service-topology.json` contains graph nodes and relations. Keep them separate because consumers need different views, but validate their versions/references together.
-
-During migration, legacy presentation metadata may remain outside the new declared catalog. Do not silently drop it; retire it only after the equivalent code-owned metadata has moved into `x-nabla`.
+`catalog/services.json` and `catalog/service-topology.json` remain compatibility projections, never independently edited inventories. Retire legacy consumers only after FastAPI and Site Alban share the verified V2 revision. Declared exposure does not prove WAN reachability.
 
 ## Review workflow
 

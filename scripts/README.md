@@ -31,8 +31,11 @@ path-only context. `bash scripts/agent-diagnostics.sh --static` is the default
 no-network L1 route (existing `agent-offline-check.sh`).
 When a real workstation/LAN session is available, opt in explicitly with
 `AGENT_EXECUTION_MODE=workstation bash scripts/agent-diagnostics.sh --runtime`.
-This delegates to the existing `truenas-runtime-evidence.sh --quick` with an
-8-second evidence poll rather than the normal 50-second full wait.
-`--dns-only` is separately opt-in; a remote session returns `NOT_RUN` and
-never attempts LAN access. No route is proof of full L3 or runtime acceptance.
+The `--runtime` route delegates to `truenas-runtime-evidence.sh --quick`
+with an 8-second poll instead of the normal 50-second full wait.
+`--dns-only` and H05's `--metrics-lan` / `--metrics-both` are separately
+opt-in, reuse existing read-only collectors and preserve authentication.
+`--plan` prints an intended command **without execution**. An offline agent,
+CI or Codex cannot run a live diagnostic, even with a workstation flag.
+No CLI result proves full L3 or runtime acceptance.
 See [conditional playbook](../docs/agent-execution-playbook.md).

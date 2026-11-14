@@ -10,19 +10,25 @@ Read `AGENTS.md` first. This document is on-demand; the assistant must not load 
 | CPU-intensive checks | Existing uv/Node/mise cached dependencies, local formatter and tests | Only feasible offline syntax/unit checks; no invented gate result |
 | TrueNAS diagnosis | `scripts/agent-diagnostics.sh --runtime` (bounded quick) | `--runtime` blocked with `NOT_RUN` |
 | DNS-only triage | `scripts/agent-diagnostics.sh --dns-only` | Blocked; no LAN/DNS inference |
+| H05 Prometheus LAN | `scripts/agent-diagnostics.sh --metrics-lan` | Blocked; no scrape or LAN inference |
+| H05 LAN + Cloud (authorized) | `scripts/agent-diagnostics.sh --metrics-both` | Blocked; no Cloud polling |
 | Publishing | L1 → local `agent-quality-gate.sh --fix` → commit → `agent-publish.sh` | Draft PR, expected-SHA write, disclose L2/L3 NOT_RUN |
 
 ```bash
 # Connected Claude Code workstation:
 AGENT_EXECUTION_MODE=workstation bash scripts/agent-diagnostics.sh --runtime
 AGENT_EXECUTION_MODE=workstation bash scripts/agent-diagnostics.sh --dns-only
+AGENT_EXECUTION_MODE=workstation bash scripts/agent-diagnostics.sh --metrics-lan
+
+# Preview a command without any network use:
+AGENT_EXECUTION_MODE=workstation bash scripts/agent-diagnostics.sh --runtime --plan
 
 # Remote disconnected Codex (never probes the LAN):
 AGENT_EXECUTION_MODE=offline bash scripts/agent-diagnostics.sh --static
 # --runtime is rejected with NOT_RUN (exit 2).
 ```
 
-The `--runtime` route delegates to `scripts/truenas-runtime-evidence.sh --quick`, which retains its existing default full-check behavior and adds a bounded short-polling mode. Quick observations cannot replace full, authenticated runtime acceptance.
+The `--runtime` route delegates to `scripts/truenas-runtime-evidence.sh --quick`, which retains its existing default full-check behavior and adds a bounded short-polling mode. `--metrics-lan` and `--metrics-both` reuse the existing Prometheus projection validator; they **do not** force sondes or log secrets. `--plan` prints the selected command without executing it. CI and Codex indicators block live workstation modes, even if the environment accidentally requests them. Quick observations cannot replace full, authenticated runtime acceptance.
 
 ## Toolchain and quality
 

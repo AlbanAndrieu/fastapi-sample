@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = ("auto", "ui", "cloud", "truenas", "metrics", "api", "docs", "quality")
@@ -34,6 +35,27 @@ SKILLS = {
 }
 DEFAULT_MAX_PATHS = 24
 EXECUTION_MODES = ("offline", "workstation")
+
+
+def execution_mode(environ: Mapping[str, str] | None = None) -> str:
+    """Explicit mode only; CI/Codex never gain workstation capabilities."""
+    env = os.environ if environ is None else environ
+    mode = env.get("AGENT_EXECUTION_MODE", "offline")
+    if mode not in EXECUTION_MODES:
+        raise ValueError("AGENT_EXECUTION_MODE must be offline or workstation")
+    if env.get("CI") or env.get("CODEX_HOME") or env.get("CODEX_THREAD_ID"):
+        return "offline"
+    return mode
+
+
+def next_diagnostic(task: str, mode: str) -> str:
+    """Only suggest the smallest relevant opt-in runtime probe."""
+    if mode != "workstation":
+        return "NOT_RUN"
+    return {
+        "truenas": "bash scripts/agent-diagnostics.sh --runtime",
+        "metrics": "bash scripts/agent-diagnostics.sh --metrics-lan",
+    }.get(task, "NOT_RUN")
 
 
 def git(*arguments: str) -> tuple[bool, str]:
@@ -110,14 +132,11 @@ def context(task: str, limit: int) -> dict[str, object]:
     paths = changed_paths(base, base_state)
     selected = inferred_task(paths) if task == "auto" else task
     # No hostname/IP-based LAN detection: an explicit opt-in is required.
-    mode = os.environ.get("AGENT_EXECUTION_MODE", "offline")
-    if mode not in EXECUTION_MODES:
-        raise ValueError("AGENT_EXECUTION_MODE must be offline or workstation")
+    mode = execution_mode()
     return {
         "schema": "fastapi-agent-context/v1",
         "executionMode": mode,
-        "runtimeNext": ("bash scripts/agent-diagnostics.sh --runtime"
-                        if mode == "workstation" else "NOT_RUN"),
+        "runtimeNext": next_diagnostic(selected, mode),
         "branch": branch or "detached",
         "head": sha if len(sha) == 40 else "unknown",
         "base": base,

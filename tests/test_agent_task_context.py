@@ -138,7 +138,7 @@ class RouterContracts(unittest.TestCase):
 
     def test_workstation_mode_only_suggests_runtime_not_executes_it(self) -> None:
         with patch.object(router, "ROOT", self.repo):
-            with patch.dict(os.environ, {"AGENT_EXECUTION_MODE": "workstation"}):
+            with patch.dict(os.environ, {"AGENT_EXECUTION_MODE": "workstation"}, clear=True):
                 with patch.object(router, "git", wraps=router.git) as mocked:
                     result = router.context("truenas", 2)
         self.assertEqual(result["executionMode"], "workstation")
@@ -158,6 +158,27 @@ class RouterContracts(unittest.TestCase):
                 with self.assertRaises(SystemExit) as error:
                     router.main(["--json"])
         self.assertEqual(error.exception.code, 2)
+
+    def test_metrics_workstation_recommends_only_prometheus(self) -> None:
+        with patch.object(router, "ROOT", self.repo):
+            with patch.dict(os.environ, {"AGENT_EXECUTION_MODE": "workstation"}, clear=True):
+                report = router.context("metrics", 5)
+        self.assertEqual(report["executionMode"], "workstation")
+        self.assertEqual(
+            report["runtimeNext"],
+            "bash scripts/agent-diagnostics.sh --metrics-lan",
+        )
+        self.assertEqual(report["runtime"], "NOT_RUN")
+
+    def test_ci_codex_force_offline_without_network_detection(self) -> None:
+        for sentinel in ("CI", "CODEX_HOME", "CODEX_THREAD_ID"):
+            environment = {"AGENT_EXECUTION_MODE": "workstation", sentinel: "1"}
+            self.assertEqual(router.execution_mode(environment), "offline")
+        self.assertEqual(router.execution_mode({}), "offline")
+        self.assertEqual(
+            router.next_diagnostic("quality", "workstation"),
+            "NOT_RUN",
+        )
 
     def test_explicit_quality_routing_not_confused_with_runtime(self) -> None:
         with patch.object(router, "ROOT", self.repo):
