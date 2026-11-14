@@ -1,3 +1,10 @@
+# [1.34.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.3...1.34.0) (2026-11-14)
+
+
+### Features
+
+* **catalog:** synchronize Backstage V2, enrich service cards and reconcile roadmaps ([#432](https://github.com/AlbanAndrieu/fastapi-sample/issues/432)) ([63c4ff2](https://github.com/AlbanAndrieu/fastapi-sample/commit/63c4ff27d2907e8d9332da1530b7fa2efffca5c1))
+
 ## [1.33.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.2...1.33.3) (2026-11-14)
 
 
