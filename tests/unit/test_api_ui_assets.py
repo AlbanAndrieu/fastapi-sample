@@ -436,8 +436,8 @@ def test_public_landing_never_prompts_anonymous_visitors_for_owner_signin() -> N
     assert "visibility.enterReadOnlyInventory();" in bootstrap
     assert "Public read-only service inventory" in visibility
     assert 'fetch("/api/ui/services"' in catalog
-    assert "if (ownerAuthenticated) return;" in catalog
-    assert "Last-known service inventory" in catalog
+    assert 'if (ownerAuthenticated || panel.dataset.publicServicesInitialized === "1")' in catalog
+    assert "historical only, not current" in catalog
     assert "operatorMode" in bootstrap
 
 
