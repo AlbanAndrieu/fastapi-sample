@@ -30,6 +30,41 @@ L'arbitrage **spécifique à fastapi-sample** est **H05/F03+F09 → H17/F11**. I
 
 Les autres items F restent ouverts dans leurs sections et seront réordonnés après réception de H05 puis H17 ; ceci ne crée pas un second backlog ni une condition de blocage infrastructure.
 
+## Dette de code mesurée — analyse du 14 novembre (pas de nouveau backlog)
+
+[Baseline inter-dépôts, méthodes et principaux fichiers](https://github.com/AlbanAndrieu/nabla-compose/pull/385)
+dans `nabla-compose` : 703 fichiers de programmation, **3 938 960 octets** dans
+FastAPI Sample à l'instantané GitHub `34a97b923d33ef0c4871c1800b221b58a216d700`
+(dont `tests/` : 1,56 Mo et `nabla/api/` : 1,63 Mo). Les tailles des blobs
+ne sont **pas** des lignes de code ni une évaluation de complexité.
+
+| Priorité existante | Fichiers volumineux inspectés | Découpage envisagé et preuve |
+| --- | --- | --- |
+| **P0.1 H05 / F03 + F09** | `nabla/api/assets/api-probe-fanout-dashboard.js` (935 lignes), `api-service-operator-diagnostics.js` (942), `nabla/api/health_board.py` (608) | Isoler collecteurs, cache/fraîcheur, modèle d'état puis rendu, **sans changer** les codes `DENIED`/`STALE`/`NOT_RUN` ni introduire de requêtes Cloud supplémentaires ; tests de provenance TrueNAS → Cloud sur le SHA déployé |
+| **P0.2 H17 / F11** | `nabla/api/assets/api-service-detail-drawer.js` (1 088 lignes) | Séparer contrat V2 `entityRef`/`catalogRevision`, mapping des preuves et gestion DOM ; tester contexte OWNER/anonymous, accessibilité mobile et absence de fuite avant retrait legacy |
+| **P1 F06 + F07** | `nabla/api/assets/home-operations.js` (1 275 lignes), `home-operations-model.js` (856) | Garder le modèle pur et sortir cadence/transport du rendu ; contrôler coût CPU, single-flight, invalidation et DOM sans clignotement |
+| **P1 F08** | `nabla/integrations/truenas_client.py` (576 lignes) | Compartimenter transport WebSocket, retries et conversion DTO ; vérifier les erreurs d'authentification, timeouts et phases de démarrage |
+| **Contrats** | 303 fichiers de tests, 1,56 Mo (39,7 % du code suivi) | Mutualiser les fixtures répétées **après** analyse de couverture ; ne pas affaiblir les tests négatifs, SAST/SCA ou quality gates pour diminuer le volume |
+
+Ce découpage est **un diagnostic d'emplacements candidats**, pas une
+régression démontrée par la taille. Exécuter les corrections strictement
+nécessaires aux preuves **F03/F09**, puis à **F11**, avant toute campagne
+de refactoring esthétique. Les gros fichiers générés, notamment
+`nabla/_version.py`, ne sont pas à éditer manuellement.
+
+Sur la workstation possédant les deux checkouts, la métrique en
+**lignes physiques** peut être recalculée via l'outil offline de la
+[PR Compose #385](https://github.com/AlbanAndrieu/nabla-compose/pull/385) :
+
+```bash
+cd ../nabla-compose
+python3 scripts/quality/code-hotspots.py --root ../fastapi-sample --limit 20
+```
+
+Ce contrôle Git local ne contacte ni TrueNAS ni FastAPI Cloud et ne
+prouve pas l'état d'un service. Une mesure de maintenance H11 reste
+distincte de l'acceptation applicative F03/F09/F11.
+
 ## P0 — Priorités applicatives H05 → H17 et contrôles transversaux
 
 | ID | État / réception au 14/11 | À faire et critère de clôture |
