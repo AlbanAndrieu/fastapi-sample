@@ -56,6 +56,7 @@ export function installOwnerSessionControls(onAuthenticated) {
   if (form.dataset.ownerSessionInitialized === "1") return;
   form.dataset.ownerSessionInitialized = "1";
 
+  let previousAuthentication = null;
   function update(authenticated, readable = false) {
     state.textContent = authenticated
       ? "Owner authorized (20 minute session). Use Open detailed diagnostics for service probes."
@@ -66,6 +67,14 @@ export function installOwnerSessionControls(onAuthenticated) {
     logout.hidden = !authenticated;
     form.hidden = true;
     input.value = "";
+    if (previousAuthentication !== authenticated) {
+      previousAuthentication = authenticated;
+      document.dispatchEvent(
+        new CustomEvent("owner-session-changed", {
+          detail: { authenticated },
+        }),
+      );
+    }
   }
 
   // Re-check a short-lived signed session when returning to the app.

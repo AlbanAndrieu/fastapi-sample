@@ -7,6 +7,25 @@ import { withRequestDeadline } from "./api-request-deadline.js";
 const VALID_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
 const VALID_STATES = new Set(["ok", "warn", "fail", "expected"]);
 const MAX_VISIBLE = 75;
+let installed = false;
+let revision = 0;
+let pending = null;
+let freshEvidence = false;
+
+function clearHistory() {
+  revision += 1;
+  pending = null;
+  document.getElementById("owner-last-known-evidence")?.remove();
+}
+
+function onBoardRefresh(event) {
+  freshEvidence =
+    event.detail?.state === "fresh" &&
+    event.detail?.refreshing !== true &&
+    event.detail?.serviceEvidenceCount > 0;
+  const panel = document.getElementById("owner-last-known-evidence");
+  if (panel) panel.hidden = freshEvidence;
+}
 
 export function normalizeOwnerLastKnown(payload) {
   if (payload?.state !== "historical" || payload.current !== false) return [];
@@ -43,7 +62,11 @@ function ageLabel(seconds) {
 
 function showHistoricalRows(rows) {
   const anchor = document.getElementById("health-board-freshness");
-  if (!anchor?.parentElement || !rows.length) return;
+  if (!anchor?.parentElement) return;
+  if (!rows.length) {
+    document.getElementById("owner-last-known-evidence")?.remove();
+    return;
+  }
   let panel = document.getElementById("owner-last-known-evidence");
   if (!panel) {
     panel = document.createElement("details");
@@ -51,6 +74,7 @@ function showHistoricalRows(rows) {
     panel.className = "owner-last-known-evidence";
     anchor.parentElement.appendChild(panel);
   }
+  panel.hidden = freshEvidence;
   panel.replaceChildren();
   const heading = document.createElement("summary");
   heading.textContent = `Last known OWNER observations (${rows.length}) · historical, not live`;
@@ -67,27 +91,52 @@ function showHistoricalRows(rows) {
     list.appendChild(omitted);
   }
   panel.appendChild(list);
-  document.addEventListener("health-board-refreshed", (event) => {
-    panel.hidden =
-      event.detail?.state === "fresh" && event.detail?.serviceEvidenceCount > 0;
-  });
 }
 
-export async function installOwnerLastKnown() {
-  if (!(await ownerSessionAvailable())) return;
-  try {
-    const payload = await withRequestDeadline(async (signal) => {
-      const response = await fetch("/api/health-board/last-known", {
-        signal,
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) return null;
-      return response.json();
-    }, 2200);
-    showHistoricalRows(normalizeOwnerLastKnown(payload));
-  } catch {
-    // Existing live dashboard and PUBLIC fallback remain available.
-  }
+function loadHistory() {
+  if (pending) return pending;
+  const token = ++revision;
+  const job = (async () => {
+    try {
+      if (!(await ownerSessionAvailable())) {
+        if (token === revision) clearHistory();
+        return;
+      }
+      const payload = await withRequestDeadline(async (signal) => {
+        const response = await fetch("/api/health-board/last-known", {
+          signal,
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        if (response.status === 401 || response.status === 403) {
+          if (token === revision) clearHistory();
+          return null;
+        }
+        if (!response.ok) return null;
+        return response.json();
+      }, 2200);
+      if (token === revision && payload) {
+        showHistoricalRows(normalizeOwnerLastKnown(payload));
+      }
+    } catch {
+      // A public or stale board can still render without OWNER Redis.
+    }
+  })();
+  pending = job;
+  void job.finally(() => {
+    if (pending === job) pending = null;
+  });
+  return job;
+}
+
+export function installOwnerLastKnown() {
+  if (installed) return;
+  installed = true;
+  document.addEventListener("health-board-refreshed", onBoardRefresh);
+  document.addEventListener("owner-session-changed", (event) => {
+    if (event.detail?.authenticated === true) void loadHistory();
+    else clearHistory();
+  });
+  void loadHistory();
 }
