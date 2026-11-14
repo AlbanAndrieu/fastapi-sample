@@ -67,8 +67,8 @@ def test_invalid_profile_or_scope_is_rejected_before_probe() -> None:
         assert result.returncode == 2
 
 
-def test_codex_indicator_disables_requested_workstation_execution() -> None:
-    env = {**os.environ, "CODEX_HOME": "/tmp/isolation"}
+def test_codex_indicator_disables_requested_workstation_execution(tmp_path: Path) -> None:
+    env = {**os.environ, "CODEX_HOME": str(tmp_path / "codex")}
     result = subprocess.run(
         ["bash", str(SCRIPT), "--profile", "workstation", "--scope", "runtime", "--plan"],
         cwd=ROOT,
