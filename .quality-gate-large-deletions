@@ -23,3 +23,5 @@ dd44c23c9ad365d06ef60b6b326633769b3f2311 tests/unit/test_homelab_catalog.py
 960740b98d14f897330d24ed6801472c9d869d8a docs/engineering-roadmap.md
 # Reviewed archival move: full instructions preserved in docs/archive/2026-11-14-agent-guide-before-profiles.md.
 04fddf49c6f9a9ea7bd2fe134a1e125a8a40f283 AGENTS.md
+# Reviewed archival of detailed homelab skill (the original is retained verbatim).
+04fddf49c6f9a9ea7bd2fe134a1e125a8a40f283 .agents/skills/homelab-runtime-status/SKILL.md

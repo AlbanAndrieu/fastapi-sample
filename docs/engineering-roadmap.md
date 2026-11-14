@@ -52,6 +52,7 @@ Les anciens identifiants **E01–E14** de #423 sont conservés comme [table de c
 - **Fédération TrueNAS → Cloud** : agrégats signés, datés, minimisés et authentifiés ; aucun accès LAN depuis Cloud, aucune IP privée ni secret dans un DTO public.
 - **Qualité des scripts** : `scripts/ci/quality-git.sh` pour la base Git, `quality-lock.sh` pour `flock -o`, `quality-timeout.sh` pour les échéances, `run-pytest-bounded.sh` pour la CI. Conserver le rapport lisible `run-pytest-compact.sh` pour les sessions locales. **Ne pas refusionner ces CLI dont les contrats de sortie diffèrent**. Retirer les hooks dupliqués prek/ruff/gitlint uniquement après tests ciblés.
 - **Maintenance** : Renovate et Helm sans automerge, qualité Python et Node, revue des tests et règles sécurité de PR. Les chantiers anciens non requalifiés restent dans [engineering-backlog.md](engineering-backlog.md), jamais automatiquement P0.
+- **Profils agents Claude/Codex** : politiques et skills compactés, contexte hors réseau et scripts de diagnostics bornés **CODED sur branche** ; réception locale avec Python 3.13/Node et preuves LAN depuis la workstation **NOT_VERIFIED**. [Profils d'exécution](agent-execution-profiles.md).
 
 ## Travaux terminés et documents de preuve
 

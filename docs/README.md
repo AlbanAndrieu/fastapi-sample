@@ -9,6 +9,7 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | --- | --- |
 | **Que reste-t-il à faire ?** | [Roadmap d’ingénierie F01–F12 et rattachements H](engineering-roadmap.md) (historique du 13/11 archivé) |
 | **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
+| **Claude workstation ou Codex isolé ?** | [Profils agents et diagnostics bornés](agent-execution-profiles.md) |
 | **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
 | **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
 | **Architecture de l'interface ?** | [UI et topologie](api-ui-architecture.md) |
