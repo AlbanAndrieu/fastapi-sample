@@ -96,6 +96,10 @@
   background: #9ca3af;
 }
 
+.health-legend--blue i {
+  background: #38bdf8;
+}
+
 .health-tier-inline {
   display: inline-flex;
   width: fit-content;

@@ -33,7 +33,9 @@
 }
 .health-row {
   border-radius: 0.65rem;
-  transition: border-color 160ms ease, background-color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
 .health-row:hover,
 .health-row:focus-within {
@@ -71,7 +73,9 @@
   padding-right: 0.65rem;
   border-right: 1px solid #384252;
 }
-.service-probe-path-phase:last-child { border-right: none; }
+.service-probe-path-phase:last-child {
+  border-right: none;
+}
 .service-probe-path-phase + .service-probe-path-phase::before {
   content: "→";
   padding-right: 0.25rem;
@@ -96,10 +100,22 @@
   font-size: 0.62rem;
   white-space: nowrap;
 }
-.service-probe-path-step--ok { border-color: #397c61; color: #8de6bd; }
-.service-probe-path-step--warn { border-color: #947a32; color: #ffe096; }
-.service-probe-path-step--fail { border-color: #a34949; color: #ffaaaa; }
-.service-probe-path-empty { color: #aab7c8; font-size: 0.65rem; }
+.service-probe-path-step--ok {
+  border-color: #397c61;
+  color: #8de6bd;
+}
+.service-probe-path-step--warn {
+  border-color: #947a32;
+  color: #ffe096;
+}
+.service-probe-path-step--fail {
+  border-color: #a34949;
+  color: #ffaaaa;
+}
+.service-probe-path-empty {
+  color: #aab7c8;
+  font-size: 0.65rem;
+}
 
 /* Keep all evidence. Use a wrapping grid instead of 11 narrow fixed columns. */
 .health-row[data-probe-grid-ready="true"] .service-probe-table {
@@ -119,7 +135,9 @@
   padding: 0.4rem 0.2rem;
   font-size: 0.67rem;
 }
-.service-probe-table-icon { font-size: 1rem; }
+.service-probe-table-icon {
+  font-size: 1rem;
+}
 .service-probe-table-label {
   color: #d1d8e1;
   font-size: 0.64rem;
@@ -200,8 +218,12 @@
   border-top: 2px dashed #7a879a;
   background: transparent;
 }
-.truenas-connector--unknown::after { color: #7a879a; }
-.truenas-connector--broken::after { color: #f08f8f; }
+.truenas-connector--unknown::after {
+  color: #7a879a;
+}
+.truenas-connector--broken::after {
+  color: #f08f8f;
+}
 @media (max-width: 720px) {
   .service-protocol-shortcuts {
     display: flex;
@@ -239,6 +261,37 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .health-row { transition: none; }
-  .truenas-pipeline { scroll-behavior: auto; }
+  .health-row {
+    transition: none;
+  }
+  .truenas-pipeline {
+    scroll-behavior: auto;
+  }
+}
+
+/* Blue = expected by design: the check fails (or cannot run) on purpose. */
+.service-probe--expected,
+.service-probe-table-cell--expected,
+.service-probe-path-step--expected,
+.service-detail-probe--expected {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+}
+.service-detail-probe--expected .service-detail-probe-state {
+  color: #7dd3fc;
+}
+.truenas-stage--expected {
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #7dd3fc;
+}
+
+/* Status words never resize their container: "Pass" and "Unconfirmed" share one width. */
+.service-probe-path-step-state,
+.service-probe-table-state,
+.truenas-stage-outcome {
+  display: inline-block;
+  min-width: 11ch;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

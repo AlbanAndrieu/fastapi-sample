@@ -22,7 +22,9 @@ function probeTone(probe) {
   const tone = [...probe.classList]
     .find((name) => name.startsWith("service-probe--"))
     ?.replace("service-probe--", "");
-  return ["ok", "warn", "fail", "unknown", "neutral"].includes(tone)
+  // "info" is an expected auth challenge: both render as expected (blue).
+  if (tone === "info") return "expected";
+  return ["ok", "warn", "fail", "unknown", "neutral", "expected"].includes(tone)
     ? tone
     : "unknown";
 }
@@ -38,6 +40,7 @@ function probeStateLabel(probe) {
     fail: "Failed",
     unknown: "Unknown",
     neutral: "Unconfirmed",
+    expected: "Expected",
   }[probeTone(probe)];
 }
 
@@ -82,19 +85,32 @@ function probeHref(probe) {
   }
 }
 
+// Hover details (ages, latency) change on every refresh; they are updated in
+// place by refreshDetails so the cells are rebuilt only when a state changes.
 function probeSignature(byKind) {
   return JSON.stringify(
-    PROBE_COLUMNS.map(([kind, , label]) => {
+    PROBE_COLUMNS.map(([kind]) => {
       const probe = byKind.get(kind);
-      return [
-        kind,
-        probeTone(probe),
-        probeStateLabel(probe),
-        probeDetail(probe, label),
-        probeHref(probe),
-      ];
+      return [kind, probeTone(probe), probeStateLabel(probe), probeHref(probe)];
     }),
   );
+}
+
+function refreshDetails(nodes, sources, separator) {
+  for (const node of nodes) {
+    const column = PROBE_COLUMNS.find(
+      ([id]) => id === node.dataset.probeColumnKind,
+    );
+    if (!column) continue;
+    const probe = sources.get(column[0]);
+    const detail = probeDetail(probe, column[2]);
+    if (node.title === detail) continue;
+    node.title = detail;
+    node.setAttribute(
+      "aria-label",
+      `${column[2]}${separator}${probeStateLabel(probe)}: ${detail}`,
+    );
+  }
 }
 
 function pinColumn(cell, columnIndex) {
@@ -110,13 +126,14 @@ function makeCardCell(kind, icon, label, source, columnIndex) {
   cell.className = `service-probe-table-cell service-probe-table-cell--${tone}`;
   cell.dataset.probeKind = kind;
   cell.dataset.probeGridCopy = "true";
+  cell.dataset.probeColumnKind = kind;
   cell.title = probeDetail(source, label);
   cell.dataset.probeAvailable = String(
     Boolean(source && source.dataset.probePlaceholder !== "true"),
   );
   cell.setAttribute(
     "aria-label",
-    `${label}: ${probeStateLabel(source)}. ${cell.title}`,
+    `${label}: ${probeStateLabel(source)}: ${cell.title}`,
   );
   pinColumn(cell, columnIndex);
 
@@ -142,13 +159,18 @@ const PROBE_PHASES = [
   ["Service", ["api", "websocket", "metrics", "policy"]],
 ];
 
-function observedProbes(byKind) {
+// DNS and every kind seen before keep their slot (grayed when missing) so a
+// refresh never adds or removes a line and resizes the card.
+function observedProbes(byKind, seen) {
   return PROBE_PHASES.map(([name, kinds]) => [
     name,
     kinds
       .map((kind) => [kind, byKind.get(kind)])
       .filter(
-        ([, probe]) => probe && probe.dataset.probePlaceholder !== "true",
+        ([kind, probe]) =>
+          kind === "dns" ||
+          seen.has(kind) ||
+          (probe && probe.dataset.probePlaceholder !== "true"),
       ),
   ]);
 }
@@ -164,14 +186,29 @@ function renderProbePath(primary, sources, signature) {
     if (grid) grid.insertAdjacentElement("beforebegin", path);
     else primary.appendChild(path);
   }
-  if (path.dataset.signature === signature) return;
-  const groups = observedProbes(sources);
+  if (path.dataset.signature === signature) {
+    refreshDetails(
+      path.querySelectorAll(".service-probe-path-step"),
+      sources,
+      " · ",
+    );
+    return;
+  }
+  const seen = new Set(
+    String(path.dataset.seenKinds || "")
+      .split(" ")
+      .filter(Boolean),
+  );
+  for (const [kind, probe] of sources) {
+    if (probe.dataset.probePlaceholder !== "true") seen.add(kind);
+  }
+  path.dataset.seenKinds = [...seen].join(" ");
+  const groups = observedProbes(sources, seen);
   const fragment = document.createDocumentFragment();
   const heading = document.createElement("strong");
   heading.className = "service-probe-path-heading";
   heading.textContent = "Observed protocol path";
   fragment.appendChild(heading);
-  let count = 0;
   for (const [phase, entries] of groups) {
     if (!entries.length) continue;
     const section = document.createElement("div");
@@ -184,20 +221,24 @@ function renderProbePath(primary, sources, signature) {
       const column = PROBE_COLUMNS.find(([id]) => id === kind);
       const chip = document.createElement("span");
       const tone = probeTone(probe);
-      chip.className = "service-probe-path-step service-probe-path-step--" + tone;
-      chip.textContent = `${column?.[2] || kind} · ${probeStateLabel(probe)}`;
+      chip.className =
+        "service-probe-path-step service-probe-path-step--" + tone;
+      chip.dataset.probeColumnKind = kind;
+      const name = document.createElement("span");
+      name.textContent = column?.[2] || kind;
+      // Fixed-width state: "Pass" and "Warning" occupy the same space.
+      const state = document.createElement("span");
+      state.className = "service-probe-path-step-state";
+      state.textContent = probeStateLabel(probe);
+      chip.append(name, " · ", state);
       chip.title = probeDetail(probe, column?.[2] || kind);
-      chip.setAttribute("aria-label", chip.textContent + ": " + chip.title);
+      chip.setAttribute(
+        "aria-label",
+        `${name.textContent} · ${state.textContent}: ${chip.title}`,
+      );
       section.appendChild(chip);
-      count += 1;
     }
     fragment.appendChild(section);
-  }
-  if (!count) {
-    const empty = document.createElement("span");
-    empty.className = "service-probe-path-empty";
-    empty.textContent = "No probe evidence in this snapshot";
-    fragment.appendChild(empty);
   }
   path.replaceChildren(fragment);
   path.dataset.signature = signature;
@@ -214,7 +255,10 @@ function renderCardGrid(row) {
     grid.className = "service-probe-table";
     grid.dataset.probeGrid = "card";
     grid.setAttribute("role", "list");
-    grid.setAttribute("aria-label", "Diagnostics by protocol and evidence state");
+    grid.setAttribute(
+      "aria-label",
+      "Diagnostics by protocol and evidence state",
+    );
     primary.appendChild(grid);
   }
   renderProbePath(primary, sources, signature);
@@ -224,6 +268,7 @@ function renderCardGrid(row) {
     .map(([kind]) => kind);
   row.dataset.probeKinds = kinds.join(" ");
   if (grid.dataset.signature === signature) {
+    refreshDetails(grid.children, sources, ": ");
     row.dataset.probeGridReady = "true";
     return;
   }
@@ -239,75 +284,12 @@ function renderCardGrid(row) {
   row.dataset.probeGridReady = "true";
 }
 
-function makeDrawerCell(kind, icon, label, source, columnIndex) {
-  const tone = probeTone(source);
-  const item = document.createElement("article");
-  item.className = `service-detail-probe service-detail-probe--${tone}`;
-  item.dataset.probeKind = kind;
-  item.dataset.probeGridCopy = "true";
-  pinColumn(item, columnIndex);
-
-  const heading = document.createElement("div");
-  heading.className = "service-detail-probe-heading";
-  const name = document.createElement("span");
-  name.className = "service-detail-probe-name";
-  const iconNode = document.createElement("span");
-  iconNode.className = "service-detail-probe-icon";
-  iconNode.dataset.tone = tone;
-  iconNode.setAttribute("aria-hidden", "true");
-  iconNode.textContent = icon;
-
-  const href = probeHref(source);
-  const labelNode = document.createElement(href ? "a" : "strong");
-  labelNode.className = "service-detail-probe-label";
-  labelNode.textContent = label;
-  if (labelNode instanceof HTMLAnchorElement) {
-    labelNode.href = href;
-    labelNode.target = "_blank";
-    labelNode.rel = "noopener noreferrer";
-  }
-  name.append(iconNode, labelNode);
-  heading.appendChild(name);
-
-  const detail = document.createElement("p");
-  detail.textContent = probeDetail(source, label);
-  item.append(heading, detail);
-  return item;
-}
-
-function renderDrawerGrid() {
-  const row = document.querySelector(
-    `${ROW_SELECTOR}[data-detail-selected="true"]`,
-  );
-  const host = document.getElementById("service-detail-evidence");
-  if (!row || !host) return;
-  const sources = sourceProbes(row);
-  const signature = probeSignature(sources);
-  if (
-    host.dataset.probeGridReady === "true" &&
-    host.dataset.signature === signature
-  ) {
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  for (const [columnIndex, [kind, icon, label]] of PROBE_COLUMNS.entries()) {
-    fragment.appendChild(
-      makeDrawerCell(kind, icon, label, sources.get(kind), columnIndex),
-    );
-  }
-  host.replaceChildren(fragment);
-  host.dataset.probeGridReady = "true";
-  host.dataset.signature = signature;
-  host.setAttribute("role", "list");
-  host.setAttribute("aria-label", "Detailed diagnostic checks by protocol");
-}
-
+// The detail drawer owns #service-detail-evidence; a second writer there made
+// the block alternate between two layouts on every refresh.
 function render() {
   scheduled = false;
   for (const row of document.querySelectorAll(ROW_SELECTOR))
     renderCardGrid(row);
-  renderDrawerGrid();
 }
 
 function schedule() {
@@ -324,13 +306,6 @@ function observe() {
       subtree: true,
       attributes: true,
       attributeFilter: ["class", "data-probe-kind", "data-probe-disabled"],
-    });
-  }
-  const drawer = document.getElementById("service-detail-drawer");
-  if (drawer) {
-    new MutationObserver(schedule).observe(drawer, {
-      childList: true,
-      subtree: true,
     });
   }
 }

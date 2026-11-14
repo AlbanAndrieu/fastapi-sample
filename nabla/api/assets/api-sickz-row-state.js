@@ -9,7 +9,10 @@ export function classifySick(check) {
   if (check.policy_status === "warn") return "yellow";
   if (check.policy_status === "fail") return "yellow";
   if (check.policy_status === "unknown") return "gray";
-  if (check.skipped === true) return "yellow";
+  // A LAN observer skips outside-in probes by design: never a warning.
+  if (check.skipped === true) {
+    return check.expected_reachable === false ? "blue" : "gray";
+  }
 
   if (typeof check.expected_reachable === "boolean") {
     if (check.reachable == null) return "gray";
@@ -87,6 +90,9 @@ function rawDetailSickText(check) {
 
 export function detailSickText(check) {
   const raw = rawDetailSickText(check);
+  if (check.skipped === true && check.expected_reachable === false) {
+    return `Expected by design · internal-only endpoint, not probed from this LAN observer; FastAPI Cloud verifies it stays unreachable. ${raw}`;
+  }
   if (isTrueNasExposureCheck(check) && check.tunnel_secure === false) {
     const fallback =
       typeof check.expected_reachable === "boolean"

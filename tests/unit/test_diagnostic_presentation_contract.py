@@ -32,7 +32,8 @@ def test_protocol_grid_reports_unsampled_and_disabled_checks() -> None:
     assert '"Not sampled"' in script
     assert '"Disabled"' in script
     assert 'grid.setAttribute("role", "list")' in script
-    assert 'chip.setAttribute("aria-label"' in script
+    # Whitespace-insensitive: the formatter wraps this call.
+    assert 'chip.setAttribute("aria-label"' in "".join(script.split())
 
 
 def test_filter_shortcuts_use_existing_select_and_url_state() -> None:

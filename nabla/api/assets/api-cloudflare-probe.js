@@ -160,17 +160,23 @@ function apply() {
     if (!check) continue;
 
     const [tone, label, detail] = tunnelState(check);
-    for (const candidate of ["ok", "warn", "fail", "unknown", "neutral"]) {
-      badge.classList.remove(`service-probe--${candidate}`);
+    // This /sickz verdict owns the badge; api-service-probe-planes defers to it.
+    badge.dataset.statusOwner = "cloudflare-probe";
+    if (!badge.classList.contains(`service-probe--${tone}`)) {
+      for (const candidate of ["ok", "warn", "fail", "unknown", "neutral"]) {
+        badge.classList.remove(`service-probe--${candidate}`);
+      }
+      badge.classList.add(`service-probe--${tone}`);
     }
-    badge.classList.add(`service-probe--${tone}`);
     replaceCloudflareIcon(badge);
     const policy = policyDetail(check);
     const hover = [label, detail, policy].filter(Boolean).join(" · ");
-    badge.title = hover;
-    badge.setAttribute("aria-label", hover);
+    if (badge.title !== hover) {
+      badge.title = hover;
+      badge.setAttribute("aria-label", hover);
+    }
     const text = badge.querySelector(".service-probe-label");
-    if (text) text.textContent = "Tunnel";
+    if (text && text.textContent !== "Tunnel") text.textContent = "Tunnel";
   }
 }
 

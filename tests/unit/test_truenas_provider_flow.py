@@ -103,3 +103,33 @@ def test_public_wan_flow_does_not_invent_lan_pfsense_stage() -> None:
     assert "pfsense_lan_posture" not in ids
     assert ids[0] == "selected_endpoint"
     assert ids[-1] == "cloudflare_tunnel_observation"
+
+
+def test_pfsense_posture_is_expected_when_runtime_policy_forbids_the_api() -> None:
+    enriched = _enrich_truenas_flow(
+        _payload(),
+        pfsense_dns={
+            "authenticated_probes_enabled": False,
+            "observation_mode": "transport_only",
+            "policy_state": "unknown",
+        },
+        cloudflare={"configured": False, "status_confirmed": False},
+    )
+
+    stages = enriched["truenas"]["diagnostics"]["stages"]
+    pfsense = next(stage for stage in stages if stage["id"] == "pfsense_lan_posture")
+    assert pfsense["state"] == "expected"
+    assert "expected by design" in pfsense["detail"]
+
+
+def test_pfsense_api_error_stays_a_warning_when_access_is_intended() -> None:
+    enriched = _enrich_truenas_flow(
+        _payload(),
+        pfsense_dns={"policy_state": "unknown", "error_stage": "system", "error": "ConnectError"},
+        cloudflare={"configured": False, "status_confirmed": False},
+    )
+
+    stages = enriched["truenas"]["diagnostics"]["stages"]
+    pfsense = next(stage for stage in stages if stage["id"] == "pfsense_lan_posture")
+    assert pfsense["state"] == "warn"
+    assert "partial API evidence: system ConnectError" in pfsense["detail"]
