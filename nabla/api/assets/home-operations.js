@@ -22,6 +22,13 @@ import {
   persistPublicDirectory,
   restorePublicDirectory,
 } from "./home-public-cache.js";
+import {
+  clearPublicObservation,
+  publicObservationAge,
+  publicObservationStorage,
+  readPublicObservation,
+  savePublicObservation,
+} from "./api-public-observation-cache.js";
 
 const ROOT = document.getElementById("home-operations");
 const HOME_RUNTIME = ROOT?.dataset?.runtimeMode || "local";
@@ -96,7 +103,24 @@ function scheduleWarmupRetry() {
   }, delay);
 }
 
+function paintLastObservedFleet(expectedRevision = null) {
+  const cached = readPublicObservation(publicObservationStorage());
+  if (!cached || (expectedRevision && cached.directory.catalogRevision !== expectedRevision)) return false;
+  const fleet = projectFleet(cached.directory);
+  if (!fleet) return false;
+  summaryCounts({ ...fleet, verified: false, boardState: "historical" });
+  put(
+    "home-fleet-source",
+    "Last public response " +
+      publicObservationAge(cached.receivedAt) +
+      " ago · historical counts, not current probes",
+  );
+  status("Last-known public services · refreshing in background", "unknown");
+  return true;
+}
+
 function paintSessionDirectory() {
+  if (paintLastObservedFleet()) return true;
   const directory = restorePublicDirectory(publicSessionCache());
   if (!directory) return false;
   const projected = projectFleet(directory);
@@ -144,6 +168,7 @@ function summaryCounts({ total, counts, source, verified, boardState }) {
   );
   const meter = element("home-fleet-meter");
   if (!meter) return;
+  meter.dataset.historical = boardState === "historical" ? "true" : "false";
   const parts = [];
   for (const kind of ["ok", "warn", "fail", "unknown"]) {
     const item = document.createElement("span");
@@ -175,6 +200,7 @@ function clearPublic() {
     put(name, "—");
   put("home-fleet-source", "Catalogue indisponible · aucune preuve");
   const meter = element("home-fleet-meter");
+  if (meter) meter.dataset.historical = "false";
   meter?.replaceChildren();
   meter?.setAttribute(
     "aria-label",
@@ -1088,14 +1114,21 @@ async function refresh() {
       );
     if (fleet) {
       persistPublicDirectory(publicSessionCache(), publicResult.value);
-      summaryCounts(fleet);
+      const showingHistorical = !fleet.verified &&
+        paintLastObservedFleet(publicResult.value.catalogRevision);
+      if (!showingHistorical) summaryCounts(fleet);
+      if (fleet.verified) {
+        savePublicObservation(publicObservationStorage(), publicResult.value);
+      }
       retryWarmup = !fleet.verified;
       status(
         fleet.verified
           ? "Catalogue vérifié · instantané public"
-          : HOME_RUNTIME === "fastapi_cloud"
-            ? "Inventaire public · sondes à exécuter sur demande"
-            : "Sondes en préparation · nouvelle lecture automatique",
+          : showingHistorical
+            ? "Dernier état connu · nouvelle vérification en cours"
+            : HOME_RUNTIME === "fastapi_cloud"
+              ? "Inventaire public · sondes à exécuter sur demande"
+              : "Sondes en préparation · nouvelle lecture automatique",
         fleet.verified ? "ok" : "unknown",
       );
       if (fleet.verified) {
@@ -1107,6 +1140,7 @@ async function refresh() {
         );
       }
     } else if (publicDenied) {
+      clearPublicObservation(publicObservationStorage());
       discardPublicDirectory(publicSessionCache());
       clearPublic();
       warmupAttempts = WARMUP_DELAYS_MS.length;
@@ -1203,8 +1237,8 @@ async function refresh() {
 }
 
 if (ROOT) {
-  // Before the first network response, show only public service names with
-  // UNKNOWN statuses. Session storage never contains probe health or tokens.
+  // Paint a historical PUBLIC snapshot immediately when available, otherwise
+  // show session-only names/UNKNOWN. Never persist OWNER probes or credentials.
   paintSessionDirectory();
   element("home-refresh")?.addEventListener("click", () => {
     HISTORY_READ_AT = 0;
