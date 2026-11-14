@@ -318,3 +318,16 @@ Le diagnostic FastAPI affiche désormais `next_check` avec un code fixe,
 sans refléter les commandes ni les valeurs reçues depuis SSH.
 
 Les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` exigent toujours une clé diagnostics valide même lorsque `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=true`. L'accusé de trace n'est jamais fourni aux requêtes refusées.
+
+## Retour sur page : historique public et revalidation SWR (H05/F03/F09)
+
+**État : CODED dans la PR H05 ; runtime Cloud/TrueNAS NOT_VERIFIED.** Le navigateur conserve uniquement le résumé déjà public de `/api/ui/services` : noms, types, tags validés et états agrégés `OK/WARN/FAIL/UNKNOWN`. Il ne conserve jamais les résultats détaillés des sondes OWNER, les URLs, IP, ports, secrets ni les dépendances internes.
+
+- **Cache navigateur** : stockage de même origine, validation stricte à l'écriture ET à la lecture, expiration à 24 h ; panne ou refus du stockage ne bloque pas la page. `home-public-cache.js` reste un cache de noms de session séparé.
+- **Affichage immédiat** : au retour, montrer le dernier état reçu et son âge, avec badge `LAST OK/WARN/FAIL`, couleur neutre, étiquette historique. L'heure correspond à la réception de la réponse publique, pas à l'exécution exacte d'une sonde.
+- **SWR** : un `GET /api/ui/services` revalide en arrière-plan ; événements `visibilitychange`, `pageshow` et `online` sont dédupliqués par une cadence minimale de 180 s sur FastAPI Cloud et 30 s sur LAN. Réessais `pending` bornés à cinq ; aucun `refresh=true` et aucune sonde WAN directe.
+- **Serveur pending/stale** : conserver le résumé historique seulement si `catalogRevision` est identique. Sinon, basculer vers le nouvel inventaire en `UNKNOWN`. Une réponse fraîche remplace le résumé ; une erreur réseau ne transforme pas une ancienne preuve en état actuel.
+- **Accès refusé** : 401/403/404 sur l'annuaire public purge le cache historique. Le contenu du cache est strictement moins privilégié que les diagnostics OWNER ; une ancienne authentification ne permet aucune relecture privée.
+- **Détails privés** : les sondes Gatus/Prometheus/TrueNAS restent dans les caches/mesures serveur protégés et doivent être revalidées par une session autorisée ; aucune persistance privée inter-session côté navigateur.
+
+**Tests ciblés** : `node --test tests/js/api-public-observation-cache.test.mjs tests/js/api-public-swr.test.mjs tests/js/home-public-cache.test.mjs`. Mesurer lors de la recette le temps de premier rendu des cartes, les GET après 6 h, la neutralisation des badges historiques, et les tentatives réseau sur Cloud/TrueNAS au SHA déployé.
