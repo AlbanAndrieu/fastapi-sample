@@ -1,10 +1,12 @@
 ---
 name: homelab-service-contract
-description: Detect cross-repository drift between nabla-compose declarations, TrueNAS runtime observations, fastapi-sample reconciliation/health APIs, and nabla-site-alban presentation.
+description: >-
+  Detect cross-repository drift between nabla-compose declarations, TrueNAS
+  runtime observations, fastapi-sample reconciliation/health APIs, and
+  nabla-site-alban presentation.
 license: Apache-2.0
 role: reviewer
 ---
-
 # Homelab service contract
 
 ## Goal

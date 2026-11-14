@@ -1,8 +1,8 @@
 ---
 name: homelab-runtime-status
 description: >-
-  Validate declared, observed, healthy and exposed homelab service status
-  from an explicitly capable workstation; isolate Codex from private LAN.
+  Validate declared, observed, healthy and exposed homelab service status from
+  an explicitly capable workstation; isolate Codex from private LAN.
 ---
 # Homelab runtime status (on demand)
 
