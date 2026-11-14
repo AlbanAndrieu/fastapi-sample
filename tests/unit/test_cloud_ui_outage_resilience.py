@@ -27,7 +27,9 @@ def test_public_catalog_has_own_bounded_request_and_useful_error_state():
     assert "}, 6500)" in public
     assert "Service inventory unavailable" in public
     assert "rows.length > 0" in public
-    assert "all statuses UNKNOWN" in public
+    assert "lastKnownOnError()" in public
+    assert "Refresh unavailable; last known values retained" in public
+    assert "rows = rows.map((service) => ({ ...service, state: \"unknown\" }))" in public
 
 
 def test_health_board_cannot_keep_browser_pending_for_one_minute():
