@@ -212,13 +212,30 @@ function addRuntimeBadge(tags, text, tone, detail) {
   tags.appendChild(badge);
 }
 
+// Same nodes in place: keep them, so a refresh neither flashes nor reflows.
+function replaceIfChanged(current, next, parent) {
+  if (
+    current.length === next.length &&
+    current.every((node, index) => node.isEqualNode(next[index]))
+  )
+    return;
+  for (const node of current) node.remove();
+  parent.append(...next);
+}
+
 function decorateRuntime(row, snapshot, evidence, node) {
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
-  tags.querySelectorAll("[data-runtime-badge]").forEach((badge) => {
-    badge.remove();
-  });
+  const fresh = document.createElement("div");
+  buildRuntimeBadges(fresh, snapshot, evidence, node);
+  replaceIfChanged(
+    [...tags.querySelectorAll("[data-runtime-badge]")],
+    [...fresh.children],
+    tags,
+  );
+}
 
+function buildRuntimeBadges(tags, snapshot, evidence, node) {
   const app = findRuntimeApp(snapshot, evidence, node);
   const runtimeState = app?.state || evidence.homelab?.runtime_state;
   if (runtimeState) {
@@ -294,9 +311,11 @@ function diagnosticBadge(kind, tone, icon, label, detail) {
 }
 
 function replaceOperatorProbe(strip, kind, badge) {
-  strip.querySelector(`[data-operator-probe="${kind}"]`)?.remove();
   badge.dataset.operatorProbe = kind;
-  strip.appendChild(badge);
+  const current = strip.querySelector(`[data-operator-probe="${kind}"]`);
+  if (current?.isEqualNode(badge)) return;
+  if (current) current.replaceWith(badge);
+  else strip.appendChild(badge);
 }
 
 function metricEvidence(evidence, node) {
@@ -352,9 +371,14 @@ function decorateExposureAndMetrics(row, evidence, node) {
     if (metrics.values.some((value) => value === true)) tone = "ok";
     else if (metrics.values.some((value) => value === false)) tone = "fail";
 
-    strip.querySelectorAll('[data-probe-kind="metrics"]').forEach((badge) => {
-      badge.remove();
-    });
+    // Our own badge is updated in place by replaceOperatorProbe below.
+    strip
+      .querySelectorAll(
+        '[data-probe-kind="metrics"]:not([data-operator-probe="prometheus"])',
+      )
+      .forEach((badge) => {
+        badge.remove();
+      });
     replaceOperatorProbe(
       strip,
       "prometheus",
@@ -490,18 +514,37 @@ function decorateDownstream(row, node, topology, indexes, anchors) {
     tags.appendChild(badge);
   }
   badge.classList.add("health-downstream-badge");
-  badge.textContent = `${downstream.length} downstream`;
+  const text = `${downstream.length} downstream`;
+  // Exposure cards drop this popover (api-health-ui-final-followup).
+  let popover = null;
+  if (!row.closest("#sickz-checks")) {
+    popover = document.createElement("span");
+    popover.className = "service-hover-popover";
+    popover.appendChild(
+      createLinkedList("Downstream impact", downstream, indexes, anchors),
+    );
+  }
+  const current = badge.querySelector(":scope > .service-hover-popover");
+  // api-service-dependency-priority re-sorts and re-titles these links:
+  // compare their targets as a set.
+  const links = (node) =>
+    [...node.querySelectorAll("a")]
+      .map((link) => link.getAttribute("href"))
+      .sort()
+      .join("|");
+  const unchanged =
+    badge.firstChild?.nodeValue === text &&
+    (popover
+      ? Boolean(current) && links(current) === links(popover)
+      : !current);
+  if (unchanged) return;
+  badge.textContent = text;
   badge.tabIndex = 0;
   badge.setAttribute(
     "aria-label",
     `${downstream.length} downstream dependent services; hover or focus for links`,
   );
-  const popover = document.createElement("span");
-  popover.className = "service-hover-popover";
-  popover.appendChild(
-    createLinkedList("Downstream impact", downstream, indexes, anchors),
-  );
-  badge.appendChild(popover);
+  if (popover) badge.appendChild(popover);
 }
 
 function helpSummary(evidence, node, runtimeApp) {
@@ -533,8 +576,9 @@ function helpSummary(evidence, node, runtimeApp) {
 
 function decorateHelp(row, evidence, node, runtimeApp) {
   const tags = row.querySelector(".health-row-tags");
-  if (!tags) return;
-  tags.querySelector(".service-help-badge")?.remove();
+  // Exposure cards drop this badge (api-health-ui-final-followup): adding it
+  // back on each pass made it flash.
+  if (!tags || row.closest("#sickz-checks")) return;
   const badge = document.createElement("span");
   badge.className = "service-help-badge";
   badge.tabIndex = 0;
@@ -555,7 +599,12 @@ function decorateHelp(row, evidence, node, runtimeApp) {
     popover.appendChild(detail);
   }
   badge.appendChild(popover);
-  tags.appendChild(badge);
+  // api-service-probe-help appends its own timing line to this popover.
+  const current = tags.querySelector(".service-help-badge");
+  const comparable = current?.cloneNode(true);
+  comparable?.querySelector("[data-service-probe-help-timing]")?.remove();
+  if (comparable?.isEqualNode(badge)) return;
+  replaceIfChanged(current ? [current] : [], [badge], tags);
 }
 
 function relationData(topology, nodeId) {
@@ -873,12 +922,17 @@ export function installServiceOperatorDiagnostics() {
   document.addEventListener("service-detail-selected", () => {
     if (!latestSnapshot || !latestTopology) return;
     const selected = document.querySelector(
-      ROW_SELECTOR + '[data-detail-selected="true"]'
+      ROW_SELECTOR + '[data-detail-selected="true"]',
     );
     if (!selected) return;
     const indexes = nodeIndexes(latestTopology);
-    renderEnhancedDrawer(selected, latestSnapshot, latestTopology, indexes,
-      assignAnchors([...document.querySelectorAll(ROW_SELECTOR)], indexes));
+    renderEnhancedDrawer(
+      selected,
+      latestSnapshot,
+      latestTopology,
+      indexes,
+      assignAnchors([...document.querySelectorAll(ROW_SELECTOR)], indexes),
+    );
   });
   document.addEventListener("health-board-refreshed", () => {
     refreshDiagnostics().then(schedulePostRenderPasses);

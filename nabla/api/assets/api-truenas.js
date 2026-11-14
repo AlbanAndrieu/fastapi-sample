@@ -2,11 +2,13 @@ import { escapeText } from "./api-health-ui.js";
 import { fetchHomelabHealth } from "./api-homelab-health.js";
 
 let lastRenderedSnapshot = null;
+let lastPipelineHtml = "";
 
 function stageClass(stage) {
   if (stage?.state === "ok") return "ok";
   if (stage?.state === "warn") return "warn";
   if (stage?.state === "fail") return "fail";
+  if (stage?.state === "expected") return "expected";
   return "blocked";
 }
 
@@ -14,6 +16,7 @@ function stageIcon(stage) {
   if (stage?.state === "ok") return "●";
   if (stage?.state === "warn") return "⚠";
   if (stage?.state === "fail") return "💀";
+  if (stage?.state === "expected") return "◆";
   return "⊘";
 }
 
@@ -35,8 +38,9 @@ const STAGE_PROTOCOLS = {
 
 function stageStateLabel(stage) {
   return (
-    { ok: "Pass", warn: "Warning", fail: "Failed" }[stage?.state] ||
-    "Unconfirmed"
+    { ok: "Pass", warn: "Warning", fail: "Failed", expected: "Expected" }[
+      stage?.state
+    ] || "Unconfirmed"
   );
 }
 
@@ -63,7 +67,8 @@ function renderStage(stage) {
 
 function renderConnector(left, right) {
   const failed = left?.state === "fail" || right?.state === "fail";
-  const uncertain = !failed && (left?.state !== "ok" || right?.state !== "ok");
+  const settled = (stage) => ["ok", "expected"].includes(stage?.state);
+  const uncertain = !failed && (!settled(left) || !settled(right));
   const tone = failed ? "broken" : uncertain ? "unknown" : "ok";
   return `<div class="truenas-connector truenas-connector--${tone}" aria-hidden="true"></div>`;
 }
@@ -106,8 +111,12 @@ function ingressPolicyStage(data, measuredStages) {
   const tcpOk = tcp?.state === "ok";
   const tcpFailed = tcp?.state === "fail";
   const postureConfirmed = block?.state === "clear";
+  // FastAPI Cloud must not reach the pfSense REST API (WAN 10443 blocked).
+  const postureByDesign =
+    data?.pfsense?.dns?.authenticated_probes_enabled === false;
   if (block?.state === "blocked" || tcpFailed) state = "fail";
   else if (tcpOk && postureConfirmed) state = "ok";
+  else if (tcpOk && postureByDesign) state = "expected";
   else if (tcpOk) state = "warn";
 
   const pathEvidence = tcpOk
@@ -117,12 +126,16 @@ function ingressPolicyStage(data, measuredStages) {
       : "WAN :7000 data path unconfirmed";
   const postureEvidence = postureConfirmed
     ? "pfSense security posture confirmed"
-    : "pfSense security posture unconfirmed";
+    : postureByDesign
+      ? "pfSense security posture not observed by design: authenticated pfSense API probes are disabled on this runtime and WAN 10443 stays blocked from FastAPI Cloud"
+      : "pfSense security posture unconfirmed";
   return {
     id: "pfsense_wan_ingress",
     label: "WAN :7000 via pfSense/HAProxy",
     state,
-    detail: [pathEvidence, postureEvidence, ...details].filter(Boolean).join(" · "),
+    detail: [pathEvidence, postureEvidence, ...details]
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 
@@ -477,7 +490,9 @@ function diagnosticsUnavailable(data, truenas) {
   }
   return {
     tone: httpsUp ? "warn" : "fail",
-    state: httpsUp ? "diagnostics unavailable · HTTPS up" : "diagnostics unavailable",
+    state: httpsUp
+      ? "diagnostics unavailable · HTTPS up"
+      : "diagnostics unavailable",
     detail: httpsUp
       ? "TrueNAS HTTPS is reachable, but detailed diagnostics are missing from /api/homelab/health."
       : "TrueNAS diagnostics are missing from /api/homelab/health.",
@@ -516,7 +531,11 @@ function render(data) {
     if (index > 0) html += renderConnector(stages[index - 1], stage);
     html += renderStage(stage);
   });
-  pipeline.innerHTML = html;
+  // Unchanged stages keep their nodes and the labels other modules decorate.
+  if (html !== lastPipelineHtml || !pipeline.childElementCount) {
+    pipeline.innerHTML = html;
+    lastPipelineHtml = html;
+  }
 
   const ingressBlock = data?.pfsense?.dns?.ingress_block;
   const overall = truenas?.state || "fail";
@@ -529,8 +548,7 @@ function render(data) {
     state.className = "truenas-platform-state truenas-platform-state--fail";
     state.textContent = "blocked by Snort/PF";
   } else {
-    state.className =
-      `truenas-platform-state truenas-platform-state--${applianceState}`;
+    state.className = `truenas-platform-state truenas-platform-state--${applianceState}`;
     const failureState = apiFailureState(api);
     if (api.stage === "missing_api_key") {
       state.textContent = "authentication blocked · API key missing";
@@ -543,17 +561,12 @@ function render(data) {
       const cached = api.cached === true ? " · cached" : "";
       const platform =
         applianceState === "ok" ? "" : ` · appliance ${applianceState}`;
-      const ingress =
-        ` · WAN ingress ${ingressState}`;
+      const ingress = ` · WAN ingress ${ingressState}`;
       const transport =
-        rawTls?.state === "warn"
-          ? " · raw TLS evidence conflict"
-          : "";
-      state.textContent =
-        `TrueNAS API healthy${version}${cached}${platform}${ingress}${transport}`;
+        rawTls?.state === "warn" ? " · raw TLS evidence conflict" : "";
+      state.textContent = `TrueNAS API healthy${version}${cached}${platform}${ingress}${transport}`;
     } else {
-      state.textContent =
-        `appliance ${applianceState} · WAN ingress ${ingressState}`;
+      state.textContent = `appliance ${applianceState} · WAN ingress ${ingressState}`;
     }
   }
 
@@ -606,8 +619,7 @@ function renderFetchFailure(errorValue) {
   if (pipeline && !pipeline.children.length) pipeline.innerHTML = "";
   if (error) {
     error.hidden = false;
-    error.textContent =
-      `Aggregate health snapshot unavailable: ${message}. Raw probe authentication does not mark TrueNAS or the probe fan-out down.`;
+    error.textContent = `Aggregate health snapshot unavailable: ${message}. Raw probe authentication does not mark TrueNAS or the probe fan-out down.`;
   }
 }
 

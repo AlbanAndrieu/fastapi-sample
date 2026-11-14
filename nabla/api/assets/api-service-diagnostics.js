@@ -1,10 +1,15 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { expectedAnonymousAuth, httpObservationTone } from "./api-service-http-auth.js";
 import { exposurePolicyPresentation } from "./api-service-exposure-policy.js";
 import {
   installServiceFilter,
   refreshServiceFilter,
 } from "./api-service-filter.js";
+import {
+  expectedAnonymousAuth,
+  expectedHttpFailure,
+  firstObservedCheck,
+  httpObservationTone,
+} from "./api-service-http-auth.js";
 
 const PROBE_ICONS = {
   http: "🌐",
@@ -183,6 +188,11 @@ function httpDetail(check, suffix) {
   if (check.reachable === true) {
     return `HTTP probe reached the target${suffix}`;
   }
+  const expected = expectedHttpFailure(check);
+  if (expected) {
+    const error = check.error ? ` · ${check.error}` : "";
+    return `${expected.detail}${error}`;
+  }
   if (check.reachable === false) {
     const error = check.error ? `: ${check.error}` : "";
     return `HTTP probe could not reach the target${error}`;
@@ -191,7 +201,12 @@ function httpDetail(check, suffix) {
   return `HTTP probe result is not confirmed${warning}`;
 }
 
-function addHttpEvidence(target, check, kinds, { privateS3 = false, serviceId = "" } = {}) {
+function addHttpEvidence(
+  target,
+  check,
+  kinds,
+  { privateS3 = false, serviceId = "" } = {},
+) {
   if (!check) return;
   const url = urlOf(check);
   const probe = normalize(check.probe);
@@ -210,19 +225,27 @@ function addHttpEvidence(target, check, kinds, { privateS3 = false, serviceId = 
     ? expectedAuth.label
     : unsignedS3
       ? `S3 Auth ${status}`
-    : privateBlocked ? "Private S3" : hasStatus ? `HTTP ${status}` : "HTTP";
+      : privateBlocked
+        ? "Private S3"
+        : hasStatus
+          ? `HTTP ${status}`
+          : "HTTP";
   const suffix = hasStatus ? ` with status ${status}` : "";
   const detail = expectedAuth
     ? expectedAuth.detail
     : privateS3
       ? "Private S3 API: anonymous HTTP is not a functional S3 health test. " +
-      "A signed S3 request from the LAN is needed. " +
-      "This badge does not certify the origin or the public ingress policy."
-    : httpDetail(check, suffix);
+        "A signed S3 request from the LAN is needed. " +
+        "This badge does not certify the origin or the public ingress policy."
+      : httpDetail(check, suffix);
   target.appendChild(
     probeBadge(
       "http",
-      expectedAuth ? "info" : privateS3 ? "unknown" : httpObservationTone(check, serviceId),
+      expectedAuth
+        ? "info"
+        : privateS3
+          ? "unknown"
+          : httpObservationTone(check, serviceId),
       label,
       detail,
       check,
@@ -506,7 +529,8 @@ function setExposureMetadata(row, exposure, verdict = null) {
 
   row.dataset.exposurePolicy = verdict?.state || normalizedPolicy(exposure);
   row.dataset.exposureVerdict = verdict?.state || "unknown";
-  row.dataset.exposureSummary = verdict?.summary || "Exposure policy not verified";
+  row.dataset.exposureSummary =
+    verdict?.summary || "Exposure policy not verified";
   if (exposure.external === true) row.dataset.exposureScope = "external";
   else if (exposure.external === false) row.dataset.exposureScope = "internal";
   else row.dataset.exposureScope = "unknown";
@@ -551,21 +575,34 @@ function decorateRow(row, snapshot) {
   const observedExposure = findCheck(sickzChecks, row);
   // Use a canonical ID for catalogue declarations: shared TrueNAS IP
   // addresses cannot be used to infer another service's privacy intent.
-  const rowId = String(row.dataset.topologyId ||
-    row.dataset.serviceKey || "").replace(/^albandrieu_/, "").replaceAll("_", "-");
-  const declared = (Array.isArray(snapshot?.homelab?.services)
-    ? snapshot.homelab.services
-    : []).find((entry) => entry?.id === rowId);
+  const rowId = String(row.dataset.topologyId || row.dataset.serviceKey || "")
+    .replace(/^albandrieu_/, "")
+    .replaceAll("_", "-");
+  const declared = (
+    Array.isArray(snapshot?.homelab?.services) ? snapshot.homelab.services : []
+  ).find((entry) => entry?.id === rowId);
   // A catalog declaration may explain intent but never certify security.
-  const exposure = observedExposure || (
+  // Catalogue V2 rows carry exposure_intent instead of the legacy boolean.
+  const intent = declared?.exposure_intent;
+  const declaredExternal =
     typeof declared?.external === "boolean"
+      ? declared.external
+      : intent === "internal"
+        ? false
+        : intent === "public"
+          ? true
+          : null;
+  const exposure =
+    observedExposure ||
+    (declaredExternal !== null
       ? {
-          external: declared.external,
+          external: declaredExternal,
           tunnel_secure: declared.tunnel_secure,
           policy_status: "unknown",
+          // V2 synthesizes a URL when no hostname is declared.
+          public_route: declared.url_derived !== true,
         }
-      : null
-  );
+      : null);
   const primary = row.querySelector(".health-row-primary");
   if (!primary) return;
 
@@ -585,8 +622,19 @@ function decorateRow(row, snapshot) {
   strip.className = "service-probe-strip";
   strip.setAttribute("aria-label", "Probe evidence");
 
-  const mainEvidence = health || exposure;
-  addHttpEvidence(strip, mainEvidence, kinds, {
+  // Same priority as api-http-probe-status: one evidence, one HTTP tone. A
+  // catalogue entry for another hostname must not speak for this endpoint.
+  const rowHost = hostOf(row.dataset.serviceUrl);
+  const declaredHere =
+    rowHost && hostOf(declared?.url) && hostOf(declared.url) !== rowHost
+      ? null
+      : declared;
+  const mainEvidence = firstObservedCheck(health, declaredHere, exposure);
+  const httpEvidence = firstObservedCheck(
+    findCheck(snapshot?.homelab?.public_probe_results, row),
+    mainEvidence,
+  );
+  addHttpEvidence(strip, httpEvidence, kinds, {
     serviceId: rowId,
     privateS3: rowId === "garage" && effectiveExposure?.external === false,
   });
@@ -603,8 +651,11 @@ function decorateRow(row, snapshot) {
     verdict.summary,
     verdict.detail,
     observedExposure?.security_policy_detail ||
-      observedExposure?.policy_detail || "",
-  ].filter(Boolean).join(" · ");
+      observedExposure?.policy_detail ||
+      "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   strip.appendChild(
     probeBadge(
       "policy",
@@ -633,9 +684,25 @@ function decorateRow(row, snapshot) {
   const signature = strip.textContent + strip.innerHTML;
   const existing = primary.querySelector(":scope > .service-probe-strip");
   if (existing?.dataset.signature === signature) return;
-  if (existing) existing.remove();
   strip.dataset.signature = signature;
-  if (strip.children.length > 0) primary.appendChild(strip);
+  if (existing) {
+    // Keep badges other decorators own (DNS…) until they refresh them.
+    strip.prepend(
+      ...existing.querySelectorAll(":scope > [data-operator-probe]"),
+    );
+    // Decorators own these badges' status: keep their last state in place.
+    for (const kind of ["http", "cloudflare"]) {
+      const owned = existing.querySelector(
+        `:scope > [data-probe-kind="${kind}"]`,
+      );
+      if (owned)
+        strip
+          .querySelector(`:scope > [data-probe-kind="${kind}"]`)
+          ?.replaceWith(owned);
+    }
+    if (strip.children.length > 0) existing.replaceWith(strip);
+    else existing.remove();
+  } else if (strip.children.length > 0) primary.appendChild(strip);
 }
 
 async function decorateRows() {
@@ -659,12 +726,19 @@ function scheduleRefresh(records) {
   // The board contains many badges, timers and drawers. Decorating a badge
   // must not re-run the whole service reconciliation and issue another
   // service-filter-changed notification. Observe only row topology changes.
-  if (Array.isArray(records) && !records.some((record) => {
-    const nodes = [...record.addedNodes, ...record.removedNodes];
-    return nodes.some((node) => node.nodeType === 1 &&
-      (node.matches?.("[data-service-filter-target]") ||
-       node.querySelector?.("[data-service-filter-target]")));
-  })) return;
+  if (
+    Array.isArray(records) &&
+    !records.some((record) => {
+      const nodes = [...record.addedNodes, ...record.removedNodes];
+      return nodes.some(
+        (node) =>
+          node.nodeType === 1 &&
+          (node.matches?.("[data-service-filter-target]") ||
+            node.querySelector?.("[data-service-filter-target]")),
+      );
+    })
+  )
+    return;
   if (refreshScheduled) return;
   refreshScheduled = true;
   window.requestAnimationFrame(() => {

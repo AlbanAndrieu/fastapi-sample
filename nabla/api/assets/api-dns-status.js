@@ -125,10 +125,23 @@ function apply() {
   )) {
     const strip = ensureProbeStrip(row);
     if (!strip) continue;
-    strip.querySelector('[data-operator-probe="dns"]')?.remove();
+    // Any DNS badge is the slot to update: prepending a second one made the
+    // duplicate cleanup in api-health-ui-operator-followup remove it again.
+    const current =
+      strip.querySelector('[data-operator-probe="dns"]') ||
+      strip.querySelector(':scope > [data-probe-kind="dns"]');
     const check = checks.find((candidate) => matchesRow(candidate, row));
+    // Keep the last DNS evidence until a newer observation replaces it.
     if (!check) continue;
-    strip.prepend(badgeFor(check));
+    const badge = badgeFor(check);
+    if (
+      current?.className === badge.className &&
+      current.title === badge.title
+    ) {
+      continue;
+    }
+    if (current) current.replaceWith(badge);
+    else strip.prepend(badge);
   }
 }
 

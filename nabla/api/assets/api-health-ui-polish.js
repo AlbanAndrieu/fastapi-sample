@@ -100,6 +100,11 @@ function enrichLegend() {
       "Gray",
       "Unknown, unobserved or not confirmed from this observer.",
     ),
+    legendItem(
+      "health-legend--blue",
+      "Blue",
+      "Expected by design: the check fails or is not run on purpose from this observer (internal-only route, blocked admin API).",
+    ),
     "</div>",
     '<div class="health-legend-section"><b>Health tiers</b>',
     hoverLabel(
@@ -214,7 +219,10 @@ function moveTierNextToName(row) {
   const name = row.querySelector(".health-row-name");
   const note = row.querySelector(".health-meta-note");
   if (!primary || !name || !note) return;
-  if (row.dataset.serviceKey === PFSENSE_KEY && note.textContent !== REQUIRED_TIER)
+  if (
+    row.dataset.serviceKey === PFSENSE_KEY &&
+    note.textContent !== REQUIRED_TIER
+  )
     note.textContent = REQUIRED_TIER;
   if (!note.classList.contains("health-tier-inline"))
     note.classList.add("health-tier-inline");

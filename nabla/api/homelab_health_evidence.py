@@ -56,6 +56,15 @@ def _selected_truenas_endpoint_stage(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _pfsense_posture_stage(pfsense_dns: dict[str, Any]) -> dict[str, Any]:
+    if pfsense_dns.get("authenticated_probes_enabled") is False:
+        # FastAPI Cloud must not reach the pfSense REST API (WAN 10443 stays blocked).
+        return {
+            "id": "pfsense_lan_posture",
+            "label": "pfSense LAN / DNS posture",
+            "state": "expected",
+            "detail": "expected by design: authenticated pfSense API probes are disabled on this runtime; posture is observed by the trusted homelab runtime",
+            "evidence": "read_only_pfsense_api",
+        }
     resolver = pfsense_dns.get("resolver") if isinstance(pfsense_dns.get("resolver"), dict) else {}
     resolver_running = resolver.get("running")
     policy_state = str(pfsense_dns.get("policy_state") or "unknown")

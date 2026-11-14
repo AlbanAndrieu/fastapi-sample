@@ -1,4 +1,9 @@
-import { expectedAnonymousAuth, httpObservationTone } from "./api-service-http-auth.js";
+import {
+  expectedAnonymousAuth,
+  expectedHttpFailure,
+  firstObservedCheck,
+  httpObservationTone,
+} from "./api-service-http-auth.js";
 
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
 
@@ -86,7 +91,17 @@ function ageSeconds(check) {
   return null;
 }
 
+const PRIVATE_S3_DETAIL =
+  "Private S3 API. Anonymous HTTP GET is not a signed S3 health check; outside-in failures do not prove origin downtime.";
+
+function privateS3(serviceId) {
+  return (
+    serviceId.replace(/^albandrieu_/, "").replaceAll("_", "-") === "garage"
+  );
+}
+
 function toneFor(check, serviceId) {
+  if (privateS3(serviceId)) return "unknown";
   return httpObservationTone(check, serviceId);
 }
 
@@ -99,10 +114,13 @@ function pending(check, snapshot) {
   return age >= Math.max(0, interval - 2);
 }
 
-function hoverFor(check, snapshot, serviceId) {
+function hoverFor(check, snapshot, serviceId, target) {
   const parts = [];
-  const expected = expectedAnonymousAuth(serviceId, check);
+  if (privateS3(serviceId)) parts.push(PRIVATE_S3_DETAIL);
+  const expected =
+    expectedAnonymousAuth(serviceId, check) || expectedHttpFailure(check);
   if (expected) parts.push(expected.detail);
+  if (target) parts.push(`target=${target}`);
   const status = Number(check?.http_status);
   if (Number.isFinite(status)) parts.push(`HTTP ${status}`);
   else parts.push("HTTP status unconfirmed");
@@ -138,26 +156,61 @@ function apply() {
       '.service-probe-strip [data-probe-kind="http"]',
     );
     if (!badge) continue;
-    const check =
-      findCheck(latestSnapshot?.healthz?.checks, row) ||
-      findCheck(latestSnapshot?.homelab?.services, row) ||
-      findCheck(latestSnapshot?.sickz?.checks, row);
+    // Sole writer of this badge: the outside-in public probe first, then the
+    // same order api-service-diagnostics uses to build the strip.
+    const declared = findCheck(latestSnapshot?.homelab?.services, row);
+    const rowHost = hostOf(row.dataset.serviceUrl);
+    const declaredHere =
+      rowHost && hostOf(declared?.url) && hostOf(declared.url) !== rowHost
+        ? null
+        : declared;
+    const check = firstObservedCheck(
+      findCheck(latestSnapshot?.homelab?.public_probe_results, row),
+      findCheck(latestSnapshot?.healthz?.checks, row),
+      declaredHere,
+      findCheck(latestSnapshot?.sickz?.checks, row),
+    );
     if (!check) continue;
 
-    const serviceId = String(row.dataset.topologyId || row.dataset.serviceKey || "");
-  for (const candidate of ["ok", "warn", "fail", "unknown", "neutral", "info"]) {
-      badge.classList.remove(`service-probe--${candidate}`);
+    const serviceId = String(
+      row.dataset.topologyId || row.dataset.serviceKey || "",
+    );
+    const tone = `service-probe--${toneFor(check, serviceId)}`;
+    // Swap the tone only when it changes: a remove/add pair re-triggers observers.
+    if (!badge.classList.contains(tone)) {
+      for (const candidate of [
+        "ok",
+        "warn",
+        "fail",
+        "unknown",
+        "neutral",
+        "info",
+        "expected",
+      ]) {
+        badge.classList.remove(`service-probe--${candidate}`);
+      }
+      badge.classList.add(tone);
     }
-    badge.classList.add(`service-probe--${toneFor(check, serviceId)}`);
     const expected = expectedAnonymousAuth(serviceId, check);
     const label = badge.querySelector(".service-probe-label");
     const observedHttp = Number(check?.http_status);
-    if (label) label.textContent = expected?.label ||
-      (Number.isFinite(observedHttp) && observedHttp > 0
-        ? `HTTP ${observedHttp}` : "HTTP");
-    const hover = hoverFor(check, latestSnapshot, serviceId);
-    badge.title = hover;
-    badge.setAttribute("aria-label", hover);
+    const text = privateS3(serviceId)
+      ? "Private S3 · HTTP ≠ health"
+      : expected?.label ||
+        (Number.isFinite(observedHttp) && observedHttp > 0
+          ? `HTTP ${observedHttp}`
+          : "HTTP");
+    if (label && label.textContent !== text) label.textContent = text;
+    const hover = hoverFor(
+      check,
+      latestSnapshot,
+      serviceId,
+      check.url || row.dataset.serviceUrl || "",
+    );
+    if (badge.title !== hover) {
+      badge.title = hover;
+      badge.setAttribute("aria-label", hover);
+    }
   }
 }
 
@@ -174,6 +227,8 @@ export function decorateHttpProbeStatuses(snapshot) {
 
 export function installHttpProbeStatuses() {
   document.addEventListener("health-board-refreshed", schedule);
+  // service-diagnostics rebuilds the strip, then announces it with this event.
+  document.addEventListener("service-filter-changed", schedule);
   // Changes originate from health-board events; a 1-second full-card scan
   // wastes CPU and can make the catalogue look frozen on large inventories.
 }

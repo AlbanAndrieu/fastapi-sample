@@ -153,9 +153,11 @@ def test_private_s3_anonymous_http_is_not_a_green_health_claim() -> None:
     diag = (ASSETS / "api-service-diagnostics.js").read_text(
         encoding="utf-8",
     )
-    planes = (ASSETS / "api-service-probe-planes.js").read_text(
+    # api-http-probe-status is the sole writer of the public HTTP badge.
+    http = (ASSETS / "api-http-probe-status.js").read_text(
         encoding="utf-8",
     )
-    assert 'privateS3 ? "unknown" : httpObservationTone(check, serviceId)' in diag
-    assert 'privateS3 ? "unknown" : publicTone(check, serviceId)' in planes
+    # Whitespace-insensitive: the formatter wraps this ternary.
+    assert 'privateS3?"unknown":httpObservationTone(check,serviceId)' in "".join(diag.split())
+    assert 'if (privateS3(serviceId)) return "unknown";' in http
     assert "A signed S3 request from the LAN is needed" in diag
