@@ -17,6 +17,8 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | **Points d'entrée et dashboards ?** | [Entrypoints](entrypoints-and-dashboards.md) |
 | **Affichage des services V2 et provenance ?** | [Réconciliation V2](archive/2026-11-14-catalog-v2-roadmap-alignment.md) et [handoff Site Alban](site-architecture-catalog-handoff.md) |
 
+**Ordre FastAPI confirmé le 14/11 : H05/F03+F09 puis H17/F11**. Cette priorité applicative n'attend pas les jalons infrastructure H02/G1 et H01.
+
 La [roadmap infrastructure Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap.md) et les [roadmaps du Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban/blob/master/docs/README.md) restent distinctes : les dépendances sont liées, pas dupliquées.
 
 Le [portefeuille Homelab](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/roadmap-portfolio.md) présente les arbitrages inter-dépôts. Le [journal de réconciliation](archive/2026-11-13-roadmap-reconciliation.md) conserve la trace des travaux transférés. Le [bilan V2 du 14/11](archive/2026-11-14-catalog-v2-roadmap-alignment.md) distingue code fusionné, snapshot et recette runtime.
