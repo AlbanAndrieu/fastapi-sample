@@ -21,10 +21,10 @@ def test_pr_reuse_rebase_and_batch_contract():
 
 def test_skill_points_to_conditional_runbook():
     skill = (ROOT / ".agents/skills/local-first-quality/SKILL.md").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     detail = (ROOT / "docs/agent-execution-playbook.md").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     assert "PR ownership and batching" in skill
     assert "Working in an existing PR" in detail
