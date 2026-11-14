@@ -6,7 +6,7 @@ import {
   validOverview,
 } from "../../nabla/api/assets/api-public-services.js";
 
-const REVISION = "sha256:" + "a".repeat(64);
+const REVISION = `sha256:${"a".repeat(64)}`;
 function payload(service) {
   return {
     schemaVersion: 2,

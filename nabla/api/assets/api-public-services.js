@@ -38,7 +38,9 @@ export function validOverview(value) {
         (service.tags == null ||
           (Array.isArray(service.tags) &&
             service.tags.length <= 3 &&
-            service.tags.every((tag) => typeof tag === "string" && SAFE_TAG.test(tag)))),
+            service.tags.every(
+              (tag) => typeof tag === "string" && SAFE_TAG.test(tag),
+            ))),
     )
   );
 }
@@ -105,8 +107,14 @@ export async function installPublicServiceOverview({
   function render() {
     const query = (filter?.value || "").trim().toLowerCase();
     const matching = rows.filter((entry) =>
-      (entry.name + " " + entry.kind + " " + entry.state + " " +
-        (entry.serviceType || "") + " " + (entry.tags || []).join(" "))
+      [
+        entry.name,
+        entry.kind,
+        entry.state,
+        entry.serviceType || "",
+        ...(entry.tags || []),
+      ]
+        .join(" ")
         .toLowerCase()
         .includes(query),
     );
