@@ -12,11 +12,14 @@ Les commandes de contrôle doivent partir des **recettes Just**, qui délèguent
 | Gate qualité complète | `just quality` | Sans GitHub Actions |
 | Attestation de publication au SHA exact | `just publish-check` | Aucune publication |
 | Diagnostic TrueNAS sans mutation | `just truenas-evidence` | Accès local requis |
+| Snapshot de démarrage Backstage V2 | `bash scripts/refresh-catalog-snapshot.sh [fichier-local]` | Source Compose contrôlée ; aucune seconde autorité |
 
 Les modules `scripts/ci/` et les helpers de quality gate restent les composants internes. `scripts/agent-quality-gate.sh` supervise une seule gate ; `scripts/run-pytest-compact.sh` est le lanceur canonique Python. Les scripts de diagnostic spécialisés restent dans leur domaine (`scripts/truenas/`, `scripts/pfsense/`).
 
-Le tableau d'identifiants E01–E14 a été archivé après la consolidation F01–F11. Ne lancer qu'une seule gate documentaire canonique `just docs-links` ; `scripts/check_docs_links.py --active-only` n'est qu'une implémentation, pas une seconde entrée à maintenir.
+Les alias E01–E14 sont archivés ; F01–F12 est l'index FastAPI actif. Le portefeuille H est exclusivement arbitré côté Compose. Ne lancer qu'une seule gate documentaire canonique `just docs-links` ; `scripts/check_docs_links.py --active-only` n'est qu'une implémentation, pas une seconde entrée à maintenir.
 
 Une modification exclusivement documentaire suit : `just agent-context auto` → `just docs-links` → relecture du diff. Une modification mixte (code et docs) garde le contrôle du code ; le routeur ne doit jamais transformer un test non exécuté en PASS.
+
+Le snapshot `nabla/api/data/catalog-snapshot.json` n'est qu'un **cache froid**, non un second inventaire. Le script canonique vérifie le SHA-256 du graphe V2 et l'unicité des `entityRef` avant remplacement atomique ; une source invalide ou inchangée n'est jamais publiée. Test hors ligne : `tests/unit/test_catalog_snapshot_refresh_contract.py`.
 
 À conserver en archive : rapports détaillés de PR, relevés runtime historiques et commandes d'incident. **Ne pas supprimer** un vieux lanceur avant inventaire de ses consommateurs, remplacement documenté et test de compatibilité.
