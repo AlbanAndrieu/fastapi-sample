@@ -74,7 +74,7 @@ async def test_rotating_probes_keep_history_without_leaking_sensitive_fields(
     assert await history.write_owner_last_known(
         {
             "homelab": {"services": [sample]},
-        }
+        },
     )
     assert await history.write_owner_last_known(
         {
@@ -85,7 +85,7 @@ async def test_rotating_probes_keep_history_without_leaking_sensitive_fields(
                         "state": "ok",
                         "probe_source": "origin",
                         "probe_observed_at": _observed(360),
-                    }
+                    },
                 ],
                 "internal_services": [
                     {
@@ -93,10 +93,10 @@ async def test_rotating_probes_keep_history_without_leaking_sensitive_fields(
                         "state": "fail",
                         "probe_source": "origin",
                         "probe_observed_at": _observed(370),
-                    }
+                    },
                 ],
             },
-        }
+        },
     )
     stored = json.dumps(fake.rows)
     for secret in ("172.17.0.24", "never-write", "private details", "http://"):

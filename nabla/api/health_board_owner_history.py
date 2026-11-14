@@ -194,7 +194,7 @@ async def read_owner_last_known() -> dict[str, Any]:
                 {
                     **record,
                     "ageSeconds": round(max(0.0, now - observed), 1),
-                }
+                },
             )
     rows.sort(key=lambda row: (row["ageSeconds"], row["id"], row["scope"]))
     return {"state": "historical", "current": False, "observations": rows}
