@@ -92,6 +92,10 @@ function announceRefreshComplete(snapshot, { forceRefresh, includeTechnical }) {
           forceRefresh,
           includeTechnical,
           refreshing: snapshot?.refreshing === true,
+          state: snapshot?.state || "unknown",
+          serviceEvidenceCount: Array.isArray(snapshot?.homelab?.services)
+            ? snapshot.homelab.services.length
+            : 0,
         },
       }),
     );

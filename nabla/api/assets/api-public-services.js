@@ -57,6 +57,8 @@ export function validOverview(value) {
 const CLOUD_RECHECK_MS = 180000;
 const LOCAL_RECHECK_MS = 30000;
 const DISPLAY_FRESH_MS = 90000;
+const PENDING_RETRY_BASE_MS = 9000;
+const PENDING_RETRY_CAP_MS = 90000;
 
 export function reconcilePublicObservation(payload, cached) {
   if (
@@ -255,11 +257,15 @@ export async function installPublicServiceOverview({
   function schedulePendingRetry() {
     clearRetry();
     if (pendingRetries >= 5 || document.hidden) return;
+    const delay = Math.min(
+      PENDING_RETRY_CAP_MS,
+      PENDING_RETRY_BASE_MS * 2 ** pendingRetries,
+    );
     pendingRetries += 1;
     retryTimer = window.setTimeout(() => {
       retryTimer = null;
       if (!document.hidden && !panel.hidden) void load();
-    }, 9000);
+    }, delay);
   }
 
   function expireLiveView() {
@@ -343,6 +349,9 @@ export async function installPublicServiceOverview({
         lastKnownOnError();
       } else {
         lastKnownOnError();
+        // Retain the historical PUBLIC-only view and retry with bounded
+        // backoff instead of requiring a manual Refresh after a cold start.
+        schedulePendingRetry();
       }
     } finally {
       loading = false;
@@ -350,10 +359,14 @@ export async function installPublicServiceOverview({
     }
   }
 
-  function resume() {
-    if (document.hidden || panel.hidden) return;
+  function resume({ immediate = false } = {}) {
+    if (document.hidden) return;
+    // Expire the status even when a detailed board had hidden the public
+    // fallback. A stale/pending detailed board may reveal it again.
     expireLiveView();
-    if (Date.now() - lastAttemptAt < recheckMs || loading) return;
+    if (panel.hidden) return;
+    if (Date.now() - lastAttemptAt < (immediate ? 5000 : recheckMs) || loading)
+      return;
     pendingRetries = 0;
     clearRetry();
     void load();
@@ -381,6 +394,6 @@ export async function installPublicServiceOverview({
   refresh.addEventListener("click", () => void load({ manual: true }));
   document.addEventListener("visibilitychange", resume);
   window.addEventListener("pageshow", resume);
-  window.addEventListener("online", resume);
+  window.addEventListener("online", () => resume({ immediate: true }));
   if (!document.hidden) await load();
 }

@@ -226,6 +226,35 @@ const publicServicesSource = readFileSync(
   "utf8",
 );
 
+test("a stale or empty rich board keeps the dated public fallback visible", () => {
+  const controller = readFileSync(
+    fileURLToPath(
+      new URL("../../nabla/api/assets/api-health-controller.js", import.meta.url),
+    ),
+    "utf8",
+  );
+  assert.ok(entry.includes('function shouldHidePublicFallback(detail)'));
+  assert.ok(entry.includes('fallback.hidden = shouldHidePublicFallback(event.detail)'));
+  assert.ok(!entry.includes('}, { once: true });\n  // An import may resolve'));
+  assert.ok(controller.includes('state: snapshot?.state || "unknown"'));
+  assert.ok(controller.includes('serviceEvidenceCount: Array.isArray(snapshot?.homelab?.services)'));
+  const checks = [
+    [{ state: "pending", refreshing: false, serviceEvidenceCount: 10 }, false],
+    [{ state: "stale", refreshing: false, serviceEvidenceCount: 10 }, false],
+    [{ state: "fresh", refreshing: true, serviceEvidenceCount: 10 }, false],
+    [{ state: "fresh", refreshing: false, serviceEvidenceCount: 0 }, false],
+    [{ state: "fresh", refreshing: false, serviceEvidenceCount: 10 }, true],
+  ];
+  const helper = entry.slice(
+    entry.indexOf("function shouldHidePublicFallback(detail)"),
+    entry.indexOf("\nfunction startRichDashboard()"),
+  );
+  for (const [detail, expected] of checks) {
+    const fn = new Function(`${helper}; return shouldHidePublicFallback;`)();
+    assert.equal(fn(detail), expected);
+  }
+});
+
 test("rich fallback never registers a second public directory controller", () => {
   assert.ok(publicServicesSource.includes('panel.dataset.publicServicesInitialized === "1"'));
   assert.ok(publicServicesSource.includes('panel.dataset.publicServicesInitialized = "1"'));
