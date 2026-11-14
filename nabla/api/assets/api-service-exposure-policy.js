@@ -2,14 +2,46 @@
 // /sickz remains the sole origin for outside-in exposure policy evidence.
 const STATES = new Set(["ok", "warn", "fail", "unknown"]);
 
-export function exposurePolicyPresentation(exposure, { cloudflareConfirmed = false } = {}) {
+export function exposurePolicyPresentation(
+  exposure,
+  { cloudflareConfirmed = false } = {},
+) {
   const unknown = {
     state: "unknown",
     tone: "unknown",
     label: "Exposure ?",
     summary: "Exposure policy not verified",
-    detail: "No current /sickz policy evidence; service reachability is a separate signal.",
+    detail:
+      "No current /sickz policy evidence; service reachability is a separate signal.",
   };
+  // Design facts, not observations: they hold on a stale snapshot too, but any
+  // observed public ingress still wins below.
+  const publicIngressSeen =
+    exposure?.reachable === true ||
+    exposure?.cloudflare_tunnel_observed === true ||
+    exposure?.cloudflare_access_observed === true;
+  if (exposure?.external === false && !publicIngressSeen) {
+    if (exposure.public_route === false) {
+      return {
+        state: "expected",
+        tone: "expected",
+        label: "LAN only",
+        summary: "No public route by design",
+        detail:
+          "Internal-only service without a public hostname: /sickz has no outside-in endpoint to probe. LAN TCP and runtime evidence are the health signals.",
+      };
+    }
+    if (exposure.skipped === true) {
+      return {
+        state: "expected",
+        tone: "expected",
+        label: "Private · LAN",
+        summary: "Outside-in check skipped on LAN by design",
+        detail:
+          "This LAN observer never runs outside-in /sickz probes; the FastAPI Cloud observer verifies that this internal-only endpoint stays unreachable.",
+      };
+    }
+  }
   if (!exposure || exposure.skipped === true || exposure.stale === true) {
     return unknown;
   }
@@ -18,32 +50,42 @@ export function exposurePolicyPresentation(exposure, { cloudflareConfirmed = fal
   const mode = exposure.tunnel_secure;
   // Backward-compatible field: old /sickz policy_status also includes
   // TrueNAS workload failure. Prefer the dedicated ingress-policy verdict.
-  const policySource = exposure.security_policy_status ?? exposure.policy_status;
+  const policySource =
+    exposure.security_policy_status ?? exposure.policy_status;
   const policy = STATES.has(policySource) ? policySource : "unknown";
   const publicHttpObserved = exposure.reachable === true;
-  const unexpectedTunnel = external === false &&
-    exposure.cloudflare_tunnel_observed === true;
-  const unexpectedAccess = external === false &&
-    exposure.cloudflare_access_observed === true;
+  const unexpectedTunnel =
+    external === false && exposure.cloudflare_tunnel_observed === true;
+  const unexpectedAccess =
+    external === false && exposure.cloudflare_access_observed === true;
 
   // A private service reached from outside, even with HTTP 401/403,
   // is a policy violation. A Cloudflare edge/Access response does not
   // prove that the protected origin was reached.
-  if (external === false && (publicHttpObserved || unexpectedTunnel || unexpectedAccess)) {
+  if (
+    external === false &&
+    (publicHttpObserved || unexpectedTunnel || unexpectedAccess)
+  ) {
     const reason = publicHttpObserved
       ? "A public HTTP endpoint answered the external observer; HTTP 401/403 does not make an internal-only endpoint private."
       : "A public Cloudflare route or Access application was observed for an internal-only service.";
     return {
-      state: "fail", tone: "fail", label: "Exposure !",
-      summary: "Unexpected public exposure", detail: reason,
+      state: "fail",
+      tone: "fail",
+      label: "Exposure !",
+      summary: "Unexpected public exposure",
+      detail: reason,
     };
   }
 
   if (policy === "fail") {
     return {
-      state: "fail", tone: "fail", label: "Exposure !",
+      state: "fail",
+      tone: "fail",
+      label: "Exposure !",
       summary: "Exposure policy failed",
-      detail: "The existing /sickz policy reported a failure. Check the separate HTTP, TLS, runtime and edge evidence for its cause.",
+      detail:
+        "The existing /sickz policy reported a failure. Check the separate HTTP, TLS, runtime and edge evidence for its cause.",
     };
   }
 
@@ -52,58 +94,76 @@ export function exposurePolicyPresentation(exposure, { cloudflareConfirmed = fal
   if (external === false) {
     if (policy === "ok" && exposure.reachable === false) {
       return {
-        state: "ok", tone: "ok", label: "Private OK",
+        state: "ok",
+        tone: "ok",
+        label: "Private OK",
         summary: "Internal-only policy observed compliant",
-        detail: "external=false; the outside-in probe did not reach the declared endpoint. Other undeclared routes have not been scanned.",
+        detail:
+          "external=false; the outside-in probe did not reach the declared endpoint. Other undeclared routes have not been scanned.",
       };
     }
     if (policy === "warn") {
       return {
-        state: "warn", tone: "warn", label: "Privacy risk",
+        state: "warn",
+        tone: "warn",
+        label: "Privacy risk",
         summary: "Internal-only exposure needs review",
-        detail: "The existing /sickz policy reported a warning; no confirmed public ingress was inferred.",
+        detail:
+          "The existing /sickz policy reported a warning; no confirmed public ingress was inferred.",
       };
     }
     return {
       ...unknown,
       summary: "Internal-only exposure not verified",
-      detail: "external=false is a declaration, not proof that every public ingress path is closed.",
+      detail:
+        "external=false is a declaration, not proof that every public ingress path is closed.",
     };
   }
 
   if (external === true && mode === false) {
     return {
-      state: "warn", tone: "warn", label: "Direct · Risk",
+      state: "warn",
+      tone: "warn",
+      label: "Direct · Risk",
       summary: "Direct public exposure explicitly declared",
-      detail: "tunnelSecure=false allows a direct Internet entry point. It is an acknowledged security debt, even when the service is available.",
+      detail:
+        "tunnelSecure=false allows a direct Internet entry point. It is an acknowledged security debt, even when the service is available.",
     };
   }
 
   if (external === true && mode === true) {
     if (policy === "ok" && cloudflareConfirmed) {
       return {
-        state: "ok", tone: "ok", label: "Protected",
+        state: "ok",
+        tone: "ok",
+        label: "Protected",
         summary: "Cloudflare ingress policy verified",
-        detail: "External exposure is declared behind a Tunnel and the existing /sickz policy verified its Access requirements. Not proof of application health.",
+        detail:
+          "External exposure is declared behind a Tunnel and the existing /sickz policy verified its Access requirements. Not proof of application health.",
       };
     }
     if (policy === "warn") {
       return {
-        state: "warn", tone: "warn", label: "Access review",
+        state: "warn",
+        tone: "warn",
+        label: "Access review",
         summary: "Protected public exposure needs review",
-        detail: "The /sickz policy reports a warning for the declared Cloudflare protected service.",
+        detail:
+          "The /sickz policy reports a warning for the declared Cloudflare protected service.",
       };
     }
     return {
       ...unknown,
       summary: "Cloudflare policy verification incomplete",
-      detail: "A declared Tunnel alone does not prove Access protection; Cloudflare control-plane evidence is incomplete or absent.",
+      detail:
+        "A declared Tunnel alone does not prove Access protection; Cloudflare control-plane evidence is incomplete or absent.",
     };
   }
 
   return {
     ...unknown,
     summary: "Public exposure security mode undeclared",
-    detail: "The catalogue must explicitly declare whether external access uses Cloudflare Tunnel/Access or an approved direct exception.",
+    detail:
+      "The catalogue must explicitly declare whether external access uses Cloudflare Tunnel/Access or an approved direct exception.",
   };
 }

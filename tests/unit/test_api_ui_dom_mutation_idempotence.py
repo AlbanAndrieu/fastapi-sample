@@ -21,9 +21,12 @@ def test_probe_order_does_not_reappend_every_badge_on_each_animation_frame():
 
 def test_final_ui_decoration_avoids_redundant_observed_writes():
     followup = source("api-health-ui-final-followup.js")
-    assert 'if (age.textContent !== value) age.textContent = value;' in followup
+    assert "if (age.textContent !== value) age.textContent = value;" in followup
     assert 'if (!node.classList.contains("health-overflow-safe"))' in followup
-    assert 'latency.classList.contains("health-meta-badge--probe-latency-unavailable")' in followup
+    # Whitespace-insensitive: the formatter wraps this long call.
+    assert 'latency.classList.contains("health-meta-badge--probe-latency-unavailable"' in "".join(
+        followup.split(),
+    )
     assert "new MutationObserver(schedule).observe(board" in followup
 
 
@@ -35,7 +38,7 @@ def test_polish_never_rewrites_same_tier_on_each_observer_run():
 
 def test_new_regression_test_demonstrates_zero_mutations_after_stabilization():
     script = (ASSETS.parents[2] / "tests/js/api-probe-stable-order.test.mjs").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     assert "afterFirstPass" in script
     assert "for (let i = 0; i < 100; i += 1)" in script
@@ -59,7 +62,6 @@ def test_filter_and_probe_dom_guards_are_covered_by_node_regressions():
     assert "for (let i = 0; i < 100; i += 1)" in probe_regression
 
 
-
 def test_truenas_semantic_status_observer_does_not_rewrite_same_value():
     """Prevent self-triggered rAF from the observed data-semantic-status."""
     global_filter = source("api-global-service-filter.js")
@@ -67,15 +69,13 @@ def test_truenas_semantic_status_observer_does_not_rewrite_same_value():
     assert 'attributeFilter: ["data-semantic-status", "hidden"]' in global_filter
     assert 'setDatasetValueIfChanged(panel, "semanticStatus", status);' in global_filter
     assert 'setDatasetValueIfChanged(panel, "probeKinds", [...protocols].join(" "));' in global_filter
-    assert 'panel.dataset.semanticStatus = ' not in global_filter
+    assert "panel.dataset.semanticStatus = " not in global_filter
     assert "if (element.dataset[name] === value) return false;" in helper
     assert "element.dataset[name] = value;" in helper
 
 
 def test_truenas_status_stability_is_exercised_over_1000_cycles():
-    regression = (
-        ASSETS.parents[2] / "tests/js/api-dom-observer-idempotence.test.mjs"
-    ).read_text(encoding="utf-8")
+    regression = (ASSETS.parents[2] / "tests/js/api-dom-observer-idempotence.test.mjs").read_text(encoding="utf-8")
     assert "frame < 1000" in regression
     assert "tracked.mutations, 1" in regression
     assert "tracked.mutations, 2" in regression

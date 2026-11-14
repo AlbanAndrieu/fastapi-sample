@@ -217,10 +217,12 @@ function slotKey(row, strip) {
 }
 
 function inferredProbeKinds(row, strip) {
+  // "issues" is a summary, not a probe slot: a placeholder for it was removed
+  // again by api-service-probe-planes on every pass.
   const kinds = new Set(
     [...strip.querySelectorAll(":scope > .service-probe[data-probe-kind]")]
       .map((probe) => probe.dataset.probeKind)
-      .filter(Boolean),
+      .filter((kind) => kind && kind !== "issues"),
   );
   const plane = strip.dataset.probePlane || "public";
   if (plane === "lan") {
@@ -264,8 +266,12 @@ function inferredProbeKinds(row, strip) {
 }
 
 function ensureProbePlaceholder(strip, kind) {
+  // One badge per kind per card: api-health-ui-operator-followup removes a
+  // placeholder that duplicates a kind shown in the other plane.
+  const row = strip.closest(".health-row") || strip;
   if (
-    strip.querySelector(`:scope > .service-probe[data-probe-kind="${kind}"]`)
+    strip.querySelector(`:scope > .service-probe[data-probe-kind="${kind}"]`) ||
+    row.querySelector(`.service-probe-strip > [data-probe-kind="${kind}"]`)
   ) {
     return;
   }
@@ -369,10 +375,14 @@ function normalizeTelemetry(row) {
   } else {
     const unavailable = latency.textContent.trim() === "—";
     if (
-      latency.classList.contains("health-meta-badge--probe-latency-unavailable") !==
-      unavailable
+      latency.classList.contains(
+        "health-meta-badge--probe-latency-unavailable",
+      ) !== unavailable
     ) {
-      latency.classList.toggle("health-meta-badge--probe-latency-unavailable", unavailable);
+      latency.classList.toggle(
+        "health-meta-badge--probe-latency-unavailable",
+        unavailable,
+      );
     }
     latency.title =
       latency.textContent.trim() === "—"

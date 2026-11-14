@@ -218,6 +218,14 @@ function decorateRows(snapshot, attempt = 0) {
 
 function installTierLegend() {
   if (document.getElementById("health-tier-legend")) return;
+  // api-health-ui-polish merged the tiers into this legend and removes ours:
+  // re-adding it on each snapshot made it flash above the service groups.
+  if (
+    document.querySelector(
+      '#service-probe-legend[data-health-legend-complete="true"]',
+    )
+  )
+    return;
   const groups = document.getElementById("health-services-groups");
   if (!groups) return;
   const legend = document.createElement("div");

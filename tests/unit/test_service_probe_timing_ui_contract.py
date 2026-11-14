@@ -18,7 +18,8 @@ def test_http_200_is_transport_green_and_hover_has_timing() -> None:
     assert "cadence=" in javascript
     assert "next-due=" in javascript
     assert "PENDING / probing…" in javascript
-    assert "badge.classList.add(`service-probe--${toneFor(check, serviceId)}`)" in javascript
+    assert "const tone = `service-probe--${toneFor(check, serviceId)}`;" in javascript
+    assert "badge.classList.add(tone)" in javascript
 
 
 def test_question_help_reuses_http_probe_timing() -> None:

@@ -241,6 +241,10 @@ function replaceDirectProbeWording(row, check) {
 
 function appendTunnelBadge(row, state, check, exposureSummary) {
   if (!row || !state || row.querySelector(".cloudflare-tunnel-badge")) return;
+  // The strip's Tunnel badge already shows this; api-cloudflare-probe would
+  // remove this duplicate again on every refresh.
+  if (row.querySelector('.service-probe-strip [data-probe-kind="cloudflare"]'))
+    return;
   const tags =
     row.querySelector(".health-row-tags") ||
     row.querySelector(".health-row-main");

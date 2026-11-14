@@ -353,9 +353,37 @@ function renderEvidence(drawer, row) {
       : [],
   );
   const hadGroups = preserving && existing.length > 0;
-  host.dataset.selectedService = selectedId;
-  host.replaceChildren();
   const probes = probeEntries(row);
+  // Keep the previous evidence while a refresh rebuilds the row's badges.
+  if (probes.length === 0 && hadGroups) return;
+  const structure = JSON.stringify([
+    evidenceIssuesOnly,
+    probes.map((probe) => [
+      probe.kind,
+      probe.label,
+      probe.tone,
+      probe.disabled,
+      probe.href,
+    ]),
+  ]);
+  if (preserving && host.dataset.structure === structure) {
+    // Same probes and states: refresh texts in place, no rebuild.
+    for (const item of host.querySelectorAll("article[data-probe-key]")) {
+      const probe = probes.find(
+        (entry) => entry.kind + "|" + entry.label === item.dataset.probeKey,
+      );
+      const detail = item.querySelector(
+        ":scope > p:not(.service-detail-probe-advice)",
+      );
+      const text = probe ? sanitizedEvidence(probe.detail) : "";
+      if (detail && probe && detail.textContent !== text)
+        detail.textContent = text;
+    }
+    return;
+  }
+  host.dataset.selectedService = selectedId;
+  host.dataset.structure = structure;
+  host.replaceChildren();
   const counts = evidenceCounts(probes);
   const filter = document.createElement("label");
   filter.className = "service-detail-issues-filter";
@@ -380,7 +408,7 @@ function renderEvidence(drawer, row) {
     counts.warning +
     " warning · " +
     counts.info +
-    " protected · " +
+    " expected · " +
     counts.unknown +
     " unknown · " +
     counts.notRun +
@@ -394,7 +422,15 @@ function renderEvidence(drawer, row) {
     host.appendChild(empty);
     return;
   }
-  const rank = { fail: 0, warn: 1, info: 2, unknown: 3, neutral: 4, ok: 5 };
+  const rank = {
+    fail: 0,
+    warn: 1,
+    info: 2,
+    expected: 2,
+    unknown: 3,
+    neutral: 4,
+    ok: 5,
+  };
   const visible = probes.filter(
     (probe) =>
       !evidenceIssuesOnly ||
@@ -454,6 +490,7 @@ function renderEvidence(drawer, row) {
       item.className =
         "service-detail-probe service-detail-probe--" +
         (probe.disabled ? "unknown" : probe.tone);
+      item.dataset.probeKey = probe.kind + "|" + probe.label;
       if (probe.disabled) item.dataset.disabled = "true";
       const heading = document.createElement("div");
       heading.className = "service-detail-probe-heading";
@@ -486,7 +523,9 @@ function renderEvidence(drawer, row) {
               ? "WARNING"
               : probe.tone === "info"
                 ? "AUTH REQUIRED · EXPECTED"
-                : "UNVERIFIED";
+                : probe.tone === "expected"
+                  ? "EXPECTED · BY DESIGN"
+                  : "UNVERIFIED";
       heading.appendChild(state);
       const detail = document.createElement("p");
       detail.textContent = sanitizedEvidence(probe.detail);
@@ -599,20 +638,23 @@ function renderProbeSummary(drawer, row) {
   const probes = probeEntries(row).filter((probe) => !probe.disabled);
   const failed = probes.filter((probe) => probe.tone === "fail").length;
   const warnings = probes.filter((probe) => probe.tone === "warn").length;
-  const protectedCount = probes.filter((probe) => probe.tone === "info").length;
+  const protectedCount = probes.filter((probe) =>
+    ["info", "expected"].includes(probe.tone),
+  ).length;
   const unknown = probes.filter(
-    (probe) => !["ok", "fail", "warn", "info"].includes(probe.tone),
+    (probe) => !["ok", "fail", "warn", "info", "expected"].includes(probe.tone),
   ).length;
   const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
   const timestamp = latestSnapshot?.platform_metrics?.generated_at;
   const observationTime = Number.isFinite(Date.parse(timestamp))
     ? " · Metrics snapshot: " + new Date(timestamp).toLocaleString()
     : " · Metrics snapshot: unverified";
-  host.textContent = probes.length
-    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${protectedCount} auth expected · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` +
+  const summary = probes.length
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${protectedCount} expected · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. See the grouped evidence below.` +
       observationTime
     : "No direct probe evidence; this is not proof of service health." +
       observationTime;
+  if (host.textContent !== summary) host.textContent = summary;
   host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
 }
 
@@ -923,15 +965,17 @@ function reattachActiveRow() {
 }
 
 function scheduleActiveRefresh() {
-  if (!activeRow || refreshScheduled) return;
-  refreshScheduled = true;
-  window.requestAnimationFrame(() => {
+  if (!activeRow) return;
+  // Debounce: several decorators rewrite a row during one refresh; render the
+  // drawer once they settle instead of showing each intermediate state.
+  window.clearTimeout(refreshScheduled);
+  refreshScheduled = window.setTimeout(() => {
     refreshScheduled = false;
     if (!reattachActiveRow()) {
       return;
     }
     renderDrawer(activeRow);
-  });
+  }, 300);
 }
 
 function observeRows() {

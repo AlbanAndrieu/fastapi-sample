@@ -14,7 +14,9 @@ def test_dns_badge_exposes_runtime_resolver_evidence() -> None:
     assert "dns_resolvers" in javascript
     assert "dns_resolved" in javascript
     assert "dns_resolver_source" in javascript
-    assert "strip.prepend(badgeFor(check))" in javascript
+    # Updated in place; the previous badge stays until a newer observation.
+    assert "const badge = badgeFor(check);" in javascript
+    assert "current.replaceWith(badge)" in javascript
 
 
 def test_health_controller_decorates_dns_from_existing_snapshot() -> None:

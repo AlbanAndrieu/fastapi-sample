@@ -1,5 +1,6 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { expectedAnonymousAuth } from "./api-service-http-auth.js";
+import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
+import { firstObservedCheck } from "./api-service-http-auth.js";
 import { serviceTelemetry } from "./api-service-telemetry.js";
 
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
@@ -74,10 +75,16 @@ function exposureForRow(snapshot, row) {
 }
 
 function publicForRow(snapshot, row) {
-  return (
-    findCheck(snapshot?.homelab?.public_probe_results, row) ||
-    findCheck(snapshot?.homelab?.services, row) ||
-    null
+  const declared = findCheck(snapshot?.homelab?.services, row);
+  const rowHost = hostOf(row.dataset.serviceUrl);
+  // A catalogue entry for another hostname must not speak for this endpoint.
+  const declaredHere =
+    rowHost && hostOf(declared?.url) && hostOf(declared.url) !== rowHost
+      ? null
+      : declared;
+  return firstObservedCheck(
+    findCheck(snapshot?.homelab?.public_probe_results, row),
+    declaredHere,
   );
 }
 
@@ -126,7 +133,17 @@ function accessApplication(summary, hostname) {
 }
 
 function toneClass(node, tone) {
-  for (const candidate of ["ok", "warn", "fail", "unknown", "neutral", "info"]) {
+  // Unchanged tone: touch nothing, observers would re-render the card.
+  if (node.classList.contains(`service-probe--${tone}`)) return;
+  for (const candidate of [
+    "ok",
+    "warn",
+    "fail",
+    "unknown",
+    "neutral",
+    "info",
+    "expected",
+  ]) {
     node.classList.remove(`service-probe--${candidate}`);
   }
   node.classList.add(`service-probe--${tone}`);
@@ -134,7 +151,7 @@ function toneClass(node, tone) {
 
 function badgeLabel(node, label) {
   const text = node.querySelector(".service-probe-label");
-  if (text) text.textContent = label;
+  if (text && text.textContent !== label) text.textContent = label;
 }
 
 function linkedBadge(node, href) {
@@ -187,6 +204,10 @@ function ensurePlaneLabel(primary, strip, plane, label, href, detail) {
     node.className = `service-probe-plane-label service-probe-plane-label--${plane}`;
     primary.insertBefore(node, strip);
   }
+  // Unchanged inputs: keep the node (api-health-ui-operator-followup links it).
+  const key = JSON.stringify([label, href || "", detail || ""]);
+  if (node.dataset.planeKey === key) return;
+  node.dataset.planeKey = key;
   node.replaceChildren();
   const title = document.createElement("strong");
   title.textContent = label;
@@ -206,45 +227,13 @@ function ensurePlaneLabel(primary, strip, plane, label, href, detail) {
   }
 }
 
-function publicTone(check, serviceId) {
-  if (expectedAnonymousAuth(serviceId, check)) return "info";
-  const status = Number(check?.http_status);
-  if (Number.isFinite(status) && status >= 200 && status < 400) return "ok";
-  if (check?.reachable === false || status >= 500) return "fail";
-  if (Number.isFinite(status) || check?.reachable === true) return "warn";
-  return "unknown";
-}
-
-function decoratePublicEvidence(strip, check, url, { privateS3 = false, serviceId = "" } = {}) {
+function decoratePublicEvidence(strip, check, url) {
   if (!check) return;
-  const status = Number(check.http_status);
-  const expected = expectedAnonymousAuth(serviceId, check);
-  const http = ensureProbe(
-    strip,
-    "http",
-    "🌐",
-    expected?.label || (Number.isFinite(status) && status > 0 ? `HTTP ${status}` : "HTTP"),
-  );
-  toneClass(http, expected ? "info" : privateS3 ? "unknown" : publicTone(check, serviceId));
-  if (privateS3) {
-    badgeLabel(http, "Private S3 · HTTP ≠ health");
+  // api-http-probe-status.js alone tones, labels and titles this badge: two
+  // writers with different evidence made it flip on every refresh.
+  if (!strip.querySelector('[data-probe-kind="http"]')) {
+    ensureProbe(strip, "http", "🌐", "HTTP");
   }
-  const detail = [
-    expected
-      ? expected.detail
-      : privateS3
-        ? "Private S3 API. Anonymous HTTP GET is not a signed S3 health check; outside-in failures do not prove origin downtime."
-      : `Public probe: ${url || check.url || "target unavailable"}`,
-    Number.isFinite(status) && status > 0
-      ? `HTTP ${status}`
-      : "HTTP status unconfirmed",
-    check.latency_ms != null ? `${check.latency_ms} ms` : "",
-    check.public_probe_auth_mode ? `auth=${check.public_probe_auth_mode}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  http.title = detail;
-  http.setAttribute("aria-label", detail);
 
   const tls = ensureProbe(strip, "tls", "🔒", "TLS");
   const tlsTone =
@@ -274,14 +263,6 @@ function decorateCloudflare(strip, summary, exposure, hostname) {
     matchedRoute || exposure?.cloudflare_tunnel_observed === true,
   );
   let tunnel = ensureProbe(strip, "cloudflare", "☁️", "Tunnel");
-  toneClass(
-    tunnel,
-    tunnelObserved
-      ? normalize(tunnelState) === "healthy"
-        ? "ok"
-        : "warn"
-      : "unknown",
-  );
   const origin =
     matchedRoute?.route?.service ||
     exposure?.cloudflare_origin_service ||
@@ -289,8 +270,21 @@ function decorateCloudflare(strip, summary, exposure, hostname) {
   const tunnelDetail = tunnelObserved
     ? `Cloudflare Tunnel / Published application route: ${hostname || "hostname"} → ${origin} · tunnel=${matchedRoute?.tunnel?.name || exposure?.cloudflare_tunnel_name || "observed"} · status=${tunnelState}. Tunnel provides routing/connectivity; it does not authorize users.`
     : "Cloudflare Tunnel / Published application route is unverified. Tunnel provides routing/connectivity; Access is the separate authorization layer.";
-  tunnel.title = tunnelDetail;
-  tunnel.setAttribute("aria-label", tunnelDetail);
+  // api-cloudflare-probe owns the badge once it has /sickz evidence.
+  if (tunnel.dataset.statusOwner !== "cloudflare-probe") {
+    toneClass(
+      tunnel,
+      tunnelObserved
+        ? normalize(tunnelState) === "healthy"
+          ? "ok"
+          : "warn"
+        : "unknown",
+    );
+    if (tunnel.title !== tunnelDetail) {
+      tunnel.title = tunnelDetail;
+      tunnel.setAttribute("aria-label", tunnelDetail);
+    }
+  }
   if (hostname) {
     tunnel = linkedBadge(tunnel, CLOUDFLARE_DASHBOARD);
   }
@@ -361,11 +355,60 @@ function ensureLanStrip(primary) {
   return strip;
 }
 
+const LAN_KINDS = [
+  "tcp",
+  "prometheus",
+  "gatus",
+  "gatus-fleet",
+  "exporter",
+  "flow",
+  "functional",
+  "resource",
+];
+
 function decorateLan(primary, check, exposure, snapshot, row) {
   const strip = ensureLanStrip(primary);
   const endpoint = internalEndpoint(check, exposure);
   ensurePlaneLabel(primary, strip, "lan", "LAN", endpoint.href, endpoint.label);
-  strip.replaceChildren();
+  // Built off-DOM, then only changed badges are swapped: clearing the strip
+  // on every pass made each LAN badge blink.
+  const fresh = document.createElement("div");
+  fillLan(fresh, check, endpoint, snapshot, row);
+  const kinds = new Set(
+    [...fresh.children].map((badge) => badge.dataset.probeKind),
+  );
+  for (const badge of [...fresh.children]) {
+    const current = strip.querySelector(
+      `:scope > [data-probe-kind="${badge.dataset.probeKind}"]`,
+    );
+    if (
+      current &&
+      current.className === badge.className &&
+      current.textContent === badge.textContent
+    ) {
+      // api-health-ui-probe-explanations titles an unsampled (unknown) TCP probe.
+      const explained =
+        badge.dataset.probeKind === "tcp" &&
+        badge.classList.contains("service-probe--unknown");
+      if (!explained && current.title !== badge.title) {
+        current.title = badge.title;
+        current.setAttribute("aria-label", badge.title);
+      }
+      continue;
+    }
+    if (current) current.replaceWith(badge);
+    else strip.appendChild(badge);
+  }
+  for (const node of strip.querySelectorAll(":scope > [data-probe-kind]")) {
+    if (
+      LAN_KINDS.includes(node.dataset.probeKind) &&
+      !kinds.has(node.dataset.probeKind)
+    )
+      node.remove();
+  }
+}
+
+function fillLan(strip, check, endpoint, snapshot, row) {
   const tcp = ensureProbe(strip, "tcp", "🔌", "TCP");
   const tone =
     check?.reachable === true
@@ -406,13 +449,13 @@ function decorateIssueSummary(row, strip) {
   const observations = [...row.querySelectorAll(".service-probe")].filter(
     (probe) =>
       probe.dataset.probeKind !== "issues" &&
-      probe.dataset.probeDisabled !== "true"
+      probe.dataset.probeDisabled !== "true",
   );
   const failures = observations.filter((item) =>
-    item.classList.contains("service-probe--fail")
+    item.classList.contains("service-probe--fail"),
   );
   const warnings = observations.filter((item) =>
-    item.classList.contains("service-probe--warn")
+    item.classList.contains("service-probe--warn"),
   );
   if (!failures.length && !warnings.length) {
     strip.querySelector('[data-probe-kind="issues"]')?.remove();
@@ -421,10 +464,14 @@ function decorateIssueSummary(row, strip) {
   const label = `${failures.length} failed · ${warnings.length} warning`;
   const badge = ensureProbe(strip, "issues", "⚠️", label);
   toneClass(badge, failures.length ? "fail" : "warn");
-  const summary = [...failures, ...warnings].slice(0, 4).map((item) =>
-    item.querySelector(".service-probe-label")?.textContent?.trim() ||
-    item.dataset.probeKind || "probe"
-  );
+  const summary = [...failures, ...warnings]
+    .slice(0, 4)
+    .map(
+      (item) =>
+        item.querySelector(".service-probe-label")?.textContent?.trim() ||
+        item.dataset.probeKind ||
+        "probe",
+    );
   const detail = `Observed diagnostic badge issues: ${summary.join(", ")}. Open Details for HTTP, DNS, TLS, Token and metrics evidence; this is not an overall service-down verdict.`;
   badge.title = detail;
   badge.setAttribute("aria-label", detail);
@@ -468,13 +515,7 @@ function decorateRow(row, snapshot) {
     "service-probe-strip--public",
   );
   publicStrip.dataset.probePlane = "public";
-  const canonicalId = String(
-    row.dataset.topologyId || row.dataset.serviceKey || "",
-  ).replace(/^albandrieu_/, "").replaceAll("_", "-");
-  decoratePublicEvidence(publicStrip, publicCheck, url, {
-    serviceId: String(row.dataset.topologyId || row.dataset.serviceKey || "").replace(/^albandrieu_/, "").replaceAll("_", "-"),
-    privateS3: canonicalId === "garage",
-  });
+  decoratePublicEvidence(publicStrip, publicCheck, url);
   decorateCloudflare(
     publicStrip,
     snapshot?.homelab?.cloudflare,
@@ -514,6 +555,8 @@ function apply() {
   for (const row of document.querySelectorAll(ROW_SELECTOR)) {
     decorateRow(row, latestSnapshot);
   }
+  // A just-created HTTP badge gets its tone from the badge's sole owner.
+  decorateHttpProbeStatuses(latestSnapshot);
 }
 
 function schedule() {

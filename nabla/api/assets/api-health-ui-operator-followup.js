@@ -4,7 +4,7 @@ const CLOUDFLARE_ICON =
   "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/cloudflare.svg";
 
 let latestSnapshot = null;
-let catalogPromise = null;
+const catalogPromise = null;
 let runtimeDiagnosticsState = null;
 let scheduled = false;
 
@@ -103,7 +103,10 @@ function serviceButton(label, serviceKey, title, iconSrc = "") {
 }
 
 function decoratePublicDns() {
-  const stage = stageByLabel((label) => label === "public dns");
+  // Match before or after api-platform-flow-ui renames "DNS": either may run first.
+  const stage = stageByLabel((label) =>
+    ["public dns", "dns", "dns resolution"].includes(label),
+  );
   const label = stage?.querySelector(".truenas-stage-label");
   if (!stage || !label || label.dataset.cloudflareLinked === "true") return;
   label.dataset.cloudflareLinked = "true";
@@ -184,7 +187,13 @@ function ensureLocalPfSenseFlowStage() {
   icon.className = "truenas-stage-icon";
   icon.setAttribute("aria-hidden", "true");
   icon.textContent =
-    state === "ok" ? "●" : state === "warn" ? "⚠" : state === "fail" ? "💀" : "⊘";
+    state === "ok"
+      ? "●"
+      : state === "warn"
+        ? "⚠"
+        : state === "fail"
+          ? "💀"
+          : "⊘";
   const label = document.createElement("span");
   label.className = "truenas-stage-label";
   label.appendChild(
