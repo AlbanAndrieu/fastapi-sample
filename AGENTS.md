@@ -23,6 +23,8 @@
 - Use **L0** inspection, **L1** targeted test, **L2** changed-file local gate, **L3** clean exact-HEAD publish gate. Report PASS/FAIL/INCOMPLETE/NOT_RUN with SHA and environment; CI/PR green is **not** runtime ACCEPTED.
 - `DENIED`, `NOT_RUN`, `NO_SAMPLE` and `STALE` are **not** `DOWN`; declarations, observations, health and internet exposure are distinct. A cloud 403 is not a TrueNAS outage. Never infer accessibility from DNS, dashboard green or catalog metadata.
 - No plaintext secrets, tokens, passwords, private IPs or internal URLs in PUBLIC DTOs, logs or commits. Do not mutate `.env`, `.env.local`, `.env.secrets`, certificate/YubiKey state, firewall, backup, DB or Cloudflare policies unless explicitly asked and authorized.
+### Documentation ownership across Nabla repositories
+
 - `nabla-compose` owns TrueNAS, pfSense, Cloudflare, Gatus/Prometheus targets, infrastructure mutations, and the H portfolio. FastAPI owns API/health semantics, consumers, caches, diagnostics and tests. `nabla-site-alban` owns Next.js presentation. This repository's `compose.yml` is the TrueNAS application deployment definition; `docker-compose.yaml` is local development.
 - The canonical FastAPI backlog is `docs/engineering-roadmap.md` (current order H05/F03+F09 then H17/F11); `docs/engineering-backlog.md` is historical, and `docs/incidents.md` holds dated incidents. Do not reopen archived E aliases or duplicate runbooks. The unique master-red tracker is issue #355, governed by `scripts/ci/master_red_issue.py` and two distinct successful master runs.
 
