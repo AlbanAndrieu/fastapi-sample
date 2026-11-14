@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import {
+  readPublicObservation,
+  savePublicObservation,
+} from "../../nabla/api/assets/api-public-observation-cache.js";
 import { reconcilePublicObservation } from "../../nabla/api/assets/api-public-services.js";
-import { readPublicObservation, savePublicObservation } from "../../nabla/api/assets/api-public-observation-cache.js";
 
 const REVISION = "sha256:" + "a".repeat(64);
 const OTHER = "sha256:" + "b".repeat(64);
@@ -33,7 +36,10 @@ test("fresh evidence supersedes history; revision drift and bootstrap never clai
   });
   for (const result of [
     reconcilePublicObservation(snapshot("pending", OTHER), old),
-    reconcilePublicObservation(snapshot("fresh", OTHER, "bootstrap-snapshot"), old),
+    reconcilePublicObservation(
+      snapshot("fresh", OTHER, "bootstrap-snapshot"),
+      old,
+    ),
   ]) {
     assert.equal(result.historical, false);
     assert.equal(result.rows[0].state, "unknown");
@@ -63,7 +69,10 @@ test("UI paints dated neutral history before network and rechecks on resume", ()
     new URL("../../nabla/api/assets/api-public-services.js", import.meta.url),
     "utf8",
   );
-  assert.ok(source.indexOf("const cached = readPublicObservation(storage)") < source.indexOf("if (!document.hidden) await load()"));
+  assert.ok(
+    source.indexOf("const cached = readPublicObservation(storage)") <
+      source.indexOf("if (!document.hidden) await load()"),
+  );
   assert.match(source, /state\.textContent = historical/);
   assert.match(source, /publicObservationAge\(receivedAt\)/);
   assert.match(source, /lastReceivedAt/);
@@ -73,7 +82,10 @@ test("UI paints dated neutral history before network and rechecks on resume", ()
   assert.match(source, /clearPublicObservation\(storage\)/);
   assert.match(source, /CLOUD_RECHECK_MS = 180000/);
   assert.match(source, /LOCAL_RECHECK_MS = 30000/);
-  assert.doesNotMatch(source, /health-board\/refresh|localStorage|sessionStorage|DIAGNOSTICS_ACCESS_KEY/);
+  assert.doesNotMatch(
+    source,
+    /health-board\/refresh|localStorage|sessionStorage|DIAGNOSTICS_ACCESS_KEY/,
+  );
 });
 
 test("home retains its isolated inventory cache but labels and greys last-known counts", () => {
@@ -87,7 +99,10 @@ test("home retains its isolated inventory cache but labels and greys last-known 
   );
   assert.match(source, /function paintLastObservedFleet/);
   assert.match(source, /boardState: "historical"/);
-  assert.match(source, /paintLastObservedFleet\(publicResult\.value\.catalogRevision\)/);
+  assert.match(
+    source,
+    /paintLastObservedFleet\(publicResult\.value\.catalogRevision\)/,
+  );
   assert.match(source, /savePublicObservation/);
   assert.match(styles, /\[data-historical="true"\] \.op-meter-segment/);
   assert.doesNotMatch(source, /localStorage|DIAGNOSTICS_ACCESS_KEY/);

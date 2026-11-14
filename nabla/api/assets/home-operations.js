@@ -1114,7 +1114,8 @@ async function refresh() {
       );
     if (fleet) {
       persistPublicDirectory(publicSessionCache(), publicResult.value);
-      const showingHistorical = !fleet.verified &&
+      const showingHistorical =
+        !fleet.verified &&
         paintLastObservedFleet(publicResult.value.catalogRevision);
       if (!showingHistorical) summaryCounts(fleet);
       if (fleet.verified) {

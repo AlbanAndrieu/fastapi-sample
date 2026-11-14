@@ -44,7 +44,10 @@ function storage() {
 test("last PUBLIC summary survives hours, but excludes private fields and raw probes", () => {
   const cache = storage();
   assert.equal(savePublicObservation(cache, example(), NOW), true);
-  assert.doesNotMatch(cache.dump(), /PRIVATE_TOKEN|private-owner|172\.17\.|probes|healthz|url/);
+  assert.doesNotMatch(
+    cache.dump(),
+    /PRIVATE_TOKEN|private-owner|172\.17\.|probes|healthz|url/,
+  );
   const restored = readPublicObservation(cache, NOW + 6 * 3600000);
   assert.ok(restored);
   assert.equal(restored.receivedAt, NOW);
@@ -59,7 +62,10 @@ test("missing, expired, future or tampered cache fails closed", () => {
   const cache = storage();
   assert.equal(readPublicObservation(cache, NOW), null);
   savePublicObservation(cache, example(), NOW);
-  assert.equal(readPublicObservation(cache, NOW + 24 * 3600000)?.receivedAt, NOW);
+  assert.equal(
+    readPublicObservation(cache, NOW + 24 * 3600000)?.receivedAt,
+    NOW,
+  );
   assert.equal(readPublicObservation(cache, NOW + 24 * 3600000 + 1), null);
   assert.equal(readPublicObservation(cache, NOW - 31000), null);
   const item = JSON.parse(cache.dump());
@@ -77,9 +83,18 @@ test("only freshly verified canonical public responses can replace last known", 
     { ...original, boardState: "pending" },
     { ...original, boardState: "stale" },
     { ...original, catalogSource: "bootstrap-snapshot" },
-    { ...original, services: [{ name: "<script>", kind: "Component", state: "ok" }] },
-    { ...original, services: [{ name: "ok", kind: "Component", state: "FAIL" }] },
-    { ...original, services: [{ name: "172.17.0.24", kind: "Resource", state: "ok" }] },
+    {
+      ...original,
+      services: [{ name: "<script>", kind: "Component", state: "ok" }],
+    },
+    {
+      ...original,
+      services: [{ name: "ok", kind: "Component", state: "FAIL" }],
+    },
+    {
+      ...original,
+      services: [{ name: "172.17.0.24", kind: "Resource", state: "ok" }],
+    },
     { ...original, services: [] },
   ]) {
     assert.equal(savePublicObservation(cache, invalid, NOW + 1), false);
@@ -91,9 +106,15 @@ test("only freshly verified canonical public responses can replace last known", 
 
 test("browser storage denial is not an application failure", () => {
   const denied = {
-    getItem: () => { throw Error("SecurityError"); },
-    setItem: () => { throw Error("QuotaExceededError"); },
-    removeItem: () => { throw Error("SecurityError"); },
+    getItem: () => {
+      throw Error("SecurityError");
+    },
+    setItem: () => {
+      throw Error("QuotaExceededError");
+    },
+    removeItem: () => {
+      throw Error("SecurityError");
+    },
   };
   assert.equal(savePublicObservation(denied, example(), NOW), false);
   assert.equal(readPublicObservation(denied, NOW), null);

@@ -1,4 +1,3 @@
-import { withRequestDeadline } from "./api-request-deadline.js";
 import {
   clearPublicObservation,
   publicObservationAge,
@@ -6,7 +5,7 @@ import {
   readPublicObservation,
   savePublicObservation,
 } from "./api-public-observation-cache.js";
-
+import { withRequestDeadline } from "./api-request-deadline.js";
 
 // Minimal public projection ONLY; no private probe URLs or credentials.
 const PREVIEW_LIMIT = 36;
@@ -60,7 +59,10 @@ const LOCAL_RECHECK_MS = 30000;
 const DISPLAY_FRESH_MS = 90000;
 
 export function reconcilePublicObservation(payload, cached) {
-  if (payload.boardState === "fresh" && payload.catalogSource === "backstage-v2") {
+  if (
+    payload.boardState === "fresh" &&
+    payload.catalogSource === "backstage-v2"
+  ) {
     return { rows: payload.services, historical: false };
   }
   if (cached?.catalogRevision === payload.catalogRevision) {
@@ -115,15 +117,16 @@ export async function installPublicServiceOverview({
     overview.dataset.historical = historical ? "true" : "false";
     const cards = overview.querySelectorAll(".service-overview-card");
     if (cards.length !== 5) return;
-    const values = counts === null
-      ? ["Unavailable", "—", "—", "—", "—"]
-      : [
-          total + " listed",
-          String(counts.ok),
-          String(counts.warn),
-          String(counts.fail),
-          String(counts.unknown),
-        ];
+    const values =
+      counts === null
+        ? ["Unavailable", "—", "—", "—", "—"]
+        : [
+            total + " listed",
+            String(counts.ok),
+            String(counts.warn),
+            String(counts.fail),
+            String(counts.unknown),
+          ];
     const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
     const detail = historical
       ? "Historical only · not a current probe"
@@ -154,7 +157,10 @@ export async function installPublicServiceOverview({
         .toLowerCase()
         .includes(query),
     );
-    const visible = matching.slice(0, expanded ? matching.length : PREVIEW_LIMIT);
+    const visible = matching.slice(
+      0,
+      expanded ? matching.length : PREVIEW_LIMIT,
+    );
     const fragment = document.createDocumentFragment();
     for (const service of visible) {
       const item = document.createElement("li");
@@ -198,13 +204,14 @@ export async function installPublicServiceOverview({
     summary.dataset.snapshotKind = historical ? "historical" : "current";
     if (receivedAt != null) summary.dataset.lastReceivedAt = String(receivedAt);
     else delete summary.dataset.lastReceivedAt;
-    const prefix = historical && receivedAt != null
-      ? "Last public response " +
-        publicObservationAge(receivedAt) +
-        " ago · historical only, not current · "
-      : catalogSource === "bootstrap-snapshot"
-        ? "Bootstrap inventory · "
-        : "";
+    const prefix =
+      historical && receivedAt != null
+        ? "Last public response " +
+          publicObservationAge(receivedAt) +
+          " ago · historical only, not current · "
+        : catalogSource === "bootstrap-snapshot"
+          ? "Bootstrap inventory · "
+          : "";
     summary.textContent =
       prefix +
       rows.length +
@@ -256,8 +263,11 @@ export async function installPublicServiceOverview({
   }
 
   function expireLiveView() {
-    if (!historical && receivedAt != null &&
-        Date.now() - receivedAt > DISPLAY_FRESH_MS) {
+    if (
+      !historical &&
+      receivedAt != null &&
+      Date.now() - receivedAt > DISPLAY_FRESH_MS
+    ) {
       historical = true;
       updateSummary("Revalidating");
     }
@@ -272,7 +282,8 @@ export async function installPublicServiceOverview({
     loading = true;
     lastAttemptAt = Date.now();
     refresh.disabled = true;
-    if (!rows.length) summary.textContent = "Loading the limited service directory…";
+    if (!rows.length)
+      summary.textContent = "Loading the limited service directory…";
     else if (historical) updateSummary("Updating in background");
     try {
       const payload = await withRequestDeadline(async (signal) => {
@@ -281,26 +292,33 @@ export async function installPublicServiceOverview({
           cache: "no-store",
           headers: { Accept: "application/json" },
         });
-        if (response.status === 401 || response.status === 403 || response.status === 404) {
+        if (
+          response.status === 401 ||
+          response.status === 403 ||
+          response.status === 404
+        ) {
           const error = new Error("Public directory access unavailable");
           error.code = "public_access_disabled";
           throw error;
         }
-        if (!response.ok) throw new Error("Unavailable (HTTP " + response.status + ")");
+        if (!response.ok)
+          throw new Error("Unavailable (HTTP " + response.status + ")");
         return response.json();
       }, 6500);
       if (!validOverview(payload))
         throw new Error("Invalid service directory response");
 
-      const previous = receivedAt != null
-        ? { catalogRevision, services: rows }
-        : null;
+      const previous =
+        receivedAt != null ? { catalogRevision, services: rows } : null;
       const projected = reconcilePublicObservation(payload, previous);
       rows = projected.rows;
       historical = projected.historical;
       catalogSource = payload.catalogSource || "backstage-v2";
-      if (!historical && payload.boardState === "fresh" &&
-          catalogSource === "backstage-v2") {
+      if (
+        !historical &&
+        payload.boardState === "fresh" &&
+        catalogSource === "backstage-v2"
+      ) {
         receivedAt = Date.now();
         catalogRevision = payload.catalogRevision;
         savePublicObservation(storage, payload, receivedAt);
@@ -351,9 +369,11 @@ export async function installPublicServiceOverview({
   }
 
   filter?.addEventListener("input", render);
-  document.getElementById("service-filter-clear")?.addEventListener("click", () => {
-    window.setTimeout(render, 0);
-  });
+  document
+    .getElementById("service-filter-clear")
+    ?.addEventListener("click", () => {
+      window.setTimeout(render, 0);
+    });
   expand.addEventListener("click", () => {
     expanded = !expanded;
     render();

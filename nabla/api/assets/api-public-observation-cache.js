@@ -40,7 +40,9 @@ function sanitize(payload) {
       item.tags != null &&
       (!Array.isArray(item.tags) ||
         item.tags.length > 3 ||
-        !item.tags.every((tag) => typeof tag === "string" && SAFE_SLUG.test(tag)))
+        !item.tags.every(
+          (tag) => typeof tag === "string" && SAFE_SLUG.test(tag),
+        ))
     )
       return null;
     services.push({
@@ -71,7 +73,8 @@ export function publicObservationStorage() {
 
 export function savePublicObservation(storage, payload, now = Date.now()) {
   const directory = sanitize(payload);
-  if (!directory || !storage || !Number.isSafeInteger(now) || now < 0) return false;
+  if (!directory || !storage || !Number.isSafeInteger(now) || now < 0)
+    return false;
   const encoded = JSON.stringify({ version: 1, receivedAt: now, directory });
   if (encoded.length > MAX_BYTES) return false;
   try {
