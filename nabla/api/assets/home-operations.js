@@ -1,3 +1,10 @@
+import {
+  clearPublicObservation,
+  publicObservationAge,
+  publicObservationStorage,
+  readPublicObservation,
+  savePublicObservation,
+} from "./api-public-observation-cache.js";
 import { homepageCadence } from "./home-cost-policy.js";
 import {
   alignedHistoryCorrelation,
@@ -22,13 +29,6 @@ import {
   persistPublicDirectory,
   restorePublicDirectory,
 } from "./home-public-cache.js";
-import {
-  clearPublicObservation,
-  publicObservationAge,
-  publicObservationStorage,
-  readPublicObservation,
-  savePublicObservation,
-} from "./api-public-observation-cache.js";
 
 const ROOT = document.getElementById("home-operations");
 const HOME_RUNTIME = ROOT?.dataset?.runtimeMode || "local";
@@ -105,7 +105,11 @@ function scheduleWarmupRetry() {
 
 function paintLastObservedFleet(expectedRevision = null) {
   const cached = readPublicObservation(publicObservationStorage());
-  if (!cached || (expectedRevision && cached.directory.catalogRevision !== expectedRevision)) return false;
+  if (
+    !cached ||
+    (expectedRevision && cached.directory.catalogRevision !== expectedRevision)
+  )
+    return false;
   const fleet = projectFleet(cached.directory);
   if (!fleet) return false;
   summaryCounts({ ...fleet, verified: false, boardState: "historical" });
@@ -646,7 +650,8 @@ function renderResourceHeatmap(snapshot) {
   const target = element("home-resource-heatmap");
   if (!target) return;
   target.replaceChildren();
-  const selected = element("home-resource-heatmap-sort")?.value || "memory_bytes";
+  const selected =
+    element("home-resource-heatmap-sort")?.value || "memory_bytes";
   const matrix = projectResourceHeatmap(snapshot, Date.now(), selected);
   if (!matrix || matrix.rows.length === 0) {
     put(

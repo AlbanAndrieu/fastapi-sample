@@ -51,10 +51,10 @@ test("last PUBLIC summary survives hours, but excludes private fields and raw pr
   const restored = readPublicObservation(cache, NOW + 6 * 3600000);
   assert.ok(restored);
   assert.equal(restored.receivedAt, NOW);
-  assert.deepEqual(restored.directory.services.map(({ state }) => state), [
-    "ok",
-    "warn",
-  ]);
+  assert.deepEqual(
+    restored.directory.services.map(({ state }) => state),
+    ["ok", "warn"],
+  );
   assert.equal(restored.directory.services[0].serviceType, "monitoring");
 });
 
