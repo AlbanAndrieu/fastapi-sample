@@ -14,6 +14,7 @@ OLLAMA_OPTIONS = {"num_ctx": 32768}
 
 MCP_SERVER_URL = "http://127.0.0.1:8091/llm/mcp/"
 
+
 def chat_with_model(messages, *, tools=None, temperature=None):
     """Apply consistent GPU context and thinking options to each Ollama turn."""
     options = OLLAMA_OPTIONS.copy()
@@ -133,11 +134,7 @@ async def main():
         print(f"✅ Tool result: {tool_result}\n")
 
         # Keep the tool identity and arguments alongside its response.
-        result = (
-            tool_result.structured_content
-            if hasattr(tool_result, "structured_content")
-            else {"result": str(tool_result)}
-        )
+        result = tool_result.structured_content if hasattr(tool_result, "structured_content") else {"result": str(tool_result)}
         messages.append(
             {
                 "role": "tool",
@@ -156,10 +153,7 @@ async def main():
             *messages,
             {
                 "role": "user",
-                "content": (
-                    "Now produce the final answer using all tool results. "
-                    "Include both the greeting and the addition result."
-                ),
+                "content": ("Now produce the final answer using all tool results. Include both the greeting and the addition result."),
             },
         ],
         temperature=0,

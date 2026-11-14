@@ -80,19 +80,17 @@ def test_launcher_avoids_repull_and_propagates_errors(
     logfile = tmp_path / "commands.log"
     ollama = bindir / "ollama"
     ollama.write_text(
-        '#!/usr/bin/env bash\n'
+        "#!/usr/bin/env bash\n"
         'printf "ollama %s\\n" "$*" >> "$OLLAMA_TEST_LOG"\n'
         'if [[ "$1" == show ]]; then exit "$OLLAMA_SHOW_STATUS"; fi\n'
         'if [[ "$1" == pull ]]; then exit "$OLLAMA_PULL_STATUS"; fi\n'
-        'exit 30\n',
+        "exit 30\n",
         encoding="utf-8",
     )
     ollama.chmod(0o755)
     uv = bindir / "uv"
     uv.write_text(
-        '#!/usr/bin/env bash\n'
-        'printf "uv %s\\n" "$*" >> "$OLLAMA_TEST_LOG"\n'
-        'exit "$OLLAMA_UV_STATUS"\n',
+        '#!/usr/bin/env bash\nprintf "uv %s\\n" "$*" >> "$OLLAMA_TEST_LOG"\nexit "$OLLAMA_UV_STATUS"\n',
         encoding="utf-8",
     )
     uv.chmod(0o755)
@@ -120,6 +118,4 @@ def test_launcher_avoids_repull_and_propagates_errors(
     commands = logfile.read_text(encoding="utf-8").splitlines()
     assert commands[0] == "ollama show bonsai-2:9b"
     assert ("ollama pull bonsai-2:9b" in commands) is expect_pull
-    assert ("uv run python nabla/tools/client_ollama.py" in commands) is (
-        show_status == 0 or pull_status == 0
-    )
+    assert ("uv run python nabla/tools/client_ollama.py" in commands) is (show_status == 0 or pull_status == 0)
