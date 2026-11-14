@@ -30,6 +30,26 @@ AGENT_EXECUTION_MODE=offline bash scripts/agent-diagnostics.sh --static
 
 The `--runtime` route delegates to `scripts/truenas-runtime-evidence.sh --quick`, which retains its existing default full-check behavior and adds a bounded short-polling mode. `--metrics-lan` and `--metrics-both` reuse the existing Prometheus projection validator; they **do not** force sondes or log secrets. `--plan` prints the selected command without executing it. CI and Codex indicators block live workstation modes, even if the environment accidentally requests them. Quick observations cannot replace full, authenticated runtime acceptance.
 
+## Working in an existing PR (conditional)
+
+Before any edit, inspect all open PRs touching the same files. Prefer one
+PR owner for each agent policy/skill/diagnostic/roadmap file; do not introduce
+a second PR solely to adjust a few lines. On a verified Workstation, use a
+dedicated worktree, `git fetch origin master`, `git status --short` and
+`git log --left-right HEAD...origin/master` before rebasing. Resolve
+each conflict intentionally and run the matching tests before publishing.
+
+On a remote GitHub-only agent, bind fetches to exact HEAD/base and use
+one reviewed tree commit with an expected-SHA lease. If a rebase would
+rewrite a published branch, use `--force-with-lease` only when the
+specific old HEAD is verified; otherwise stop or use a reviewed merge.
+Never report host acceptance from GitHub file access.
+
+Do not push cosmetic fixes one by one: accumulate a coherent tested batch.
+A production stability/security fix or a completed multi-service migration
+can require immediate coordinated publication. Preserve H05/F03/F09
+observation provenance, gates and rollback. No auto-merge.
+
 ## Toolchain and quality
 
 - Bootstrap hooks on an authorized local checkout with `mise run hooks`; use `uv` and `just` rather than introducing Poetry. Legacy `Makefile` stays for explicit specialty workflows.

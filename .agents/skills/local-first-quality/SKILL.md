@@ -13,6 +13,15 @@ Load for CI failure, PR continuation, formatter/lint, offline diagnostics or loc
 - **Remote Codex / no checkout or LAN:** default `AGENT_EXECUTION_MODE=offline`; inspect exact GitHub refs, apply minimal offline contracts and produce a Draft PR. **Never** claim that formatting/security/full pytest/LAN checks ran unless executed. No private network, secret or live runtime calls.
 - Both modes: never mutate `master`, bypass hooks, share `.venv` across agents, force a locked `QG_LOCKED` gate, suppress scans or report a PASS from another SHA.
 
+## PR ownership and batching
+
+Reuse the open compatible PR, synchronize and resolve any conflicts
+against `master` before editing, then batch related corrections behind
+one exact-HEAD publication gate. An urgent production fix or completed
+multi-service migration is a limited exception; do not bypass SAST/SCA,
+secrets scanning, reviews or security controls. For details consult the
+[conditional agent playbook](../../../docs/agent-execution-playbook.md).
+
 ## Evidence levels and commands
 
 | Gate | Workstation command | Strongest evidence |
