@@ -130,3 +130,20 @@ def test_dns_only_executes_without_api_helper(tmp_path: Path) -> None:
     )
     assert normal.returncode == 2
     assert "FastAPI diagnostic script not found" in normal.stderr
+
+def test_quick_option_reduces_wait_without_changing_default() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "wait_seconds=50" in source
+    assert "--quick) wait_seconds=8 ;;" in source
+    assert '--wait-seconds "$wait_seconds"' in source
+    assert subprocess.run(["bash", "-n", str(SCRIPT)], check=False).returncode == 0
+
+
+def test_agent_diagnostics_rejects_disconnected_runtime() -> None:
+    agent = ROOT / "scripts" / "agent-diagnostics.sh"
+    result = subprocess.run(["bash", str(agent), "--runtime"], capture_output=True,
+                            text=True, check=False, timeout=10,
+                            env={"AGENT_EXECUTION_MODE": "offline", "PATH": "/usr/bin:/bin"})
+    assert result.returncode == 2
+    assert "NOT_RUN" in result.stderr
+    assert subprocess.run(["bash", "-n", str(agent)], check=False).returncode == 0

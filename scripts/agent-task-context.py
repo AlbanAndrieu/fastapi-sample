@@ -33,6 +33,7 @@ SKILLS = {
     "quality": ["local-first-quality"],
 }
 DEFAULT_MAX_PATHS = 24
+EXECUTION_MODES = ("offline", "workstation")
 
 
 def git(*arguments: str) -> tuple[bool, str]:
@@ -108,8 +109,15 @@ def context(task: str, limit: int) -> dict[str, object]:
     base, base_state = base_ref()
     paths = changed_paths(base, base_state)
     selected = inferred_task(paths) if task == "auto" else task
+    # No hostname/IP-based LAN detection: an explicit opt-in is required.
+    mode = os.environ.get("AGENT_EXECUTION_MODE", "offline")
+    if mode not in EXECUTION_MODES:
+        raise ValueError("AGENT_EXECUTION_MODE must be offline or workstation")
     return {
         "schema": "fastapi-agent-context/v1",
+        "executionMode": mode,
+        "runtimeNext": ("bash scripts/agent-diagnostics.sh --runtime"
+                        if mode == "workstation" else "NOT_RUN"),
         "branch": branch or "detached",
         "head": sha if len(sha) == 40 else "unknown",
         "base": base,
@@ -134,7 +142,10 @@ def main(argv: list[str] | None = None) -> int:
     raw_limit = os.environ.get("AGENT_CONTEXT_MAX_PATHS", str(DEFAULT_MAX_PATHS))
     if not raw_limit.isdecimal() or not 1 <= int(raw_limit) <= 100:
         parser.error("AGENT_CONTEXT_MAX_PATHS must be 1..100")
-    report = context(args.task, int(raw_limit))
+    try:
+        report = context(args.task, int(raw_limit))
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.json:
         print(json.dumps(report, sort_keys=True))
     elif report.get("state") == "NOT_RUN":
@@ -148,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ... {report['omittedPaths']} other paths")
         print("Skills: " + ", ".join(report["skills"]))
         print("First check: " + report["firstCheck"])
+        print("Execution: " + report["executionMode"] + " | runtime next: " + report["runtimeNext"])
         print("PR/L3/runtime: NOT_CHECKED / NOT_RUN / NOT_RUN")
     return 0 if report.get("state") != "NOT_RUN" else 2
 
