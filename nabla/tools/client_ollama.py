@@ -1,16 +1,36 @@
 # client_ollama.py
 import asyncio
 import json
-import sys
 import os
+import sys
 
 import ollama
 from fastmcp import Client as MCPClient
 
 # Default model if DEFAULT_MODEL is unset or empty
-OLLAMA_MODEL = (os.getenv("DEFAULT_MODEL") or "").strip() or "llama3.2"  # llama3.2 llama3.1:8b llama3.1, NOK llama3.1:70b
+OLLAMA_MODEL = (os.getenv("DEFAULT_MODEL") or "").strip() or "bonsai-2:9b"
+# Same num_ctx as the workstation LiteLLM "qwen" route, or ollama reloads the model on the 6 GB GPU.
+OLLAMA_OPTIONS = {"num_ctx": 32768}
 
 MCP_SERVER_URL = "http://127.0.0.1:8091/llm/mcp/"
+
+
+def chat_with_model(messages, *, tools=None, temperature=None):
+    """Apply consistent GPU context and thinking options to each Ollama turn."""
+    options = OLLAMA_OPTIONS.copy()
+    if temperature is not None:
+        options["temperature"] = temperature
+
+    kwargs = {
+        "model": OLLAMA_MODEL,
+        "messages": messages,
+        "think": False,
+        "options": options,
+        "stream": False,
+    }
+    if tools is not None:
+        kwargs["tools"] = tools
+    return ollama.chat(**kwargs)
 
 
 # ------------------------------------------------------------
@@ -75,11 +95,9 @@ async def main():
 
     # Send to Ollama with tools available
     try:
-        response = ollama.chat(
-            model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": user_msg}],
-            tools=tools,  # ← AI now knows these tools exist!
-            stream=False,
+        response = chat_with_model(
+            [{"role": "user", "content": user_msg}],
+            tools=tools,
         )
     except Exception as e:
         print(f"❌ ERROR calling Ollama: {e}")
@@ -100,8 +118,6 @@ async def main():
         response["message"],
     ]
 
-    tool_outputs = []
-
     for tool_call in response["message"]["tool_calls"]:
         tool_name = tool_call["function"]["name"]
         args = tool_call["function"]["arguments"]
@@ -117,42 +133,30 @@ async def main():
         tool_result = await execute_tool(tool_name, args)
         print(f"✅ Tool result: {tool_result}\n")
 
-        # Add tool response to conversation
+        # Keep the tool identity and arguments alongside its response.
         result = tool_result.structured_content if hasattr(tool_result, "structured_content") else {"result": str(tool_result)}
-        # Create a structured summary so that model will not forget previous results
-
-        tool_outputs.append(
-            {
-                "tool": tool_name,
-                "arguments": args,
-                "result": result,
-            },
-        )
-
         messages.append(
             {
                 "role": "tool",
-                "content": json.dumps(tool_outputs[-1], ensure_ascii=False),
+                "content": json.dumps(
+                    {"tool": tool_name, "arguments": args, "result": result},
+                    ensure_ascii=False,
+                ),
             },
         )
 
     print(messages)
 
     # Send tool results back to AI for final answer
-    final = ollama.chat(
-        model=OLLAMA_MODEL,
-        # messages=messages,
-        messages=[
+    final = chat_with_model(
+        [
             *messages,
             {
                 "role": "user",
-                "content": "Now produce the final answer using all tool results. Include both the greeting and the addition result.",
+                "content": ("Now produce the final answer using all tool results. Include both the greeting and the addition result."),
             },
         ],
-        # USe Pydantic to generate JSON Schema https://blog.stephane-robert.info/docs/developper/programmation/python/ollama-structured-outputs/
-        # format=TicketSupport.model_json_schema(),
-        options={"temperature": 0},
-        stream=False,
+        temperature=0,
     )
 
     print("🤖 Final AI response:")
