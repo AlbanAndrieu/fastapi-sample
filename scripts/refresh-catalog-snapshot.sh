@@ -4,23 +4,23 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TARGET="$ROOT/nabla/api/data/catalog-snapshot.json"
+TARGET="${ROOT}/nabla/api/data/catalog-snapshot.json"
 DEFAULT_URL="https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/entities.json"
-SOURCE="${1:-$DEFAULT_URL}"
+SOURCE="${1:-${DEFAULT_URL}}"
 TEMP="$(mktemp "${TARGET}.tmp.XXXXXX")"
-trap 'rm -f "$TEMP"' EXIT
+trap 'rm -f "${TEMP}"' EXIT
 
-if [[ -f "$SOURCE" ]]; then
-  cp -- "$SOURCE" "$TEMP"
-elif [[ "$SOURCE" == "$DEFAULT_URL" ]]; then
+if [[ -f "${SOURCE}" ]]; then
+  cp -- "${SOURCE}" "${TEMP}"
+elif [[ "${SOURCE}" == "${DEFAULT_URL}" ]]; then
   curl --fail --silent --show-error --location --proto '=https' \
-    --max-time 20 --max-filesize 2000000 "$SOURCE" -o "$TEMP"
+    --max-time 20 --max-filesize 2000000 "${SOURCE}" -o "${TEMP}"
 else
   printf 'Unsupported source (provide a local file or the approved Compose URL)\n' >&2
   exit 2
 fi
 
-python3 - "$TEMP" <<'PY'
+python3 - "${TEMP}" <<'PY'
 import hashlib
 import hmac
 import json
@@ -48,11 +48,11 @@ except (OSError, UnicodeError, ValueError, TypeError, AttributeError) as exc:
     raise SystemExit(f"Invalid catalog snapshot: {exc}") from exc
 PY
 
-if cmp -s "$TEMP" "$TARGET"; then
+if cmp -s "${TEMP}" "${TARGET}"; then
   printf 'catalog snapshot is already current\n'
   exit 0
 fi
 
-chmod 0644 "$TEMP"
-mv -f -- "$TEMP" "$TARGET"
-printf 'catalog snapshot refreshed from %s\n' "$SOURCE"
+chmod 0644 "${TEMP}"
+mv -f -- "${TEMP}" "${TARGET}"
+printf 'catalog snapshot refreshed from %s\n' "${SOURCE}"
