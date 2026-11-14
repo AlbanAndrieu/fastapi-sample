@@ -222,7 +222,7 @@ test("full dashboard never races OWNER sign-in or silently bypasses read access"
     entry.includes("enterPublicDirectory({ allowAdvancedLink: true })"),
   );
   assert.ok(entry.includes("ownerSessionReady.then((authenticated) =>"));
-  assert.ok(entry.includes('if (!authenticated) {'));
+  assert.ok(entry.includes("if (!authenticated) {"));
   assert.ok(entry.includes('import("./api-owner-session.js")'));
   assert.ok(entry.includes("diagnosticsReadAvailable()"));
   assert.ok(entry.includes("if (readable) startRichDashboard()"));
