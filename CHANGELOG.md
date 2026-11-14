@@ -1,3 +1,10 @@
+# [1.37.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.36.1...1.37.0) (2026-11-14)
+
+
+### Features
+
+* **h05:** retain OWNER last-known probe states securely and revalidate on revisit ([#441](https://github.com/AlbanAndrieu/fastapi-sample/issues/441)) ([cf0bfb3](https://github.com/AlbanAndrieu/fastapi-sample/commit/cf0bfb3ef606396778c338c48eb980718da7263e))
+
 ## [1.36.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.36.0...1.36.1) (2026-11-14)
 
 
