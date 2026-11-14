@@ -129,6 +129,29 @@ class RouterContracts(unittest.TestCase):
                 result = router.context("auto", 1)
         self.assertEqual(result["state"], "NOT_RUN")
 
+    def test_default_offline_never_infers_lan_access(self) -> None:
+        with patch.object(router, "ROOT", self.repo):
+            with patch.dict(os.environ, {"AGENT_EXECUTION_MODE": "offline"}):
+                result = router.context("truenas", 2)
+        self.assertEqual(result["executionMode"], "offline")
+        self.assertEqual(result["runtimeNext"], "NOT_RUN")
+
+    def test_workstation_mode_only_suggests_runtime_not_executes_it(self) -> None:
+        with patch.object(router, "ROOT", self.repo):
+            with patch.dict(os.environ, {"AGENT_EXECUTION_MODE": "workstation"}):
+                with patch.object(router, "git", wraps=router.git) as mocked:
+                    result = router.context("truenas", 2)
+        self.assertEqual(result["executionMode"], "workstation")
+        self.assertEqual(result["runtimeNext"], "bash scripts/agent-diagnostics.sh --runtime")
+        for call_args in mocked.call_args_list:
+            self.assertNotIn("fetch", call_args.args)
+
+    def test_invalid_execution_mode_fails_closed(self) -> None:
+        with patch.object(router, "ROOT", self.repo):
+            with patch.dict(os.environ, {"AGENT_EXECUTION_MODE": "unknown"}):
+                with self.assertRaisesRegex(ValueError, "AGENT_EXECUTION_MODE"):
+                    router.context("quality", 2)
+
     def test_invalid_path_cap_fails_without_reading_repo(self) -> None:
         with patch.dict(os.environ, {"AGENT_CONTEXT_MAX_PATHS": "0"}):
             with redirect_stderr(io.StringIO()):
