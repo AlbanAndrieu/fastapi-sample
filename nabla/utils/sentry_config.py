@@ -13,8 +13,11 @@ from urllib.parse import urlsplit
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.httpx import HttpxIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from nabla._version import get_versions
 from nabla.settings.observability import LogfireSettings
@@ -209,8 +212,12 @@ def _integrations(*, include_logging: bool, include_ai: bool = False) -> list[An
 
     integrations.extend(
         [
+            # FastApiIntegration only patches the route handler; Starlette captures requests.
+            StarletteIntegration(transaction_style="url"),
             FastApiIntegration(transaction_style="url"),
             SqlalchemyIntegration(),
+            HttpxIntegration(),
+            RedisIntegration(),
         ],
     )
     if include_logging:
@@ -264,6 +271,8 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
                 include_ai=values.get("SENTRY_AI_INTEGRATIONS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
             ),
             server_name=app_name,
+            # Auto-enabling imports every installed SDK (AI, boto, aiohttp...): about 1 min of TrueNAS startup.
+            auto_enabling_integrations=False,
         )
     except Exception:
         _logger.exception("Sentry initialization failed; application will continue")

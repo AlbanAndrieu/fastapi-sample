@@ -6,6 +6,7 @@ import pytest
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from nabla.utils import sentry_config
 
@@ -214,6 +215,7 @@ def test_sentry_enables_logs_without_logfire(monkeypatch) -> None:
     assert kwargs["sample_rate"] == 1.0
     assert kwargs["max_breadcrumbs"] == 50
     assert kwargs["shutdown_timeout"] == 2.0
+    assert kwargs["auto_enabling_integrations"] is False
 
 
 def test_disabled_logfire_token_does_not_disable_sentry_logs(monkeypatch) -> None:
@@ -298,6 +300,7 @@ def test_core_integrations_are_explicit() -> None:
     integrations = sentry_config._integrations(include_logging=False)
 
     assert any(isinstance(item, FastApiIntegration) for item in integrations)
+    assert any(type(item) is StarletteIntegration for item in integrations)
     assert any(isinstance(item, SqlalchemyIntegration) for item in integrations)
     assert not any(type(item).__name__ == "MCPIntegration" for item in integrations)
 
