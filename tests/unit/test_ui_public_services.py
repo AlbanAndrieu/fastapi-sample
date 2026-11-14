@@ -34,7 +34,7 @@ def _catalog():
                 kind="Component",
                 entityRef="component:default/garage",
                 sourcePath="apps/garage/catalog-info.yaml",
-                metadata=SiteV2Metadata(name="garage", title="Garage"),
+                metadata=SiteV2Metadata(name="garage", title="Garage", tags=["storage", "nist-protect"]),
                 spec={"type": "service"},
             ),
             SiteV2Entity(
@@ -66,8 +66,20 @@ def test_public_overview_strictly_excludes_probe_and_network_fields():
     payload = project_public_ui_services(_catalog(), board).model_dump()
     assert payload["model"] == "public-service-overview"
     assert payload["services"] == [
-        {"name": "Garage", "kind": "Component", "state": "warn"},
-        {"name": "postgres", "kind": "Resource", "state": "unknown"},
+        {
+            "name": "Garage",
+            "kind": "Component",
+            "state": "warn",
+            "serviceType": "service",
+            "tags": ["storage", "nist-protect"],
+        },
+        {
+            "name": "postgres",
+            "kind": "Resource",
+            "state": "unknown",
+            "serviceType": None,
+            "tags": [],
+        },
     ]
     assert payload["catalogSource"] == "backstage-v2"
     assert set(payload) == {

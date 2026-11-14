@@ -4,8 +4,15 @@ import { withRequestDeadline } from "./api-request-deadline.js";
 const PREVIEW_LIMIT = 36;
 const STATES = new Set(["ok", "warn", "fail", "unknown"]);
 const KINDS = new Set(["API", "Component", "Resource"]);
+const SAFE_TAG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-function validOverview(value) {
+export function publicServiceSubtitle(service) {
+  const type = service.serviceType || service.kind;
+  const tags = Array.isArray(service.tags) ? service.tags.slice(0, 3) : [];
+  return [type, ...tags].join(" · ");
+}
+
+export function validOverview(value) {
   return (
     value &&
     value.schemaVersion === 2 &&
@@ -24,7 +31,14 @@ function validOverview(value) {
         service.name.length > 0 &&
         service.name.length <= 128 &&
         KINDS.has(service.kind) &&
-        STATES.has(service.state),
+        STATES.has(service.state) &&
+        (service.serviceType == null ||
+          (typeof service.serviceType === "string" &&
+            SAFE_TAG.test(service.serviceType))) &&
+        (service.tags == null ||
+          (Array.isArray(service.tags) &&
+            service.tags.length <= 3 &&
+            service.tags.every((tag) => typeof tag === "string" && SAFE_TAG.test(tag)))),
     )
   );
 }
@@ -91,7 +105,8 @@ export async function installPublicServiceOverview({
   function render() {
     const query = (filter?.value || "").trim().toLowerCase();
     const matching = rows.filter((entry) =>
-      (entry.name + " " + entry.kind + " " + entry.state)
+      (entry.name + " " + entry.kind + " " + entry.state + " " +
+        (entry.serviceType || "") + " " + (entry.tags || []).join(" "))
         .toLowerCase()
         .includes(query),
     );
@@ -103,8 +118,15 @@ export async function installPublicServiceOverview({
     for (const service of visible) {
       const item = document.createElement("li");
       item.className = "public-service-card";
+      const identity = document.createElement("span");
+      identity.className = "public-service-identity";
       const label = document.createElement("span");
+      label.className = "public-service-name";
       label.textContent = service.name;
+      const meta = document.createElement("small");
+      meta.className = "public-service-meta";
+      meta.textContent = publicServiceSubtitle(service);
+      identity.append(label, meta);
       const state = document.createElement("strong");
       state.className =
         "public-service-state public-service-state--" + service.state;
@@ -113,7 +135,7 @@ export async function installPublicServiceOverview({
         service.state === "unknown"
           ? "No confirmed fresh observation"
           : "Summarized service observation (not a full health audit)";
-      item.append(label, state);
+      item.append(identity, state);
       fragment.appendChild(item);
     }
     list.replaceChildren(fragment);

@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -41,6 +41,9 @@ class PublicUiService(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     kind: Kind
     state: State
+    # Reviewed Backstage metadata only. Never expose entityRef, routes or owners.
+    serviceType: str | None = Field(default=None, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    tags: list[Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")]] = Field(default_factory=list, max_length=3)
 
 
 class PublicUiServices(BaseModel):
@@ -72,6 +75,8 @@ def project_public_ui_services(
             name=entity.metadata.title or entity.metadata.name,
             kind=entity.kind,
             state=states.get(entity.entityRef, "unknown"),
+            serviceType=entity.spec.get("type"),
+            tags=(entity.metadata.tags or [])[:3],
         )
         for entity in catalog.entities
         if entity.kind in ("API", "Component", "Resource")
