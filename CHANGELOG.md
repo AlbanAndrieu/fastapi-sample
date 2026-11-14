@@ -1,3 +1,10 @@
+## [1.36.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.36.0...1.36.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ci:** converge H05 revisit UI formatting and guard last-known fallback ([#440](https://github.com/AlbanAndrieu/fastapi-sample/issues/440)) ([6fcbc83](https://github.com/AlbanAndrieu/fastapi-sample/commit/6fcbc83aafa2ccbb59df17253b1cdf4e76a4443e))
+
 # [1.36.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.35.1...1.36.0) (2026-11-14)
 
 
