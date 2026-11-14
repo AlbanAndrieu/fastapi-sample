@@ -23,3 +23,16 @@ Une modification exclusivement documentaire suit : `just agent-context auto` →
 Le snapshot `nabla/api/data/catalog-snapshot.json` n'est qu'un **cache froid**, non un second inventaire. Le script canonique vérifie le SHA-256 du graphe V2 et l'unicité des `entityRef` avant remplacement atomique ; une source invalide ou inchangée n'est jamais publiée. Test hors ligne : `tests/unit/test_catalog_snapshot_refresh_contract.py`.
 
 À conserver en archive : rapports détaillés de PR, relevés runtime historiques et commandes d'incident. **Ne pas supprimer** un vieux lanceur avant inventaire de ses consommateurs, remplacement documenté et test de compatibilité.
+
+## Workstation Claude Code vs remote Codex
+
+Use `python3 scripts/agent-task-context.py --task auto` for a bounded
+path-only context. `bash scripts/agent-diagnostics.sh --static` is the default
+no-network L1 route (existing `agent-offline-check.sh`).
+When a real workstation/LAN session is available, opt in explicitly with
+`AGENT_EXECUTION_MODE=workstation bash scripts/agent-diagnostics.sh --runtime`.
+This delegates to the existing `truenas-runtime-evidence.sh --quick` with an
+8-second evidence poll rather than the normal 50-second full wait.
+`--dns-only` is separately opt-in; a remote session returns `NOT_RUN` and
+never attempts LAN access. No route is proof of full L3 or runtime acceptance.
+See [conditional playbook](../docs/agent-execution-playbook.md).
