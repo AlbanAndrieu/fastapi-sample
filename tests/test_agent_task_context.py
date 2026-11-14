@@ -136,6 +136,39 @@ class RouterContracts(unittest.TestCase):
                     router.main(["--json"])
         self.assertEqual(error.exception.code, 2)
 
+    def test_profile_auto_is_isolated_without_explicit_local_signal(self) -> None:
+        env = {"PATH": "/usr/bin"}
+        self.assertEqual(router.resolve_profile(environ=env), "isolated")
+
+    def test_claude_local_signal_and_explicit_profile_are_advisory(self) -> None:
+        self.assertEqual(
+            router.resolve_profile(environ={"CLAUDECODE": "1"}),
+            "workstation",
+        )
+        self.assertEqual(
+            router.resolve_profile("workstation", environ={}),
+            "workstation",
+        )
+        with patch.object(router, "ROOT", self.repo):
+            with patch.dict(os.environ, {"FASTAPI_AGENT_PROFILE": "workstation"}, clear=True):
+                report = router.context("truenas", 5)
+        self.assertEqual(report["executionProfile"], "workstation")
+        self.assertIn("just agent-diagnostics workstation runtime", report["runtimeDiagnostic"])
+        self.assertEqual(report["runtime"], "NOT_RUN")
+
+    def test_codex_and_ci_force_isolation_even_with_claude_env(self) -> None:
+        for sentinel in ("CODEX_HOME", "CODEX_THREAD_ID", "CI"):
+            env = {"CLAUDECODE": "1", "FASTAPI_AGENT_PROFILE": "workstation", sentinel: "1"}
+            self.assertEqual(router.resolve_profile(environ=env), "isolated")
+            self.assertEqual(router.resolve_profile("workstation", environ=env), "isolated")
+
+    def test_isolated_profile_never_advertises_a_live_check(self) -> None:
+        with patch.object(router, "ROOT", self.repo):
+            report = router.context("truenas", 5, "isolated")
+        self.assertEqual(report["executionProfile"], "isolated")
+        self.assertEqual(report["runtimeDiagnostic"], "NOT_RUN")
+        self.assertEqual(report["runtime"], "NOT_RUN")
+
     def test_explicit_quality_routing_not_confused_with_runtime(self) -> None:
         with patch.object(router, "ROOT", self.repo):
             result = router.context("quality", 2)

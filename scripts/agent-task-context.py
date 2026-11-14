@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = ("auto", "ui", "cloud", "truenas", "metrics", "api", "docs", "quality")
@@ -33,6 +34,25 @@ SKILLS = {
     "quality": ["local-first-quality"],
 }
 DEFAULT_MAX_PATHS = 24
+PROFILES = ("auto", "workstation", "isolated")
+
+
+def resolve_profile(
+    requested: str = "auto",
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> str:
+    """Conservative capability routing; no network or host capability probes."""
+    env = os.environ if environ is None else environ
+    # An agent label does not grant LAN reachability. CI/Codex are isolated.
+    if env.get("CI") or env.get("CODEX_HOME") or env.get("CODEX_THREAD_ID"):
+        return "isolated"
+    if requested != "auto":
+        return requested
+    selected = env.get("FASTAPI_AGENT_PROFILE", "").strip().lower()
+    if selected in ("workstation", "isolated"):
+        return selected
+    return "workstation" if env.get("CLAUDECODE") == "1" else "isolated"
 
 
 def git(*arguments: str) -> tuple[bool, str]:
@@ -99,10 +119,16 @@ def inferred_task(paths: list[str]) -> str:
     return "quality"
 
 
-def context(task: str, limit: int) -> dict[str, object]:
+def context(task: str, limit: int, profile: str = "auto") -> dict[str, object]:
+    selected_profile = resolve_profile(profile)
     valid_repo, _ = git("rev-parse", "--is-inside-work-tree")
     if not valid_repo:
-        return {"state": "NOT_RUN", "reason": "git_checkout_unavailable"}
+        return {
+            "state": "NOT_RUN",
+            "reason": "git_checkout_unavailable",
+            "executionProfile": selected_profile,
+            "runtime": "NOT_RUN",
+        }
     _, branch = git("branch", "--show-current")
     _, sha = git("rev-parse", "HEAD")
     base, base_state = base_ref()
@@ -121,6 +147,12 @@ def context(task: str, limit: int) -> dict[str, object]:
         "omittedPaths": max(0, len(paths) - limit),
         "skills": SKILLS[selected],
         "firstCheck": CHECKS[selected],
+        "executionProfile": selected_profile,
+        "runtimeDiagnostic": (
+            "just agent-diagnostics workstation runtime"
+            if selected_profile == "workstation" and selected in ("truenas", "metrics", "cloud")
+            else "NOT_RUN"
+        ),
         "localGate": "NOT_RUN",
         "runtime": "NOT_RUN",
     }
@@ -129,12 +161,13 @@ def context(task: str, limit: int) -> dict[str, object]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", choices=TASKS, default="auto")
+    parser.add_argument("--profile", choices=PROFILES, default="auto")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     raw_limit = os.environ.get("AGENT_CONTEXT_MAX_PATHS", str(DEFAULT_MAX_PATHS))
     if not raw_limit.isdecimal() or not 1 <= int(raw_limit) <= 100:
         parser.error("AGENT_CONTEXT_MAX_PATHS must be 1..100")
-    report = context(args.task, int(raw_limit))
+    report = context(args.task, int(raw_limit), args.profile)
     if args.json:
         print(json.dumps(report, sort_keys=True))
     elif report.get("state") == "NOT_RUN":
@@ -146,8 +179,10 @@ def main(argv: list[str] | None = None) -> int:
             print("  " + path)
         if report["omittedPaths"]:
             print(f"  ... {report['omittedPaths']} other paths")
+        print("Profile: " + report["executionProfile"] + " (LAN unverified)")
         print("Skills: " + ", ".join(report["skills"]))
         print("First check: " + report["firstCheck"])
+        print("Live diagnostic: " + report["runtimeDiagnostic"])
         print("PR/L3/runtime: NOT_CHECKED / NOT_RUN / NOT_RUN")
     return 0 if report.get("state") != "NOT_RUN" else 2
 
