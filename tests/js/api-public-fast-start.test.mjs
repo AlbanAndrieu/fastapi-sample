@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 
 const content = readFileSync(
   fileURLToPath(
@@ -249,9 +250,9 @@ test("a stale or empty rich board keeps the dated public fallback visible", () =
     entry.indexOf("function shouldHidePublicFallback(detail)"),
     entry.indexOf("\nfunction startRichDashboard()"),
   );
+  const predicate = runInNewContext(`${helper}\nshouldHidePublicFallback;`);
   for (const [detail, expected] of checks) {
-    const fn = new Function(`${helper}; return shouldHidePublicFallback;`)();
-    assert.equal(fn(detail), expected);
+    assert.equal(predicate(detail), expected);
   }
 });
 
