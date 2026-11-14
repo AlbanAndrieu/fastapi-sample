@@ -408,7 +408,7 @@ def test_limited_service_overview_never_claims_stale_health() -> None:
     assert 'payload.boardState === "fresh"' in script
     assert "reconcilePublicObservation(payload, previous)" in script
     assert 'rows.map((service) => ({ ...service, state: "unknown" }))' in script
-    assert "historical ? \"historical\" : service.state" in script
+    assert 'historical ? "historical" : service.state' in script
     assert "readPublicObservation(storage)" in script
     assert "clearPublicObservation(storage)" in script
     assert "localStorage" not in script
