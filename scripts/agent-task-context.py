@@ -148,11 +148,7 @@ def context(task: str, limit: int, profile: str = "auto") -> dict[str, object]:
         "skills": SKILLS[selected],
         "firstCheck": CHECKS[selected],
         "executionProfile": selected_profile,
-        "runtimeDiagnostic": (
-            "just agent-diagnostics workstation runtime"
-            if selected_profile == "workstation" and selected in ("truenas", "metrics", "cloud")
-            else "NOT_RUN"
-        ),
+        "runtimeDiagnostic": ("just agent-diagnostics workstation runtime" if selected_profile == "workstation" and selected in ("truenas", "metrics", "cloud") else "NOT_RUN"),
         "localGate": "NOT_RUN",
         "runtime": "NOT_RUN",
     }
