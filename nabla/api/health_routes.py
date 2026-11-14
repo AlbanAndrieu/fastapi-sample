@@ -375,6 +375,20 @@ def _register_probe_routes(app: FastAPI) -> None:
 def _register_health_board_routes(app: FastAPI) -> None:
     """Register health-board cache, refresh-event and Sentry debug routes."""
 
+    @app.get("/api/health-board/last-known", include_in_schema=False)
+    async def get_owner_history(request: Request) -> JSONResponse:
+        """Return minimal historical probes only for a verified OWNER session."""
+        if not owner_ui_authenticated(request, get_settings()):
+            return JSONResponse(
+                {"detail": "OWNER session required"},
+                status_code=403,
+                headers=_PRIVATE_NO_STORE_HEADERS,
+            )
+        from nabla.api.health_board_owner_history import read_owner_last_known
+
+        payload = await read_owner_last_known()
+        return JSONResponse(payload, headers=_PRIVATE_NO_STORE_HEADERS)
+
     @app.get(
         "/api/health-board",
         tags=["Health"],
