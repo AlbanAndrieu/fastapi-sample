@@ -33,4 +33,3 @@ fi
 echo -e "${magenta:-} sudo journalctl -n 50 -fu ollama ${NC:-}"
 
 uv run python nabla/tools/client_ollama.py
-
