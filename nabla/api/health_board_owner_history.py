@@ -136,10 +136,7 @@ async def write_owner_last_known(snapshot: dict[str, Any]) -> bool:
     if client is None:
         return False
     try:
-        mapping = {
-            name: json.dumps(record, separators=(",", ":"))
-            for name, record in rows.items()
-        }
+        mapping = {name: json.dumps(record, separators=(",", ":")) for name, record in rows.items()}
         # Transactional hash updates preserve other rotating probes and
         # ensure expiration cannot be omitted after writing sensitive state.
         pipeline = client.pipeline(transaction=True)
@@ -193,9 +190,11 @@ async def read_owner_last_known() -> dict[str, Any]:
             continue
         observed = _timestamp(record["observedAt"], now)
         if observed is not None:
-            rows.append({
-                **record,
-                "ageSeconds": round(max(0.0, now - observed), 1),
-            })
+            rows.append(
+                {
+                    **record,
+                    "ageSeconds": round(max(0.0, now - observed), 1),
+                }
+            )
     rows.sort(key=lambda row: (row["ageSeconds"], row["id"], row["scope"]))
     return {"state": "historical", "current": False, "observations": rows}
