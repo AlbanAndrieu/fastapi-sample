@@ -1,3 +1,10 @@
+## [1.35.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.35.0...1.35.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ci:** format ownership contract and record H05 server-side history follow-up ([#437](https://github.com/AlbanAndrieu/fastapi-sample/issues/437)) ([98f2c9f](https://github.com/AlbanAndrieu/fastapi-sample/commit/98f2c9f5849ad5f09eca4f122058f2c4c165322c))
+
 # [1.35.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.34.0...1.35.0) (2026-11-14)
 
 
