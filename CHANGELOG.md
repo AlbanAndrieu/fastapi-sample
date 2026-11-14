@@ -1,3 +1,10 @@
+## [1.33.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.2...1.33.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **observer:** état bleu « attendu » et badges stables au rafraîchissement ([#431](https://github.com/AlbanAndrieu/fastapi-sample/issues/431)) ([f6e5172](https://github.com/AlbanAndrieu/fastapi-sample/commit/f6e5172b41f5504397bdce4f61c91a2020f59298))
+
 ## [1.33.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.1...1.33.2) (2026-11-13)
 
 
