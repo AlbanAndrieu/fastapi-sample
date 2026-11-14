@@ -57,13 +57,15 @@ test("historical owner states are normalized, never promoted to live", () => {
     ],
   };
   const rows = normalizeOwnerLastKnown(input);
-  assert.deepEqual(rows, [{
-    id: "gatus",
-    scope: "internal",
-    state: "fail",
-    ageSeconds: 3600,
-    observedAt,
-  }]);
+  assert.deepEqual(rows, [
+    {
+      id: "gatus",
+      scope: "internal",
+      state: "fail",
+      ageSeconds: 3600,
+      observedAt,
+    },
+  ]);
   assert.equal(normalizeOwnerLastKnown({ ...input, current: true }).length, 0);
   assert.equal(normalizeOwnerLastKnown({ ...input, state: "fresh" }).length, 0);
 });

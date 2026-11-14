@@ -11,8 +11,8 @@ import {
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
 import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
-import { ownerSessionAvailable } from "./api-owner-session.js";
 import { installOwnerLastKnown } from "./api-owner-last-known.js";
+import { ownerSessionAvailable } from "./api-owner-session.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
 import { installSecurityControlIcons } from "./api-security-control-icons.js";

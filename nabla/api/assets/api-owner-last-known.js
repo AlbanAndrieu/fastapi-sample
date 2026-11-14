@@ -1,15 +1,15 @@
 // Historical OWNER evidence is read once on entering the detailed dashboard.
 // Never persist it in localStorage, sessionStorage or the service worker.
-import { withRequestDeadline } from "./api-request-deadline.js";
+
 import { ownerSessionAvailable } from "./api-owner-session.js";
+import { withRequestDeadline } from "./api-request-deadline.js";
 
 const VALID_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
 const VALID_STATES = new Set(["ok", "warn", "fail", "expected"]);
 const MAX_VISIBLE = 75;
 
 export function normalizeOwnerLastKnown(payload) {
-  if (payload?.state !== "historical" || payload.current !== false)
-    return [];
+  if (payload?.state !== "historical" || payload.current !== false) return [];
   if (!Array.isArray(payload.observations)) return [];
   return payload.observations
     .filter(
@@ -68,8 +68,8 @@ function showHistoricalRows(rows) {
   }
   panel.appendChild(list);
   document.addEventListener("health-board-refreshed", (event) => {
-    panel.hidden = event.detail?.state === "fresh" &&
-      event.detail?.serviceEvidenceCount > 0;
+    panel.hidden =
+      event.detail?.state === "fresh" && event.detail?.serviceEvidenceCount > 0;
   });
 }
 
