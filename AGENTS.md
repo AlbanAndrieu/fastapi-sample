@@ -6,13 +6,14 @@
 
 - Own FastAPI API, observer, DTOs, UI, runtime cost, application tests. `nabla-compose` owns TrueNAS/pfSense/Cloudflare/Vaultwarden, monitoring targets, Backstage source; Site Alban owns Next.js presentation.
 - Never mutate `master`, disable a quality/security gate, reveal `.env`/tokens, expose a LAN service, change YubiKey material or merge a PR without approval. Reversible homelab downtime is permitted; irreversible data loss/exposure is not.
-- Prove **CODED / TESTED / DEPLOYED / ACCEPTED** separately. `NOT_RUN`, `DENIED` and stale telemetry are not verified `DOWN`. Record SHA, vantage, source and next required acceptance in `docs/engineering-roadmap.md`.
+- Prove **CODED / TESTED / DEPLOYED / ACCEPTED** separately. `NOT_RUN`, `DENIED` and stale telemetry are not verified `DOWN`.
+- FastAPI priority: **H05/F03+F09 observability** before **H17/F11 Backstage V2**. See the current engineering roadmap for acceptance criteria. Record SHA, vantage, source and next required acceptance in `docs/engineering-roadmap.md`.
 
 ## Execution modes (based on actual access, not agent branding)
 
 - **Connected Claude Code workstation:** explicitly opt in using `AGENT_EXECUTION_MODE=workstation` **only when** the checkout, dependencies and LAN routes are really available. Use workstation CPU/uv/Node/Just, cached deps, local tests, Docker metadata and bounded TrueNAS probes as needed. Runtime work must be read-only unless separately authorized.
 - **Remote Codex / GitHub connector / no LAN:** default `AGENT_EXECUTION_MODE=offline`. Do the code, review, tests possible in the environment, documentation, GitHub PRs and static validations. Never attempt private IP/SSH/Docker/TrueNAS, secrets or login based on a hostname from docs. Runtime is `NOT_RUN`; provide the workstation acceptance command.
-- Start with `python3 scripts/agent-task-context.py --task auto`; it is path-only and **never probes** the LAN. To execute a diagnostic, use `bash scripts/agent-diagnostics.sh --help`. Only an explicitly selected workstation mode enables `--runtime`; use `--dns-only` to isolate DNS.
+- Start with `python3 scripts/agent-task-context.py --task auto`; it is path-only and **never probes** the LAN. Use `bash scripts/agent-diagnostics.sh --plan --runtime` to inspect the planned read-only command; `--runtime`, `--dns-only` and `--metrics-lan` require an explicit workstation mode. CI/Codex indicators always block these probes.
 - **Une worktree Git par agent** (Claude Code, Codex, OpenCode), with a separate `.venv`; `QG_LOCKED` is not permission to delete a quality gate lock. To list all bounded pytest failures locally, use `QUALITY_PYTEST_MAXFAIL=0 QUALITY_LOG_TAIL=80 bash scripts/agent-quality-gate.sh --fix`.
 
 ## Mandatory execution protocol
