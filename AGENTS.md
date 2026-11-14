@@ -13,7 +13,7 @@
 - **Connected Claude Code workstation:** explicitly opt in using `AGENT_EXECUTION_MODE=workstation` **only when** the checkout, dependencies and LAN routes are really available. Use workstation CPU/uv/Node/Just, cached deps, local tests, Docker metadata and bounded TrueNAS probes as needed. Runtime work must be read-only unless separately authorized.
 - **Remote Codex / GitHub connector / no LAN:** default `AGENT_EXECUTION_MODE=offline`. Do the code, review, tests possible in the environment, documentation, GitHub PRs and static validations. Never attempt private IP/SSH/Docker/TrueNAS, secrets or login based on a hostname from docs. Runtime is `NOT_RUN`; provide the workstation acceptance command.
 - Start with `python3 scripts/agent-task-context.py --task auto`; it is path-only and **never probes** the LAN. To execute a diagnostic, use `bash scripts/agent-diagnostics.sh --help`. Only an explicitly selected workstation mode enables `--runtime`; use `--dns-only` to isolate DNS.
-- Separate Git worktrees/virtual environments for concurrent agents; a `QG_LOCKED` status is not permission to delete a quality gate lock.
+- **Une worktree Git par agent** (Claude Code, Codex, OpenCode), with a separate `.venv`; `QG_LOCKED` is not permission to delete a quality gate lock. To list all bounded pytest failures locally, use `QUALITY_PYTEST_MAXFAIL=0 QUALITY_LOG_TAIL=80 bash scripts/agent-quality-gate.sh --fix`.
 
 ## Mandatory execution protocol
 
@@ -22,7 +22,7 @@
 3. With workstation toolchain, converge **L2** via `bash scripts/agent-quality-gate.sh --fix`, review diffs, commit, then prove **L3** via `bash scripts/agent-publish.sh` on the exact HEAD. `just ui-quick` and `just docs-links` are L1, not publication proof.
 4. With no executable checkout, run only possible offline checks, batch one Git commit with an expected SHA and keep a **Draft PR**. Declare L2/L3/CI/runtime **NOT_RUN** instead of treating an API write as a gate bypass.
 5. Inspect failing CI job/step and bounded log excerpts first. No redundant polling; preserve SAST/SCA/secret scanning. In explicit **no-GitHub-Actions/no-credit mode**, keep Draft and use the established `[skip ci]` exception only as directed; no merge until required reviews.
-6. Before reporting completion, update `docs/engineering-roadmap.md` with any unresolved issue, owner and acceptance command. Report changes, tests actually run and residual risks.
+6. An agent **must not declare work complete** while a **known residual** remains untracked in `docs/engineering-roadmap.md`. Record the owner and **next acceptance proof** for every deferred issue. Report changes, tests actually run and residual risks.
 
 ### Skill routing
 
