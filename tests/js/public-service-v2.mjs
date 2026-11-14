@@ -60,13 +60,20 @@ test("revisit uses bounded retries and retains only public history", async () =>
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const text = readFileSync(
-    fileURLToPath(new URL("../../nabla/api/assets/api-public-services.js", import.meta.url)),
+    fileURLToPath(
+      new URL("../../nabla/api/assets/api-public-services.js", import.meta.url),
+    ),
     "utf8",
   );
   assert.ok(text.includes("PENDING_RETRY_BASE_MS * 2 ** pendingRetries"));
   assert.ok(text.includes("schedulePendingRetry();"));
   assert.ok(text.includes("expireLiveView();"));
-  assert.ok(text.includes('if (panel.hidden) return;'));
-  assert.ok(text.includes('window.addEventListener("online", () => resume({ immediate: true }))'));
+  assert.ok(text.includes("if (panel.hidden) return;"));
+  assert.ok(text.includes("awaitingFreshEvidence ? 9000 : recheckMs"));
+  assert.ok(
+    text.includes(
+      'window.addEventListener("online", () => resume({ immediate: true }))',
+    ),
+  );
   assert.ok(!text.includes('localStorage.setItem("owner'));
 });

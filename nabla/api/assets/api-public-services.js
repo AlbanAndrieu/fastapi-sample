@@ -106,6 +106,7 @@ export async function installPublicServiceOverview({
   let loading = false;
   let retryTimer = null;
   let lastAttemptAt = 0;
+  let awaitingFreshEvidence = false;
 
   function countsForRows() {
     const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
@@ -131,7 +132,9 @@ export async function installPublicServiceOverview({
           ];
     const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
     const detail = historical
-      ? "Historical only · not a current probe"
+      ? "Last public response " +
+        publicObservationAge(receivedAt) +
+        " ago · not a current probe"
       : catalogSource === "bootstrap-snapshot"
         ? "Last-known local inventory (not live)"
         : "Verified public summary (not full health audit)";
@@ -184,7 +187,9 @@ export async function installPublicServiceOverview({
         ? "LAST " + service.state.toUpperCase()
         : service.state.toUpperCase();
       state.title = historical
-        ? "Historical public summary only; the current probe is unverified"
+        ? "Last public response " +
+          publicObservationAge(receivedAt) +
+          " ago; current probe is unverified"
         : service.state === "unknown"
           ? "No confirmed fresh observation"
           : "Summarized public observation (not a full health audit)";
@@ -329,9 +334,11 @@ export async function installPublicServiceOverview({
         catalogRevision = payload.catalogRevision;
         savePublicObservation(storage, payload, receivedAt);
         pendingRetries = 0;
+        awaitingFreshEvidence = false;
         clearRetry();
         updateSummary("Current public summary");
       } else {
+        awaitingFreshEvidence = true;
         if (catalogRevision !== payload.catalogRevision) {
           clearPublicObservation(storage);
           receivedAt = null;
@@ -346,8 +353,10 @@ export async function installPublicServiceOverview({
         rows = [];
         receivedAt = null;
         catalogRevision = null;
+        awaitingFreshEvidence = false;
         lastKnownOnError();
       } else {
+        awaitingFreshEvidence = true;
         lastKnownOnError();
         // Retain the historical PUBLIC-only view and retry with bounded
         // backoff instead of requiring a manual Refresh after a cold start.
@@ -365,8 +374,8 @@ export async function installPublicServiceOverview({
     // fallback. A stale/pending detailed board may reveal it again.
     expireLiveView();
     if (panel.hidden) return;
-    if (Date.now() - lastAttemptAt < (immediate ? 5000 : recheckMs) || loading)
-      return;
+    const delay = immediate ? 5000 : awaitingFreshEvidence ? 9000 : recheckMs;
+    if (Date.now() - lastAttemptAt < delay || loading) return;
     pendingRetries = 0;
     clearRetry();
     void load();

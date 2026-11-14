@@ -94,7 +94,14 @@ function announceRefreshComplete(snapshot, { forceRefresh, includeTechnical }) {
           refreshing: snapshot?.refreshing === true,
           state: snapshot?.state || "unknown",
           serviceEvidenceCount: Array.isArray(snapshot?.homelab?.services)
-            ? snapshot.homelab.services.length
+            ? snapshot.homelab.services.filter(
+                (service) =>
+                  ["ok", "warn", "fail"].includes(
+                    service?.effective_state || service?.state,
+                  ) &&
+                  service?.observation_stale !== true &&
+                  service?.probe_stale !== true,
+              ).length
             : 0,
         },
       }),
