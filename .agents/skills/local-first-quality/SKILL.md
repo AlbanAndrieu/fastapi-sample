@@ -1,8 +1,9 @@
 ---
 name: local-first-quality
-description: Route FastAPI exact-HEAD L0–L3 quality checks; remote API-only sessions keep honest NOT_RUN evidence.
+description: >-
+  Route FastAPI exact-HEAD L0–L3 quality checks; remote API-only sessions keep
+  honest NOT_RUN evidence.
 ---
-
 # Local-first quality — compact router
 
 Load for CI failure, PR continuation, formatter/lint, offline diagnostics or local-first release work. `AGENTS.md` is authoritative. Do not treat GitHub CI or targeted L1 as local L3.
