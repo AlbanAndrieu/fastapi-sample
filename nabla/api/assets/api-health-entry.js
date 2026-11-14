@@ -11,13 +11,16 @@ const richMode = params.get("ui_full") === "1";
 
 function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
   for (const id of [
-    "health-board-private-meta", "owner-readonly-detail",
-    "truenas-platform", "runtime-topology",
+    "health-board-private-meta",
+    "owner-readonly-detail",
+    "truenas-platform",
+    "runtime-topology",
   ]) {
     const element = document.getElementById(id);
     if (element) element.hidden = true;
   }
-  document.querySelectorAll(".health-cache-reset, .health-refresh")
+  document
+    .querySelectorAll(".health-cache-reset, .health-refresh")
     .forEach((button) => {
       button.hidden = true;
       button.disabled = true;
@@ -29,7 +32,11 @@ function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
       : "Safe mode · public service directory only · probes not loaded";
   }
 
-  if (allowAdvancedLink && heading && !document.getElementById("health-full-dashboard-link")) {
+  if (
+    allowAdvancedLink &&
+    heading &&
+    !document.getElementById("health-full-dashboard-link")
+  ) {
     const target = new URL(window.location.href);
     target.searchParams.delete("ui_safe");
     target.searchParams.set("ui_full", "1");
@@ -42,7 +49,12 @@ function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
   }
 
   // Make the operator entry discoverable without loading advanced observers.
-  if (allowAdvancedLink && !operatorMode && heading && !document.getElementById("owner-access-link")) {
+  if (
+    allowAdvancedLink &&
+    !operatorMode &&
+    heading &&
+    !document.getElementById("owner-access-link")
+  ) {
     const target = new URL(window.location.href);
     target.searchParams.set("operator", "1");
     const link = document.createElement("a");
@@ -55,10 +67,12 @@ function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
 
   // This bounded public endpoint does not require an owner session.
   // Its failure must leave a usable page with a visible error message.
-  void installPublicServiceOverview({ ownerAuthenticated: false }).catch(() => {
-    const summary = document.getElementById("public-services-summary");
-    if (summary) summary.textContent = "Public service directory unavailable";
-  });
+  void installPublicServiceOverview({ ownerAuthenticated: false }).catch(
+    () => {
+      const summary = document.getElementById("public-services-summary");
+      if (summary) summary.textContent = "Public service directory unavailable";
+    },
+  );
 }
 
 // Keep the bounded directory available before importing any advanced modules.
@@ -99,16 +113,22 @@ function startRichDashboard() {
   });
   // An import may resolve even if the asynchronous dashboard bootstrap fails.
   // Never expose the rejected error or hide the public fallback.
-  document.addEventListener("health-board-bootstrap-failed", () => {
-    showUnavailable(
-      "Detailed diagnostics could not initialize. Public services remain available.",
-    );
-  }, { once: true });
+  document.addEventListener(
+    "health-board-bootstrap-failed",
+    () => {
+      showUnavailable(
+        "Detailed diagnostics could not initialize. Public services remain available.",
+      );
+    },
+    { once: true },
+  );
   // Give the public directory and OWNER button a chance to paint first.
   // This is a scheduling guard, not proof that all advanced modules are safe.
   window.setTimeout(() => {
     void import("./api-health.js").catch(() => {
-      showUnavailable("Detailed diagnostics could not start. The public directory remains available.");
+      showUnavailable(
+        "Detailed diagnostics could not start. The public directory remains available.",
+      );
     });
   }, 0);
 }
@@ -130,7 +150,8 @@ if (operatorMode && !safeMode) {
       .catch(() => {
         const state = document.getElementById("owner-session-state");
         const login = document.getElementById("owner-session-login");
-        if (state) state.textContent = "Owner sign-in unavailable; check page assets.";
+        if (state)
+          state.textContent = "Owner sign-in unavailable; check page assets.";
         if (login) login.disabled = true;
         return false;
       });
@@ -160,12 +181,15 @@ if (safeMode || !richMode) {
       .then(({ diagnosticsReadAvailable }) => diagnosticsReadAvailable())
       .then((readable) => {
         if (readable) startRichDashboard();
-        else showUnavailable(
-          "Detailed diagnostics not authorized from this session. Public services remain available.",
-        );
+        else
+          showUnavailable(
+            "Detailed diagnostics not authorized from this session. Public services remain available.",
+          );
       })
-      .catch(() => showUnavailable(
-        "Detailed diagnostics could not verify access. Public services remain available.",
-      ));
+      .catch(() =>
+        showUnavailable(
+          "Detailed diagnostics could not verify access. Public services remain available.",
+        ),
+      );
   }
 }
