@@ -6,17 +6,19 @@ runtime_url="${FASTAPI_RUNTIME_URL:-http://172.17.0.24:8091}"
 mode=basic
 vantage=auto
 dns_only=0
+wait_seconds=50
 while (($#)); do
   case "$1" in
     --strict) mode=strict ;;
     --detail) mode=report ;;
     --dns-only) dns_only=1 ;;
+    --quick) wait_seconds=8 ;;
     --vantage)
       [[ $# -ge 2 ]] || { echo '❌ --vantage requires a value' >&2; exit 2; }
       vantage="$2"
       shift ;;
     --help|-h)
-      printf 'Usage: %s [--strict|--detail|--dns-only] [--vantage auto|truenas|workstation]\n' "$0"
+      printf 'Usage: %s [--strict|--detail|--dns-only|--quick] [--vantage auto|truenas|workstation]\n' "$0"
       exit 0 ;;
     *) printf '❌ Unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -52,11 +54,11 @@ fi
 printf '📍 Observer=%s; target=TrueNAS (172.17.0.24)\n' "$vantage"
 printf '\n🔎 FastAPI cached dependency evidence\n'
 if [[ "$mode" == strict ]]; then
-  python3 "$script" --url "$runtime_url" --wait-seconds 50 || exit $?
+  python3 "$script" --url "$runtime_url" --wait-seconds "$wait_seconds" || exit $?
 elif [[ "$mode" == report ]]; then
-  python3 "$script" --url "$runtime_url" --wait-seconds 50 --report-only || exit $?
+  python3 "$script" --url "$runtime_url" --wait-seconds "$wait_seconds" --report-only || exit $?
 else
-  python3 "$script" --url "$runtime_url" --wait-seconds 50 --basic || exit $?
+  python3 "$script" --url "$runtime_url" --wait-seconds "$wait_seconds" --basic || exit $?
 fi
 
 if [[ "$vantage" != truenas ]]; then
