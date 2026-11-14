@@ -35,10 +35,7 @@ def test_cloudflare_sentry_diagnostics_are_application_owned() -> None:
         encoding="utf-8",
     )
 
-    canonical_runbook = (
-        "nabla-compose/blob/master/docs/"
-        "cloudflare-sentry-platform-diagnostics.md"
-    )
+    canonical_runbook = "nabla-compose/blob/master/docs/cloudflare-sentry-platform-diagnostics.md"
     assert canonical_runbook in document
     assert "SENTRY_LOCAL_DSN" in document
     assert "status_confirmed" not in document
