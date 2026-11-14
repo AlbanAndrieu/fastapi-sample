@@ -17,7 +17,7 @@ docs-links:
 
 # Default FastAPI UI L1: Node only; no npm install, browser or GitHub Actions.
 ui-quick:
-    node --test tests/js/api-public-fast-start.test.mjs tests/js/api-rich-observer-refresh.test.mjs tests/js/api-chromium-preflight-runner.test.mjs tests/js/api-owner-rich-entry-sequencing.test.mjs tests/js/api-owner-session-interaction.test.mjs tests/js/precommit-node-local-contract.test.mjs
+    node --test tests/js/api-public-fast-start.test.mjs tests/js/api-rich-observer-refresh.test.mjs tests/js/api-chromium-preflight-runner.test.mjs tests/js/api-owner-rich-entry-sequencing.test.mjs tests/js/api-owner-session-interaction.test.mjs tests/js/precommit-node-local-contract.test.mjs tests/js/api-public-observation-cache.test.mjs tests/js/api-public-swr.test.mjs
 
 # Verify the no-network, bounded agent router with stdlib unittest only.
 agent-context-contracts:

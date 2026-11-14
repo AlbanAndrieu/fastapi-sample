@@ -93,33 +93,33 @@ de `nabla-compose/apps/gatus/config/config.yml`. FastAPI n'interroge
 aucun service lors de l'ouverture d'une carte.
 
 1. Afficher les 85 monitors actuellement déclarés dans la configuration
-   (63 TCP, 21 HTTP, 1 HTTPS à la date du 25 octobre 2026). Ce chiffre décrit
-   le fichier Git, pas la disponibilité de l'installation TrueNAS :
+    (63 TCP, 21 HTTP, 1 HTTPS à la date du 25 octobre 2026). Ce chiffre décrit
+    le fichier Git, pas la disponibilité de l'installation TrueNAS :
 
-   ```sh
-   just gatus-inventory ../nabla-compose/apps/gatus/config/config.yml
-   ```
+    ```sh
+    just gatus-inventory ../nabla-compose/apps/gatus/config/config.yml
+    ```
 
 2. Exporter séparément le JSON autorisé de `/api/health-board` dans un
-   fichier privé hors du dépôt. Ne pas committer les diagnostics, clés ou
-   adresses privées.
+    fichier privé hors du dépôt. Ne pas committer les diagnostics, clés ou
+    adresses privées.
 
 3. Rapprocher les déclarations et échantillons :
 
-   ```sh
-   just gatus-compare ../nabla-compose/apps/gatus/config/config.yml /chemin/prive/health-board.json
-   ```
+    ```sh
+    just gatus-compare ../nabla-compose/apps/gatus/config/config.yml /chemin/prive/health-board.json
+    ```
 
 4. Lire les classes `up`, `down`, `no_sample`, `unverified`, les
-   labels ambigus et les séries observées sans déclaration. Le code retour
-   `1` signifie **contrôle incomplet ou anomalie**, jamais nécessairement
-   panne du service. Le script sort `2` si les fichiers sont invalides.
+    labels ambigus et les séries observées sans déclaration. Le code retour
+    `1` signifie **contrôle incomplet ou anomalie**, jamais nécessairement
+    panne du service. Le script sort `2` si les fichiers sont invalides.
 
 5. Sur les échecs réels, comparer la cible de la définition Gatus, le
-   statut HTTP/TCP/TLS, l'authentification, puis les règles Prometheus.
-   Les mesures enregistrées par `max by (nabla_service_id, type)`
-   peuvent masquer une panne si deux monitors partagent ces labels.
-   Une telle collision est donc classée `unverified`, jamais `up`.
+    statut HTTP/TCP/TLS, l'authentification, puis les règles Prometheus.
+    Les mesures enregistrées par `max by (nabla_service_id, type)`
+    peuvent masquer une panne si deux monitors partagent ces labels.
+    Une telle collision est donc classée `unverified`, jamais `up`.
 
 La preuve est périmée après 180 secondes, ou si le snapshot est incomplet.
 Les sondes TCP indiquent seulement une connexion, pas un succès HTTP ni
@@ -246,7 +246,7 @@ ssh -G albandrieu@172.17.0.24 |
 
 Ne pas afficher `ssh -G` complet dans les tickets : les chemins
 IdentityFile et ProxyCommand peuvent contenir des informations locales.
- Si la clé d'hôte est inconnue ou a changé,
+Si la clé d'hôte est inconnue ou a changé,
 contrôler son empreinte depuis la console TrueNAS avant de l'approuver.
 En cas de refus d'authentification, vérifier le compte SSH,
 sa clé publique autorisée et son shell. Un compte API TrueNAS n'a
@@ -299,18 +299,18 @@ déployée est identique. La configuration effective et les secrets restent
 Séquence de correction, sans sortie de secret :
 
 1. Vérifier le job `fastapi_sample` dans la configuration active
-   de Prometheus sur TrueNAS. Ne pas afficher sa réponse brute.
+    de Prometheus sur TrueNAS. Ne pas afficher sa réponse brute.
 2. Provisionner un **jeton dédié** et identique côté runtime FastAPI
-   et côté fichier de credentials Prometheus, via la gestion de secrets
-   existante. Ne pas créer le fichier dans Git.
+    et côté fichier de credentials Prometheus, via la gestion de secrets
+    existante. Ne pas créer le fichier dans Git.
 3. Déclarer `authorization.type: Bearer` et
-   `authorization.credentials_file` sous le seul job
-   `fastapi_sample` dans `nabla-compose`.
+    `authorization.credentials_file` sous le seul job
+    `fastapi_sample` dans `nabla-compose`.
 4. Tester en local `promtool check config`, les permissions du secret
-   pour l'UID `568` et le montage Compose avant tout déploiement.
+    pour l'UID `568` et le montage Compose avant tout déploiement.
 5. Faire valider le déploiement puis vérifier
-   `up{job="fastapi_sample"} == 1`. Ce signal prouve le scrape,
-   non la disponibilité fonctionnelle de l'application.
+    `up{job="fastapi_sample"} == 1`. Ce signal prouve le scrape,
+    non la disponibilité fonctionnelle de l'application.
 
 Ne pas utiliser `DIAGNOSTICS_ACCESS_KEY` pour Prometheus, ne pas
 désactiver l'authentification, et ne pas divulguer d'empreinte de clé.
@@ -318,3 +318,16 @@ Le diagnostic FastAPI affiche désormais `next_check` avec un code fixe,
 sans refléter les commandes ni les valeurs reçues depuis SSH.
 
 Les routes machine `/api/site/health/v2` et `/api/site/catalog/v2` exigent toujours une clé diagnostics valide même lorsque `HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=true`. L'accusé de trace n'est jamais fourni aux requêtes refusées.
+
+## Retour sur page : historique public et revalidation SWR (H05/F03/F09)
+
+**État : CODED dans la PR H05 ; runtime Cloud/TrueNAS NOT_VERIFIED.** Le navigateur conserve uniquement le résumé déjà public de `/api/ui/services` : noms, types, tags validés et états agrégés `OK/WARN/FAIL/UNKNOWN`. Il ne conserve jamais les résultats détaillés des sondes OWNER, les URLs, IP, ports, secrets ni les dépendances internes.
+
+- **Cache navigateur** : stockage de même origine, validation stricte à l'écriture ET à la lecture, expiration à 24 h ; panne ou refus du stockage ne bloque pas la page. `home-public-cache.js` reste un cache de noms de session séparé.
+- **Affichage immédiat** : au retour, montrer le dernier état reçu et son âge, avec badge `LAST OK/WARN/FAIL`, couleur neutre, étiquette historique. L'heure correspond à la réception de la réponse publique, pas à l'exécution exacte d'une sonde.
+- **SWR** : un `GET /api/ui/services` revalide en arrière-plan ; événements `visibilitychange`, `pageshow` et `online` sont dédupliqués par une cadence minimale de 180 s sur FastAPI Cloud et 30 s sur LAN. Réessais `pending` bornés à cinq ; aucun `refresh=true` et aucune sonde WAN directe.
+- **Serveur pending/stale** : conserver le résumé historique seulement si `catalogRevision` est identique. Sinon, basculer vers le nouvel inventaire en `UNKNOWN`. Une réponse fraîche remplace le résumé ; une erreur réseau ne transforme pas une ancienne preuve en état actuel.
+- **Accès refusé** : 401/403/404 sur l'annuaire public purge le cache historique. Le contenu du cache est strictement moins privilégié que les diagnostics OWNER ; une ancienne authentification ne permet aucune relecture privée.
+- **Détails privés** : les sondes Gatus/Prometheus/TrueNAS restent dans les caches/mesures serveur protégés et doivent être revalidées par une session autorisée ; aucune persistance privée inter-session côté navigateur.
+
+**Tests ciblés** : `node --test tests/js/api-public-observation-cache.test.mjs tests/js/api-public-swr.test.mjs tests/js/home-public-cache.test.mjs`. Mesurer lors de la recette le temps de premier rendu des cartes, les GET après 6 h, la neutralisation des badges historiques, et les tentatives réseau sur Cloud/TrueNAS au SHA déployé.

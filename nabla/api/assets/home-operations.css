@@ -721,3 +721,8 @@ button {
   );
   color: #b4bfce;
 }
+
+/* Public historical counts must never look like currently green probes. */
+#home-fleet-meter[data-historical="true"] .op-meter-segment {
+  background: #758295;
+}

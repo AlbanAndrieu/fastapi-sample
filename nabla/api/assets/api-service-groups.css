@@ -431,3 +431,12 @@
 [hidden].public-services-list {
   display: none;
 }
+
+/* Cached public observations are historical, not green/amber/red health. */
+.public-service-state--historical,
+.service-health-overview[data-historical="true"] .service-overview-card strong {
+  color: #aeb6c2;
+}
+.service-health-overview[data-historical="true"] .service-overview-card {
+  border-color: #303744;
+}

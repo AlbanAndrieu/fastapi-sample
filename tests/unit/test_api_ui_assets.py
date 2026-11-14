@@ -389,23 +389,28 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert "innerHTML" not in script
     assert "X-Diagnostics-Key" not in script
     assert "localStorage" not in script
-    assert "pendingRetries < 5" in script
+    assert "pendingRetries >= 5" in script
+    assert "document.hidden" in script
+    assert "CLOUD_RECHECK_MS = 180000" in script
     assert "Owner only" not in (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
-    assert "renderPublicSummary(counts, rows.length)" in script
+    assert "renderPublicSummary(rows.length ? counts : null, rows.length)" in script
     assert 'document.getElementById("service-health-overview")' in script
     assert '"Healthy"' in script and '"Degraded"' in script
     assert '"Failed"' in script and '"Unconfirmed"' in script
     assert "cards.length !== 5" in script
     assert "value.textContent = values[index]" in script
     assert "renderPublicSummary(null, 0)" in script
-    assert "if (ownerAuthenticated) return;" in script
+    assert 'if (ownerAuthenticated || panel.dataset.publicServicesInitialized === "1")' in script
 
 
 def test_limited_service_overview_never_claims_stale_health() -> None:
     script = (_ASSET_DIR / "api-public-services.js").read_text(encoding="utf-8")
-    assert 'payload.boardState === "fresh" ? service.state : "unknown"' in script
+    assert 'payload.boardState === "fresh"' in script
+    assert "reconcilePublicObservation(payload, previous)" in script
     assert 'rows.map((service) => ({ ...service, state: "unknown" }))' in script
-    assert "all statuses UNKNOWN" in script
+    assert 'historical ? "historical" : service.state' in script
+    assert "readPublicObservation(storage)" in script
+    assert "clearPublicObservation(storage)" in script
     assert "localStorage" not in script
 
 
@@ -431,8 +436,8 @@ def test_public_landing_never_prompts_anonymous_visitors_for_owner_signin() -> N
     assert "visibility.enterReadOnlyInventory();" in bootstrap
     assert "Public read-only service inventory" in visibility
     assert 'fetch("/api/ui/services"' in catalog
-    assert "if (ownerAuthenticated) return;" in catalog
-    assert "Last-known service inventory" in catalog
+    assert 'if (ownerAuthenticated || panel.dataset.publicServicesInitialized === "1")' in catalog
+    assert "historical only, not current" in catalog
     assert "operatorMode" in bootstrap
 
 

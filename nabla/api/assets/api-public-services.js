@@ -1,3 +1,10 @@
+import {
+  clearPublicObservation,
+  publicObservationAge,
+  publicObservationStorage,
+  readPublicObservation,
+  savePublicObservation,
+} from "./api-public-observation-cache.js";
 import { withRequestDeadline } from "./api-request-deadline.js";
 
 // Minimal public projection ONLY; no private probe URLs or credentials.
@@ -45,6 +52,28 @@ export function validOverview(value) {
   );
 }
 
+// This view is never a private probe cache. A restored state is labelled
+// HISTORICAL, grey, and dated until the server confirms a fresh new snapshot.
+const CLOUD_RECHECK_MS = 180000;
+const LOCAL_RECHECK_MS = 30000;
+const DISPLAY_FRESH_MS = 90000;
+
+export function reconcilePublicObservation(payload, cached) {
+  if (
+    payload.boardState === "fresh" &&
+    payload.catalogSource === "backstage-v2"
+  ) {
+    return { rows: payload.services, historical: false };
+  }
+  if (cached?.catalogRevision === payload.catalogRevision) {
+    return { rows: cached.services, historical: true };
+  }
+  return {
+    rows: payload.services.map((service) => ({ ...service, state: "unknown" })),
+    historical: false,
+  };
+}
+
 export async function installPublicServiceOverview({
   ownerAuthenticated = false,
 } = {}) {
@@ -56,22 +85,36 @@ export async function installPublicServiceOverview({
   const filter = document.getElementById("service-filter");
   if (!panel || !list || !summary || !refresh || !expand) return;
 
-  // The rich board may reuse the public fallback during startup. Never
-  // install a second set of listeners or trigger duplicate catalogue GETs.
-  if (ownerAuthenticated) return;
-  if (panel.dataset.publicServicesInitialized === "1") return;
+  if (ownerAuthenticated || panel.dataset.publicServicesInitialized === "1")
+    return;
   panel.dataset.publicServicesInitialized = "1";
   panel.hidden = false;
+
+  const storage = publicObservationStorage();
+  const recheckMs = window.location?.hostname?.endsWith(".fastapicloud.dev")
+    ? CLOUD_RECHECK_MS
+    : LOCAL_RECHECK_MS;
   let rows = [];
   let expanded = false;
-  let pendingRetries = 0;
+  let historical = false;
+  let receivedAt = null;
+  let catalogRevision = null;
   let catalogSource = "backstage-v2";
+  let pendingRetries = 0;
+  let loading = false;
+  let retryTimer = null;
+  let lastAttemptAt = 0;
+
+  function countsForRows() {
+    const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
+    for (const row of rows) counts[row.state] += 1;
+    return counts;
+  }
 
   function renderPublicSummary(counts, total) {
-    // Five cards are shared with OWNER health; anonymous visitors must see
-    // verifiable v2 aggregate counts instead of "Owner only" placeholders.
     const overview = document.getElementById("service-health-overview");
     if (!overview) return;
+    overview.dataset.historical = historical ? "true" : "false";
     const cards = overview.querySelectorAll(".service-overview-card");
     if (cards.length !== 5) return;
     const values =
@@ -85,22 +128,18 @@ export async function installPublicServiceOverview({
             String(counts.unknown),
           ];
     const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
-    const descriptions = [
-      catalogSource === "bootstrap-snapshot"
+    const detail = historical
+      ? "Historical only · not a current probe"
+      : catalogSource === "bootstrap-snapshot"
         ? "Last-known local inventory (not live)"
-        : "Backstage v2 catalog entries",
-      "Verified summary state",
-      "Verified summary state",
-      "Verified summary state",
-      "Unknown or stale evidence",
-    ];
+        : "Verified public summary (not full health audit)";
     cards.forEach((card, index) => {
       const heading = card.querySelector("span");
       const value = card.querySelector("strong");
-      const detail = card.querySelector("small");
+      const description = card.querySelector("small");
       if (heading) heading.textContent = labels[index];
       if (value) value.textContent = values[index];
-      if (detail) detail.textContent = descriptions[index];
+      if (description) description.textContent = detail;
     });
   }
 
@@ -137,12 +176,16 @@ export async function installPublicServiceOverview({
       identity.append(label, meta);
       const state = document.createElement("strong");
       state.className =
-        "public-service-state public-service-state--" + service.state;
-      state.textContent = service.state.toUpperCase();
-      state.title =
-        service.state === "unknown"
+        "public-service-state public-service-state--" +
+        (historical ? "historical" : service.state);
+      state.textContent = historical
+        ? "LAST " + service.state.toUpperCase()
+        : service.state.toUpperCase();
+      state.title = historical
+        ? "Historical public summary only; the current probe is unverified"
+        : service.state === "unknown"
           ? "No confirmed fresh observation"
-          : "Summarized service observation (not a full health audit)";
+          : "Summarized public observation (not a full health audit)";
       item.append(identity, state);
       fragment.appendChild(item);
     }
@@ -153,12 +196,95 @@ export async function installPublicServiceOverview({
       : "Show all " + matching.length + " services";
   }
 
-  let loading = false;
-  async function load() {
-    if (loading) return;
+  function updateSummary(note = "") {
+    const counts = countsForRows();
+    renderPublicSummary(rows.length ? counts : null, rows.length);
+    summary.dataset.serviceCount = String(rows.length);
+    summary.dataset.catalogSource = catalogSource;
+    summary.dataset.snapshotKind = historical ? "historical" : "current";
+    if (receivedAt != null) summary.dataset.lastReceivedAt = String(receivedAt);
+    else delete summary.dataset.lastReceivedAt;
+    const prefix =
+      historical && receivedAt != null
+        ? "Last public response " +
+          publicObservationAge(receivedAt) +
+          " ago · historical only, not current · "
+        : catalogSource === "bootstrap-snapshot"
+          ? "Bootstrap inventory · "
+          : "";
+    summary.textContent =
+      prefix +
+      rows.length +
+      " services · " +
+      counts.ok +
+      " OK · " +
+      counts.warn +
+      " WARN · " +
+      counts.fail +
+      " FAIL · " +
+      counts.unknown +
+      " UNKNOWN" +
+      (note ? " · " + note : "") +
+      " · detailed probes require authorization";
+    render();
+  }
+
+  function lastKnownOnError() {
+    if (rows.length > 0 && receivedAt != null) {
+      historical = true;
+      updateSummary("Refresh unavailable; last known values retained");
+    } else if (rows.length > 0) {
+      rows = rows.map((service) => ({ ...service, state: "unknown" }));
+      historical = false;
+      updateSummary("Current observations unavailable");
+    } else {
+      renderPublicSummary(null, 0);
+      delete summary.dataset.serviceCount;
+      list.replaceChildren();
+      expand.hidden = true;
+      summary.textContent =
+        "Service inventory unavailable; no verified names or statuses to display.";
+    }
+  }
+
+  function clearRetry() {
+    if (retryTimer !== null) window.clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+
+  function schedulePendingRetry() {
+    clearRetry();
+    if (pendingRetries >= 5 || document.hidden) return;
+    pendingRetries += 1;
+    retryTimer = window.setTimeout(() => {
+      retryTimer = null;
+      if (!document.hidden && !panel.hidden) void load();
+    }, 9000);
+  }
+
+  function expireLiveView() {
+    if (
+      !historical &&
+      receivedAt != null &&
+      Date.now() - receivedAt > DISPLAY_FRESH_MS
+    ) {
+      historical = true;
+      updateSummary("Revalidating");
+    }
+  }
+
+  async function load({ manual = false } = {}) {
+    if (loading || document.hidden) return;
+    if (manual) {
+      pendingRetries = 0;
+      clearRetry();
+    }
     loading = true;
+    lastAttemptAt = Date.now();
     refresh.disabled = true;
-    summary.textContent = "Loading the limited service directory…";
+    if (!rows.length)
+      summary.textContent = "Loading the limited service directory…";
+    else if (historical) updateSummary("Updating in background");
     try {
       const payload = await withRequestDeadline(async (signal) => {
         const response = await fetch("/api/ui/services", {
@@ -166,75 +292,80 @@ export async function installPublicServiceOverview({
           cache: "no-store",
           headers: { Accept: "application/json" },
         });
+        if (
+          response.status === 401 ||
+          response.status === 403 ||
+          response.status === 404
+        ) {
+          const error = new Error("Public directory access unavailable");
+          error.code = "public_access_disabled";
+          throw error;
+        }
         if (!response.ok)
           throw new Error("Unavailable (HTTP " + response.status + ")");
         return response.json();
       }, 6500);
       if (!validOverview(payload))
         throw new Error("Invalid service directory response");
-      // Never label expired probe observations as healthy or failing.
-      rows = payload.services.map((service) => ({
-        ...service,
-        state: payload.boardState === "fresh" ? service.state : "unknown",
-      }));
-      summary.dataset.serviceCount = String(rows.length);
+
+      const previous =
+        receivedAt != null ? { catalogRevision, services: rows } : null;
+      const projected = reconcilePublicObservation(payload, previous);
+      rows = projected.rows;
+      historical = projected.historical;
       catalogSource = payload.catalogSource || "backstage-v2";
-      summary.dataset.catalogSource = catalogSource;
-      const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
-      for (const row of rows) counts[row.state] += 1;
-      renderPublicSummary(counts, rows.length);
-      summary.textContent =
-        (catalogSource === "bootstrap-snapshot"
-          ? "Last-known service inventory (Backstage unavailable) · "
-          : "") +
-        rows.length +
-        " services · " +
-        counts.ok +
-        " OK · " +
-        counts.warn +
-        " WARN · " +
-        counts.fail +
-        " FAIL · " +
-        counts.unknown +
-        " UNKNOWN" +
-        (payload.boardState !== "fresh"
-          ? " · observations pending or stale"
-          : "") +
-        " · details available in operator mode";
-      render();
-      // A cold cloud cache may be pending for the first 40-second refresh.
-      // Keep probes server-owned: at most five UI polls, then manual refresh.
-      if (payload.boardState !== "fresh" && pendingRetries < 5) {
-        pendingRetries += 1;
-        window.setTimeout(() => {
-          if (!document.hidden && !panel.hidden) void load();
-        }, 9000);
-      }
-    } catch {
-      // Keep a previously loaded roster in memory when refresh fails, but
-      // revoke every stale health assertion until new evidence is verified.
-      if (rows.length > 0) {
-        rows = rows.map((service) => ({ ...service, state: "unknown" }));
-        summary.textContent =
-          rows.length +
-          " services listed · observations unavailable, all statuses UNKNOWN";
-        renderPublicSummary(
-          { ok: 0, warn: 0, fail: 0, unknown: rows.length },
-          rows.length,
-        );
-        render();
+      if (
+        !historical &&
+        payload.boardState === "fresh" &&
+        catalogSource === "backstage-v2"
+      ) {
+        receivedAt = Date.now();
+        catalogRevision = payload.catalogRevision;
+        savePublicObservation(storage, payload, receivedAt);
+        pendingRetries = 0;
+        clearRetry();
+        updateSummary("Current public summary");
       } else {
-        renderPublicSummary(null, 0);
-        delete summary.dataset.serviceCount;
-        list.replaceChildren();
-        expand.hidden = true;
-        summary.textContent =
-          "Service inventory unavailable; no verified names or statuses to display.";
+        if (catalogRevision !== payload.catalogRevision) {
+          clearPublicObservation(storage);
+          receivedAt = null;
+          catalogRevision = payload.catalogRevision;
+        }
+        updateSummary("New probe evidence pending or stale");
+        schedulePendingRetry();
+      }
+    } catch (error) {
+      if (error?.code === "public_access_disabled") {
+        clearPublicObservation(storage);
+        rows = [];
+        receivedAt = null;
+        catalogRevision = null;
+        lastKnownOnError();
+      } else {
+        lastKnownOnError();
       }
     } finally {
       loading = false;
       refresh.disabled = false;
     }
+  }
+
+  function resume() {
+    if (document.hidden || panel.hidden) return;
+    expireLiveView();
+    if (Date.now() - lastAttemptAt < recheckMs || loading) return;
+    pendingRetries = 0;
+    clearRetry();
+    void load();
+  }
+
+  const cached = readPublicObservation(storage);
+  if (cached) {
+    rows = cached.directory.services;
+    receivedAt = cached.receivedAt;
+    catalogRevision = cached.directory.catalogRevision;
+    historical = true;
+    updateSummary("Updating in background");
   }
 
   filter?.addEventListener("input", render);
@@ -247,6 +378,9 @@ export async function installPublicServiceOverview({
     expanded = !expanded;
     render();
   });
-  refresh.addEventListener("click", () => void load());
-  await load();
+  refresh.addEventListener("click", () => void load({ manual: true }));
+  document.addEventListener("visibilitychange", resume);
+  window.addEventListener("pageshow", resume);
+  window.addEventListener("online", resume);
+  if (!document.hidden) await load();
 }
