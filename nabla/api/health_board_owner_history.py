@@ -104,11 +104,7 @@ def _from_snapshot(snapshot: dict[str, Any], now: float) -> dict[str, dict[str, 
         if not isinstance(rows, list):
             continue
         for row in rows[:_MAX_NEW_RECORDS]:
-            if (
-                not isinstance(row, dict)
-                or row.get("probe_source") != "origin"
-                or row.get("probe_stale") is True
-            ):
+            if not isinstance(row, dict) or row.get("probe_source") != "origin" or row.get("probe_stale") is True:
                 continue
             record = _record(
                 {
