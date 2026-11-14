@@ -8,6 +8,7 @@ Le [README du dépôt](../README.md) reste le point d'entrée développeur.
 | Besoin | Document canonique |
 | --- | --- |
 | **Que reste-t-il à faire ?** | [Roadmap d’ingénierie F01–F12 et rattachements H](engineering-roadmap.md) (historique du 13/11 archivé) |
+| **Où sont les gros modules / sujets de code ?** | [Section dette technique de la roadmap](engineering-roadmap.md) ; [analyse inter-dépôts Compose #385](https://github.com/AlbanAndrieu/nabla-compose/pull/385) |
 | **Un symptôme déjà rencontré ?** | [Registre d'incidents](incidents.md) |
 | **Un ancien item non requalifié ?** | [Backlog historique](engineering-backlog.md) |
 | **Sémantique des preuves de santé ?** | [Modèle de diagnostics](platform-service-diagnostics-model.md) |
