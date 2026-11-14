@@ -63,10 +63,10 @@ test("missing, expired, future or tampered cache fails closed", () => {
   assert.equal(readPublicObservation(cache, NOW), null);
   savePublicObservation(cache, example(), NOW);
   assert.equal(
-    readPublicObservation(cache, NOW + 24 * 3600000)?.receivedAt,
+    readPublicObservation(cache, NOW + 7 * 24 * 3600000)?.receivedAt,
     NOW,
   );
-  assert.equal(readPublicObservation(cache, NOW + 24 * 3600000 + 1), null);
+  assert.equal(readPublicObservation(cache, NOW + 7 * 24 * 3600000 + 1), null);
   assert.equal(readPublicObservation(cache, NOW - 31000), null);
   const item = JSON.parse(cache.dump());
   item.directory.services[0].name = "http://172.17.0.24:8085";
@@ -121,4 +121,6 @@ test("browser storage denial is not an application failure", () => {
   assert.doesNotThrow(() => clearPublicObservation(denied));
   assert.equal(publicObservationAge(NOW, NOW + 5 * 60000), "5 min");
   assert.equal(publicObservationAge(NOW, NOW + 3 * 3600000), "3 h");
+  assert.equal(publicObservationAge(NOW, NOW + 30 * 3600000), "1 day");
+  assert.equal(publicObservationAge(NOW, NOW + 4 * 86400000), "4 days");
 });

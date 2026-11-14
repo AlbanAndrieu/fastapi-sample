@@ -1,7 +1,8 @@
 // Retain ONLY the allowlisted PUBLIC service summary, never raw probes or OWNER
 // telemetry. The restored values are always historical until revalidated.
 const KEY = "nabla:api:public-last-observed:v1";
-const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Historical PUBLIC-only summary; never treated as live or used for probe verdicts.
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_BYTES = 160000;
 const MAX_SERVICES = 1000;
 const STATES = new Set(["ok", "warn", "fail", "unknown"]);
@@ -119,5 +120,7 @@ export function publicObservationAge(receivedAt, now = Date.now()) {
   const age = Math.max(0, now - receivedAt);
   if (age < 60000) return "less than 1 min";
   if (age < 3600000) return Math.floor(age / 60000) + " min";
-  return Math.floor(age / 3600000) + " h";
+  if (age < 86400000) return Math.floor(age / 3600000) + " h";
+  const days = Math.floor(age / 86400000);
+  return days + (days === 1 ? " day" : " days");
 }
