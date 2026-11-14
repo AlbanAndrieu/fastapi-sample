@@ -4,10 +4,10 @@
 
 ## Mandatory execution protocol
 
-1. Resolve the **current HEAD/base**, branch, worktree status and changed paths once. Protect `master`: work on a branch/worktree; never push to `master`. Never edit a checkout concurrently with another agent.
+1. Resolve the **current HEAD/base**, branch, worktree status and changed paths once. **Une worktree Git par agent** : never edit the same checkout concurrently. Protect `master`: work on a branch/worktree; never push to `master`.
 2. Route the task with `just agent-context auto` (or `python3 scripts/agent-task-context.py --task auto --json`). Read only its recommended skill, the relevant roadmap section, source and nearest tests. Do not preload entire skills, logs, history or catalog JSON.
 3. Change the smallest cohesive set of files. Preserve existing API/security contracts, type hints, and backward compatibility. No network/DB/telemetry work during Python import. Python files >400 lines need review and >700 lines need splitting for significant changes.
-4. Run the **first targeted check** from agent-context. Where a checkout and dependencies exist, converge with `bash scripts/agent-quality-gate.sh --fix`, review diff, commit to a non-default branch, then `bash scripts/agent-publish.sh` on clean exact HEAD. These are the only canonical L2/L3 gates. `QG_LOCKED` (75) means another validator owns the worktree; do not delete the lock.
+4. Run the **first targeted check** from agent-context. Where a checkout and dependencies exist, converge with `bash scripts/agent-quality-gate.sh --fix`, review diff, commit to a non-default branch, then `bash scripts/agent-publish.sh` on clean exact HEAD. These are the only canonical L2/L3 gates. For all pytest failures: `QUALITY_PYTEST_MAXFAIL=0 QUALITY_LOG_TAIL=80 bash scripts/agent-quality-gate.sh --fix`. `QG_LOCKED` (75) means another validator owns the worktree; do not delete the lock.
 5. Publish only via PR, with expected-SHA safety on GitHub API edits. An API-only agent lacking an executable checkout must report local gates **NOT_RUN**, use immutable-SHA focused tests if possible, and inspect CI rather than asserting local success. Never bypass hooks or weaken SAST/SCA/DAST, quality, scan, auth or branch protections.
 6. Do not merge or deploy without explicit authorization. Standard PR commits have **no `[skip ci]`**. In an expressly requested **no-GitHub-Actions/no-credit mode**, keep PR Draft, `[skip ci]` is exceptional, mark hosted checks NOT_RUN and restore required checks before merge. No silent CI rerun.
 
