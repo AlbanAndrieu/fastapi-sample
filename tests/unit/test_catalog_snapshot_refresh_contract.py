@@ -21,7 +21,7 @@ def _source(tmp_path: Path, *, valid: bool) -> Path:
         "sourcePath": "apps/test/catalog-info.yaml",
     }
     digest = hashlib.sha256(
-        json.dumps([entity], sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        json.dumps([entity], sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
     ).hexdigest()
     payload = {
         "schemaVersion": 2,
