@@ -1,10 +1,12 @@
 ---
 name: homelab-service-contract
-description: Detect cross-repository drift between nabla-compose declarations, TrueNAS runtime observations, fastapi-sample reconciliation/health APIs, and nabla-site-alban presentation.
+description: >-
+  Detect cross-repository drift between nabla-compose declarations, TrueNAS
+  runtime observations, fastapi-sample reconciliation/health APIs, and
+  nabla-site-alban presentation.
 license: Apache-2.0
 role: reviewer
 ---
-
 # Homelab service contract
 
 ## Goal
@@ -64,13 +66,11 @@ When `external: false`:
 - public probes must not run solely because a stale URL exists;
 - internal monitoring must be modeled independently from exposure.
 
-## Catalog generation
+## Canonical Backstage V2 catalog
 
-Generate declared services and topology from the same `nabla-compose` scan so they cannot drift through independent hand editing. Generated artifacts must be deterministic and CI must fail when checked-in output is stale.
+`nabla-compose/catalog/generated/entities.json` is the only generated declaration authority: verify its `catalogRevision` digest, full `entityRef` and the `x-nabla.runtime`/`x-nabla.exposure` extensions. `fastapi-sample` consumes its validated read model. Compare observed runtime separately; declared exposure is never proof of public reachability.
 
-`catalog/services.json` contains code-owned service declarations. `catalog/service-topology.json` contains graph nodes and relations. Keep them separate because consumers need different views, but validate their versions/references together.
-
-During migration, legacy presentation metadata may remain outside the new declared catalog. Do not silently drop it; retire it only after the equivalent code-owned metadata has moved into `x-nabla`.
+`catalog/services.json` and `catalog/service-topology.json` are retained compatibility outputs, **not** independent sources of truth. Keep derived outputs consistent, retire legacy consumers only after `nabla-site-alban` and FastAPI V2 revision parity is proved. Never hand-edit generated inventories or infer a TrueNAS runtime from old `tunnelUrl` aliases.
 
 ## Review workflow
 

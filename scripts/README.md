@@ -4,7 +4,8 @@ Les commandes de contrôle doivent partir des **recettes Just**, qui délèguent
 
 | Objectif | Point d'entrée unique | Type |
 | --- | --- | --- |
-| Identifier la tâche et la première vérification | `just agent-context auto` | Lecture seule, offline |
+| Identifier la tâche et la première vérification | `just agent-context auto [workstation|isolated]` | Lecture seule, offline, sans test réseau |
+| Diagnostics limités au profil réellement disponible | `just agent-diagnostics auto runtime` | Workstation : observations read-only ; Codex isolé : L1, runtime NOT_RUN |
 | Documentation active et liens locaux | `just docs-links` | Python stdlib, offline ; archives figées exclues |
 | Tests JS de l’interface Cloud | `just ui-quick` | Node local |
 | Tests Python bornés | `just test` | pytest, environnement déjà préparé |
@@ -13,6 +14,8 @@ Les commandes de contrôle doivent partir des **recettes Just**, qui délèguent
 | Attestation de publication au SHA exact | `just publish-check` | Aucune publication |
 | Diagnostic TrueNAS sans mutation | `just truenas-evidence` | Accès local requis |
 | Snapshot de démarrage Backstage V2 | `bash scripts/refresh-catalog-snapshot.sh [fichier-local]` | Source Compose contrôlée ; aucune seconde autorité |
+
+Les profils sont documentés dans [le guide agents](../docs/agent-execution-profiles.md). `workstation` est une capacité **déclarée**, non la preuve que TrueNAS, Docker ou les secrets sont accessibles. `isolated` est le repli systématique de Codex/CI ; aucun scan LAN ne doit être tenté. Le diagnostic est **opt-in**, jamais déclenché par le routeur.
 
 Les modules `scripts/ci/` et les helpers de quality gate restent les composants internes. `scripts/agent-quality-gate.sh` supervise une seule gate ; `scripts/run-pytest-compact.sh` est le lanceur canonique Python. Les scripts de diagnostic spécialisés restent dans leur domaine (`scripts/truenas/`, `scripts/pfsense/`).
 

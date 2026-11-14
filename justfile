@@ -8,8 +8,13 @@ default:
 
 # Lightweight agent routing, independent of checkout dependencies and network.
 # --task ui prevents unrelated PR files from widening an incident investigation.
-agent-context task="auto":
-    python3 scripts/agent-task-context.py --task "{{task}}"
+agent-context task="auto" profile="auto":
+    python3 scripts/agent-task-context.py --task "{{task}}" --profile "{{profile}}"
+
+# One bounded entry point: workstation uses existing read-only collectors;
+# isolated agents run only deterministic L1 checks (runtime NOT_RUN).
+agent-diagnostics profile="auto" scope="runtime":
+    bash scripts/agent-diagnostics.sh --profile "{{profile}}" --scope "{{scope}}"
 
 # Fast, dependency-free documentation L1 (canonical index + active roadmap).
 docs-links:
