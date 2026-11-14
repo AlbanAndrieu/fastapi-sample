@@ -483,6 +483,11 @@ async def _refresh(request: Request) -> None:
         _cached_at = time.monotonic()
         _last_refresh_error = None
         _next_refresh_allowed_at = 0.0
+    # Optional OWNER-only retained evidence is deliberately independent of
+    # the in-memory snapshot. It is sanitized and never stored in a browser.
+    from nabla.api.health_board_owner_history import write_owner_last_known
+
+    await write_owner_last_known(snapshot)
     logger.info(
         "health board snapshot refreshed duration_seconds=%.3f",
         time.monotonic() - started,

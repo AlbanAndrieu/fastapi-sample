@@ -11,6 +11,7 @@ import {
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
 import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
+import { installOwnerLastKnown } from "./api-owner-last-known.js";
 import { ownerSessionAvailable } from "./api-owner-session.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
@@ -226,5 +227,8 @@ export function installHealthBoardController() {
   // Technical LAN drill-downs are lazy: the Cloud landing page must not
   // eagerly fetch TrueNAS runtime/topology while the drawer is closed.
   loadHealthBoards({ includeTechnical: technicalDetailsOpen() });
+  // History is fetched once, only after OWNER verification. It is never
+  // persisted in browser storage or mistaken for a current probe.
+  void installOwnerLastKnown();
   void installAutomaticRefresh();
 }

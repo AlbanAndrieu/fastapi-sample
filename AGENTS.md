@@ -16,6 +16,24 @@
 - Start with `python3 scripts/agent-task-context.py --task auto`; it is path-only and **never probes** the LAN. Use `bash scripts/agent-diagnostics.sh --plan --runtime` to inspect the planned read-only command; `--runtime`, `--dns-only` and `--metrics-lan` require an explicit workstation mode. CI/Codex indicators always block these probes.
 - **Une worktree Git par agent** (Claude Code, Codex, OpenCode), with a separate `.venv`; `QG_LOCKED` is not permission to delete a quality gate lock. To list all bounded pytest failures locally, use `QUALITY_PYTEST_MAXFAIL=0 QUALITY_LOG_TAIL=80 bash scripts/agent-quality-gate.sh --fix`.
 
+## PR coordination and conflict prevention
+
+- **Reuse an existing compatible open PR**. Inspect its exact base/HEAD,
+  overlapping files and other agents' ownership before changing a shared
+  `AGENTS.md`, skill, diagnostic, or roadmap.
+- **Synchronize before editing**: in an isolated worktree fetch `master`,
+  inspect both sides, rebase or perform a reviewed merge, resolve conflicts
+  file-by-file and rerun focused contract tests. Never discard another
+  agent's changes. Rewriting a published branch requires an exact
+  `--force-with-lease` and current HEAD verification.
+- **Batch changes** rather than publish individual small edits; one coherent
+  tested batch and one push. Exceptions: a production stability/security fix
+  requiring prompt deployment, or a completed cross-service migration whose
+  dependent consumers must be updated together.
+- PR stays Draft until available L1/L2/L3 and runtime evidence is reviewed.
+  Never auto-merge or trigger CI repeatedly for cosmetic changes; preserve
+  required security checks. Offline/remote results remain `NOT_RUN`.
+
 ## Mandatory execution protocol
 
 1. Resolve task, selected PR state, branch and exact remote HEAD. Inspect `git status --short`, changed paths, nearest source and tests; read only the relevant roadmap heading. Do not preload full roadmaps, logs, snapshots, entire skill trees or connector schemas.

@@ -1,8 +1,9 @@
 ---
 name: local-first-quality
-description: Route FastAPI exact-HEAD L0–L3 quality checks; remote API-only sessions keep honest NOT_RUN evidence.
+description: >-
+  Route FastAPI exact-HEAD L0–L3 quality checks; remote API-only sessions keep
+  honest NOT_RUN evidence.
 ---
-
 # Local-first quality — compact router
 
 Load for CI failure, PR continuation, formatter/lint, offline diagnostics or local-first release work. `AGENTS.md` is authoritative. Do not treat GitHub CI or targeted L1 as local L3.
@@ -12,6 +13,15 @@ Load for CI failure, PR continuation, formatter/lint, offline diagnostics or loc
 - **Connected Claude Code workstation:** explicitly `AGENT_EXECUTION_MODE=workstation`; use worktree-specific Python 3.13 / `uv.lock`, local Node/Just, cached tools and normal security checks. Never run `set -euo pipefail` directly in the operator's interactive shell; use a child script.
 - **Remote Codex / no checkout or LAN:** default `AGENT_EXECUTION_MODE=offline`; inspect exact GitHub refs, apply minimal offline contracts and produce a Draft PR. **Never** claim that formatting/security/full pytest/LAN checks ran unless executed. No private network, secret or live runtime calls.
 - Both modes: never mutate `master`, bypass hooks, share `.venv` across agents, force a locked `QG_LOCKED` gate, suppress scans or report a PASS from another SHA.
+
+## PR ownership and batching
+
+Reuse the open compatible PR, synchronize and resolve any conflicts
+against `master` before editing, then batch related corrections behind
+one exact-HEAD publication gate. An urgent production fix or completed
+multi-service migration is a limited exception; do not bypass SAST/SCA,
+secrets scanning, reviews or security controls. For details consult the
+[conditional agent playbook](../../../docs/agent-execution-playbook.md).
 
 ## Evidence levels and commands
 
