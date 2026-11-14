@@ -1,3 +1,10 @@
+# [1.36.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.35.1...1.36.0) (2026-11-14)
+
+
+### Features
+
+* **h05:** show last-known service state immediately and revalidate intelligently ([#439](https://github.com/AlbanAndrieu/fastapi-sample/issues/439)) ([af1310e](https://github.com/AlbanAndrieu/fastapi-sample/commit/af1310eef65fae9c532c5dfe5c74655b47d03353))
+
 ## [1.35.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.35.0...1.35.1) (2026-11-14)
 
 
