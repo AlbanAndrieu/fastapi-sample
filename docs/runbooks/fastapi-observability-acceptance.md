@@ -93,33 +93,33 @@ de `nabla-compose/apps/gatus/config/config.yml`. FastAPI n'interroge
 aucun service lors de l'ouverture d'une carte.
 
 1. Afficher les 85 monitors actuellement déclarés dans la configuration
-   (63 TCP, 21 HTTP, 1 HTTPS à la date du 25 octobre 2026). Ce chiffre décrit
-   le fichier Git, pas la disponibilité de l'installation TrueNAS :
+    (63 TCP, 21 HTTP, 1 HTTPS à la date du 25 octobre 2026). Ce chiffre décrit
+    le fichier Git, pas la disponibilité de l'installation TrueNAS :
 
-   ```sh
-   just gatus-inventory ../nabla-compose/apps/gatus/config/config.yml
-   ```
+    ```sh
+    just gatus-inventory ../nabla-compose/apps/gatus/config/config.yml
+    ```
 
 2. Exporter séparément le JSON autorisé de `/api/health-board` dans un
-   fichier privé hors du dépôt. Ne pas committer les diagnostics, clés ou
-   adresses privées.
+    fichier privé hors du dépôt. Ne pas committer les diagnostics, clés ou
+    adresses privées.
 
 3. Rapprocher les déclarations et échantillons :
 
-   ```sh
-   just gatus-compare ../nabla-compose/apps/gatus/config/config.yml /chemin/prive/health-board.json
-   ```
+    ```sh
+    just gatus-compare ../nabla-compose/apps/gatus/config/config.yml /chemin/prive/health-board.json
+    ```
 
 4. Lire les classes `up`, `down`, `no_sample`, `unverified`, les
-   labels ambigus et les séries observées sans déclaration. Le code retour
-   `1` signifie **contrôle incomplet ou anomalie**, jamais nécessairement
-   panne du service. Le script sort `2` si les fichiers sont invalides.
+    labels ambigus et les séries observées sans déclaration. Le code retour
+    `1` signifie **contrôle incomplet ou anomalie**, jamais nécessairement
+    panne du service. Le script sort `2` si les fichiers sont invalides.
 
 5. Sur les échecs réels, comparer la cible de la définition Gatus, le
-   statut HTTP/TCP/TLS, l'authentification, puis les règles Prometheus.
-   Les mesures enregistrées par `max by (nabla_service_id, type)`
-   peuvent masquer une panne si deux monitors partagent ces labels.
-   Une telle collision est donc classée `unverified`, jamais `up`.
+    statut HTTP/TCP/TLS, l'authentification, puis les règles Prometheus.
+    Les mesures enregistrées par `max by (nabla_service_id, type)`
+    peuvent masquer une panne si deux monitors partagent ces labels.
+    Une telle collision est donc classée `unverified`, jamais `up`.
 
 La preuve est périmée après 180 secondes, ou si le snapshot est incomplet.
 Les sondes TCP indiquent seulement une connexion, pas un succès HTTP ni
@@ -246,7 +246,7 @@ ssh -G albandrieu@172.17.0.24 |
 
 Ne pas afficher `ssh -G` complet dans les tickets : les chemins
 IdentityFile et ProxyCommand peuvent contenir des informations locales.
- Si la clé d'hôte est inconnue ou a changé,
+Si la clé d'hôte est inconnue ou a changé,
 contrôler son empreinte depuis la console TrueNAS avant de l'approuver.
 En cas de refus d'authentification, vérifier le compte SSH,
 sa clé publique autorisée et son shell. Un compte API TrueNAS n'a
@@ -299,18 +299,18 @@ déployée est identique. La configuration effective et les secrets restent
 Séquence de correction, sans sortie de secret :
 
 1. Vérifier le job `fastapi_sample` dans la configuration active
-   de Prometheus sur TrueNAS. Ne pas afficher sa réponse brute.
+    de Prometheus sur TrueNAS. Ne pas afficher sa réponse brute.
 2. Provisionner un **jeton dédié** et identique côté runtime FastAPI
-   et côté fichier de credentials Prometheus, via la gestion de secrets
-   existante. Ne pas créer le fichier dans Git.
+    et côté fichier de credentials Prometheus, via la gestion de secrets
+    existante. Ne pas créer le fichier dans Git.
 3. Déclarer `authorization.type: Bearer` et
-   `authorization.credentials_file` sous le seul job
-   `fastapi_sample` dans `nabla-compose`.
+    `authorization.credentials_file` sous le seul job
+    `fastapi_sample` dans `nabla-compose`.
 4. Tester en local `promtool check config`, les permissions du secret
-   pour l'UID `568` et le montage Compose avant tout déploiement.
+    pour l'UID `568` et le montage Compose avant tout déploiement.
 5. Faire valider le déploiement puis vérifier
-   `up{job="fastapi_sample"} == 1`. Ce signal prouve le scrape,
-   non la disponibilité fonctionnelle de l'application.
+    `up{job="fastapi_sample"} == 1`. Ce signal prouve le scrape,
+    non la disponibilité fonctionnelle de l'application.
 
 Ne pas utiliser `DIAGNOSTICS_ACCESS_KEY` pour Prometheus, ne pas
 désactiver l'authentification, et ne pas divulguer d'empreinte de clé.
