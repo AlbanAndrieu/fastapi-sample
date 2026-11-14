@@ -1271,6 +1271,8 @@ if (ROOT) {
       lastCloudInteractionAt = Date.now();
       cloudPollingPaused = false;
       warmupAttempts = 0;
+      // Show historical public evidence immediately on a tab revisit.
+      paintLastObservedFleet();
       if (active) refreshRequested = true;
       else void refresh();
     }

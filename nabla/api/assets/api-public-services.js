@@ -102,7 +102,6 @@ export async function installPublicServiceOverview({
   let loading = false;
   let retryTimer = null;
   let lastAttemptAt = 0;
-  let lastResultNote = "";
 
   function countsForRows() {
     const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
