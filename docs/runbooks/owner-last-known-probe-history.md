@@ -49,9 +49,9 @@ individuelles sont revalidées à la lecture et exclues après sept jours.
 1. Déployer la PR fusionnée avec un SHA identifiable.
 2. Activer Redis opt-in et créer au moins une observation directe.
 3. Vérifier que la reprise après redémarrage ou quelques heures réaffiche
-   les données uniquement après nouvelle authentification OWNER.
+    les données uniquement après nouvelle authentification OWNER.
 4. Vérifier les réponses anonymes 403, la source Cloud/TrueNAS, les TTL,
-   l'absence de secrets Redis et les transitions `STALE`/`NO_SAMPLE`.
+    l'absence de secrets Redis et les transitions `STALE`/`NO_SAMPLE`.
 5. Mesurer le coût Redis et le budget Cloud avant `ACCEPTED`.
 
 Ce premier lot n'archive pas les métriques Gatus/Prometheus ni les
