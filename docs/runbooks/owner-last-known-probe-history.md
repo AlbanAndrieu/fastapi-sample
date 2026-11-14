@@ -43,6 +43,9 @@ individuelles sont revalidées à la lecture et exclues après sept jours.
   de services fraîche et confirmée est disponible.
 - Aucune persistance OWNER dans `localStorage` ou `sessionStorage`.
   Les échecs Redis sont `unavailable` et n'interrompent pas le tableau.
+- Les données OWNER déjà rendues sont supprimées du DOM à la perte de session.
+- Une ancienne réponse réseau ne peut plus restaurer ces données après révocation.
+- Une nouvelle session OWNER récupère une observation datée directement du serveur.
 
 ## Recette non encore exécutée
 
