@@ -57,6 +57,8 @@ export function validOverview(value) {
 const CLOUD_RECHECK_MS = 180000;
 const LOCAL_RECHECK_MS = 30000;
 const DISPLAY_FRESH_MS = 90000;
+const PENDING_RETRY_BASE_MS = 9000;
+const PENDING_RETRY_CAP_MS = 90000;
 
 export function reconcilePublicObservation(payload, cached) {
   if (
@@ -104,6 +106,7 @@ export async function installPublicServiceOverview({
   let loading = false;
   let retryTimer = null;
   let lastAttemptAt = 0;
+  let awaitingFreshEvidence = false;
 
   function countsForRows() {
     const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
@@ -129,7 +132,9 @@ export async function installPublicServiceOverview({
           ];
     const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
     const detail = historical
-      ? "Historical only · not a current probe"
+      ? "Last public response " +
+        publicObservationAge(receivedAt) +
+        " ago · not a current probe"
       : catalogSource === "bootstrap-snapshot"
         ? "Last-known local inventory (not live)"
         : "Verified public summary (not full health audit)";
@@ -182,7 +187,9 @@ export async function installPublicServiceOverview({
         ? "LAST " + service.state.toUpperCase()
         : service.state.toUpperCase();
       state.title = historical
-        ? "Historical public summary only; the current probe is unverified"
+        ? "Last public response " +
+          publicObservationAge(receivedAt) +
+          " ago; current probe is unverified"
         : service.state === "unknown"
           ? "No confirmed fresh observation"
           : "Summarized public observation (not a full health audit)";
@@ -255,11 +262,15 @@ export async function installPublicServiceOverview({
   function schedulePendingRetry() {
     clearRetry();
     if (pendingRetries >= 5 || document.hidden) return;
+    const delay = Math.min(
+      PENDING_RETRY_CAP_MS,
+      PENDING_RETRY_BASE_MS * 2 ** pendingRetries,
+    );
     pendingRetries += 1;
     retryTimer = window.setTimeout(() => {
       retryTimer = null;
       if (!document.hidden && !panel.hidden) void load();
-    }, 9000);
+    }, delay);
   }
 
   function expireLiveView() {
@@ -323,9 +334,11 @@ export async function installPublicServiceOverview({
         catalogRevision = payload.catalogRevision;
         savePublicObservation(storage, payload, receivedAt);
         pendingRetries = 0;
+        awaitingFreshEvidence = false;
         clearRetry();
         updateSummary("Current public summary");
       } else {
+        awaitingFreshEvidence = true;
         if (catalogRevision !== payload.catalogRevision) {
           clearPublicObservation(storage);
           receivedAt = null;
@@ -340,9 +353,14 @@ export async function installPublicServiceOverview({
         rows = [];
         receivedAt = null;
         catalogRevision = null;
+        awaitingFreshEvidence = false;
         lastKnownOnError();
       } else {
+        awaitingFreshEvidence = true;
         lastKnownOnError();
+        // Retain the historical PUBLIC-only view and retry with bounded
+        // backoff instead of requiring a manual Refresh after a cold start.
+        schedulePendingRetry();
       }
     } finally {
       loading = false;
@@ -350,10 +368,14 @@ export async function installPublicServiceOverview({
     }
   }
 
-  function resume() {
-    if (document.hidden || panel.hidden) return;
+  function resume({ immediate = false } = {}) {
+    if (document.hidden) return;
+    // Expire the status even when a detailed board had hidden the public
+    // fallback. A stale/pending detailed board may reveal it again.
     expireLiveView();
-    if (Date.now() - lastAttemptAt < recheckMs || loading) return;
+    if (panel.hidden) return;
+    const delay = immediate ? 5000 : awaitingFreshEvidence ? 9000 : recheckMs;
+    if (Date.now() - lastAttemptAt < delay || loading) return;
     pendingRetries = 0;
     clearRetry();
     void load();
@@ -381,6 +403,6 @@ export async function installPublicServiceOverview({
   refresh.addEventListener("click", () => void load({ manual: true }));
   document.addEventListener("visibilitychange", resume);
   window.addEventListener("pageshow", resume);
-  window.addEventListener("online", resume);
+  window.addEventListener("online", () => resume({ immediate: true }));
   if (!document.hidden) await load();
 }

@@ -69,6 +69,16 @@ function showUnavailable(message) {
   if (heading) heading.textContent = message;
 }
 
+// Do not hide the last-known public view for a pending or empty OWNER board.
+function shouldHidePublicFallback(detail) {
+  return (
+    detail?.state === "fresh" &&
+    detail?.refreshing === false &&
+    Number.isInteger(detail?.serviceEvidenceCount) &&
+    detail.serviceEvidenceCount > 0
+  );
+}
+
 function startRichDashboard() {
   // Restore only the controls allowed for this verified session.
   document.querySelectorAll(".health-refresh").forEach((button) => {
@@ -83,10 +93,10 @@ function startRichDashboard() {
   }
   // Keep the public directory visible until a complete health-board
   // refresh is observed. Import success alone is not an operational result.
-  document.addEventListener("health-board-refreshed", () => {
+  document.addEventListener("health-board-refreshed", (event) => {
     const fallback = document.getElementById("public-services-panel");
-    if (fallback) fallback.hidden = true;
-  }, { once: true });
+    if (fallback) fallback.hidden = shouldHidePublicFallback(event.detail);
+  });
   // An import may resolve even if the asynchronous dashboard bootstrap fails.
   // Never expose the rejected error or hide the public fallback.
   document.addEventListener("health-board-bootstrap-failed", () => {
