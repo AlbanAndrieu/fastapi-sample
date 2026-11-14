@@ -139,12 +139,14 @@ test("operator-only view shows OWNER sign-in before advanced code is imported", 
     entry.includes('ownerSessionReady = import("./api-owner-session.js")'),
   );
   assert.ok(
-    entry.includes('installOwnerSessionControls(() => window.location.reload())'),
+    entry.includes(
+      "installOwnerSessionControls(() => window.location.reload())",
+    ),
   );
-  assert.ok(entry.includes('return ownerSessionAvailable()'));
-  assert.ok(entry.includes('void ownerSessionReady.then((authenticated) =>'));
-  assert.ok(entry.includes('if (!authenticated) {'));
-  assert.ok(entry.includes('startRichDashboard();'));
+  assert.ok(entry.includes("return ownerSessionAvailable()"));
+  assert.ok(entry.includes("void ownerSessionReady.then((authenticated) =>"));
+  assert.ok(entry.includes("if (!authenticated) {"));
+  assert.ok(entry.includes("startRichDashboard();"));
   assert.ok(entry.includes('const richMode = params.get("ui_full") === "1"'));
   assert.ok(entry.includes('link.textContent = "Owner access"'));
   assert.ok(entry.includes('link.textContent = "Open detailed diagnostics"'));
@@ -217,15 +219,15 @@ test("owner status explicitly distinguishes read-only and OWNER authorization", 
 
 test("full dashboard never races OWNER sign-in or silently bypasses read access", () => {
   assert.ok(
-    entry.includes('enterPublicDirectory({ allowAdvancedLink: true })'),
+    entry.includes("enterPublicDirectory({ allowAdvancedLink: true })"),
   );
-  assert.ok(entry.includes('ownerSessionReady.then((authenticated) =>'));
+  assert.ok(entry.includes("ownerSessionReady.then((authenticated) =>"));
   assert.ok(entry.includes('if (!authenticated) {'));
   assert.ok(entry.includes('import("./api-owner-session.js")'));
-  assert.ok(entry.includes('diagnosticsReadAvailable()'));
-  assert.ok(entry.includes('if (readable) startRichDashboard()'));
-  assert.ok(entry.includes('window.setTimeout(() => {'));
-  assert.ok(!entry.includes('ownerAuthenticated: true'));
+  assert.ok(entry.includes("diagnosticsReadAvailable()"));
+  assert.ok(entry.includes("if (readable) startRichDashboard()"));
+  assert.ok(entry.includes("window.setTimeout(() => {"));
+  assert.ok(!entry.includes("ownerAuthenticated: true"));
 });
 
 const publicServicesSource = readFileSync(

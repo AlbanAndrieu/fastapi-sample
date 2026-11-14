@@ -67,12 +67,10 @@ function enterPublicDirectory({ allowAdvancedLink = false } = {}) {
 
   // This bounded public endpoint does not require an owner session.
   // Its failure must leave a usable page with a visible error message.
-  void installPublicServiceOverview({ ownerAuthenticated: false }).catch(
-    () => {
-      const summary = document.getElementById("public-services-summary");
-      if (summary) summary.textContent = "Public service directory unavailable";
-    },
-  );
+  void installPublicServiceOverview({ ownerAuthenticated: false }).catch(() => {
+    const summary = document.getElementById("public-services-summary");
+    if (summary) summary.textContent = "Public service directory unavailable";
+  });
 }
 
 // Keep the bounded directory available before importing any advanced modules.
