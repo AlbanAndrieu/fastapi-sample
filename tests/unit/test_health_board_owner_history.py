@@ -145,7 +145,7 @@ async def test_disabled_by_default_or_missing_namespace_fails_closed(
 def test_owner_last_known_endpoint_blocks_anonymous_access(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(health_routes, "get_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(health_routes, "get_settings", SimpleNamespace)
     monkeypatch.setattr(health_routes, "owner_ui_authenticated", lambda *_: False)
     app = FastAPI()
     health_routes._register_health_board_routes(app)
@@ -159,7 +159,7 @@ def test_owner_last_known_endpoint_blocks_anonymous_access(
 def test_owner_last_known_endpoint_requires_verified_owner_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(health_routes, "get_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(health_routes, "get_settings", SimpleNamespace)
     monkeypatch.setattr(health_routes, "owner_ui_authenticated", lambda *_: True)
 
     async def cached() -> dict:

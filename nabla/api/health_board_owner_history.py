@@ -148,6 +148,24 @@ async def write_owner_last_known(snapshot: dict[str, Any]) -> bool:
         return False
 
 
+def _decode_entry(key: object, value: object, now: float) -> dict[str, Any] | None:
+    """Validate Redis data before returning any historical row."""
+    name = key.decode("utf-8", errors="replace") if isinstance(key, bytes) else key
+    raw = value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
+    if not isinstance(raw, str) or len(raw) > _MAX_RECORD_BYTES:
+        return None
+    try:
+        record = _record(json.loads(raw), now)
+    except (TypeError, ValueError):
+        return None
+    if record is None or name != f"{record['scope']}:{record['id']}":
+        return None
+    observed = _timestamp(record["observedAt"], now)
+    if observed is None:
+        return None
+    return {**record, "ageSeconds": round(max(0.0, now - observed), 1)}
+
+
 async def read_owner_last_known() -> dict[str, Any]:
     """Return a minimal, dated payload after route-level OWNER authorization."""
     key = _redis_key()
@@ -171,26 +189,9 @@ async def read_owner_last_known() -> dict[str, Any]:
         return {"state": "unavailable", "observations": []}
     now = time.time()
     rows: list[dict[str, Any]] = []
-    for raw_key, raw_value in entries.items():
-        if isinstance(raw_key, bytes):
-            raw_key = raw_key.decode("utf-8", errors="replace")
-        if isinstance(raw_value, bytes):
-            raw_value = raw_value.decode("utf-8", errors="replace")
-        if not isinstance(raw_value, str) or len(raw_value) > _MAX_RECORD_BYTES:
-            continue
-        try:
-            record = _record(json.loads(raw_value), now)
-        except (TypeError, ValueError):
-            continue
-        if record is None or raw_key != f"{record['scope']}:{record['id']}":
-            continue
-        observed = _timestamp(record["observedAt"], now)
-        if observed is not None:
-            rows.append(
-                {
-                    **record,
-                    "ageSeconds": round(max(0.0, now - observed), 1),
-                },
-            )
+    for key_name, raw in entries.items():
+        row = _decode_entry(key_name, raw, now)
+        if row is not None:
+            rows.append(row)
     rows.sort(key=lambda row: (row["ageSeconds"], row["id"], row["scope"]))
     return {"state": "historical", "current": False, "observations": rows}
