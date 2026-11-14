@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.34.0...1.35.0) (2026-11-14)
+
+
+### Features
+
+* **h05:** show last-known public service states immediately and revalidate intelligently ([#436](https://github.com/AlbanAndrieu/fastapi-sample/issues/436)) ([449162e](https://github.com/AlbanAndrieu/fastapi-sample/commit/449162e86a00503b97b8db168ab8bf2125782cef))
+
 # [1.34.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.33.3...1.34.0) (2026-11-14)
 
 
