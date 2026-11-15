@@ -386,3 +386,22 @@ def test_scope_summary_identifies_missing_evidence_without_lan_endpoints() -> No
         assert summary["evidence"]["known"] == 1
     finally:
         homelab_probe_evidence.reset_probe_evidence()
+
+
+
+def test_unobserved_public_slots_preserve_declared_url_without_private_backend() -> None:
+    """Missing measurements must not erase the configured public target."""
+    route = v2_service("public-example", public=True)
+    homelab_probe_evidence.reset_probe_evidence()
+    try:
+        summary: dict = {}
+        homelab_health._finalize_scope(
+            "public", [], summary, candidates=[route], limit=12,
+            enabled=True, checked_at="2026-11-15T17:00:00Z",
+        )
+        slot = summary["unobserved_slots"][0]
+        assert slot["id"] == route.service_id
+        assert slot["url"] == route.public_https_probe_url
+        assert "host" not in slot and "port" not in slot
+    finally:
+        homelab_probe_evidence.reset_probe_evidence()
