@@ -1,3 +1,10 @@
+## [1.37.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.37.0...1.37.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **h05:** revoke OWNER history in the UI on session expiry ([#442](https://github.com/AlbanAndrieu/fastapi-sample/issues/442)) ([6815314](https://github.com/AlbanAndrieu/fastapi-sample/commit/68153140a4407af0daf47ce92857419f608aa20b))
+
 # [1.37.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.36.1...1.37.0) (2026-11-14)
 
 
