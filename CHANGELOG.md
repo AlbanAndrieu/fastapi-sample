@@ -1,3 +1,10 @@
+## [1.37.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.37.1...1.37.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **probes:** preserve catalog targets for unobserved probe slots ([#443](https://github.com/AlbanAndrieu/fastapi-sample/issues/443)) ([d45c564](https://github.com/AlbanAndrieu/fastapi-sample/commit/d45c56425cdd8342b67dd2b31717a13005d22dd0))
+
 ## [1.37.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.37.0...1.37.1) (2026-11-15)
 
 
