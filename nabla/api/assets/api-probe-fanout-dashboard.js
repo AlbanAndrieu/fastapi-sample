@@ -62,6 +62,8 @@ function probeRows(data) {
         id: item.id,
         name: item.name,
         probe_interval_seconds: item.probe_interval_seconds,
+        // Never synthesize private LAN targets from public catalog metadata.
+        ...(scope === "public" && item.url ? { url: item.url } : {}),
         probe_scope: scope,
         probe_source: "unobserved",
         state: "unknown",
@@ -452,10 +454,12 @@ function targetHtml(row) {
     const target =
       row?.host && row?.port != null
         ? `${row.host}:${row.port}`
-        : "target unavailable";
+        : row?.probe_source === "unobserved"
+          ? "LAN endpoint not disclosed · awaiting probe"
+          : "LAN target missing";
     return `<code>${escapeText(target)}</code>`;
   }
-  const target = String(row?.url || "public target unavailable");
+  const target = String(row?.url || (row?.probe_source === "unobserved" ? "public URL not declared" : "public target missing"));
   if (/^https?:\/\//i.test(target)) {
     return `<a href="${escapeText(target)}" target="_blank" rel="noopener noreferrer">${escapeText(target)}</a>`;
   }
