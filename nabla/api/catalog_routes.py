@@ -57,6 +57,8 @@ class CatalogRoute(BaseModel):
     backend_tls: bool = False
     probe_rank: int | None = Field(default=None, ge=0, le=1000, strict=True)
     probe_position: int = Field(default=0, ge=0, strict=True)
+    # Backstage label albandrieu.com/operational-schedule; "night" Apps run 01:00-07:00 only.
+    schedule: str | None = None
 
     @property
     def public(self) -> bool:
@@ -144,6 +146,7 @@ def routes_from_catalog(raw: Mapping[str, Any]) -> tuple[CatalogRoute, ...]:
                     backend_tls=backend.get("appProtocol") == "https",
                     probe_rank=policy.get("rank"),
                     probe_position=policy.get("position") or 0,
+                    schedule=(metadata.get("labels") or {}).get("albandrieu.com/operational-schedule"),
                 ),
             )
     service_ids = [route.service_id for route in routes]

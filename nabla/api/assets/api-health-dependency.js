@@ -106,6 +106,8 @@ export function mergeHomelabEvidence(data, homelab) {
 
 export function dependencyHealthClass(check) {
   if (!check?.effective_state) return null;
+  // Night-window App outside its window: expected stop, not an outage.
+  if (check.effective_state === "scheduled") return "purple";
   if (check.direct_state === "fail" && check.effective_state === "ok")
     return "yellow";
   if (check.effective_state === "ok") return "green";

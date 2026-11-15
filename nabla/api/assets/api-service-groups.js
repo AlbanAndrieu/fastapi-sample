@@ -3,8 +3,8 @@ import {
   CRITICALITY_WEIGHT,
   NIST_CSF_FUNCTIONS,
 } from "./api-service-classification.js";
-import { fetchTopology } from "./api-topology-data.js";
 import { expectedAnonymousAuth } from "./api-service-http-auth.js";
+import { fetchTopology } from "./api-topology-data.js";
 
 const GROUPS = [
   {
@@ -166,15 +166,21 @@ function postureAtRisk(check) {
 }
 
 function rowStatus(row, check = {}) {
+  if (normalize(check?.effective_state || check?.state) === "scheduled")
+    return "Scheduled";
   const localState = normalizedHealthState(check?.local_state);
   const dependencyState = normalizedHealthState(check?.dependency_state);
   const directState = normalizedHealthState(check?.direct_state);
   const atRisk = postureAtRisk(check);
   const expectedAuth = expectedAnonymousAuth(
-    row?.dataset?.topologyId || row?.dataset?.serviceKey, check,
+    row?.dataset?.topologyId || row?.dataset?.serviceKey,
+    check,
   );
-  if (expectedAuth && String(check.runtime_state || "").toUpperCase() !== "STOPPED" &&
-      !(dependencyState === "fail" && check.blocked_by?.length > 0)) {
+  if (
+    expectedAuth &&
+    String(check.runtime_state || "").toUpperCase() !== "STOPPED" &&
+    !(dependencyState === "fail" && check.blocked_by?.length > 0)
+  ) {
     // Preserve the security posture signal even when the HTTP 401/403 is
     // expected; a responder is not a functional health success.
     return atRisk ? "At risk" : "Degraded";

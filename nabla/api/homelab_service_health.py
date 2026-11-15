@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelObservation
 from nabla.api.homelab_declared import RuntimeBinding
@@ -29,6 +30,30 @@ _ACCESS_EVIDENCE_KEYS = (
     "origin_reached",
     "cloudflare_service_token_rejected",
 )
+_NIGHT_WINDOW_ZONE = ZoneInfo("Europe/Paris")
+
+
+def in_night_window(now: datetime) -> bool:
+    """Mirror nabla-compose reconcile-night-window-cron.py: 01:00-07:00 TrueNAS time, Monday to Saturday."""
+    local = now.astimezone(_NIGHT_WINDOW_ZONE)
+    return local.weekday() < 6 and 1 <= local.hour < 7
+
+
+def mark_scheduled_off_window(
+    rows: list[dict[str, Any]],
+    services: Iterable[CatalogRoute],
+    now: datetime,
+) -> list[dict[str, Any]]:
+    """Show a night-only service that is not up outside its window as scheduled, never as an outage."""
+    night = {service.service_id for service in services if service.schedule == "night"}
+    off_window = not in_night_window(now)
+    for row in rows:
+        if row.get("id") not in night:
+            continue
+        row["schedule"] = "night"
+        if off_window and (row.get("effective_state") or row.get("state")) != "ok":
+            row.update({key: "scheduled" for key in ("state", "local_state", "effective_state") if key in row})
+    return rows
 
 
 def _key(value: str | None) -> str:

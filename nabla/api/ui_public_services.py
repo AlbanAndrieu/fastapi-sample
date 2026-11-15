@@ -30,7 +30,7 @@ from nabla.api.site_architecture_catalog import (
 from nabla.api.site_health_v2 import project_site_health_v2, verified_health_by_service_id
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 
-State = Literal["ok", "warn", "fail", "unknown"]
+State = Literal["ok", "warn", "fail", "unknown", "scheduled"]
 Kind = Literal["API", "Component", "Resource"]
 BoardState = Literal["fresh", "stale", "pending"]
 CatalogSource = Literal["backstage-v2", "bootstrap-snapshot"]

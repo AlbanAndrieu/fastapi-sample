@@ -1,5 +1,7 @@
 """Service-level health evidence policy tests."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelIngress, CloudflareTunnelObservation
@@ -7,7 +9,12 @@ from nabla.api.homelab_declared import RuntimeBinding
 from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
 from nabla.api.homelab_runtime_models import ObservedContainer
-from nabla.api.homelab_service_health import build_reconciled_service_health, reconcile_service_state
+from nabla.api.homelab_service_health import (
+    build_reconciled_service_health,
+    in_night_window,
+    mark_scheduled_off_window,
+    reconcile_service_state,
+)
 
 
 def _runtime(*apps: ObservedApp, stale: bool = False) -> TrueNASRuntimeSnapshot:
@@ -578,3 +585,39 @@ def test_private_garage_s3_exposes_two_distinct_declared_navigation_urls() -> No
     # These URLs are catalog configuration; not proof of probe execution.
     assert row["internal_state"] is None
     assert row["direct_state"] is None
+
+
+@pytest.mark.parametrize(
+    ("utc", "inside"),
+    [
+        ("2026-11-16T00:30:00+00:00", True),  # Monday 01:30 Paris
+        ("2026-11-16T06:00:00+00:00", False),  # Monday 07:00 Paris: stop job
+        ("2026-11-15T00:30:00+00:00", False),  # Sunday 01:30: scrub night, no start
+        ("2026-07-13T23:30:00+00:00", True),  # Tuesday 01:30 CEST
+    ],
+)
+def test_night_window_follows_the_truenas_cron(utc: str, inside: bool) -> None:
+    assert in_night_window(datetime.fromisoformat(utc)) is inside
+
+
+def test_night_service_off_window_is_scheduled_not_an_outage() -> None:
+    night = v2_service("bitcoind", "https://bitcoind.albandrieu.com").model_copy(update={"schedule": "night"})
+    day = v2_service("garage", "https://garage.albandrieu.com")
+
+    def rows() -> list[dict]:
+        return [
+            {"id": "bitcoind", "state": "fail", "local_state": "fail", "effective_state": "fail"},
+            {"id": "garage", "state": "fail", "effective_state": "fail"},
+        ]
+
+    noon = mark_scheduled_off_window(rows(), [night, day], datetime(2026, 11, 16, 11, tzinfo=timezone.utc))
+    assert noon[0] == {
+        "id": "bitcoind",
+        "schedule": "night",
+        "state": "scheduled",
+        "local_state": "scheduled",
+        "effective_state": "scheduled",
+    }
+    assert noon[1]["state"] == "fail"
+    window = mark_scheduled_off_window(rows(), [night, day], datetime(2026, 11, 16, 2, tzinfo=timezone.utc))
+    assert (window[0]["state"], window[0]["schedule"]) == ("fail", "night")

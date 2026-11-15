@@ -116,8 +116,10 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
     trace_id = "a" * 32
     traced = client.get(
         "/api/site/health/v2",
-        headers={"X-Diagnostics-Key": "site-machine-key",
-                 "traceparent": f"00-{trace_id}-{'b' * 16}-01"},
+        headers={
+            "X-Diagnostics-Key": "site-machine-key",
+            "traceparent": f"00-{trace_id}-{'b' * 16}-01",
+        },
     )
     assert traced.status_code == 200
     assert traced.headers["x-nabla-trace-id"] == trace_id
@@ -133,8 +135,6 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
     )
     assert denied.status_code == 401
     assert "x-nabla-trace-id" not in denied.headers
-
-
 
 
 def test_traced_site_health_v2_structlog_does_not_raise_500(monkeypatch):
@@ -171,6 +171,7 @@ def test_traced_site_health_v2_structlog_does_not_raise_500(monkeypatch):
     assert response.headers["x-nabla-trace-id"] == trace_id
     log_info.assert_called_once_with("site_health_v2", trace_id=trace_id)
 
+
 def test_duplicate_backstage_names_do_not_share_a_single_health_observation():
     """One board ID cannot prove health for two different entity references."""
     base = _catalog()
@@ -202,3 +203,8 @@ def test_duplicate_backstage_names_do_not_share_a_single_health_observation():
     assert states["resource:default/garage"] == "unknown"
     assert states["resource:default/postgres"] == "warn"
     assert "172.17.0.24" not in projected.model_dump_json()
+
+
+def test_scheduled_night_window_state_reaches_the_site():
+    sample = {"state": "fresh", "homelab": {"services": [{"id": "garage", "state": "scheduled"}]}}
+    assert project_site_health_v2(_catalog(), sample).services[0].state == "scheduled"

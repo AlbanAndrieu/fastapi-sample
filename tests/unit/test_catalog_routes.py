@@ -211,3 +211,9 @@ def test_snapshot_pfsense_routes_keep_trusted_source_risk_decisions() -> None:
         reason = (pfsense.risk_reason or "").lower()
         assert "source" in reason
         assert "fastapi cloud" in reason
+
+
+def test_operational_schedule_label_reaches_the_route() -> None:
+    night = entity("bitcoind", route("https://bitcoind.albandrieu.com"))
+    night["metadata"]["labels"] = {"albandrieu.com/operational-schedule": "night"}
+    assert [item.schedule for item in routes(night, entity("garage", route("https://garage.albandrieu.com")))] == ["night", None]
