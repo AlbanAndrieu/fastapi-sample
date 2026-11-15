@@ -228,6 +228,9 @@ def _finalize_scope(
             {
                 "id": service.service_id,
                 "name": service.name,
+                # Public URL is safe to disclose; private host/port are intentionally
+                # kept out of unobserved slots on potentially public dashboards.
+                **({"url": service.public_https_probe_url} if scope == "public" and service.public_https_probe_url else {}),
                 "probe_interval_seconds": _estimated_probe_interval_seconds(
                     service,
                     eligible_services=candidates,
