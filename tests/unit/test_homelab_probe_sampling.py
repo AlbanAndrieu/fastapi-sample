@@ -391,7 +391,7 @@ def test_scope_summary_identifies_missing_evidence_without_lan_endpoints() -> No
 
 def test_unobserved_public_slots_preserve_declared_url_without_private_backend() -> None:
     """Missing measurements must not erase the configured public target."""
-    route = v2_service("public-example", public=True)
+    route = v2_service("public-example", "https://public-example.albandrieu.com", public=True)
     homelab_probe_evidence.reset_probe_evidence()
     try:
         summary: dict = {}
