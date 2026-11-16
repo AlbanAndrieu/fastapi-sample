@@ -174,7 +174,7 @@ function summaryCounts({ total, counts, source, verified, boardState }) {
   if (!meter) return;
   meter.dataset.historical = boardState === "historical" ? "true" : "false";
   const parts = [];
-  for (const kind of ["ok", "warn", "fail", "unknown"]) {
+  for (const kind of ["ok", "warn", "fail", "unknown", "scheduled"]) {
     const item = document.createElement("span");
     item.className = "op-meter-segment op-meter-segment-" + kind;
     item.style.width =

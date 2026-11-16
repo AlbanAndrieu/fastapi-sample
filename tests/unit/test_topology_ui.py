@@ -79,6 +79,8 @@ def test_topology_health_overlay_reuses_server_authoritative_evidence() -> None:
     assert "fetchHealthBoard()" in overlay
     assert "snapshot?.homelab?.services" in overlay
     assert "effective_state" in overlay
+    # A night-window App outside its window keeps its purple state, not grey.
+    assert '"scheduled"' in overlay
     assert "local_state" in overlay
     assert "dependency_evidence" in overlay
     assert "target_state" in overlay
@@ -150,7 +152,6 @@ def test_topology_keeps_declared_data_visible_when_cytoscape_is_unavailable() ->
     assert "interactive graph library is unavailable" in script
     assert ".topology-graph--fallback" in stylesheet
     assert ".topology-fallback-node" in stylesheet
-
 
 
 def test_shared_topology_loader_uses_public_sanitized_contract() -> None:

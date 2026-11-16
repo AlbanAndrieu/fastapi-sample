@@ -237,6 +237,11 @@ function graphStyle() {
       style: { "background-color": "#3a3f45" },
     },
     {
+      selector:
+        'node[healthOverlay = "on"][healthEffectiveState = "scheduled"]',
+      style: { "background-color": "#4c3a78" },
+    },
+    {
       selector: 'node[healthOverlay = "on"][healthLocalState = "ok"]',
       style: { "border-color": "#55ad85", "border-width": 4 },
     },
@@ -251,6 +256,10 @@ function graphStyle() {
     {
       selector: 'node[healthOverlay = "on"][healthLocalState = "unknown"]',
       style: { "border-color": "#777f88", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "scheduled"]',
+      style: { "border-color": "#a78bfa", "border-width": 4 },
     },
     {
       selector: "edge",
@@ -766,7 +775,8 @@ async function start() {
       error.hidden = false;
       error.textContent = `Topology unavailable${topology.endpoint ? ` from ${topology.endpoint}` : ""}${topology.error ? `: ${topology.error}` : "."}`;
     }
-    if (status) status.textContent = `No declared topology could be loaded · source=${topology.source || "unknown"}.`;
+    if (status)
+      status.textContent = `No declared topology could be loaded · source=${topology.source || "unknown"}.`;
     return;
   }
 
@@ -776,8 +786,7 @@ async function start() {
       topology.nodes.length,
     );
     if (status) {
-      status.textContent =
-        `Declared topology loaded (${topology.nodes.length} nodes), but the interactive graph library is unavailable.`;
+      status.textContent = `Declared topology loaded (${topology.nodes.length} nodes), but the interactive graph library is unavailable.`;
     }
     if (error) {
       error.hidden = false;
