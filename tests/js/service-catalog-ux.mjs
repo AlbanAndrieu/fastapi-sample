@@ -136,7 +136,7 @@ test("legacy healthz row identity joins Gatus without confusing scraper status",
   const monitor = serviceTelemetry(snapshot, {
     dataset: { serviceKey: "albandrieu_gatus", topologyId: "gatus" },
   });
-  assert.equal(monitor.gatusFleet.tone, "fail");
+  assert.equal(monitor.gatusFleet.tone, "warn");
   assert.equal(monitor.gatusFleet.status, "probes_down");
 });
 
@@ -205,4 +205,39 @@ test("Gatus exposes only valid bounded monitor duration and 5m availability", ()
   const row = { dataset: { serviceKey: "gatus", topologyId: "gatus" } };
   const telemetry = serviceTelemetry(s, row);
   assert.match(telemetry.gatus.detail, /125 ms/);
+});
+
+
+test("Uptime Kuma monitor failure does not mark the Gatus service as failed", () => {
+  const sample = snapshot({
+    gatus: { TCP: { success: 1 } },
+    uptimekuma: { TCP: { success: 0 } },
+    redis: { TCP: { success: 1 } },
+  });
+  const gatus = serviceTelemetry(sample, {
+    dataset: { serviceKey: "gatus", topologyId: "gatus" },
+  });
+  const uptime = serviceTelemetry(sample, {
+    dataset: { serviceKey: "uptimekuma", topologyId: "uptimekuma" },
+  });
+  assert.equal(gatus.gatus.tone, "ok");
+  assert.equal(gatus.gatus.status, "up");
+  assert.equal(gatus.gatusFleet.status, "probes_down");
+  assert.equal(gatus.gatusFleet.tone, "warn");
+  assert.match(gatus.gatusFleet.detail, /not Gatus service health/);
+  assert.equal(uptime.gatus.status, "down");
+  assert.equal(uptime.gatus.tone, "fail");
+});
+
+test("Gatus own failed monitor still reports a Gatus monitor error", () => {
+  const sample = snapshot({
+    gatus: { TCP: { success: 0 } },
+    uptimekuma: { TCP: { success: 1 } },
+  });
+  const gatus = serviceTelemetry(sample, {
+    dataset: { serviceKey: "gatus", topologyId: "gatus" },
+  });
+  assert.equal(gatus.gatus.tone, "fail");
+  assert.equal(gatus.gatusFleet.tone, "warn");
+  assert.equal(gatus.gatusFleet.status, "probes_down");
 });
