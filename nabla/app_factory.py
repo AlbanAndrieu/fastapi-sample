@@ -33,6 +33,7 @@ from nabla.middleware import logging_middleware, metrics_middleware
 from nabla.rate_limit import configure_rate_limiting
 from nabla.routes import register_routes, templates
 from nabla.utils.environment import env_bool
+from nabla.startup_phases import log_import_phase, startup_phase
 from nabla.utils.logger import logger
 
 __all__ = ["AppFeatures", "create_app", "create_minimal_app"]
@@ -296,8 +297,10 @@ def _configure_observability(app: FastAPI) -> None:
     from nabla.utils.logfire_config import configure_logfire
     from nabla.utils.sentry_config import configure_sentry
 
-    configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
-    configure_sentry()
+    with startup_phase("logfire"):
+        configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
+    with startup_phase("sentry"):
+        configure_sentry()
 
 
 def create_app(features: AppFeatures | None = None) -> FastAPI:
@@ -309,11 +312,13 @@ def create_app(features: AppFeatures | None = None) -> FastAPI:
     or RAG wiring.
     """
     selected = features or AppFeatures()
+    log_import_phase()
     if selected.observability:
         from nabla.config_settings import DD_TRACE_ENABLED
         from nabla.utils.datadog_config import configure_datadog
 
-        configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)
+        with startup_phase("datadog"):
+            configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)
 
     debug = application_debug_enabled(env_bool("DEBUG"))
     app = FastAPI(
@@ -333,19 +338,26 @@ def create_app(features: AppFeatures | None = None) -> FastAPI:
     app.middleware("http")(operations_access_middleware)
     # HTTP-only middleware cannot authenticate a WebSocket handshake.
     app.add_middleware(OpsASGITransportGuard, root_app=app)
-    configure_rate_limiting(app)
-    _configure_unleash_middleware(app)
+    with startup_phase("rate_limiting"):
+        configure_rate_limiting(app)
+    with startup_phase("unleash"):
+        _configure_unleash_middleware(app)
     if selected.observability:
-        _configure_metrics(app)
-    _register_routers(app, debug=debug, features=selected)
+        with startup_phase("metrics"):
+            _configure_metrics(app)
+    with startup_phase("routers"):
+        _register_routers(app, debug=debug, features=selected)
     if selected.database:
-        _configure_admin_panel(app)
+        with startup_phase("admin_panel"):
+            _configure_admin_panel(app)
     _configure_hot_reload(app, debug=debug)
     if selected.observability:
         _configure_observability(app)
-    register_routes(app, database=selected.database)
+    with startup_phase("routes"):
+        register_routes(app, database=selected.database)
     if selected.mcp:
-        _configure_mcp(app)
+        with startup_phase("mcp"):
+            _configure_mcp(app)
     return app
 
 
