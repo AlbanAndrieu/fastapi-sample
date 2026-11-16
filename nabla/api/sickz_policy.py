@@ -195,6 +195,8 @@ def _secure_external_policy(
         return "fail", detail
     if access_status == "warn" or tunnel_status == "warn":
         return "warn", detail
+    if access_status == "unknown" or tunnel_status == "unknown":
+        return "unknown", detail
     return "ok", detail
 
 
@@ -261,6 +263,12 @@ def _classify_service(
             return (
                 "fail",
                 "external=false but a Cloudflare Access application exists for this hostname; public exposure configuration should be removed.",
+            )
+        if http_evidence.get("cloudflare_default_deny") is True:
+            # F14 (16/11): Access Default-Deny answered 403 and the origin was never reached.
+            return (
+                "ok",
+                "external=false: DENIED at the Cloudflare edge (Access Default-Deny); the origin was not reached. Remove the leftover DNS record.",
             )
         if reachable:
             return (

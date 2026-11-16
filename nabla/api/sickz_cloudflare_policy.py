@@ -211,8 +211,9 @@ def access_policy_result(
     if access_signal:
         return "ok", "Cloudflare Access enforcement is visible in the anonymous HTTP response."
     if access_observer_error:
+        # F14 (16/11): an observer failure (e.g. AuthenticationError) is unobserved, not a per-service warning.
         return (
-            "warn",
+            "unknown",
             f"Cloudflare Access policy could not be inspected ({access_observer_error}); protection is unverified even though the tunnel may be healthy.",
         )
     return (
@@ -241,7 +242,7 @@ def tunnel_policy_result(
             if edge_seen
             else "The Cloudflare Tunnel observer failed and tunnel protection is unverified."
         )
-        return "warn", detail
+        return "unknown", detail
     if not observer_configured:
         detail = (
             "Cloudflare HTTP edge evidence is present but the read-only observer is not configured."

@@ -350,16 +350,21 @@ function errorCategory(row) {
   if (row?.probe_source === "unobserved") return "NO_EVIDENCE";
   if (row?.probe_stale === true) return "STALE";
   if (row?.cloudflare_service_token_rejected === true) return "AUTH_FAILED";
+  // F14: a 5xx past Access must not hide behind the copied anonymous Access signal.
+  if (row?.origin_reached === true && row?.http_status >= 500)
+    return "ORIGIN_ERROR";
   if (
     row?.public_probe_verification === "access_protected_origin_unverified" ||
     row?.public_probe_auth_mode === "cloudflare_access_blocked" ||
     row?.cloudflare_access_signal === true ||
     row?.cloudflare_default_deny === true
-  ) return "ACCESS_PROTECTED";
+  )
+    return "ACCESS_PROTECTED";
   if (
     row?.public_probe_verification === "origin_unverified" ||
     row?.public_probe_verification === "authenticated_origin_unverified"
-  ) return "ORIGIN_UNVERIFIED";
+  )
+    return "ORIGIN_UNVERIFIED";
   if (kind.includes("timeout") || kind.includes("timed out")) return "TIMEOUT";
   if (kind.includes("dns") || kind.includes("getaddrinfo")) return "DNS";
   if (
@@ -382,8 +387,6 @@ function errorCategory(row) {
     kind.includes("not_configured")
   )
     return "CONFIG";
-  if (row?.origin_reached === true && row?.http_status >= 500)
-    return "ORIGIN_ERROR";
   if (state !== "ok" && (row?.http_status || kind.includes("http")))
     return "HTTP";
   if (row?.probe_refresh_error) return "REFRESH";
@@ -403,7 +406,8 @@ function matchesOperatorFilter(row) {
   if (operatorFilter.scope !== "all" && scope !== operatorFilter.scope)
     return false;
   if (operatorFilter.state === "problems" && state === "ok") return false;
-  if (operatorFilter.state === "unknown" && state === "not_executed") return true;
+  if (operatorFilter.state === "unknown" && state === "not_executed")
+    return true;
   if (
     !["all", "problems"].includes(operatorFilter.state) &&
     state !== operatorFilter.state
@@ -459,7 +463,12 @@ function targetHtml(row) {
           : "LAN target missing";
     return `<code>${escapeText(target)}</code>`;
   }
-  const target = String(row?.url || (row?.probe_source === "unobserved" ? "public URL not declared" : "public target missing"));
+  const target = String(
+    row?.url ||
+      (row?.probe_source === "unobserved"
+        ? "public URL not declared"
+        : "public target missing"),
+  );
   if (/^https?:\/\//i.test(target)) {
     return `<a href="${escapeText(target)}" target="_blank" rel="noopener noreferrer">${escapeText(target)}</a>`;
   }
@@ -483,7 +492,8 @@ function observationText(row) {
   if (Number.isFinite(interval)) {
     parts.push(`cadence ≈${humanSeconds(interval)}`);
   }
-  if (Number.isFinite(next)) parts.push(`next eligible ≈${humanSeconds(next)} (requires refresh)`);
+  if (Number.isFinite(next))
+    parts.push(`next eligible ≈${humanSeconds(next)} (requires refresh)`);
   if (Number.isFinite(age) && Number.isFinite(interval) && interval > 0) {
     parts.push(`freshness ${(age / interval).toFixed(1)}x cadence`);
   }
@@ -585,7 +595,9 @@ function connectionMatrixHtml(report, meta = lastConnectionMeta) {
   const rows = Array.isArray(report?.rows) ? report.rows : [];
   if (!rows.length) return "";
   const generated = Date.parse(String(report?.generated_at || ""));
-  const measuredAge = Number.isFinite(generated) ? (Date.now() - generated) / 1000 : Number.NaN;
+  const measuredAge = Number.isFinite(generated)
+    ? (Date.now() - generated) / 1000
+    : Number.NaN;
   const sourceAge = finiteNumber(meta?.ageSeconds, Number.NaN);
   const age = Math.max(
     Number.isFinite(measuredAge) ? measuredAge : 0,
@@ -593,26 +605,35 @@ function connectionMatrixHtml(report, meta = lastConnectionMeta) {
   );
   // Do not keep a green badge after the health-board snapshot expires.
   const stale = meta?.state === "stale" || age > 180;
-  const content = rows.map((row) => {
-    const state = stale
-      ? "unknown"
-      : ["ok", "warn", "fail"].includes(row?.state)
-        ? row.state : "unknown";
-    const observed = String(row?.observed_at || "").trim();
-    const provenance = [row?.source || "unverified", observed].filter(Boolean).join(" · ");
-    return (
-      `<div class="probe-dashboard-row probe-dashboard-row--${state}">` +
-      '<div class="probe-dashboard-row-main">' +
-      `<strong>${escapeText(row?.label || row?.id || "Connection")}</strong>` +
-      `<span class="probe-state-badge probe-state-badge--${state}">${escapeText(state)}</span>` +
-      (row?.http_status ? `<span class="probe-source-badge">HTTP ${escapeText(row.http_status)}</span>` : "") +
-      (row?.diagnostic_category ? `<span class="probe-error-badge">${escapeText(row.diagnostic_category)}</span>` : "") +
-      "</div>" +
-      `<div class="probe-dashboard-detail">${escapeText(row?.detail || "No evidence")}</div>` +
-      `<div class="probe-dashboard-timing">${escapeText(provenance)}</div>` +
-      "</div>"
-    );
-  }).join("");
+  const content = rows
+    .map((row) => {
+      const state = stale
+        ? "unknown"
+        : ["ok", "warn", "fail"].includes(row?.state)
+          ? row.state
+          : "unknown";
+      const observed = String(row?.observed_at || "").trim();
+      const provenance = [row?.source || "unverified", observed]
+        .filter(Boolean)
+        .join(" · ");
+      return (
+        `<div class="probe-dashboard-row probe-dashboard-row--${state}">` +
+        '<div class="probe-dashboard-row-main">' +
+        `<strong>${escapeText(row?.label || row?.id || "Connection")}</strong>` +
+        `<span class="probe-state-badge probe-state-badge--${state}">${escapeText(state)}</span>` +
+        (row?.http_status
+          ? `<span class="probe-source-badge">HTTP ${escapeText(row.http_status)}</span>`
+          : "") +
+        (row?.diagnostic_category
+          ? `<span class="probe-error-badge">${escapeText(row.diagnostic_category)}</span>`
+          : "") +
+        "</div>" +
+        `<div class="probe-dashboard-detail">${escapeText(row?.detail || "No evidence")}</div>` +
+        `<div class="probe-dashboard-timing">${escapeText(provenance)}</div>` +
+        "</div>"
+      );
+    })
+    .join("");
   const counts = report?.counts || {};
   const total = rows.length;
   const freshness = stale
@@ -802,7 +823,8 @@ function renderDashboard(data) {
     // A new aggregate replaces earlier evidence, including an explicit
     // missing/timeout result. Raw /api/homelab/probes cannot erase it.
     lastConnectionMatrix = data?.connection_matrix?.rows
-      ? data.connection_matrix : null;
+      ? data.connection_matrix
+      : null;
     lastConnectionMeta = {
       state: data?.health_board_state || "unknown",
       ageSeconds: data?.health_board_age_seconds ?? null,
@@ -856,7 +878,8 @@ function renderDashboard(data) {
   scopes.innerHTML =
     scopeCard("public HTTPS", "🌐", model.publicScope) +
     scopeCard("LAN/TCP", "🏠", model.internalScope);
-  if (connections) connections.innerHTML = connectionMatrixHtml(lastConnectionMatrix);
+  if (connections)
+    connections.innerHTML = connectionMatrixHtml(lastConnectionMatrix);
 
   const visibleRows = model.rows.filter(matchesOperatorFilter);
   const latestRows = visibleRows.filter(

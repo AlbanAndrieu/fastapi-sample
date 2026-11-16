@@ -1,6 +1,7 @@
 """Contracts for the grouped health/exposure UI assets."""
 
 from pathlib import Path
+import re
 
 from nabla.api.ui import render_api_root_page
 
@@ -245,9 +246,11 @@ def test_sickz_labels_truenas_as_https_exposure_not_api_health() -> None:
     assert "This is not the authenticated TrueNAS API probe" in row_state
     assert "Core drill-down · TrueNAS platform + API" in row_state
 
+
 def test_truenas_exposure_classifier_is_exported_and_imported() -> None:
     row_state = (ASSETS / "api-sickz-row-state.js").read_text(encoding="utf-8")
     sickz = (ASSETS / "api-sickz.js").read_text(encoding="utf-8")
     assert "export function isTrueNasExposureCheck(check)" in row_state
-    assert "isTrueNasExposureCheck } from" in sickz
+    # Formatter-agnostic: the import list may wrap onto several lines.
+    assert re.search(r"isTrueNasExposureCheck,?\s*\}\s*from", sickz)
     assert "if (isTrueNasExposureCheck(check))" in sickz

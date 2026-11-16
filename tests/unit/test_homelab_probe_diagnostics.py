@@ -16,6 +16,8 @@ from nabla.api.homelab_probe_diagnostics import classify_probe_diagnostic
         ({"state": "fail", "error_kind": "ssl_certificate"}, "TLS"),
         ({"state": "fail", "error_kind": "ConnectTimeout"}, "TIMEOUT"),
         ({"state": "fail", "origin_reached": True, "http_status": 503}, "ORIGIN_ERROR"),
+        # F14: the runner copies the anonymous Access signal onto the authenticated row.
+        ({"state": "fail", "origin_reached": True, "http_status": 503, "cloudflare_access_signal": True}, "ORIGIN_ERROR"),
         ({"state": "warn", "http_status": 401}, "AUTH_REQUIRED"),
         ({"state": "warn", "probe_stale": True}, "STALE"),
         ({"state": "ok", "http_status": 200}, None),

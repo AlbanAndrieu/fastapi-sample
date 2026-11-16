@@ -56,6 +56,23 @@ def mark_scheduled_off_window(
     return rows
 
 
+_NOT_DEPLOYED = frozenset({"planned", "disabled"})
+
+
+def mark_not_deployed(rows: list[dict[str, Any]], services: Iterable[CatalogRoute]) -> list[dict[str, Any]]:
+    """F14 (16/11): a planned or disabled App that does not answer is not deployed, never an outage."""
+    lifecycle = {service.service_id: service.lifecycle for service in services if service.lifecycle in _NOT_DEPLOYED}
+    for row in rows:
+        state = lifecycle.get(row.get("id"))
+        if state is None:
+            continue
+        row["lifecycle"] = state
+        if (row.get("effective_state") or row.get("state")) != "ok":
+            row["not_deployed"] = True
+            row.update({key: "unknown" for key in ("state", "local_state", "effective_state") if key in row})
+    return rows
+
+
 def _key(value: str | None) -> str:
     return _KEY_RE.sub("-", (value or "").strip().lower()).strip("-")
 
@@ -163,9 +180,10 @@ def _runtime_binding_missing(
     app: ObservedApp | None,
 ) -> bool:
     """Return whether a declared TrueNAS app binding is absent from fresh runtime evidence."""
-    return bool(
-        binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
-    )
+    if not (binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None):
+        return False
+    # F14 (16/11): an ambiguous binding (two apps match) is unknown, not missing, so it never degrades dependents.
+    return not any(match_runtime_binding(candidate, binding)[0] for candidate in runtime.apps)
 
 
 def _tunnel_state(status: str | None) -> HealthState | None:
@@ -209,6 +227,28 @@ def _from_direct(
     return None
 
 
+def _origin_verdict(
+    *,
+    origin_proven_up: bool,
+    runtime: HealthState | None,
+    runtime_missing: bool,
+    origin_error: bool,
+    application_error: bool,
+) -> HealthState | None:
+    """Runtime and origin evidence that decides before direct/edge precedence."""
+    if runtime_missing:
+        return "warn" if origin_proven_up else "fail"
+    if origin_error:
+        # F14 (16/11): a 5xx the origin itself returned after Access let the probe in is an outage,
+        # not edge uncertainty that an open LAN port or a RUNNING app may soften.
+        return "fail"
+    if application_error:
+        return "warn"
+    if runtime == "fail":
+        return "warn" if origin_proven_up else "fail"
+    return None
+
+
 def reconcile_service_state(
     *,
     direct: HealthState | None,
@@ -219,15 +259,19 @@ def reconcile_service_state(
     direct_http_status: int = 0,
     application_error: bool = False,
     runtime_missing: bool = False,
+    origin_error: bool = False,
 ) -> HealthState:
     """Apply evidence precedence without letting edge uncertainty invent downtime."""
     origin_proven_up = internal == "ok" or 200 <= direct_http_status < 300
-    if runtime_missing:
-        return "warn" if origin_proven_up else "fail"
-    if application_error:
-        return "warn"
-    if runtime == "fail":
-        return "warn" if origin_proven_up else "fail"
+    early = _origin_verdict(
+        origin_proven_up=origin_proven_up,
+        runtime=runtime,
+        runtime_missing=runtime_missing,
+        origin_error=origin_error,
+        application_error=application_error,
+    )
+    if early is not None:
+        return early
 
     direct_state = _from_direct(direct, internal, runtime, tunnel)
     if direct_state is not None:
@@ -321,6 +365,8 @@ def build_reconciled_service_health(
 ) -> list[dict[str, Any]]:
     """Reconcile runtime, direct/LAN and edge evidence for each declared service."""
     direct_by_url = {normalized: result for result in public_results if (normalized := _normalized_url(str(result.get("url") or ""))) is not None}
+    # F14 (16/11): the probe URL carries probePath, so a URL-only join missed those routes and showed unknown.
+    direct_by_id = {str(result.get("id")): result for result in public_results if result.get("id")}
     internal_by_id = {str(result.get("id")): result for result in internal_results if result.get("id")}
     tunnels_by_host = _tunnel_by_hostname(tunnels)
     rows: list[dict[str, Any]] = []
@@ -328,7 +374,7 @@ def build_reconciled_service_health(
         # Navigation/health identity only; public exposure still needs a public route.
         endpoint_url = service.url or f"https://{service.service_id}.albandrieu.com"
         url = _normalized_url(endpoint_url)
-        direct_result = direct_by_url.get(url) if url else None
+        direct_result = direct_by_id.get(service.service_id) or (direct_by_url.get(url) if url else None)
         internal_result = internal_by_id.get(service.service_id)
         binding = (runtime_bindings or {}).get(service.service_id)
         app = _runtime_app_for_service(service, runtime, binding)
@@ -369,6 +415,9 @@ def build_reconciled_service_health(
             direct_http_status=int(direct_result.get("http_status", 0)) if direct_result and not direct_stale else 0,
             application_error=application_error,
             runtime_missing=runtime_missing,
+            origin_error=bool(
+                direct_result and not direct_stale and direct_result.get("origin_reached") is True and int(direct_result.get("http_status") or 0) >= 500,
+            ),
         )
         # A TrueNAS app may be RUNNING while its actual main container exited.
         # Do not mark it OK without fresh evidence of a running primary workload.
