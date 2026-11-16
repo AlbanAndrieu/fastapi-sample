@@ -100,17 +100,18 @@ export function serviceTelemetry(snapshot, row) {
         label: fleet.down > 0 ? `Monitors ${fleet.down} ↓` :
           fleet.state !== "observed" || fleet.observedProbes === 0
             ? "Monitors ?" : `Monitors ${fleet.up} observed`,
-        // A subset of labelled probes UP never means all catalogue
-        // monitors are UP. Warn until declared-to-observed parity is proven.
+        // This badge is fleet telemetry, NOT the Gatus service health.
+        // A failed Uptime Kuma (or other target) must never mark Gatus DOWN.
+        // Keep a warning for failing targets or incomplete fleet parity.
         tone: fleet.state !== "observed" || fleet.observedProbes === 0
           ? "unknown"
-          : fleet.down > 0 ? "fail" : "warn",
+          : "warn",
         status: fleet.state !== "observed" || fleet.observedProbes === 0
           ? "unverified"
           : fleet.down > 0 ? "probes_down" : "partial_coverage",
         detail: fleet.state !== "observed"
           ? `Gatus monitor evidence unverified: ${fleet.reason}`
-          : `Gatus monitors: ${fleet.up} UP · ${fleet.down} DOWN across ${fleet.observedServices} observed services. Catalogue-wide coverage and freshness not proven.`,
+          : `Monitored endpoints (not Gatus service health): ${fleet.up} UP · ${fleet.down} DOWN across ${fleet.observedServices} observed services. Failed monitors belong to their target services. Catalogue-wide coverage and freshness not proven.`,
       }
     : null;
   const job = EXPORTERS[id];
