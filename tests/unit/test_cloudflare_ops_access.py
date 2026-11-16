@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 import time
 
+import httpx
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI, WebSocket
@@ -233,3 +234,51 @@ async def test_owner_rejects_early_nbf_wrong_kid_and_service_token(identity):
     ):
         with pytest.raises(owner.OwnerUnauthorized):
             await owner.verify_owner_token(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply",
+    [
+        lambda request: httpx.Response(503),
+        lambda request: httpx.Response(200, json={"keys": []}),
+        lambda request: httpx.Response(200, json={"keys": [{"kty": "EC", "kid": "k"}]}),
+        lambda request: httpx.Response(200, content=b"not json"),
+    ],
+    ids=["http-error", "empty", "no-rs256", "not-json"],
+)
+async def test_jwks_loss_is_unavailable_never_cached(monkeypatch, reply):
+    real_client = httpx.AsyncClient
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return reply(request)
+
+    monkeypatch.setattr(owner.httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(owner, "_cache", {})
+    for _ in range(2):
+        with pytest.raises(owner.OwnerKeysUnavailable):
+            await owner.signing_keys(ISSUER)
+    # A failed fetch is retried on the next request, not served from cache.
+    assert calls == [ISSUER + "/cdn-cgi/access/certs"] * 2
+
+
+def test_jwks_loss_fails_closed_with_503(identity, monkeypatch):
+    _settings, signed = identity
+
+    async def unavailable(_issuer):
+        raise owner.OwnerKeysUnavailable
+
+    monkeypatch.setattr(owner, "signing_keys", unavailable)
+    app = FastAPI()
+    app.middleware("http")(access_control.operations_access_middleware)
+
+    @app.get("/private/ops/api/v1/summary")
+    def summary():
+        return {"ok": True}
+
+    client = TestClient(app, client=("82.66.4.247", 53000))
+    response = client.get("/private/ops/api/v1/summary", headers={"Cf-Access-Jwt-Assertion": signed()})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Owner identity provider unavailable"}
