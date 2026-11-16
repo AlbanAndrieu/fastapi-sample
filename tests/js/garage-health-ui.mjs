@@ -88,3 +88,31 @@ const aliased = includeObservedGarageChecks(
 );
 assert.equal(aliased.checks["garage-admin"], undefined);
 assert.equal(aliased.checks.albandrieu_garage_admin.local_state, "fail");
+
+
+// The public discovery card may present observed LAN runtime context but may
+// not treat Gatus's monitored Uptime Kuma outcome as Gatus availability.
+const observedGatus = structuredClone(homelab);
+observedGatus.public_card_candidates = [{ id: "gatus", name: "Gatus" }];
+observedGatus.services.push({
+  id: "gatus", state: "ok", runtime_state: "RUNNING",
+});
+observedGatus.services.push({ id: "uptimekuma", state: "fail" });
+observedGatus.internal_services.push({
+  id: "gatus", state: "ok", probe_source: "origin", probe_stale: false,
+});
+const publicGatus = includeObservedGarageChecks(base, observedGatus, "fresh")
+  .checks.gatus;
+assert.equal(publicGatus.internal_state, "ok");
+assert.equal(publicGatus.runtime_state, "RUNNING");
+assert.equal(publicGatus.local_state, "unknown");
+assert.equal(publicGatus.effective_state, "unknown");
+assert.equal(publicGatus.reachable, null);
+assert.match(publicGatus.warning, /independent public HTTP\/Access evidence/);
+assert.equal(publicGatus.risk_state, "unknown");
+
+const staleGatus = includeObservedGarageChecks(base, observedGatus, "stale")
+  .checks.gatus;
+assert.equal(staleGatus.internal_state, undefined);
+assert.equal(staleGatus.runtime_state, undefined);
+assert.equal(staleGatus.effective_state, "unknown");
