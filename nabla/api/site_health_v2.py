@@ -15,7 +15,8 @@ from nabla.api.site_architecture_catalog import (
     fetch_site_catalog_v2,
 )
 
-State = Literal["ok", "warn", "fail", "unknown"]
+# "scheduled": a night-window App outside its window (not an outage).
+State = Literal["ok", "warn", "fail", "unknown", "scheduled"]
 BoardState = Literal["fresh", "stale", "pending"]
 _ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -50,7 +51,7 @@ def _verified_state(row: object, snapshot_age_seconds: float = 0.0) -> State:
         if limit <= 0 or age + snapshot_age_seconds >= limit:
             return "unknown"
     state = row.get("effective_state") or row.get("state")
-    return state if state in ("ok", "warn", "fail") else "unknown"
+    return state if state in ("ok", "warn", "fail", "scheduled") else "unknown"
 
 
 def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, State]]:

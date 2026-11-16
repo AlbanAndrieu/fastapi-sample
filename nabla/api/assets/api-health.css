@@ -120,6 +120,12 @@
   color: #38bdf8;
 }
 
+/* Night-window App outside its window (expected stop). */
+.health-led--purple {
+  background: #a78bfa;
+  color: #a78bfa;
+}
+
 .health-led--gray {
   background: #555555;
   color: #555555;
@@ -202,6 +208,13 @@
   background: rgba(56, 189, 248, 0.1);
   border-color: rgba(56, 189, 248, 0.45);
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.14);
+}
+
+.health-row-icon--purple {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.14);
 }
 
 .health-row-led-wrap {
@@ -291,6 +304,18 @@
 .health-row-primary--blue .health-row-name .sickz-target-link:hover {
   color: #bae6fd;
   text-decoration-color: rgba(186, 230, 253, 0.65);
+}
+
+.health-row-primary--purple .health-row-name,
+.health-row-primary--purple .health-row-detail,
+.health-row-primary--purple .health-row-name .sickz-target-link,
+.health-meta-badge--status-scheduled {
+  color: #c4b5fd;
+}
+
+.health-meta-badge--status-scheduled::before {
+  content: "☾";
+  margin-right: 0.18rem;
 }
 
 .health-row-name {
