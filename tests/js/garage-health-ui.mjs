@@ -160,3 +160,17 @@ for (const invalid of [
   assert.equal(check.effective_state, "unknown");
   assert.equal(check.reachable, null);
 }
+
+
+const alreadyObservedGatus = includeObservedGarageChecks(
+  { checks: {
+    albandrieu_gatus: {
+      id: "gatus", service_id: "gatus", reachable: false,
+      state: "fail", http_status: 502,
+    },
+  }},
+  gatusHttp200,
+  "fresh",
+).checks;
+assert.equal(alreadyObservedGatus.gatus, undefined);
+assert.equal(alreadyObservedGatus.albandrieu_gatus.state, "fail");
