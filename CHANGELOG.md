@@ -1,3 +1,10 @@
+# [1.38.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.37.2...1.38.0) (2026-11-16)
+
+
+### Features
+
+* **health:** show night-window services as scheduled in purple ([#444](https://github.com/AlbanAndrieu/fastapi-sample/issues/444)) ([f27c3c6](https://github.com/AlbanAndrieu/fastapi-sample/commit/f27c3c6c96409422daadc03b1f2e3909d993c60b))
+
 ## [1.37.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.37.1...1.37.2) (2026-11-15)
 
 
