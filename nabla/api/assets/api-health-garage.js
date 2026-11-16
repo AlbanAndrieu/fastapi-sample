@@ -68,7 +68,9 @@ function observedGatusHttpOk(row) {
 function existingIds(checks) {
   const found = new Set();
   for (const [key, check] of Object.entries(checks)) {
-    for (const id of GARAGE_LABELS.keys()) {
+    // The public Gatus check can already exist under its legacy /sickz key.
+    // Never append a second discovery card over a real observed check.
+    for (const id of new Set([...GARAGE_LABELS.keys(), ...PUBLIC_DISCOVERY_LABELS.keys()])) {
       if (
         key === id ||
         key === `albandrieu_${id.replaceAll("-", "_")}` ||
