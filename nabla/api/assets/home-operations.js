@@ -1185,12 +1185,11 @@ async function refresh() {
       privatePulse(
         pulseResult.status === "fulfilled" ? pulseResult.value : null,
       );
-      let latency = null;
       if (
         boardResult.status === "fulfilled" &&
         boardResult.value?.state === "fresh"
       ) {
-        latency = privateBoard(boardResult.value);
+        privateBoard(boardResult.value);
       } else {
         retryWarmup = true;
         status(
@@ -1198,10 +1197,9 @@ async function refresh() {
           "warn",
         );
       }
-      const resources =
-        telemetryResult.status === "fulfilled"
-          ? privateResources(telemetryResult.value)
-          : null;
+      if (telemetryResult.status === "fulfilled") {
+        privateResources(telemetryResult.value);
+      }
       await updatePrometheusHistory();
       const board =
         boardResult.status === "fulfilled" ? boardResult.value : null;
