@@ -60,7 +60,6 @@ def test_prek_runs_read_only_checks_in_parallel_after_sequential_fixers() -> Non
         "add-trailing-comma",
         "pyupgrade",
         "ruff-format",
-        "ruff",
         "ruff-check",
         "uv-lock",
         "uv-export",
@@ -73,6 +72,10 @@ def test_prek_runs_read_only_checks_in_parallel_after_sequential_fixers() -> Non
     assert parallel.isdisjoint(fixers)
     assert {"actionlint", "zizmor", "bandit", "betterleaks", "yamllint", "shell-lint", "pytest-collect"} <= parallel
     assert config["hide_status"] == ["passed", "skipped"]
+    # Roadmap P2: one Ruff lint pass (``ruff`` aliases ``ruff-check``) and no placeholder gitlint-ci.
+    ids = [hook["id"] for hook in hooks]
+    assert "ruff" not in ids and ids.count("ruff-check") == 1
+    assert "gitlint-ci" not in ids
 
     groups = {hook["id"]: set(hook.get("groups", [])) for hook in hooks}
     assert {hook_id for hook_id, names in groups.items() if "workflow" in names} == {

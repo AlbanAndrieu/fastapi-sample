@@ -230,14 +230,7 @@ repos:
           (?x)^(
               ccds/hook_utils/dependencies.py|
           )$
-      - id: ruff
-        name: "🐍 python · Lint and perform unsafe auto-fixes with Ruff"
-        args: [--unsafe-fixes]
-        exclude: >
-          (?x)^(
-              ccds/hook_utils/dependencies.py|
-              nabla/__init__.py|
-          )$
+      # `ruff` is the legacy alias of ruff-check: one lint pass, safe fixes only.
       - id: ruff-check
         name: "🐍 python · Check with Ruff"
         args: [--fix]
@@ -608,9 +601,6 @@ repos:
     hooks:
       - id: gitlint
         name: "🌳 git · Lint"
-      - id: gitlint-ci
-        name: "🌳 git · Lint in CI"
-        args: [--debug, --commits, mybranch] # enable debug mode, lint all commits in mybranch
 
     # ---------------------------------------------------------------------------- #
     #                            👑 Mega linter                                    #
