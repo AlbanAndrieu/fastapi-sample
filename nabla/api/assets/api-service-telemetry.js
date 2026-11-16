@@ -1,4 +1,7 @@
-import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
+import {
+  gatusCoverage,
+  gatusServiceEvidence,
+} from "./api-service-gatus-coverage.js";
 
 // Read the ONE fixed Prometheus snapshot already present on /api/health-board.
 // Never issue one Prometheus or Gatus request per service card.
@@ -34,22 +37,30 @@ function signal(label, value, source, detail) {
 }
 
 function serviceIds(row) {
-  const key = String(row?.dataset?.serviceKey || "").toLowerCase().trim();
+  const key = String(row?.dataset?.serviceKey || "")
+    .toLowerCase()
+    .trim();
   const clean = key.replace(/^albandrieu_/, "").replaceAll("_", "-");
   const topology = String(row?.dataset?.topologyId || "")
-    .toLowerCase().trim().split("/").at(-1);
+    .toLowerCase()
+    .trim()
+    .split("/")
+    .at(-1);
   // Legacy health-check keys and Backstage entityRefs may differ from the
   // nabla_service_id in Gatus. Never join merely by a display label.
-  return [...new Set(
-    [clean, topology, key, ID_ALIASES[clean], ID_ALIASES[key]]
-      .filter(Boolean),
-  )];
+  return [
+    ...new Set(
+      [clean, topology, key, ID_ALIASES[clean], ID_ALIASES[key]].filter(
+        Boolean,
+      ),
+    ),
+  ];
 }
 
 function serviceId(row) {
   const ids = serviceIds(row);
-  const matched = ids.find((id) => Object.hasOwn(EXPORTERS, id)) ||
-    ids[0] || "";
+  const matched =
+    ids.find((id) => Object.hasOwn(EXPORTERS, id)) || ids[0] || "";
   return ID_ALIASES[matched] || matched;
 }
 
@@ -65,7 +76,7 @@ export function serviceTelemetry(snapshot, row) {
     sourceState,
   );
   const observations = serviceIds(row).map((key) =>
-    gatusServiceEvidence(snapshot, key)
+    gatusServiceEvidence(snapshot, key),
   );
   const perService = observations.find((item) => item.probes.length > 0) ||
     observations[0] || { status: "unverified", probes: [] };
@@ -97,21 +108,29 @@ export function serviceTelemetry(snapshot, row) {
   const fleet = id === "gatus" ? gatusCoverage(snapshot) : null;
   const gatusFleet = fleet
     ? {
-        label: fleet.down > 0 ? `Monitors ${fleet.down} ↓` :
-          fleet.state !== "observed" || fleet.observedProbes === 0
-            ? "Monitors ?" : `Monitors ${fleet.up} observed`,
+        label:
+          fleet.down > 0
+            ? `Monitors ${fleet.down} ↓`
+            : fleet.state !== "observed" || fleet.observedProbes === 0
+              ? "Monitors ?"
+              : `Monitors ${fleet.up} observed`,
         // This badge is fleet telemetry, NOT the Gatus service health.
         // A failed Uptime Kuma (or other target) must never mark Gatus DOWN.
         // Keep a warning for failing targets or incomplete fleet parity.
-        tone: fleet.state !== "observed" || fleet.observedProbes === 0
-          ? "unknown"
-          : "warn",
-        status: fleet.state !== "observed" || fleet.observedProbes === 0
-          ? "unverified"
-          : fleet.down > 0 ? "probes_down" : "partial_coverage",
-        detail: fleet.state !== "observed"
-          ? `Gatus monitor evidence unverified: ${fleet.reason}`
-          : `Monitored endpoints (not Gatus service health): ${fleet.up} UP · ${fleet.down} DOWN across ${fleet.observedServices} observed services. Failed monitors belong to their target services. Catalogue-wide coverage and freshness not proven.`,
+        tone:
+          fleet.state !== "observed" || fleet.observedProbes === 0
+            ? "unknown"
+            : "warn",
+        status:
+          fleet.state !== "observed" || fleet.observedProbes === 0
+            ? "unverified"
+            : fleet.down > 0
+              ? "probes_down"
+              : "partial_coverage",
+        detail:
+          fleet.state !== "observed"
+            ? `Gatus monitor evidence unverified: ${fleet.reason}`
+            : `Monitored endpoints (not Gatus service health): ${fleet.up} UP · ${fleet.down} DOWN across ${fleet.observedServices} observed services. Failed monitors belong to their target services. Catalogue-wide coverage and freshness not proven.`,
       }
     : null;
   const job = EXPORTERS[id];
@@ -134,29 +153,28 @@ export function serviceTelemetry(snapshot, row) {
     "akvorado-inlet",
     "akvorado-outlet",
   ]);
-  const flow =
-    flowServices.has(id)
-      ? {
-          label: "Akvorado",
-          tone:
-            !observedBinary(inlet) || !observedBinary(outlet)
-              ? "unknown"
-              : inlet === 1 && outlet === 1
-                ? "ok"
-                : "fail",
-          status:
-            !observedBinary(inlet) || !observedBinary(outlet)
-              ? "unknown"
-              : inlet === 1 && outlet === 1
-                ? "scrapes_up"
-                : "scrape_down",
-          detail:
-            "Prometheus targets · " +
-            `inlet=${observedBinary(inlet) ? (inlet === 1 ? "UP" : "DOWN") : "not observed"} · ` +
-            `outlet=${observedBinary(outlet) ? (outlet === 1 ? "UP" : "DOWN") : "not observed"}` +
-            " · Scrape UP is not proof of NetFlow received, Kafka delivery or ClickHouse writes.",
-        }
-      : null;
+  const flow = flowServices.has(id)
+    ? {
+        label: "Akvorado",
+        tone:
+          !observedBinary(inlet) || !observedBinary(outlet)
+            ? "unknown"
+            : inlet === 1 && outlet === 1
+              ? "ok"
+              : "fail",
+        status:
+          !observedBinary(inlet) || !observedBinary(outlet)
+            ? "unknown"
+            : inlet === 1 && outlet === 1
+              ? "scrapes_up"
+              : "scrape_down",
+        detail:
+          "Prometheus targets · " +
+          `inlet=${observedBinary(inlet) ? (inlet === 1 ? "UP" : "DOWN") : "not observed"} · ` +
+          `outlet=${observedBinary(outlet) ? (outlet === 1 ? "UP" : "DOWN") : "not observed"}` +
+          " · Scrape UP is not proof of NetFlow received, Kafka delivery or ClickHouse writes.",
+      }
+    : null;
   const functional =
     id === "postgresql"
       ? signal(

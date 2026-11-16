@@ -54,12 +54,16 @@ function observedGatusHttpOk(row) {
     !Number.isInteger(row.http_status) ||
     row.http_status < 200 ||
     row.http_status >= 300
-  ) return false;
+  )
+    return false;
   try {
     const url = new URL(row.url);
-    return url.protocol === "https:" &&
+    return (
+      url.protocol === "https:" &&
       url.hostname === "gatus.albandrieu.com" &&
-      !url.username && !url.password;
+      !url.username &&
+      !url.password
+    );
   } catch {
     return false;
   }
@@ -70,7 +74,10 @@ function existingIds(checks) {
   for (const [key, check] of Object.entries(checks)) {
     // The public Gatus check can already exist under its legacy /sickz key.
     // Never append a second discovery card over a real observed check.
-    for (const id of new Set([...GARAGE_LABELS.keys(), ...PUBLIC_DISCOVERY_LABELS.keys()])) {
+    for (const id of new Set([
+      ...GARAGE_LABELS.keys(),
+      ...PUBLIC_DISCOVERY_LABELS.keys(),
+    ])) {
       if (
         key === id ||
         key === `albandrieu_${id.replaceAll("-", "_")}` ||
@@ -187,7 +194,8 @@ export function includeObservedGarageChecks(
     // origin is unverified. Keep the public card UNKNOWN (not green/failed);
     // never derive Gatus health from a monitored target such as Uptime Kuma.
     const lan = id === "gatus" && fresh ? lanById.get(id) : null;
-    const observedLan = lan &&
+    const observedLan =
+      lan &&
       lan.probe_stale !== true &&
       lan.observation_stale !== true &&
       lan.timed_out !== true &&
@@ -209,9 +217,13 @@ export function includeObservedGarageChecks(
       local_state: serviceState,
       effective_state: serviceState,
       risk_state: "unknown",
-      ...(selfHttpOk ? { http_status: runtime.http_status, direct_state: "ok" } : {}),
+      ...(selfHttpOk
+        ? { http_status: runtime.http_status, direct_state: "ok" }
+        : {}),
       ...(observedLan ? { internal_state: observedLan } : {}),
-      ...(runtime?.runtime_state ? { runtime_state: runtime.runtime_state } : {}),
+      ...(runtime?.runtime_state
+        ? { runtime_state: runtime.runtime_state }
+        : {}),
       warning: selfHttpOk
         ? "Gatus service HTTP 2xx observed from the homelab. Outside-in HTTP/Access policy is unverified. Failed monitors belong to their target services, not Gatus."
         : observedLan
