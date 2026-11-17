@@ -15,9 +15,257 @@ plugins:
   - "@semantic-release/release-notes-generator"
   # Keep a repository CHANGELOG in sync with the generated release notes.
   - "@semantic-release/changelog"
-  # Synchronize npm metadata without publishing an npm package.
-  - - "@semantic-release/npm"
-    - npmPublish: false
+  # Keep npm release versions synchronized without bundling an npm CLI
+  # (no npm package is published from this Python repository).
+  # Version-only rewrites are validated with exact-one replacement assertions.
+  - - semantic-release-replace-plugin
+    - replacements:
+        - files:
+            - package.json
+          from:
+            - '^  "version": "[0-9]+\\.[0-9]+\\.[0-9]+",  # Each replacement asserts exactly one match/replacement so semantic-release
+  # fails during prepare instead of publishing a partially-versioned release.
+  - - semantic-release-replace-plugin
+    - replacements:
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=\[tool.versioningit\]\n)default-version = "\d+\.\d+\.\d+"'
+          to: 'default-version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(\[tool\.commitizen\](?:\n#[^\n]*)*\n)version = "\d+\.\d+\.\d+"'
+          to: '$1version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - nabla/_release.py
+          from:
+            - '__version__ = "\d+\.\d+\.\d+"'
+          to: '__version__ = "${nextRelease.version}"'
+          results:
+            - file: nabla/_release.py
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - uv.lock
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          results:
+            - file: uv.lock
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+  # Commit the generated changelog and synchronized version files.
+  - - "@semantic-release/git"
+    - assets:
+        - "CHANGELOG.md"
+        - "pyproject.toml"
+        - "package.json"
+        - "package-lock.json"
+        - "nabla/_release.py"
+        - "uv.lock"
+      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+  # Publish the Git tag/release notes as a GitHub Release.
+  - "@semantic-release/github"
+
+          to: '  "version": "${nextRelease.version}",'
+          results:
+            - file: package.json
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - package-lock.json
+          from:
+            - '^  "version": "[0-9]+\\.[0-9]+\\.[0-9]+",  # Each replacement asserts exactly one match/replacement so semantic-release
+  # fails during prepare instead of publishing a partially-versioned release.
+  - - semantic-release-replace-plugin
+    - replacements:
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=\[tool.versioningit\]\n)default-version = "\d+\.\d+\.\d+"'
+          to: 'default-version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(\[tool\.commitizen\](?:\n#[^\n]*)*\n)version = "\d+\.\d+\.\d+"'
+          to: '$1version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - nabla/_release.py
+          from:
+            - '__version__ = "\d+\.\d+\.\d+"'
+          to: '__version__ = "${nextRelease.version}"'
+          results:
+            - file: nabla/_release.py
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - uv.lock
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          results:
+            - file: uv.lock
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+  # Commit the generated changelog and synchronized version files.
+  - - "@semantic-release/git"
+    - assets:
+        - "CHANGELOG.md"
+        - "pyproject.toml"
+        - "package.json"
+        - "package-lock.json"
+        - "nabla/_release.py"
+        - "uv.lock"
+      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+  # Publish the Git tag/release notes as a GitHub Release.
+  - "@semantic-release/github"
+
+          to: '  "version": "${nextRelease.version}",'
+          results:
+            - file: package-lock.json
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - package-lock.json
+          from:
+            - '(?<=    "": \\{\\n      "name": "@AlbanAndrieu/fastapi-sample",\\n)      "version": "[0-9]+\\.[0-9]+\\.[0-9]+",  # Each replacement asserts exactly one match/replacement so semantic-release
+  # fails during prepare instead of publishing a partially-versioned release.
+  - - semantic-release-replace-plugin
+    - replacements:
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=\[tool.versioningit\]\n)default-version = "\d+\.\d+\.\d+"'
+          to: 'default-version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(\[tool\.commitizen\](?:\n#[^\n]*)*\n)version = "\d+\.\d+\.\d+"'
+          to: '$1version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - nabla/_release.py
+          from:
+            - '__version__ = "\d+\.\d+\.\d+"'
+          to: '__version__ = "${nextRelease.version}"'
+          results:
+            - file: nabla/_release.py
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+        - files:
+            - uv.lock
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          results:
+            - file: uv.lock
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+  # Commit the generated changelog and synchronized version files.
+  - - "@semantic-release/git"
+    - assets:
+        - "CHANGELOG.md"
+        - "pyproject.toml"
+        - "package.json"
+        - "package-lock.json"
+        - "nabla/_release.py"
+        - "uv.lock"
+      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+  # Publish the Git tag/release notes as a GitHub Release.
+  - "@semantic-release/github"
+
+          to: '      "version": "${nextRelease.version}",'
+          results:
+            - file: package-lock.json
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
   # Synchronize every non-npm version source with nextRelease.version.
   # Each replacement asserts exactly one match/replacement so semantic-release
   # fails during prepare instead of publishing a partially-versioned release.
