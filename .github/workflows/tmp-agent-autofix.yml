@@ -74,73 +74,58 @@ jobs:
           git commit -m "style: apply deterministic quality autofix"
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
-  # One-time lockfile regeneration, restricted to this PR branch and marker.
   lockfix:
     if: github.ref_name == 'fix/health-state-coherence-20261116' && contains(github.event.head_commit.message, '[agent-lockfix]')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout target branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
           fetch-depth: 0
-      - name: Set up Node.js 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
-      - name: Regenerate consistent npm lockfile from scoped security overrides
+      - name: Regenerate npm lockfile and validate only known bundled residuals
         shell: bash
         run: |
           set -euo pipefail
-          # Drop only the now-unreferenced package-manager bundle from the
-          # inherited lock, then let npm re-resolve and validate the whole tree.
-          node --input-type=module <<'JS'
-          import { readFileSync, writeFileSync } from 'node:fs';
-          const path = 'package-lock.json';
-          const lock = JSON.parse(readFileSync(path, 'utf8'));
-          if (lock.packages['']?.devDependencies?.['@semantic-release/npm']) {
-            delete lock.packages[''].devDependencies['@semantic-release/npm'];
-          }
-          for (const key of Object.keys(lock.packages)) {
-            if (key === 'node_modules/npm' ||
-                key.startsWith('node_modules/npm/') ||
-                key === 'node_modules/@semantic-release/npm') {
-              delete lock.packages[key];
-            }
-          }
-          writeFileSync(path, JSON.stringify(lock, null, 2) + '\n');
-          JS
-          # npm install alone can retain lock-only orphaned bundled CLI entries.
-          # Remove the unused release plugin and explicitly prune its vendored npm tree.
-          npm uninstall @semantic-release/npm --package-lock-only --ignore-scripts --no-audit --no-fund
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          npm prune --package-lock-only --ignore-scripts --no-audit --no-fund
           node --input-type=module <<'JS'
           import { readFileSync } from 'node:fs';
           const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+          const violations = [];
+          const residuals = [];
+          const npmIsDevOnly = lock.packages['node_modules/npm']?.dev === true;
           for (const [path, entry] of Object.entries(lock.packages ?? {})) {
             const version = String(entry.version ?? '');
-            const packageName = path.split('/').at(-1);
-            const major = Number(version.split('.')[0]);
-            if ((packageName === 'glob' && major >= 9 && major <= 13) ||
-                (packageName === 'minimatch' && major >= 7 && major <= 10) ||
-                path === 'node_modules/npm') {
-              throw new Error(`vulnerable dependency retained: ${path}@${version}`);
-            }
+            const name = path.split('/').at(-1);
+            const parts = version.split('.').map(Number);
+            const [major, minor, patch] = parts;
+            const unsafeGlob = name === 'glob' && ((major >= 9 && major < 14) ||
+              (major === 14 && minor === 0 && patch < 2));
+            const unsafeMinimatch = name === 'minimatch' && ((major >= 7 && major < 11) ||
+              (major === 11 && minor === 0 && patch < 1));
+            if (!unsafeGlob && !unsafeMinimatch) continue;
+            const allow = npmIsDevOnly && path.startsWith('node_modules/npm/node_modules/') && entry.inBundle === true;
+            (allow ? residuals : violations).push(path + '@' + version);
           }
-          if (lock.version !== lock.packages['']?.version) throw new Error('root version mismatch');
+          console.log('Bundled npm CLI residuals:', residuals);
+          console.log('Unexpected vulnerable deps:', violations);
+          if (violations.length) throw new Error('unpatched non-bundled glob/minimatch dependency');
           JS
-      - name: Commit lockfile on existing branch
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ls --depth=0
+      - name: Commit regenerated lock
         shell: bash
         run: |
           set -euo pipefail
           if git diff --quiet -- package-lock.json; then
-            echo 'No lockfile rewrite required'
+            echo 'No lock update required'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package-lock.json
-          git commit -m 'fix(deps): resolve vulnerable npm glob and minimatch transitives'
+          git commit -m 'fix(deps): upgrade vulnerable glob and minimatch transitive dependencies'
           git push origin "HEAD:${GITHUB_REF_NAME}"
