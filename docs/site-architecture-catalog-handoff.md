@@ -48,6 +48,10 @@ Le fournisseur est `https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose
 
 **Validation réelle : NON EFFECTUÉE** pour les configurations Vercel, Preview, déploiement production, Gatus/Prometheus ou sécurité des ports WAN. PR fastapi-sample conservée en Draft, sans fusion automatique.
 
-## Retrait v1 après migration du site
+## Routes HTTP v1 retirées après le cutover Site
 
-Le toggle `HOMELAB_V1_HTTP_ENABLED=false` désactive les deux anciennes routes HTTP `/api/homelab-services` (OWNER) et `/api/public-homelab/v1` (`410` après authentification éventuelle) sans arrêter `health-board` et les sondes qui utilisent encore des données historiques en interne. Ne pas positionner ce flag à `false` avant que `nabla-site-alban` utilise effectivement `/api/site/catalog/v2` et ait supprimé son fallback local. La suppression définitive des fichiers historiques requiert une migration séparée des lecteurs internes et de la politique d'exposition : les métadonnées Backstage ne contiennent pas toute la configuration des sondes ni les intentions WAN.
+Les anciens `/api/homelab-services` et `/api/public-homelab/v1` ont été **supprimés du routeur** ; `HOMELAB_V1_HTTP_ENABLED` a été retiré. Les pages `nabla-site-alban` consomment `/api/site/catalog/v2` et `/api/site/health/v2` avec une clé SERVICE côté serveur. En cas de panne, elles restent indisponibles plutôt que de réactiver une source v1.
+
+`nabla/api/catalog_routes.py` reste nécessaire **en interne** pour `/sickz`, les sondes et la posture d'exposition : il projette directement le Backstage v2 vérifié, sans servir de route HTTP héritée. `/api/homelab-topology` reste provisoirement protégé pour la page opérateur `/api/topology` ; son contenu et le `service-topology.json` correspondant n'ont pas encore été remplacés par une projection v2 équivalente. Les sources v1 de `nabla-compose` restent opérationnelles tant que les derniers lecteurs TrueNAS n'ont pas migré et que la parité d'exposition n'est pas établie.
+
+Le retrait des routes de Git n'est pas une preuve de déploiement Cloud ou TrueNAS. Vérifier les GET anonymes négatifs et les deux GET SERVICE authentifiés sur le SHA effectivement déployé.

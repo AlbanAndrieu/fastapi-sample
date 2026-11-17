@@ -48,7 +48,6 @@ _TEMPORARY_READ_ROUTES = frozenset({
     "/api/topology",
     "/api/topology-telemetry",
     "/api/health-board",
-    "/api/homelab-services",
     "/api/homelab-topology",
     "/api/public-topology",
     "/api/runtime/topology",

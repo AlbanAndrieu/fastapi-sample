@@ -33,7 +33,7 @@ normal FastAPI startup path.
 | `/metrics` | Prometheus metrics | Always registered; operational access policy may require a key |
 | `/health`, `/healthz`, `/sickz` | Health and detailed diagnostics | Detailed routes may require `DIAGNOSTICS_ACCESS_KEY` |
 | `/api/public-topology` | Sanitized browser topology (no internal URLs/ports/evidence) | Always |
-| `/api/homelab-services` | Full exposure/service catalog | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/site/catalog/v2`, `/api/site/health/v2` | Sanitized Backstage SERVICE projections for Site Alban | Server-only `X-Diagnostics-Key` required |
 | `/api/homelab/declared-services` | Full declared service inventory | May require `DIAGNOSTICS_ACCESS_KEY` |
 | `/api/homelab-topology` | Full declared service topology | May require `DIAGNOSTICS_ACCESS_KEY` |
 | `/api/homelab/runtime`, `/api/homelab/status` | TrueNAS runtime/reconciliation evidence | May require `DIAGNOSTICS_ACCESS_KEY` |
