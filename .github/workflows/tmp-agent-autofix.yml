@@ -93,6 +93,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Drop only the now-unreferenced package-manager bundle from the
+          # inherited lock, then let npm re-resolve and validate the whole tree.
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = 'package-lock.json';
+          const lock = JSON.parse(readFileSync(path, 'utf8'));
+          if (lock.packages['']?.devDependencies?.['@semantic-release/npm']) {
+            delete lock.packages[''].devDependencies['@semantic-release/npm'];
+          }
+          for (const key of Object.keys(lock.packages)) {
+            if (key === 'node_modules/npm' ||
+                key.startsWith('node_modules/npm/') ||
+                key === 'node_modules/@semantic-release/npm') {
+              delete lock.packages[key];
+            }
+          }
+          writeFileSync(path, JSON.stringify(lock, null, 2) + '\n');
+          JS
           # npm install alone can retain lock-only orphaned bundled CLI entries.
           # Remove the unused release plugin and explicitly prune its vendored npm tree.
           npm uninstall @semantic-release/npm --package-lock-only --ignore-scripts --no-audit --no-fund
