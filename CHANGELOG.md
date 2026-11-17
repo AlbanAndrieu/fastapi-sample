@@ -1,3 +1,10 @@
+## [1.38.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.0...1.38.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **health:** états incohérents du 16/11 (F14), violet F13, phases de démarrage F08 ([#445](https://github.com/AlbanAndrieu/fastapi-sample/issues/445)) ([89f1ac7](https://github.com/AlbanAndrieu/fastapi-sample/commit/89f1ac7af7cf1438f7bbc803968bafb8f8248b86)), closes [#442](https://github.com/AlbanAndrieu/fastapi-sample/issues/442)
+
 # [1.38.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.37.2...1.38.0) (2026-11-16)
 
 
