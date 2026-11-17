@@ -99,8 +99,10 @@ jobs:
           const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
           for (const [path, entry] of Object.entries(lock.packages ?? {})) {
             const version = String(entry.version ?? '');
-            if ((/node_modules\\/glob$/.test(path) && /^([9]|1[0-3])\\./.test(version)) ||
-                (/node_modules\\/minimatch$/.test(path) && /^(?:[7-9]|10)\\./.test(version)) ||
+            const packageName = path.split('/').at(-1);
+            const major = Number(version.split('.')[0]);
+            if ((packageName === 'glob' && major >= 9 && major <= 13) ||
+                (packageName === 'minimatch' && major >= 7 && major <= 10) ||
                 path === 'node_modules/npm') {
               throw new Error(`vulnerable dependency retained: ${path}@${version}`);
             }
