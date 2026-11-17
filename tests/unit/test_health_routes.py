@@ -58,7 +58,9 @@ def test_private_topology_remains_typed_and_legacy_http_absent() -> None:
     app = FastAPI()
     register_health_routes(app)
     schema = app.openapi()
-    assert schema["paths"]["/api/homelab-topology"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/HomelabTopology"}
+    topology_schema = schema["paths"]["/api/homelab-topology"]["get"]
+    body_schema = topology_schema["responses"]["200"]["content"]["application/json"]["schema"]
+    assert body_schema == {"$ref": "#/components/schemas/HomelabTopology"}
     assert "/api/homelab-services" not in schema["paths"]
     assert "/api/public-homelab/v1" not in schema["paths"]
 

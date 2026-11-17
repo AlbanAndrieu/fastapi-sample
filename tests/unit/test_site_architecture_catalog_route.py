@@ -55,7 +55,7 @@ def test_v2_site_reader_requires_key_and_preserves_owner_cidr(monkeypatch) -> No
     assert response.json()["entities"][0]["entityRef"] == "component:default/api"
     assert "no-store" in response.headers["cache-control"]
     assert response.headers["x-robots-tag"] == "noindex, nofollow"
-    assert client.get("/api/homelab-services", headers=headers).status_code == 404
+    assert client.get("/api/homelab-services", headers=headers).status_code == 403
 
     source.side_effect = v2.SiteCatalogV2Unavailable("unavailable")
     failing = client.get("/api/site/catalog/v2", headers=headers)
