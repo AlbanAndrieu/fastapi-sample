@@ -8,7 +8,11 @@ import {
 } from "./api-health-ui.js";
 import { organizeSickzRows } from "./api-service-groups.js";
 import { renderPfsenseSection } from "./api-sickz-pfsense.js";
-import { classifySick, detailSickText, isTrueNasExposureCheck } from "./api-sickz-row-state.js";
+import {
+  classifySick,
+  detailSickText,
+  isTrueNasExposureCheck,
+} from "./api-sickz-row-state.js";
 import { sickzRowsSignature } from "./api-sickz-signature.js";
 
 let lastSickzRowsSignature = null;
@@ -58,6 +62,8 @@ function computeOverall(data) {
       continue;
     }
     if (check.policy_status === "ok") continue;
+    // Observer failure (e.g. Cloudflare AuthenticationError): unobserved, already reported once.
+    if (check.policy_status === "unknown") continue;
     if (typeof check.expected_reachable === "boolean") {
       anyExpectedIntentWithoutPolicy = true;
       if (
@@ -272,14 +278,17 @@ function showFetchError(message) {
     wrapPf.innerHTML = "";
   }
   document.getElementById("sickz-checks").innerHTML = "";
-  const restricted = message.includes("Owner diagnostics require sign-in") ||
+  const restricted =
+    message.includes("Owner diagnostics require sign-in") ||
     message.includes("Owner diagnostics session unavailable") ||
     message.includes("Detailed diagnostics access unavailable") ||
     message.includes("Detailed diagnostics are unavailable");
   summaryEl.className = restricted
     ? "health-summary health-summary--neutral"
     : "health-summary health-summary--red";
-  summaryLed.className = restricted ? "health-led health-led--gray" : "health-led health-led--red";
+  summaryLed.className = restricted
+    ? "health-led health-led--gray"
+    : "health-led health-led--red";
   summaryText.textContent = restricted
     ? "Exposure evidence is currently unavailable; access or backend configuration may have changed."
     : "Could not load /sickz.";

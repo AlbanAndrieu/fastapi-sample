@@ -265,6 +265,9 @@ button {
 .op-meter-segment-unknown {
   background: #626e81;
 }
+.op-meter-segment-scheduled {
+  background: #a78bfa;
+}
 .op-meter-pending {
   font-size: 10px;
   color: #8c98ab;
@@ -300,6 +303,9 @@ button {
 }
 .op-dot-unknown {
   background: #626e81;
+}
+.op-dot-scheduled {
+  background: #a78bfa;
 }
 .op-locked {
   display: flex;
@@ -508,6 +514,10 @@ button {
 .op-probe-tile-unknown {
   background: #414a58;
   border-color: #7d8797;
+}
+.op-probe-tile-scheduled {
+  background: #4c3a78;
+  border-color: #a78bfa;
 }
 .op-probe-tile-stale {
   background: repeating-linear-gradient(

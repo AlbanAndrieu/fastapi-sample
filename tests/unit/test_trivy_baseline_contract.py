@@ -52,7 +52,14 @@ def test_trivyignore_has_no_unscoped_vulnerability_suppression() -> None:
         (ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"),
     )
 
-    assert ignore["vulnerabilities"] == []
+    # Exceptions must never disable the scanner or apply to other artifacts.
+    # The companion npm-bundle test enforces exact CVEs, purls and expiry.
+    for entry in ignore["vulnerabilities"]:
+        assert entry["paths"] == ["package-lock.json"]
+        assert len(entry["purls"]) == 1
+        assert entry["purls"][0].startswith("pkg:npm/")
+        assert entry["expired_at"]
+        assert entry["statement"]
     for entry in ignore["misconfigurations"]:
         assert entry["id"]
 

@@ -16,8 +16,10 @@ export function exposurePolicyPresentation(
   };
   // Design facts, not observations: they hold on a stale snapshot too, but any
   // observed public ingress still wins below.
+  // A Cloudflare Access Default-Deny 403 never reached the origin: DENIED, not exposed.
+  const edgeDenied = exposure?.cloudflare_default_deny === true;
   const publicIngressSeen =
-    exposure?.reachable === true ||
+    (exposure?.reachable === true && !edgeDenied) ||
     exposure?.cloudflare_tunnel_observed === true ||
     exposure?.cloudflare_access_observed === true;
   if (exposure?.external === false && !publicIngressSeen) {
@@ -53,7 +55,8 @@ export function exposurePolicyPresentation(
   const policySource =
     exposure.security_policy_status ?? exposure.policy_status;
   const policy = STATES.has(policySource) ? policySource : "unknown";
-  const publicHttpObserved = exposure.reachable === true;
+  const publicHttpObserved =
+    exposure.reachable === true && exposure.cloudflare_default_deny !== true;
   const unexpectedTunnel =
     external === false && exposure.cloudflare_tunnel_observed === true;
   const unexpectedAccess =

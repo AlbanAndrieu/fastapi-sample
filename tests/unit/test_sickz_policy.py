@@ -177,7 +177,8 @@ def test_cloudflare_http_evidence_degrades_when_observers_fail() -> None:
         http_evidence={"cloudflare_http_evidence": True},
     )
 
-    assert state == "warn"
+    # F14 (16/11): an observer failure is unobserved, not 23 per-service warnings.
+    assert state == "unknown"
     assert "observer failed" in detail
     assert "Access policy could not be inspected" in detail
 
@@ -550,3 +551,20 @@ async def test_cloudflare_service_token_is_not_used_when_anonymous_access_works(
     assert "cf-access-client-id" not in seen_headers[0]
     assert "cf-access-client-secret" not in seen_headers[0]
     assert evidence["cloudflare_service_auth_attempted"] is False
+
+
+def test_private_service_behind_access_default_deny_is_denied_not_exposed() -> None:
+    # F14 (16/11): a leftover hostname answered Cloudflare's Default-Deny 403.
+    service = v2_service("litellm", "https://litellm-albandrieu.albandrieu.com", title="LiteLLM", public=False)
+
+    state, detail = _classify_service(
+        service,
+        _check(reachable=True, tls_trusted=True),
+        tunnel_evidence=None,
+        observer_configured=True,
+        observer_error=None,
+        http_evidence={"cloudflare_http_evidence": True, "cloudflare_default_deny": True},
+    )
+
+    assert state == "ok"
+    assert "DENIED" in detail

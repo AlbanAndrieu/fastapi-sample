@@ -18,7 +18,7 @@ from nabla.api.homelab_performance import (
 )
 from nabla.api.homelab_runtime import fetch_truenas_runtime, runtime_snapshot_from_health_api
 from nabla.api.homelab_runtime_models import ObservedApp, ObservedContainer, TrueNASRuntimeSnapshot
-from nabla.api.homelab_service_health import build_reconciled_service_health, mark_scheduled_off_window
+from nabla.api.homelab_service_health import build_reconciled_service_health, mark_not_deployed, mark_scheduled_off_window
 from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 
@@ -443,7 +443,7 @@ async def reconcile_homelab_health_payload(
             "fixed_cardinality": True,
             "phase_count": len(HOMELAB_HEALTH_PERF_PHASES),
         },
-        "services": mark_scheduled_off_window(exposure_aware, services, datetime.now(timezone.utc)),
+        "services": mark_not_deployed(mark_scheduled_off_window(exposure_aware, services, datetime.now(timezone.utc)), services),
         "truenas_runtime_reachable": runtime.reachable,
         "truenas_runtime_stale": runtime.stale,
         "truenas_runtime_error": runtime.error,

@@ -1,10 +1,22 @@
 ---
-# Vulnerability suppressions are intentionally empty: fix dependencies instead.
-# The former transformers (CVE-2023-6730, CVE-2023-7018, CVE-2024-3568) and Go
-# stdlib (CVE-2024-24790) entries matched nothing in 2026-10 local Trivy scans
-# (`trivy fs --show-suppressed`); add an entry only with a documented,
-# path-scoped statement and a roadmap residual.
-vulnerabilities: []
+# Time-bounded, dev-only npm CLI vendor residuals; tested by
+# tests/unit/test_npm_bundled_vulnerability_guard.py. Do not extend to runtime.
+# https://github.com/npm/cli/issues/10299
+vulnerabilities:
+  - id: CVE-2026-118773
+    paths:
+      - package-lock.json
+    purls:
+      - pkg:npm/glob@13.0.6
+    expired_at: 2026-12-01
+    statement: npm CLI dev-only bundled glob 13.0.6; no vendor fix yet; non-bundled instances required patched
+  - id: CVE-2026-118764
+    paths:
+      - package-lock.json
+    purls:
+      - pkg:npm/minimatch@10.2.5
+    expired_at: 2026-12-01
+    statement: npm CLI dev-only bundled minimatch 10.2.5; no vendor fix yet; non-bundled instances required patched
 
 misconfigurations:
   # This project publishes its own image to GitLab Container Registry. Trivy's

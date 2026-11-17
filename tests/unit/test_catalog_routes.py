@@ -217,3 +217,9 @@ def test_operational_schedule_label_reaches_the_route() -> None:
     night = entity("bitcoind", route("https://bitcoind.albandrieu.com"))
     night["metadata"]["labels"] = {"albandrieu.com/operational-schedule": "night"}
     assert [item.schedule for item in routes(night, entity("garage", route("https://garage.albandrieu.com")))] == ["night", None]
+
+
+def test_operational_state_label_reaches_the_route() -> None:
+    planned = entity("netbox", route("https://netbox.albandrieu.com"))
+    planned["metadata"]["labels"] = {"albandrieu.com/operational-state": "planned"}
+    assert [item.lifecycle for item in routes(planned, entity("garage", route("https://garage.albandrieu.com")))] == ["planned", None]

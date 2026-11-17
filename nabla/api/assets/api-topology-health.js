@@ -1,7 +1,7 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 import { dependencyDetailText } from "./api-health-dependency.js";
 
-const HEALTH_STATES = new Set(["ok", "warn", "fail", "unknown"]);
+const HEALTH_STATES = new Set(["ok", "warn", "fail", "unknown", "scheduled"]);
 const TUNNEL_ENVIRONMENTS = new Map([
   ["nabla-albandrieu", "development"],
   ["nabla-truescale", "production"],

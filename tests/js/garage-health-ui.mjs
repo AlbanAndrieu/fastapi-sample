@@ -88,3 +88,111 @@ const aliased = includeObservedGarageChecks(
 );
 assert.equal(aliased.checks["garage-admin"], undefined);
 assert.equal(aliased.checks.albandrieu_garage_admin.local_state, "fail");
+
+// The public discovery card may present observed LAN runtime context but may
+// not treat Gatus's monitored Uptime Kuma outcome as Gatus availability.
+const observedGatus = structuredClone(homelab);
+observedGatus.public_card_candidates = [{ id: "gatus", name: "Gatus" }];
+observedGatus.services.push({
+  id: "gatus",
+  state: "ok",
+  runtime_state: "RUNNING",
+});
+observedGatus.services.push({ id: "uptimekuma", state: "fail" });
+observedGatus.internal_services.push({
+  id: "gatus",
+  state: "ok",
+  probe_source: "origin",
+  probe_stale: false,
+});
+const publicGatus = includeObservedGarageChecks(base, observedGatus, "fresh")
+  .checks.gatus;
+assert.equal(publicGatus.internal_state, "ok");
+assert.equal(publicGatus.runtime_state, "RUNNING");
+assert.equal(publicGatus.local_state, "unknown");
+assert.equal(publicGatus.effective_state, "unknown");
+assert.equal(publicGatus.reachable, null);
+assert.match(publicGatus.warning, /independent public HTTP\/Access evidence/);
+assert.equal(publicGatus.risk_state, "unknown");
+
+const staleGatus = includeObservedGarageChecks(base, observedGatus, "stale")
+  .checks.gatus;
+assert.equal(staleGatus.internal_state, undefined);
+assert.equal(staleGatus.runtime_state, undefined);
+assert.equal(staleGatus.effective_state, "unknown");
+
+const gatusHttp200 = structuredClone(observedGatus);
+gatusHttp200.services = gatusHttp200.services.map((row) =>
+  row.id === "gatus"
+    ? {
+        ...row,
+        url: "https://gatus.albandrieu.com/",
+        direct_state: "ok",
+        direct_probe_source: "origin",
+        direct_probe_stale: false,
+        http_status: 200,
+        observation_stale: false,
+      }
+    : row,
+);
+const operationalGatus = includeObservedGarageChecks(
+  base,
+  gatusHttp200,
+  "fresh",
+).checks.gatus;
+assert.equal(operationalGatus.local_state, "ok");
+assert.equal(operationalGatus.effective_state, "ok");
+assert.equal(operationalGatus.reachable, true);
+assert.equal(operationalGatus.http_status, 200);
+assert.equal(operationalGatus.risk_state, "unknown");
+assert.match(
+  operationalGatus.warning,
+  /Outside-in HTTP\/Access policy is unverified/,
+);
+
+// Uptime Kuma's observed HTTP 502 must never override Gatus's own 200.
+const withFailedUptime = structuredClone(gatusHttp200);
+withFailedUptime.services = withFailedUptime.services.map((row) =>
+  row.id === "uptimekuma" ? { ...row, state: "fail", http_status: 502 } : row,
+);
+assert.equal(
+  includeObservedGarageChecks(base, withFailedUptime, "fresh").checks.gatus
+    .effective_state,
+  "ok",
+);
+
+// No positive state from a stale, non-2xx or unrelated public origin.
+for (const invalid of [
+  { http_status: 502 },
+  { direct_probe_stale: true },
+  { observation_stale: true },
+  { url: "https://other.albandrieu.com" },
+  { direct_state: "fail" },
+]) {
+  const candidate = structuredClone(gatusHttp200);
+  candidate.services = candidate.services.map((row) =>
+    row.id === "gatus" ? { ...row, ...invalid } : row,
+  );
+  const check = includeObservedGarageChecks(base, candidate, "fresh").checks
+    .gatus;
+  assert.equal(check.effective_state, "unknown");
+  assert.equal(check.reachable, null);
+}
+
+const alreadyObservedGatus = includeObservedGarageChecks(
+  {
+    checks: {
+      albandrieu_gatus: {
+        id: "gatus",
+        service_id: "gatus",
+        reachable: false,
+        state: "fail",
+        http_status: 502,
+      },
+    },
+  },
+  gatusHttp200,
+  "fresh",
+).checks;
+assert.equal(alreadyObservedGatus.gatus, undefined);
+assert.equal(alreadyObservedGatus.albandrieu_gatus.state, "fail");

@@ -64,7 +64,19 @@ test("public fleet uses verified states only", () => {
   assert.equal(projectFleet(fresh).counts.ok, 1);
   assert.equal(projectFleet(fresh).counts.fail, 1);
   const stale = projectFleet({ ...fresh, boardState: "stale" });
-  assert.deepEqual(stale.counts, { ok: 0, warn: 0, fail: 0, unknown: 2 });
+  assert.deepEqual(stale.counts, {
+    ok: 0,
+    warn: 0,
+    fail: 0,
+    unknown: 2,
+    scheduled: 0,
+  });
+  // A night-window App outside its window must not blank the whole panel.
+  const night = projectFleet({
+    ...fresh,
+    services: [{ name: "Paperless", kind: "Component", state: "scheduled" }],
+  });
+  assert.equal(night.counts.scheduled, 1);
   assert.equal(
     projectFleet({
       ...fresh,
@@ -836,7 +848,10 @@ test("resource heatmap sort reveals CPU-heavy services hidden by RAM ordering", 
   const byMemory = projectResourceHeatmap(source, NOW);
   assert.equal(byMemory.sortBy, "memory_bytes");
   assert.equal(byMemory.rows.length, 12);
-  assert.equal(byMemory.rows.some((row) => row.name === "cpu-heavy"), false);
+  assert.equal(
+    byMemory.rows.some((row) => row.name === "cpu-heavy"),
+    false,
+  );
 
   const byCPU = projectResourceHeatmap(source, NOW, "cpu_cores");
   assert.equal(byCPU.sortBy, "cpu_cores");
@@ -844,7 +859,10 @@ test("resource heatmap sort reveals CPU-heavy services hidden by RAM ordering", 
   assert.equal(byCPU.rows[0].cells[0].relativePercent, 100);
   assert.equal(byCPU.rows[0].cells[3].value, 1);
   assert.equal(byCPU.rows[0].cells[3].relativePercent, 100);
-  assert.equal(projectResourceHeatmap(source, NOW, "invalid").sortBy, "memory_bytes");
+  assert.equal(
+    projectResourceHeatmap(source, NOW, "invalid").sortBy,
+    "memory_bytes",
+  );
 });
 
 test("resource heatmap scales columns only against visible rows", () => {
@@ -866,7 +884,10 @@ test("resource heatmap scales columns only against visible rows", () => {
     NOW,
     "memory_bytes",
   );
-  assert.equal(result.rows.some((row) => row.name === "hidden-cpu-giant"), false);
+  assert.equal(
+    result.rows.some((row) => row.name === "hidden-cpu-giant"),
+    false,
+  );
   assert.equal(
     result.rows.find((row) => row.name === "mem-11").cells[0].relativePercent,
     100,

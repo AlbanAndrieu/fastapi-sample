@@ -1,18 +1,26 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 
 // Run the real entry source with two dynamic imports mocked. No network,
 // Playwright, Python packages, browser credentials or Github Actions.
 const entry = readFileSync(
-  fileURLToPath(new URL("../../nabla/api/assets/api-health-entry.js", import.meta.url)),
+  fileURLToPath(
+    new URL("../../nabla/api/assets/api-health-entry.js", import.meta.url),
+  ),
   "utf8",
 );
 const script = entry
-  .replace(/^import \{ installPublicServiceOverview \} from "\.\/api-public-services\.js";\s*/m, "")
-  .replaceAll('import("./api-owner-session.js")', 'importModule("./api-owner-session.js")')
+  .replace(
+    /^import \{ installPublicServiceOverview \} from "\.\/api-public-services\.js";\s*/m,
+    "",
+  )
+  .replaceAll(
+    'import("./api-owner-session.js")',
+    'importModule("./api-owner-session.js")',
+  )
   .replaceAll('import("./api-health.js")', 'importModule("./api-health.js")');
 
 function boot(query, { authenticated = false, readable = false } = {}) {
@@ -24,7 +32,10 @@ function boot(query, { authenticated = false, readable = false } = {}) {
   const element = (id) => {
     if (!elements.has(id)) {
       elements.set(id, {
-        id, hidden: true, disabled: false, textContent: "",
+        id,
+        hidden: true,
+        disabled: false,
+        textContent: "",
         parentElement: { appendChild: () => {} },
       });
     }
@@ -33,15 +44,29 @@ function boot(query, { authenticated = false, readable = false } = {}) {
   const context = {
     URL,
     URLSearchParams,
+    CustomEvent,
     window: {
-      location: { search: query, href: url, reload: () => events.push("reload") },
-      setTimeout: (callback) => { timers.push(callback); return timers.length; },
+      location: {
+        search: query,
+        href: url,
+        reload: () => events.push("reload"),
+      },
+      setTimeout: (callback) => {
+        timers.push(callback);
+        return timers.length;
+      },
     },
     document: {
       getElementById: (id) => element(id),
       querySelectorAll: () => [],
-      createElement: () => ({ href: "", textContent: "", className: "", id: "" }),
+      createElement: () => ({
+        href: "",
+        textContent: "",
+        className: "",
+        id: "",
+      }),
       addEventListener: (name, listener) => listeners.set(name, listener),
+      dispatchEvent: (event) => listeners.get(event.type)?.(event),
     },
     installPublicServiceOverview: () => {
       events.push("directory");
@@ -64,8 +89,11 @@ function boot(query, { authenticated = false, readable = false } = {}) {
     },
   };
   runInNewContext(script, context, { timeout: 1000 });
-  return { events, timers, element,
-    emit: (name) => listeners.get(name)?.(),
+  return {
+    events,
+    timers,
+    element,
+    emit: (name, detail) => listeners.get(name)?.({ type: name, detail }),
   };
 }
 
@@ -77,17 +105,26 @@ test("operator+full without authenticated OWNER remains clickable and public", a
   const page = boot("?operator=1&ui_full=1");
   await flush();
   assert.equal(page.element("owner-session-panel").hidden, false);
-  assert.ok(page.events.indexOf("owner-installed") > page.events.indexOf("./api-owner-session.js"));
+  assert.ok(
+    page.events.indexOf("owner-installed") >
+      page.events.indexOf("./api-owner-session.js"),
+  );
   assert.ok(page.events.includes("directory"));
   assert.ok(!page.events.includes("./api-health.js"));
   assert.equal(page.timers.length, 0);
-  assert.match(page.element("health-summary-text").textContent, /Unlock diagnostics/);
+  assert.match(
+    page.element("health-summary-text").textContent,
+    /Unlock diagnostics/,
+  );
 });
 
 test("operator+full with signed session installs OWNER first and defers rich import", async () => {
   const page = boot("?operator=1&ui_full=1", { authenticated: true });
   await flush();
-  assert.deepEqual(page.events.filter((x) => x.includes("api-health.js")), []);
+  assert.deepEqual(
+    page.events.filter((x) => x.includes("api-health.js")),
+    [],
+  );
   assert.ok(page.events.includes("owner-installed"));
   assert.equal(page.timers.length, 1);
   page.timers.shift()();
@@ -101,7 +138,10 @@ test("rich readonly without verified read capability remains a public directory"
   assert.ok(page.events.includes("directory"));
   assert.equal(page.events.includes("./api-health.js"), false);
   assert.equal(page.timers.length, 0);
-  assert.match(page.element("health-summary-text").textContent, /not authorized/);
+  assert.match(
+    page.element("health-summary-text").textContent,
+    /not authorized/,
+  );
 });
 
 test("rich readonly with verified read capability defers the advanced import", async () => {
@@ -133,7 +173,18 @@ test("public fallback stays visible until advanced board confirms refresh", asyn
   page.timers.shift()();
   await flush();
   assert.equal(page.element("public-services-panel").hidden, false);
-  page.emit("health-board-refreshed");
+  // #440: only a fresh refresh with service evidence replaces the public fallback.
+  page.emit("health-board-refreshed", {
+    state: "stale",
+    refreshing: false,
+    serviceEvidenceCount: 3,
+  });
+  assert.equal(page.element("public-services-panel").hidden, false);
+  page.emit("health-board-refreshed", {
+    state: "fresh",
+    refreshing: false,
+    serviceEvidenceCount: 3,
+  });
   assert.equal(page.element("public-services-panel").hidden, true);
 });
 
@@ -153,7 +204,9 @@ test("advanced bootstrap rejection leaves the public catalogue visible", async (
 
 test("rich ESM module reports asynchronous bootstrap failures", () => {
   const source = readFileSync(
-    fileURLToPath(new URL("../../nabla/api/assets/api-health.js", import.meta.url)),
+    fileURLToPath(
+      new URL("../../nabla/api/assets/api-health.js", import.meta.url),
+    ),
     "utf8",
   );
   assert.ok(source.includes("void bootstrapHealthUi().catch(() => {"));

@@ -40,10 +40,44 @@ function approvedWebUiUrl(source) {
   return "";
 }
 
+// Only a fresh 2xx HTTP response for Gatus itself establishes its
+// service availability. A Gatus monitor (e.g. Uptime Kuma) is not evidence
+// about the Gatus origin. The outside-in Cloudflare policy stays unverified.
+function observedGatusHttpOk(row) {
+  if (
+    !row ||
+    row.id !== "gatus" ||
+    row.direct_state !== "ok" ||
+    row.direct_probe_stale === true ||
+    row.observation_stale === true ||
+    row.direct_probe_source === "deadline" ||
+    !Number.isInteger(row.http_status) ||
+    row.http_status < 200 ||
+    row.http_status >= 300
+  )
+    return false;
+  try {
+    const url = new URL(row.url);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "gatus.albandrieu.com" &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 function existingIds(checks) {
   const found = new Set();
   for (const [key, check] of Object.entries(checks)) {
-    for (const id of GARAGE_LABELS.keys()) {
+    // The public Gatus check can already exist under its legacy /sickz key.
+    // Never append a second discovery card over a real observed check.
+    for (const id of new Set([
+      ...GARAGE_LABELS.keys(),
+      ...PUBLIC_DISCOVERY_LABELS.keys(),
+    ])) {
       if (
         key === id ||
         key === `albandrieu_${id.replaceAll("-", "_")}` ||
@@ -136,6 +170,16 @@ export function includeObservedGarageChecks(
   // A curated public label may be visible even when no probe was sampled.
   // Do not synthesize successful health, URLs, or LAN infrastructure details.
   const candidates = rows(homelab?.public_card_candidates);
+  const lanById = new Map(
+    rows(homelab?.internal_services)
+      .filter((row) => PUBLIC_DISCOVERY_LABELS.has(row.id))
+      .map((row) => [row.id, row]),
+  );
+  const runtimeById = new Map(
+    rows(homelab?.services)
+      .filter((row) => PUBLIC_DISCOVERY_LABELS.has(row.id))
+      .map((row) => [row.id, row]),
+  );
   for (const candidate of candidates) {
     const id = candidate.id;
     if (
@@ -146,17 +190,45 @@ export function includeObservedGarageChecks(
     ) {
       continue;
     }
+    // Gatus can have fresh LAN evidence even when its independent public
+    // origin is unverified. Keep the public card UNKNOWN (not green/failed);
+    // never derive Gatus health from a monitored target such as Uptime Kuma.
+    const lan = id === "gatus" && fresh ? lanById.get(id) : null;
+    const observedLan =
+      lan &&
+      lan.probe_stale !== true &&
+      lan.observation_stale !== true &&
+      lan.timed_out !== true &&
+      lan.probe_source !== "deadline"
+        ? observedState(lan.internal_state || lan.state)
+        : null;
+    const runtime = id === "gatus" && fresh ? runtimeById.get(id) : null;
+    const selfHttpOk = observedGatusHttpOk(runtime);
+    // Local service health and public security posture are distinct:
+    // an observed 2xx may make Gatus operational without claiming the
+    // Cloudflare outside-in Access policy was independently verified.
+    const serviceState = selfHttpOk ? "ok" : "unknown";
     projected[id] = {
       id,
       service_id: id,
       name: PUBLIC_DISCOVERY_LABELS.get(id),
-      reachable: null,
-      state: "unknown",
-      local_state: "unknown",
-      effective_state: "unknown",
+      reachable: selfHttpOk ? true : null,
+      state: serviceState,
+      local_state: serviceState,
+      effective_state: serviceState,
       risk_state: "unknown",
-      warning:
-        "Declared public-facing service; no current independent probe evidence. Not confirmed DOWN.",
+      ...(selfHttpOk
+        ? { http_status: runtime.http_status, direct_state: "ok" }
+        : {}),
+      ...(observedLan ? { internal_state: observedLan } : {}),
+      ...(runtime?.runtime_state
+        ? { runtime_state: runtime.runtime_state }
+        : {}),
+      warning: selfHttpOk
+        ? "Gatus service HTTP 2xx observed from the homelab. Outside-in HTTP/Access policy is unverified. Failed monitors belong to their target services, not Gatus."
+        : observedLan
+          ? `Gatus LAN ${observedLan} observed; independent public HTTP/Access evidence is still missing. Monitored endpoint failures are separate from Gatus health.`
+          : "Declared public-facing service; no current independent probe evidence. Not confirmed DOWN.",
     };
   }
   return { ...data, checks: projected };

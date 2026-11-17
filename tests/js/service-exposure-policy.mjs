@@ -31,6 +31,18 @@ test("forbidden HTTP 403 is still a public entry point for a private service", (
   assert.match(result.detail, /401\/403/);
 });
 
+test("Cloudflare Default-Deny 403 on a private service is denied, not exposed", () => {
+  const result = exposurePolicyPresentation({
+    external: false,
+    reachable: true,
+    http_status: 403,
+    cloudflare_default_deny: true,
+    policy_status: "ok",
+  });
+  assert.notEqual(result.state, "fail");
+  assert.notEqual(result.label, "Exposure !");
+});
+
 test("observed Cloudflare ingress for an internal-only service violates intent", () => {
   const r = exposurePolicyPresentation({
     external: false,

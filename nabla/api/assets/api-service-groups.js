@@ -168,6 +168,8 @@ function postureAtRisk(check) {
 function rowStatus(row, check = {}) {
   if (normalize(check?.effective_state || check?.state) === "scheduled")
     return "Scheduled";
+  // Planned or disabled App that does not answer: grey, never an outage.
+  if (check?.not_deployed === true) return "Not deployed";
   const localState = normalizedHealthState(check?.local_state);
   const dependencyState = normalizedHealthState(check?.dependency_state);
   const directState = normalizedHealthState(check?.direct_state);

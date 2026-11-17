@@ -1,7 +1,8 @@
 // Pure data projection for the / operations dashboard.
 // These helpers neither fetch network data nor synthesize samples.
 
-const STATES = Object.freeze(["ok", "warn", "fail", "unknown"]);
+// "scheduled": a night-window App outside its window, never an outage.
+const STATES = Object.freeze(["ok", "warn", "fail", "unknown", "scheduled"]);
 const SAMPLE_IDS = new Set([
   "sample",
   "fastapi-sample",
@@ -48,7 +49,7 @@ export function projectFleet(payload) {
     !["fresh", "stale", "pending"].includes(payload.boardState)
   )
     return null;
-  const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
+  const counts = { ok: 0, warn: 0, fail: 0, unknown: 0, scheduled: 0 };
   for (const row of payload.services) {
     if (
       typeof row?.name !== "string" ||
@@ -167,7 +168,7 @@ export function projectProbeMatrix(board, nowMs = Date.now()) {
     }
   }
   // Render at most 80 tiles; do not materialize nonexistent catalog slots.
-  const order = { fail: 0, warn: 1, unknown: 2, ok: 3 };
+  const order = { fail: 0, warn: 1, unknown: 2, scheduled: 2, ok: 3 };
   rows.sort(
     (a, b) =>
       order[a.state] - order[b.state] ||
