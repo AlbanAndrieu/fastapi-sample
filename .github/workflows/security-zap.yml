@@ -41,7 +41,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify authorized production DAST surfaces
+      - name: Verify authorized TrueNAS DAST surfaces
+        id: preflight_truenas
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -65,6 +67,13 @@ jobs:
           curl --fail --silent --show-error --location \
             --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
             "${cf_headers[@]}" "${TRUENAS_OPENAPI_URL}" | jq -e '.openapi | type == "string"' >/dev/null
+
+      - name: Verify FastAPI Cloud DAST surfaces
+        id: preflight_cloud
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
           curl --fail --silent --show-error --location \
             --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
             "${CLOUD_API_URL}" | jq -e 'type == "object"' >/dev/null
@@ -74,6 +83,7 @@ jobs:
 
       - name: ZAP Web baseline · TrueNAS root
         id: zap_web_truenas_root
+        if: ${{ steps.preflight_truenas.outcome == 'success' }}
         continue-on-error: true
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
@@ -94,6 +104,7 @@ jobs:
 
       - name: ZAP Web baseline · TrueNAS API
         id: zap_web_truenas_api
+        if: ${{ steps.preflight_truenas.outcome == 'success' }}
         continue-on-error: true
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
@@ -114,6 +125,7 @@ jobs:
 
       - name: ZAP Web baseline · FastAPI Cloud API
         id: zap_web_cloud_api
+        if: ${{ steps.preflight_cloud.outcome == 'success' }}
         continue-on-error: true
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
@@ -127,6 +139,7 @@ jobs:
 
       - name: ZAP OpenAPI active scan · TrueNAS
         id: zap_api_truenas
+        if: ${{ steps.preflight_truenas.outcome == 'success' }}
         continue-on-error: true
         uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
         with:
@@ -148,6 +161,7 @@ jobs:
 
       - name: ZAP OpenAPI active scan · FastAPI Cloud
         id: zap_api_cloud
+        if: ${{ steps.preflight_cloud.outcome == 'success' }}
         continue-on-error: true
         uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
         with:
@@ -163,6 +177,8 @@ jobs:
       - name: Summarize ZAP outcomes
         if: always()
         env:
+          TRUENAS_PREFLIGHT: ${{ steps.preflight_truenas.outcome }}
+          CLOUD_PREFLIGHT: ${{ steps.preflight_cloud.outcome }}
           TRUENAS_ROOT_OUTCOME: ${{ steps.zap_web_truenas_root.outcome }}
           TRUENAS_API_OUTCOME: ${{ steps.zap_web_truenas_api.outcome }}
           CLOUD_WEB_OUTCOME: ${{ steps.zap_web_cloud_api.outcome }}
@@ -174,6 +190,8 @@ jobs:
             echo "## OWASP ZAP post-deployment DAST"
             echo
             echo "- Source SHA: ${GITHUB_SHA}"
+            echo "- TrueNAS preflight: **${TRUENAS_PREFLIGHT:-not-run}**"
+            echo "- Cloud preflight: **${CLOUD_PREFLIGHT:-not-run}**"
             echo "- TrueNAS Web root: **${TRUENAS_ROOT_OUTCOME:-not-run}** · ${TRUENAS_ROOT_URL}"
             echo "- TrueNAS Web API: **${TRUENAS_API_OUTCOME:-not-run}** · ${TRUENAS_API_URL}"
             echo "- FastAPI Cloud Web API: **${CLOUD_WEB_OUTCOME:-not-run}** · ${CLOUD_API_URL}"

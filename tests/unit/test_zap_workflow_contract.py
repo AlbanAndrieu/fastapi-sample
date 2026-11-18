@@ -63,3 +63,15 @@ def test_zap_policy_keeps_auth_findings_and_management_boundaries_explicit() -> 
         assert outcome in workflow
 
     assert "At least one production ZAP Web/OpenAPI scan did not satisfy the blocking policy" in workflow
+
+
+def test_cloud_scans_are_independent_of_truenas_credentials() -> None:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = {step["id"]: step for step in workflow["jobs"]["dast"]["steps"] if "id" in step}
+    assert steps["preflight_truenas"]["continue-on-error"] is True
+    assert steps["preflight_cloud"]["continue-on-error"] is True
+    assert "CF_ACCESS_CLIENT_SECRET" not in steps["preflight_cloud"]["run"]
+    for key in ("zap_web_truenas_root", "zap_web_truenas_api", "zap_api_truenas"):
+        assert steps[key]["if"] == "${{ steps.preflight_truenas.outcome == 'success' }}"
+    for key in ("zap_web_cloud_api", "zap_api_cloud"):
+        assert steps[key]["if"] == "${{ steps.preflight_cloud.outcome == 'success' }}"
