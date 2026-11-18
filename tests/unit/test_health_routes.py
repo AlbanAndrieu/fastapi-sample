@@ -35,10 +35,14 @@ def test_health_routes_register_v2_without_legacy_catalog() -> None:
 def test_health_routes_keep_openapi_tags() -> None:
     app = FastAPI()
     register_health_routes(app)
-    tagged = {route.path: set(route.tags or []) for route in app.routes if getattr(route, "path", None) in {
-        "/api/homelab-topology", "/api/homelab/health", "/api/homelab/probes",
-        "/api/health-board", "/livez", "/readyz", "/healthz", "/sickz",
-    }}
+    tagged = {
+        route.path: set(route.tags or [])
+        for route in app.routes
+        if getattr(route, "path", None) in {
+            "/api/homelab-topology", "/api/homelab/health", "/api/homelab/probes",
+            "/api/health-board", "/livez", "/readyz", "/healthz", "/sickz",
+        }
+    }
     assert tagged["/api/homelab-topology"] == {"Homelab"}
     assert tagged["/api/homelab/health"] == {"Homelab", "Health"}
     assert tagged["/api/homelab/probes"] == {"Homelab", "Health", "TrueNAS"}
