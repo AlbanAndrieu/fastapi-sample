@@ -1,3 +1,10 @@
+## [1.38.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.1...1.38.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **security:** close public diagnostic reads by default, keep SERVICE v2 access ([#447](https://github.com/AlbanAndrieu/fastapi-sample/issues/447)) ([b8b5cd8](https://github.com/AlbanAndrieu/fastapi-sample/commit/b8b5cd893dc2c3a91b1113e85072fb886f5f97fe))
+
 ## [1.38.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.0...1.38.1) (2026-11-17)
 
 
