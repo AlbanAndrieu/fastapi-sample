@@ -1,4 +1,4 @@
-"""Tests for the public homelab catalog and health API."""
+"""Tests for homelab health and internal Backstage v2 route projection."""
 
 import warnings
 from unittest.mock import AsyncMock
@@ -205,7 +205,6 @@ def test_public_homelab_routes(monkeypatch) -> None:
         warnings.simplefilter("always")
         health_response = client.get("/api/homelab/health")
         probes_response = client.get("/api/homelab/probes")
-        catalog_response = client.get("/api/homelab-services")
 
     assert health_response.status_code == 200
     health_body = health_response.json()
@@ -221,12 +220,6 @@ def test_public_homelab_routes(monkeypatch) -> None:
     assert service_health["state"] == "unknown"
     assert probes_response.status_code == 200
     assert probes_response.json()["schema_version"] == 3
-    assert catalog_response.status_code == 200
-    assert catalog_response.json()["version"] == 2
-    listed = catalog_response.json()["services"][0]
-    assert listed["external"] is True
-    assert listed["entityRef"] == "component:default/langfuse-web"
-    assert listed["tunnelUrl"] == "https://langfuse.albandrieu.com"
     assert not any("ORJSONResponse is deprecated" in str(item.message) for item in caught)
 
 

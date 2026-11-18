@@ -223,6 +223,24 @@ def test_site_catalog_service_key_never_weakens_owner_cidr(protected_app: TestCl
     assert protected_app.get("/api/homelab-services", headers=valid_headers).status_code == 403
 
 
+def test_service_v2_key_survives_private_diagnostics_default(
+    protected_app: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Machine-authenticated SERVICE reads work while OWNER topology is private."""
+    monkeypatch.delenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", raising=False)
+    settings = protected_app.app.state.access_settings
+    settings.homelab_trusted_cidrs = "82.66.4.247/32"
+    settings.diagnostics_access_key = SecretStr("machine-key")
+    headers = {"X-Diagnostics-Key": "machine-key"}
+    for path in ("/api/site/catalog/v2", "/api/site/health/v2"):
+        assert protected_app.get(path).status_code == 401
+        assert protected_app.get(path, headers=headers).status_code == 200
+    for path in ("/api/homelab-topology", "/api/public-topology", "/api/runtime/topology"):
+        assert protected_app.get(path).status_code == 401
+        assert protected_app.get(path, headers=headers).status_code == 403
+
+
 def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
     protected_app: TestClient,
     monkeypatch: pytest.MonkeyPatch,

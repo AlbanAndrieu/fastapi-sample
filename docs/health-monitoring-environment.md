@@ -29,7 +29,7 @@ policy, not the runtime trust boundary.
 | `/health` | lightweight FastAPI/runtime liveness; no homelab dependency I/O |
 | `/healthz` | deep dependency diagnostics used by the health board |
 | `/sickz` | exposure-policy reconciliation: HTTP/TLS, Cloudflare and runtime evidence |
-| `/api/homelab-services` | validated service inventory/exposure intent |
+| `/api/site/catalog/v2` | authenticated Backstage v2 site catalog projection |
 | `/api/homelab-topology` | design-time nodes and directed relationships |
 | `/api/homelab/health` | detailed platform state and optional provider probes |
 

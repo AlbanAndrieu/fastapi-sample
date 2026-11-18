@@ -253,9 +253,11 @@ jobs:
           client = TestClient(app)
           response = client.get("/api")
           assert response.status_code == 200, response.text
-          catalog_response = client.get("/api/homelab-services")
-          assert catalog_response.status_code == 200, catalog_response.text
-          assert catalog_response.json()["services"]
+          registered = {getattr(route, "path", None) for route in app.routes}
+          assert "/api/site/catalog/v2" in registered
+          assert "/api/site/health/v2" in registered
+          assert "/api/homelab-services" not in registered
+          assert "/api/public-homelab/v1" not in registered
           assert any(getattr(route, "path", None) == "/mcp" or getattr(route, "path", None) == "/" for route in app.routes)
           PY
 

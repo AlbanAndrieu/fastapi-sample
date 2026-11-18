@@ -45,7 +45,7 @@ WEBSOCKET = RoutePolicy(Visibility.INTERNAL, Credential.ACCESS_JWT)
 _PUBLIC = frozenset({"/health", "/livez", "/api/public-homelab/v1", "/api/ui/services"})
 _DIAGNOSTIC_EXACT = frozenset(
     {
-        "/api/homelab-services",
+        "/api/homelab-services",  # Retired route: keep denial if accidentally re-registered.
         "/api/homelab-topology",
         "/api/public-topology",
         "/api/runtime/topology",

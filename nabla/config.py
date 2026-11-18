@@ -68,7 +68,6 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
 
 # Noisy paths to exclude from detailed logging
 NOISY_SUCCESS_PATHS = {
-    "/api/homelab-services",
     "/api/homelab/health",
     "/api/homelab/probes",
     "/api/health-board",

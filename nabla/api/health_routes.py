@@ -8,7 +8,6 @@ route module. The public paths and response contracts intentionally remain uncha
 
 from __future__ import annotations
 
-import os
 from typing import Annotated, Any
 
 import pyroscope
@@ -21,7 +20,6 @@ from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.owner_ui_session import owner_ui_authenticated
 from nabla.api.platform_health_diagnostics import utc_now
 from nabla.api.probe_runtime import probe_runtime_metadata
-from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
@@ -43,31 +41,8 @@ _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache
 _PRIVATE_NO_STORE_HEADERS = {**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"}
 
 
-def _legacy_homelab_http_enabled() -> bool:
-    """Migration switch: only HTTP v1 serialization, never internal probes."""
-    return os.getenv("HOMELAB_V1_HTTP_ENABLED", "true").strip().lower() == "true"
-
-
 def _register_site_catalog_routes(app: FastAPI) -> None:
     """Register curated public labels and the sanitized site catalog v2."""
-
-    @app.get(
-        "/api/public-homelab/v1",
-        response_model=PublicHomelabV1,
-        tags=["Homelab"],
-        summary="Explicitly allowlisted public service labels",
-    )
-    async def get_public_homelab_v1(response: Response) -> PublicHomelabV1:
-        """Return only curated labels; never fetch or serialize runtime data."""
-        if not _legacy_homelab_http_enabled():
-            raise HTTPException(status_code=410, detail="Legacy public catalog retired")
-        response.headers.update(
-            {
-                "Cache-Control": "public, max-age=60",
-                "X-Robots-Tag": "noindex, nofollow",
-            },
-        )
-        return load_public_homelab_v1()
 
     @app.get(
         "/api/site/catalog/v2",
@@ -141,42 +116,6 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
     """Register declared catalog, topology and runtime inventory routes."""
     _register_site_catalog_routes(app)
     _register_site_status_routes(app)
-
-    @app.get(
-        "/api/homelab-services",
-        tags=["Homelab"],
-        summary="Deprecated route view of the Backstage v2 exposure intent",
-    )
-    async def get_homelab_services() -> dict[str, Any]:
-        """Compatibility read for the deployed Site until it reads /api/site/catalog/v2.
-
-        Projected from Backstage v2 route intent only; delete with this endpoint
-        once the Site Alban v2 PR is merged.
-        """
-        if not _legacy_homelab_http_enabled():
-            raise HTTPException(status_code=410, detail="Legacy catalog retired")
-        from nabla.api.catalog_routes import fetch_catalog_routes
-
-        services = []
-        for route in await fetch_catalog_routes():
-            row = {
-                "id": route.service_id,
-                "entityRef": route.entity_ref,
-                "route": route.route,
-                "name": route.name,
-                "description": route.description,
-                "external": route.public,
-                "tunnelUrl": route.url,
-                "tunnelSecure": route.cloudflare_edge,
-                "cloudflareAccessRequired": route.access_required,
-                "healthPath": route.probe_path,
-                "securityException": route.risk_reason,
-                "internalHost": route.backend_host,
-                "internalPort": route.backend_port,
-                "internalSecure": route.backend_tls,
-            }
-            services.append({key: value for key, value in row.items() if value is not None})
-        return {"version": 2, "services": services}
 
     @app.get(
         "/api/homelab/declared-services",

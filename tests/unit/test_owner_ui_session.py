@@ -10,7 +10,6 @@ from pydantic import SecretStr
 
 from nabla import access_control
 from nabla.api import owner_ui_session
-from nabla.api.health_routes import _legacy_homelab_http_enabled
 from nabla.api.owner_ui_session import (
     COOKIE_NAME,
     SESSION_SECONDS,
@@ -216,15 +215,6 @@ def test_remote_owner_switch_restores_home_cidr_gate(monkeypatch) -> None:
         ).status_code
         == 403
     )
-
-
-def test_v1_http_retirement_flag_never_modifies_internal_probes(monkeypatch) -> None:
-    monkeypatch.delenv("HOMELAB_V1_HTTP_ENABLED", raising=False)
-    assert _legacy_homelab_http_enabled()
-    monkeypatch.setenv("HOMELAB_V1_HTTP_ENABLED", "false")
-    assert not _legacy_homelab_http_enabled()
-    monkeypatch.setenv("HOMELAB_V1_HTTP_ENABLED", "unexpected")
-    assert not _legacy_homelab_http_enabled()
 
 
 def test_operator_unconfigured_is_503_and_never_discloses_config(monkeypatch) -> None:
