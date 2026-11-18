@@ -1,4 +1,4 @@
-"""Declared homelab services generated from nabla-compose x-nabla metadata."""
+"""Runtime binding projection of the revision-verified Backstage v2 catalog."""
 
 from __future__ import annotations
 
@@ -6,9 +6,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Literal
-
-import httpx
+from typing import Any, Literal
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -18,9 +16,10 @@ from pydantic import (
     model_validator,
 )
 
-DECLARED_SERVICES_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/services.json"
+from nabla.api.site_architecture_catalog import fetch_catalog_v2_source
+
+_CATALOG_SOURCE = "Backstage v2 entities"
 _CACHE_TTL_SEC = 300.0
-_FETCH_TIMEOUT_SEC = 4.0
 _VALIDATION_LOG_SAMPLE = 6
 _CATALOG_REVISION_PATTERN = r"^(?:unavailable|sha256:[0-9a-f]{64})$"
 _log = logging.getLogger(__name__)
@@ -123,7 +122,8 @@ class DeclaredService(BaseModel):
         validation_alias=AliasChoices("sourcePath", "source_path"),
         serialization_alias="sourcePath",
     )
-    compose_service: str = Field(
+    compose_service: str | None = Field(
+        default=None,
         min_length=1,
         validation_alias=AliasChoices("composeService", "compose_service"),
         serialization_alias="composeService",
@@ -184,7 +184,7 @@ class DeclaredService(BaseModel):
 
 
 class DeclaredServiceCatalog(BaseModel):
-    """Versioned declared inventory generated with the topology catalog."""
+    """Compatibility-shaped runtime projection of the canonical Backstage v2 revision."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
@@ -250,15 +250,58 @@ def _unavailable_catalog() -> DeclaredServiceCatalog:
     )
 
 
-async def _fetch_declared_service_catalog_origin() -> DeclaredServiceCatalog:
-    async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
-        response = await client.get(
-            DECLARED_SERVICES_URL,
-            headers={"User-Agent": "nabla-declared-services/1.0"},
-        )
-        response.raise_for_status()
-        return DeclaredServiceCatalog.model_validate(response.json())
+def project_declared_runtime_catalog(raw: dict[str, Any]) -> DeclaredServiceCatalog:
+    """Project explicit runtime identities from verified v2 entities.
 
+    A Compose service name exists only when the runtime source expressly names
+    it, or when containerService was declared. Do not derive it from the app
+    name, infer networks, or reintroduce the legacy startup phase model.
+    """
+    if raw.get("schemaVersion") != 2 or raw.get("model") != "backstage":
+        raise ValueError("runtime inventory requires Backstage v2")
+    services = []
+    for entity in raw["entities"]:
+        binding = (entity.get("x-nabla") or {}).get("runtime")
+        if binding is None:
+            continue
+        metadata = entity["metadata"]
+        labels = metadata.get("labels") or {}
+        tags = metadata.get("tags") or []
+        source = binding["source"]
+        source_path, separator, fragment = source.partition("#services/")
+        compose_service = fragment if separator and fragment else binding.get("containerService")
+        runtime = RuntimeBinding.model_validate(
+            {key: binding[key] for key in ("provider", "appId", "containerService", "networks") if key in binding},
+        )
+        functions = sorted(
+            {tag.removeprefix("nist-") for tag in tags if tag in {"nist-govern", "nist-identify", "nist-protect", "nist-detect", "nist-respond", "nist-recover"}},
+        )
+        services.append(
+            DeclaredService(
+                service_id=metadata["name"],
+                name=metadata.get("title") or metadata["name"],
+                kind=entity["spec"].get("type") or entity["kind"].lower(),
+                category=next((tag for tag in tags if not tag.startswith("nist-")), "other"),
+                source_path=source_path,
+                compose_service=compose_service,
+                runtime=runtime,
+                status=labels.get("albandrieu.com/operational-state"),
+                criticality=labels.get("albandrieu.com/operational-criticality"),
+                security_functions=functions or None,
+                description=metadata.get("description"),
+            ),
+        )
+    return DeclaredServiceCatalog(
+        version=1,  # Compatibility DTO version, not the source catalog schema.
+        catalog_revision=raw["catalogRevision"],
+        topology_version=2,
+        name="Nabla Backstage v2 runtime projection",
+        services=services,
+    )
+
+
+async def _fetch_declared_service_catalog_origin() -> DeclaredServiceCatalog:
+    return project_declared_runtime_catalog(await fetch_catalog_v2_source())
 
 async def _refresh_declared_service_catalog() -> DeclaredServiceCatalog:
     """Refresh the remote declaration while retaining the last known good copy."""
@@ -267,7 +310,7 @@ async def _refresh_declared_service_catalog() -> DeclaredServiceCatalog:
     except ValidationError as exc:
         _log.warning(
             "Declared service catalog schema mismatch (%s): %s",
-            DECLARED_SERVICES_URL,
+            _CATALOG_SOURCE,
             _validation_error_summary(exc),
         )
         async with _cache_lock:
@@ -275,7 +318,7 @@ async def _refresh_declared_service_catalog() -> DeclaredServiceCatalog:
     except Exception as exc:
         _log.warning(
             "Declared service catalog fetch failed (%s): %s: %s",
-            DECLARED_SERVICES_URL,
+            _CATALOG_SOURCE,
             exc.__class__.__name__,
             str(exc).strip()[:240] or "no detail",
         )
