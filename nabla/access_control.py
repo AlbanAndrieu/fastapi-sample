@@ -109,11 +109,7 @@ async def operations_access_middleware(
     # Temporary rollback of the owner-only *read* gate. No mutation, admin,
     # MCP, metrics or private transport may use this escape hatch.
     # Explicitly disable with HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=false.
-    if (
-        request.method.upper() in {"GET", "HEAD"}
-        and request.url.path in _TEMPORARY_READ_ROUTES
-        and public_diagnostics_readonly_enabled()
-    ):
+    if request.method.upper() in {"GET", "HEAD"} and request.url.path in _TEMPORARY_READ_ROUTES and public_diagnostics_readonly_enabled():
         response = await call_next(request)
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -153,15 +149,8 @@ async def operations_access_middleware(
 
     # Short-lived owner-browser cookie is scoped to diagnostics routes ONLY.
     # Every cookie-authenticated read still requires the trusted source CIDR.
-    if (
-        policy.visibility is Visibility.OWNER
-        and policy.credential is Credential.DIAGNOSTICS_KEY
-        and owner_ui_authenticated(request, settings)
-    ):
-        if (
-            request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
-            and not owner_cookie_write_allowed(request)
-        ):
+    if policy.visibility is Visibility.OWNER and policy.credential is Credential.DIAGNOSTICS_KEY and owner_ui_authenticated(request, settings):
+        if request.method.upper() not in {"GET", "HEAD", "OPTIONS"} and not owner_cookie_write_allowed(request):
             return JSONResponse(
                 status_code=403,
                 content={"detail": "Same-origin mutation required"},

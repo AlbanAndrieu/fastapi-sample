@@ -224,7 +224,8 @@ def test_site_catalog_service_key_never_weakens_owner_cidr(protected_app: TestCl
 
 
 def test_service_v2_key_survives_private_diagnostics_default(
-    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+    protected_app: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Machine-authenticated SERVICE reads work while OWNER topology is private."""
     monkeypatch.delenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", raising=False)

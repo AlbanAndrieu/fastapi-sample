@@ -24,7 +24,11 @@ def test_health_routes_register_v2_without_legacy_catalog() -> None:
         "/api/homelab/probes",
         "/api/health-board",
         "/api/health-board/cache/reset",
-        "/livez", "/readyz", "/healthz", "/sickz", "/sentry-debug",
+        "/livez",
+        "/readyz",
+        "/healthz",
+        "/sickz",
+        "/sentry-debug",
     }
     for path in expected:
         assert paths.count(path) == 1, path
@@ -38,9 +42,16 @@ def test_health_routes_keep_openapi_tags() -> None:
     tagged = {
         route.path: set(route.tags or [])
         for route in app.routes
-        if getattr(route, "path", None) in {
-            "/api/homelab-topology", "/api/homelab/health", "/api/homelab/probes",
-            "/api/health-board", "/livez", "/readyz", "/healthz", "/sickz",
+        if getattr(route, "path", None)
+        in {
+            "/api/homelab-topology",
+            "/api/homelab/health",
+            "/api/homelab/probes",
+            "/api/health-board",
+            "/livez",
+            "/readyz",
+            "/healthz",
+            "/sickz",
         }
     }
     assert tagged["/api/homelab-topology"] == {"Homelab"}
