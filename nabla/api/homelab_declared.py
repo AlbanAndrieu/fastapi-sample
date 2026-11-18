@@ -7,6 +7,7 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Literal
+
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -259,7 +260,7 @@ def project_declared_runtime_catalog(raw: dict[str, Any]) -> DeclaredServiceCata
     """
     if raw.get("schemaVersion") != 2 or raw.get("model") != "backstage":
         raise ValueError("runtime inventory requires Backstage v2")
-    services = []
+    services: list[DeclaredService] = []
     for entity in raw["entities"]:
         binding = (entity.get("x-nabla") or {}).get("runtime")
         if binding is None:
@@ -273,9 +274,8 @@ def project_declared_runtime_catalog(raw: dict[str, Any]) -> DeclaredServiceCata
         runtime = RuntimeBinding.model_validate(
             {key: binding[key] for key in ("provider", "appId", "containerService", "networks") if key in binding},
         )
-        functions = sorted(
-            {tag.removeprefix("nist-") for tag in tags if tag in {"nist-govern", "nist-identify", "nist-protect", "nist-detect", "nist-respond", "nist-recover"}},
-        )
+        nist_tags = {"nist-govern", "nist-identify", "nist-protect", "nist-detect", "nist-respond", "nist-recover"}
+        functions = sorted({tag.removeprefix("nist-") for tag in tags if tag in nist_tags})
         services.append(
             DeclaredService(
                 service_id=metadata["name"],

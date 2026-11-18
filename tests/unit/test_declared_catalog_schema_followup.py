@@ -8,6 +8,7 @@ from nabla.api.homelab_declared import (
     _validation_error_summary,
     project_declared_runtime_catalog,
 )
+from nabla.api.site_architecture_catalog import load_catalog_snapshot
 
 
 def _catalog_payload(**updates: object) -> dict[str, object]:
@@ -163,13 +164,21 @@ def test_backstage_runtime_projection_keeps_only_explicit_bindings() -> None:
                 "kind": "Component",
                 "metadata": {"name": "example", "title": "Example", "tags": ["nist-protect", "security"]},
                 "spec": {"type": "service"},
-                "x-nabla": {"runtime": {"provider": "truenas-app", "appId": "real-app", "source": "catalog/catalog-info.yaml"}},
+                "x-nabla": {
+                    "runtime": {"provider": "truenas-app", "appId": "real-app", "source": "catalog/catalog-info.yaml"},
+                },
             },
             {
                 "kind": "Component",
                 "metadata": {"name": "other"},
                 "spec": {"type": "service"},
-                "x-nabla": {"runtime": {"provider": "truenas-app", "containerService": "worker", "source": "apps/other/compose.yml#services/worker"}},
+                "x-nabla": {
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "worker",
+                        "source": "apps/other/compose.yml#services/worker",
+                    },
+                },
             },
             {"kind": "Component", "metadata": {"name": "logical"}, "spec": {"type": "service"}},
         ],
@@ -192,3 +201,22 @@ def test_backstage_runtime_projection_keeps_only_explicit_bindings() -> None:
 def test_backstage_runtime_projection_rejects_legacy_source() -> None:
     with pytest.raises(ValueError, match="requires Backstage v2"):
         project_declared_runtime_catalog({"version": 1, "services": []})
+
+
+def test_packaged_backstage_runtime_projection_preserves_every_explicit_binding() -> None:
+    raw = load_catalog_snapshot()
+    projected = project_declared_runtime_catalog(raw)
+    expected = {
+        entity["metadata"]["name"]: entity["x-nabla"]["runtime"]
+        for entity in raw["entities"]
+        if (entity.get("x-nabla") or {}).get("runtime") is not None
+    }
+    assert expected
+    assert len(projected.services) == len(expected)
+    for service in projected.services:
+        binding = expected[service.service_id]
+        assert service.runtime is not None
+        assert service.runtime.provider == binding["provider"]
+        assert service.runtime.app_id == binding.get("appId")
+        assert service.runtime.container_service == binding.get("containerService")
+    assert projected.catalog_revision == raw["catalogRevision"]
