@@ -176,7 +176,7 @@ def test_backstage_runtime_projection_keeps_only_explicit_bindings() -> None:
     }
     catalog = project_declared_runtime_catalog(raw)
     assert catalog.catalog_revision == raw["catalogRevision"]
-    assert catalog.topology_version == 2
+    assert catalog.topology_version == 1  # Operator graph is migrated separately.
     assert len(catalog.services) == 2
     service, worker = catalog.services
     assert service.runtime is not None

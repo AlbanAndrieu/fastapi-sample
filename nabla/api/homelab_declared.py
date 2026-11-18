@@ -294,7 +294,7 @@ def project_declared_runtime_catalog(raw: dict[str, Any]) -> DeclaredServiceCata
     return DeclaredServiceCatalog(
         version=1,  # Compatibility DTO version, not the source catalog schema.
         catalog_revision=raw["catalogRevision"],
-        topology_version=2,
+        topology_version=1,  # The separate legacy operator graph is still v1.
         name="Nabla Backstage v2 runtime projection",
         services=services,
     )
