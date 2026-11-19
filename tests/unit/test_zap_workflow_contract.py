@@ -12,7 +12,7 @@ def test_zap_scans_authorized_production_web_and_openapi_surfaces() -> None:
     workflow_text = WORKFLOW.read_text(encoding="utf-8")
     workflow = yaml.safe_load(workflow_text)
     triggers = workflow_text.split("jobs:", maxsplit=1)[0]
-    dast_env = workflow["jobs"]["dast"]["env"]
+    dast_env = {**workflow["jobs"]["dast_truenas"]["env"], **workflow["jobs"]["dast_cloud"]["env"]}
 
     assert "pull_request:" not in triggers
     assert "workflow_call:" in triggers
@@ -67,11 +67,22 @@ def test_zap_policy_keeps_auth_findings_and_management_boundaries_explicit() -> 
 
 def test_cloud_scans_are_independent_of_truenas_credentials() -> None:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    steps = {step["id"]: step for step in workflow["jobs"]["dast"]["steps"] if "id" in step}
-    assert steps["preflight_truenas"]["continue-on-error"] is True
-    assert steps["preflight_cloud"]["continue-on-error"] is True
-    assert "CF_ACCESS_CLIENT_SECRET" not in steps["preflight_cloud"]["run"]
+    truenas = workflow["jobs"]["dast_truenas"]
+    cloud = workflow["jobs"]["dast_cloud"]
+    assert truenas["environment"] == "dast-truenas"
+    assert "environment" not in cloud
+    assert not any(key.startswith("CF_ACCESS_") for key in cloud["env"])
+    for job in (truenas, cloud):
+        assert job["if"] == "${{ github.ref == 'refs/heads/master' }}"
+    true_steps = {step["id"]: step for step in truenas["steps"] if "id" in step}
+    cloud_steps = {step["id"]: step for step in cloud["steps"] if "id" in step}
+    assert "id=\"health-board\"" in true_steps["preflight_truenas"]["run"]
+    assert "id=\"health-board\"" in cloud_steps["preflight_cloud"]["run"]
+    assert "--location" not in WORKFLOW.read_text(encoding="utf-8")
     for key in ("zap_web_truenas_root", "zap_web_truenas_api", "zap_api_truenas"):
-        assert steps[key]["if"] == "${{ steps.preflight_truenas.outcome == 'success' }}"
+        assert true_steps[key]["if"] == "${{ steps.auth_rules.outcome == 'success' }}"
+        assert "-configfile" in true_steps[key]["with"]["cmd_options"]
+        assert "secrets." not in true_steps[key]["with"]["cmd_options"]
     for key in ("zap_web_cloud_api", "zap_api_cloud"):
-        assert steps[key]["if"] == "${{ steps.preflight_cloud.outcome == 'success' }}"
+        assert cloud_steps[key]["if"] == "${{ steps.preflight_cloud.outcome == 'success' }}"
+    assert "fastapi-sample[.]albandrieu[.]com" in true_steps["auth_rules"]["run"]

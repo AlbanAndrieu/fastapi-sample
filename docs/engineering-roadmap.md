@@ -108,3 +108,10 @@ Les livraisons **CODED** déjà fusionnées (#382, #383, #390, #396, #418, #419)
 Historique : [réconciliation V2 du 14/11](archive/2026-11-14-catalog-v2-roadmap-alignment.md), [archive avant consolidation](archive/2026-10-29/engineering-roadmap-before-consolidation.md), [registre d'incidents](incidents.md), [journal de réconciliation du 13/11](archive/2026-11-13-roadmap-reconciliation.md), [guide documentation](README.md).
 
 **Souveraineté :** FastAPI possède API, endpoints, statuts, auth des routes, tests et interface ; Compose possède TrueNAS, secrets, Cloudflare, Gatus et Prometheus ; Site Alban possède le rendu Next.js. Toute validation affirme son environnement, son SHA et sa date.
+
+### 2026-11-19 — F11 / production DAST acceptance
+
+- Previous catalog PRs #447, Compose #412 and Site #329 merged. The operator graph and several TrueNAS lifecycle/recovery consumers still use native operational graph metadata; do not delete the compatibility files until dependency/metadata parity is tested. No runtime acceptance claimed.
+- 18 November post-merge run 44396811271: Python tests passed, browser smoke failed during Playwright installation, ZAP not run. Older ZAP preflights failed without Cloudflare credentials. `/api` is HTML, not JSON.
+- Dedicated GitHub environment `dast-truenas` (master only), with `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` from a dedicated Cloudflare Service Auth policy. Cloud DAST has its own job without credentials. No diagnostics key or OWNER cookie for the production scan. Exact-host Replacer scope, no preflight redirects and clean temporary credentials. Review artifact handling before granting the token; active OpenAPI scan remains as before and must be run only with an approved scope. Full active scan should target isolated staging with a test account and no production data.
+- Acceptance: provision the environment/policy, check production HTML/OpenAPI preflight, run manual ZAP on master, inspect actual reports (not-run is not pass), validate provider policy and topology parity. Owner: infrastructure + FastAPI, runtime NOT_RUN.

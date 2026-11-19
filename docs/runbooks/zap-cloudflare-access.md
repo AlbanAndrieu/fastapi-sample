@@ -1,0 +1,12 @@
+# ZAP Cloudflare Access: service identity and production scope
+
+## Provisioning (owner only)
+1. Create a dedicated, expiring Cloudflare Zero Trust Access Service Token named `fastapi-sample-zap-prod`; do not reuse the shared monitor token, Cloudflare API admin token, TrueNAS API key or `DIAGNOSTICS_ACCESS_KEY`.
+2. Assign Service Auth only to the host-wide FastAPI Access app and its more-specific /api application. Keep default-deny; never add Everyone/Bypass or grant the management applications. Cloudflare service-token selectors use the token UUID (not the client ID).
+3. Repository Settings → Environments → create `dast-truenas`; restrict deployment branches to master, optionally require approval (then the production gate waits for approval). Add both environment secrets `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`. Do not define them as Actions variables or store them in Git. The environment is selected on the job inside the reusable workflow; the caller does not forward environment secrets.
+4. Trigger Actions → OWASP ZAP Web and API → Run workflow → master, after the intended production release is deployed. Cloud runs separately regardless of TrueNAS Access approval. Check both preflight and scan outcomes; HTML `/api`, OpenAPI JSON `/openapi.json`. Never follow redirects using credential headers.
+5. Review the active API scan scope before provisioning credentials: it uses the deployed OpenAPI document, including any mutation routes. Prefer full active scan on disposable staging and production baseline/safe GET allowlist; the change here does not silently reduce the existing active policy. Review WAF 403/429 separately from application findings; no broad bypass. Verify reports contain no credential material; if exposed, revoke/rotate immediately and remove affected artifacts.
+
+Cloudflare edge authentication does not grant FastAPI SERVICE/OWNER. Use a separate constrained staging service identity for authenticated API tests; never provision production OWNER credentials in this job. The existing shared monitor policy is not the DAST identity. Record token expiry, scope, last successful run and rotation date in the secret inventory, never the actual values.
+
+References: https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/ ; https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows ; https://www.zaproxy.org/docs/desktop/addons/replacer/ ; https://www.zaproxy.org/docs/docker/api-scan/
