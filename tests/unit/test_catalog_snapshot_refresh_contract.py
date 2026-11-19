@@ -29,6 +29,20 @@ def _source(tmp_path: Path, *, valid: bool) -> Path:
         "catalogRevision": "sha256:" + (digest if valid else "0" * 64),
         "entities": [entity],
     }
+    material = {"services": [], "nodes": [], "relations": []}
+    native_digest = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+    ).hexdigest()
+    operator = {
+        **material,
+        "schemaVersion": 2,
+        "model": "backstage-operator-inventory",
+        "catalogRevision": payload["catalogRevision"],
+        "operatorRevision": "sha256:" + native_digest,
+        "identityBindings": {},
+        "operationalOnlyNodeIds": [],
+    }
+    (tmp_path / "operator-inventory.json").write_text(json.dumps(operator) + "\n", encoding="utf-8")
     path = tmp_path / ("valid.json" if valid else "invalid.json")
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     return path
@@ -53,6 +67,8 @@ def test_refresh_is_atomic_verifies_digest_and_skips_unchanged(tmp_path: Path) -
     changed = subprocess.run(["bash", str(script), str(valid)], capture_output=True, text=True, check=False)
     assert changed.returncode == 0, changed.stderr
     assert target.read_bytes() == valid.read_bytes()
+    operator_target = target.with_name("operator-inventory.json")
+    assert operator_target.read_bytes() == (tmp_path / "operator-inventory.json").read_bytes()
     before = target.stat().st_mtime_ns
     unchanged = subprocess.run(["bash", str(script), str(valid)], capture_output=True, text=True, check=False)
     assert unchanged.returncode == 0, unchanged.stderr

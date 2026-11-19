@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import asyncio
 from enum import StrEnum
+import hashlib
 import json
 import logging
 from pathlib import Path
 import time
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
-HOMELAB_TOPOLOGY_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/service-topology.json"
-HOMELAB_TOPOLOGY_SNAPSHOT_PATH = Path(__file__).with_name("data") / "service-topology.json"
+from nabla.api.site_architecture_catalog import fetch_catalog_v2_source, load_catalog_snapshot
+
+HOMELAB_TOPOLOGY_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/operator-inventory.json"
+HOMELAB_TOPOLOGY_SNAPSHOT_PATH = Path(__file__).with_name("data") / "operator-inventory.json"
 _CACHE_TTL_SEC = 300.0
 _FETCH_TIMEOUT_SEC = 4.0
 _log = logging.getLogger(__name__)
@@ -230,6 +233,8 @@ class HomelabTopology(BaseModel):
     model_config = ConfigDict(extra="ignore", frozen=True)
 
     version: int = Field(default=1, ge=1)
+    catalog_revision: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$", alias="catalogRevision")
+    operator_revision: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$", alias="operatorRevision")
     name: str = Field(default="Nabla homelab declared topology", min_length=1)
     nodes: list[HomelabTopologyNode] = Field(default_factory=list)
     relations: list[HomelabTopologyRelation] = Field(default_factory=list)
@@ -311,6 +316,8 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
     ]
     return {
         "version": topology.version,
+        **({"catalogRevision": topology.catalog_revision} if topology.catalog_revision else {}),
+        **({"operatorRevision": topology.operator_revision} if topology.operator_revision else {}),
         "name": topology.name,
         "projection": "public-sanitized",
         "nodes": nodes,
@@ -318,11 +325,31 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
     }
 
 
+def project_operator_inventory(raw: dict[str, Any], catalog: dict[str, Any]) -> HomelabTopology:
+    """Verify canonical revision, native graph integrity and explicit Compose bindings."""
+    if raw.get("schemaVersion") != 2 or raw.get("model") != "backstage-operator-inventory":
+        raise ValueError("operator graph requires v2 inventory")
+    if raw.get("catalogRevision") != catalog.get("catalogRevision"):
+        raise ValueError("operator graph catalog revision mismatch")
+    material = {key: raw[key] for key in ("services", "nodes", "relations")}
+    digest = hashlib.sha256(json.dumps(material, separators=(",", ":"), sort_keys=True).encode("utf-8")).hexdigest()
+    if raw.get("operatorRevision") != "sha256:" + digest:
+        raise ValueError("operator graph content revision mismatch")
+    refs = {entity["entityRef"] for entity in catalog["entities"]}
+    bindings = raw["identityBindings"]
+    ids = {row["id"] for row in raw["services"]}
+    if set(bindings) != ids or not set(bindings.values()) <= refs:
+        raise ValueError("operator graph identity crosswalk mismatch")
+    if set(raw["operationalOnlyNodeIds"]) != {node["id"] for node in raw["nodes"]} - ids:
+        raise ValueError("operator-only node classification mismatch")
+    return HomelabTopology.model_validate(raw)
+
+
 def _load_packaged_topology() -> HomelabTopology:
     """Load the packaged canonical topology snapshot for cold-start fallback."""
     try:
         payload = json.loads(HOMELAB_TOPOLOGY_SNAPSHOT_PATH.read_text(encoding="utf-8"))
-        topology = HomelabTopology.model_validate(payload)
+        topology = project_operator_inventory(payload, load_catalog_snapshot())
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         _log.error(
             "Packaged homelab topology load/validation failed (%s): %s",
@@ -348,13 +375,16 @@ _topology_cache = _TopologyCache()
 
 
 async def _fetch_homelab_topology_origin() -> HomelabTopology:
-    async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
+    catalog = await fetch_catalog_v2_source()
+    async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC), follow_redirects=False, trust_env=False) as client:
         response = await client.get(
             HOMELAB_TOPOLOGY_URL,
             headers={"User-Agent": "nabla-homelab-topology/1.0"},
         )
         response.raise_for_status()
-        return HomelabTopology.model_validate(response.json())
+        if len(response.content) > 2_000_000:
+            raise ValueError("operator inventory exceeds size budget")
+        return project_operator_inventory(response.json(), catalog)
 
 
 async def _refresh_homelab_topology() -> HomelabTopology:

@@ -283,3 +283,24 @@ def test_packaged_topology_snapshot_matches_current_consumer_contract() -> None:
     assert len(topology.nodes) >= 100
     assert len(topology.relations) >= 200
     assert any(node.id == "talos" for node in topology.nodes)
+
+
+def test_packaged_operator_inventory_is_revision_bound() -> None:
+    topology = homelab_topology._load_packaged_topology()
+    catalog = homelab_topology.load_catalog_snapshot()
+    assert topology.catalog_revision == catalog["catalogRevision"]
+    assert topology.operator_revision is not None
+
+
+def test_operator_inventory_rejects_revision_and_content_drift() -> None:
+    import json
+
+    import pytest
+
+    raw = json.loads(homelab_topology.HOMELAB_TOPOLOGY_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    catalog = homelab_topology.load_catalog_snapshot()
+    with pytest.raises(ValueError, match="catalog revision mismatch"):
+        homelab_topology.project_operator_inventory(raw, {**catalog, "catalogRevision": "bad"})
+    raw["nodes"][0]["name"] += " modified"
+    with pytest.raises(ValueError, match="content revision mismatch"):
+        homelab_topology.project_operator_inventory(raw, catalog)
