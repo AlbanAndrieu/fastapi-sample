@@ -23,7 +23,7 @@ def test_auth_headers_are_exact_host_only() -> None:
 
 
 def test_report_drops_sensitive_requests_and_responses() -> None:
-    payload = {"site": [{"alerts": [{
+    payload = {"site": [{"@name": MODULE.ORIGIN, "alerts": [{
         "pluginid": "10021", "riskcode": "1", "confidence": "2", "count": "1",
         "name": "secret", "instances": [{"uri": "https://example.test/?token=secret", "evidence": "secret"}],
     }]}]}
@@ -33,3 +33,9 @@ def test_report_drops_sensitive_requests_and_responses() -> None:
 def test_invalid_report_cannot_be_treated_as_clean() -> None:
     with pytest.raises(KeyError):
         MODULE.alert_summary({"invalid": []})
+
+
+def test_empty_or_unrelated_site_cannot_be_reported_as_clean() -> None:
+    for payload in ({"site": []}, {"site": [{"@name": "https://foreign.test", "alerts": []}]}):
+        with pytest.raises(ValueError, match="expected target origin"):
+            MODULE.alert_summary(payload)

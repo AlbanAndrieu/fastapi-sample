@@ -18,7 +18,7 @@ ORIGIN = "https://fastapi-sample.albandrieu.com"
 HOST_PATTERN = r"^https://fastapi-sample[.]albandrieu[.]com(?::443)?/.*$"
 IMAGE = "ghcr.io/zaproxy/zaproxy:2.17.0"
 TARGETS = {
-    "root": ("/", "web", b"FastAPI Sample"),
+    "root": ("/", "web", b'class="op-eyebrow"'),
     "api": ("/api", "web", b'id="health-board"'),
     "openapi": ("/openapi.json", "api", None),
 }
@@ -90,7 +90,14 @@ def preflight(values: tuple[str, str]) -> int:
 def alert_summary(payload: dict) -> list[dict]:
     """Allowlist numeric scanner metadata only; no URI, evidence or raw headers."""
     rows = []
-    for site in payload["site"]:
+    expected_sites = [
+        site
+        for site in payload["site"]
+        if site.get("@name") in (ORIGIN, ORIGIN + ":443")
+    ]
+    if not expected_sites:
+        raise ValueError("no report for the expected target origin")
+    for site in expected_sites:
         for alert in site["alerts"]:
             row = {
                 "pluginId": int(alert["pluginid"]),
@@ -143,10 +150,13 @@ def scan(target: str, values: tuple[str, str]) -> int:
         except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired):
             result["reportState"] = "unavailable"
         finally:
-            subprocess.run(
-                ["docker", "rm", "-f", name],
-                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
-            )
+            try:
+                subprocess.run(
+                    ["docker", "rm", "-f", name],
+                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                result["reportState"] = "unavailable"
     (report_dir / f"{target}.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(f"DAST {target}: exit={result['scanExitCode']} report={result['reportState']} alerts={len(result['alerts'])}")
     if result["reportState"] != "sanitized":
