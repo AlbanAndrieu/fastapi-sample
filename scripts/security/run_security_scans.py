@@ -191,7 +191,7 @@ def _semgrep(path: Path) -> None:
 
 
 def _dast(path: Path) -> None:
-    # Only two explicitly approved hosts; no wildcard, no authenticated
+    # Only one explicitly approved host; no wildcard, no authenticated
     # admin, no active ZAP API scanner and no high-rate Nuclei.
     for label, target in zip(("fastapi-sample",), OWNED_TARGETS, strict=True):
         folder = path / label
@@ -214,6 +214,8 @@ def _dast(path: Path) -> None:
                 "-I",
                 "-J",
                 "zap.json",
+                "-x",
+                "zap.xml",
             ],
         )
         _run(
@@ -290,7 +292,7 @@ def _write_completed_receipt(
             raise RuntimeError("master scan requires HEAD equal to a verified master ref")
         names.extend(("semgrep.json", "licenses-full.json"))
     if dast:
-        names.extend(("fastapi-sample/zap.json", "fastapi-sample/nuclei.jsonl"))
+        names.extend(("fastapi-sample/zap.json", "fastapi-sample/zap.xml", "fastapi-sample/nuclei.jsonl"))
     reports: dict[str, str] = {}
     for relative in names:
         file = folder / relative

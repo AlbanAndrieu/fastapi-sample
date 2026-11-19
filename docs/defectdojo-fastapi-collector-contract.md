@@ -55,3 +55,9 @@ incontrôlée de données sensibles.
 
 Le runtime DefectDojo, son GitHub App et sa Cron sont gérés uniquement
 dans `nabla-compose`; ce document décrit l'interface applicative.
+
+## Complément F10 — 19/11/2026
+
+Le workflow Docker CI fournit uniquement le rapport natif **image**, non le scan du dépôt. La publication JSON et SARIF est conditionnée à la validation préalable du rapport (structure Trivy v2, limites du collecteur, absence de preuves de secrets/configuration). Les avis sans correctif et toutes les sévérités sont conservés pour triage ; aucune publication si le contrôle échoue. Les résultats complets du dépôt restent sur LAN et ne doivent pas être fusionnés dans le même Test que l'image.
+
+Les résumés numériques ZAP TrueNAS ne sont pas des rapports ZAP natifs : ne pas les faire passer pour `Zed Attack Proxy`. Pour les rapports authentifiés, utiliser un scan et une ingestion LAN sans transfert brut sur GitHub, après revue des méthodes OpenAPI et autorisations. Prowler GitHub reste un pilote à valider (version/provider, périmètre repo, permissions et parseur installé). Aucun nouveau Cron ni accès public DefectDojo. Réception en conditions réelles : NOT_RUN.

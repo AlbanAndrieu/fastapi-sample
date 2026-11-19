@@ -3,11 +3,6 @@ name: OWASP ZAP Web and API
 
 on:
   workflow_call:
-    secrets:
-      CF_ACCESS_CLIENT_ID:
-        required: false
-      CF_ACCESS_CLIENT_SECRET:
-        required: false
   workflow_dispatch:
 
 permissions:
@@ -18,21 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dast:
-    name: ZAP production Web + OpenAPI
+  dast_truenas:
+    name: ZAP production · TrueNAS via Access
+    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: dast-truenas
     env:
       TRUENAS_ROOT_URL: https://fastapi-sample.albandrieu.com/
       TRUENAS_API_URL: https://fastapi-sample.albandrieu.com/api
       TRUENAS_OPENAPI_URL: https://fastapi-sample.albandrieu.com/openapi.json
-      CLOUD_API_URL: https://fastapi-sample.fastapicloud.dev/api
-      CLOUD_OPENAPI_URL: https://fastapi-sample.fastapicloud.dev/openapi.json
-      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      ZAP_AUTH_HEADER: CF-Access-Client-Id
-      ZAP_AUTH_HEADER_VALUE: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-      ZAP_AUTH_HEADER_SITE: fastapi-sample.albandrieu.com
 
     steps:
       - name: Checkout exact source SHA and ZAP policy
@@ -44,29 +34,106 @@ jobs:
       - name: Verify authorized TrueNAS DAST surfaces
         id: preflight_truenas
         continue-on-error: true
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: python3 scripts/security/zap_access_scan.py preflight
+
+      - name: ZAP Web baseline · TrueNAS root
+        id: zap_web_truenas_root
+        if: ${{ steps.preflight_truenas.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: python3 scripts/security/zap_access_scan.py root
+
+      - name: Publish sanitized root alert metadata
+        if: ${{ always() && steps.zap_web_truenas_root.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-web-truenas-root
+          path: reports/dast/root.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: ZAP Web baseline · TrueNAS API
+        id: zap_web_truenas_api
+        if: ${{ steps.preflight_truenas.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: python3 scripts/security/zap_access_scan.py api
+
+      - name: Publish sanitized api alert metadata
+        if: ${{ always() && steps.zap_web_truenas_api.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-web-truenas-api
+          path: reports/dast/api.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: ZAP OpenAPI active scan · TrueNAS
+        id: zap_api_truenas
+        if: ${{ steps.preflight_truenas.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: python3 scripts/security/zap_access_scan.py openapi
+
+      - name: Publish sanitized openapi alert metadata
+        if: ${{ always() && steps.zap_api_truenas.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-api-truenas
+          path: reports/dast/openapi.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Enforce TrueNAS ZAP production policy
+        if: always()
+        env:
+          TRUENAS_PREFLIGHT: ${{ steps.preflight_truenas.outcome }}
+          TRUENAS_ROOT_OUTCOME: ${{ steps.zap_web_truenas_root.outcome }}
+          TRUENAS_API_OUTCOME: ${{ steps.zap_web_truenas_api.outcome }}
+          TRUENAS_OPENAPI_OUTCOME: ${{ steps.zap_api_truenas.outcome }}
         shell: bash
         run: |
           set -euo pipefail
+          {
+            echo "## TrueNAS ZAP evidence"
+            echo "- Source SHA: ${GITHUB_SHA}"
+            echo "- TRUENAS_PREFLIGHT: **${TRUENAS_PREFLIGHT:-not-run}**"
+            echo "- TRUENAS_ROOT_OUTCOME: **${TRUENAS_ROOT_OUTCOME:-not-run}**"
+            echo "- TRUENAS_API_OUTCOME: **${TRUENAS_API_OUTCOME:-not-run}**"
+            echo "- TRUENAS_OPENAPI_OUTCOME: **${TRUENAS_OPENAPI_OUTCOME:-not-run}**"
+            echo "- Management APIs for pfSense and TrueNAS are intentionally excluded."
+          } >> "$GITHUB_STEP_SUMMARY"
+          for outcome in "${TRUENAS_PREFLIGHT:-not-run}" "${TRUENAS_ROOT_OUTCOME:-not-run}" "${TRUENAS_API_OUTCOME:-not-run}" "${TRUENAS_OPENAPI_OUTCOME:-not-run}"; do
+            if [[ "${outcome}" != "success" ]]; then
+              echo "::error::At least one production ZAP Web/OpenAPI scan did not satisfy the blocking policy"
+              exit 1
+            fi
+          done
 
-          if [[ -z "${CF_ACCESS_CLIENT_ID}" || -z "${CF_ACCESS_CLIENT_SECRET}" ]]; then
-            echo "::error::Cloudflare Access service-token secrets are required to scan fastapi-sample.albandrieu.com behind Access."
-            exit 1
-          fi
+  dast_cloud:
+    name: ZAP production · FastAPI Cloud
+    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUD_API_URL: https://fastapi-sample.fastapicloud.dev/api
+      CLOUD_OPENAPI_URL: https://fastapi-sample.fastapicloud.dev/openapi.json
 
-          cf_headers=(
-            -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}"
-            -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}"
-          )
-
-          curl --fail --silent --show-error --location \
-            --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
-            "${cf_headers[@]}" "${TRUENAS_ROOT_URL}" >/dev/null
-          curl --fail --silent --show-error --location \
-            --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
-            "${cf_headers[@]}" "${TRUENAS_API_URL}" | jq -e 'type == "object"' >/dev/null
-          curl --fail --silent --show-error --location \
-            --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
-            "${cf_headers[@]}" "${TRUENAS_OPENAPI_URL}" | jq -e '.openapi | type == "string"' >/dev/null
+    steps:
+      - name: Checkout exact source SHA and ZAP policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Verify FastAPI Cloud DAST surfaces
         id: preflight_cloud
@@ -74,54 +141,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
-            "${CLOUD_API_URL}" | jq -e 'type == "object"' >/dev/null
-          curl --fail --silent --show-error --location \
-            --connect-timeout 8 --max-time 20 --retry 2 --retry-all-errors \
+          curl --fail --silent --show-error --max-redirs 0 \
+            --connect-timeout 8 --max-time 20 --retry 2 --retry-connrefused \
+            "${CLOUD_API_URL}" | grep -F 'id="health-board"' >/dev/null
+          curl --fail --silent --show-error --max-redirs 0 \
+            --connect-timeout 8 --max-time 20 --retry 2 --retry-connrefused \
             "${CLOUD_OPENAPI_URL}" | jq -e '.openapi | type == "string"' >/dev/null
-
-      - name: ZAP Web baseline · TrueNAS root
-        id: zap_web_truenas_root
-        if: ${{ steps.preflight_truenas.outcome == 'success' }}
-        continue-on-error: true
-        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
-        with:
-          docker_name: ghcr.io/zaproxy/zaproxy:2.17.0
-          target: ${{ env.TRUENAS_ROOT_URL }}
-          rules_file_name: ".zap/web-rules.tsv"
-          allow_issue_writing: false
-          fail_action: true
-          artifact_name: zap-web-truenas-root
-          cmd_options: >-
-            -I -T 4 -s
-            -z "-config replacer.full_list\(0\).description=cf-access-client-secret
-            -config replacer.full_list\(0\).enabled=true
-            -config replacer.full_list\(0\).matchtype=REQ_HEADER
-            -config replacer.full_list\(0\).matchstr=CF-Access-Client-Secret
-            -config replacer.full_list\(0\).regex=false
-            -config replacer.full_list\(0\).replacement=${{ secrets.CF_ACCESS_CLIENT_SECRET }}"
-
-      - name: ZAP Web baseline · TrueNAS API
-        id: zap_web_truenas_api
-        if: ${{ steps.preflight_truenas.outcome == 'success' }}
-        continue-on-error: true
-        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
-        with:
-          docker_name: ghcr.io/zaproxy/zaproxy:2.17.0
-          target: ${{ env.TRUENAS_API_URL }}
-          rules_file_name: ".zap/web-rules.tsv"
-          allow_issue_writing: false
-          fail_action: true
-          artifact_name: zap-web-truenas-api
-          cmd_options: >-
-            -I -T 4 -s
-            -z "-config replacer.full_list\(0\).description=cf-access-client-secret
-            -config replacer.full_list\(0\).enabled=true
-            -config replacer.full_list\(0\).matchtype=REQ_HEADER
-            -config replacer.full_list\(0\).matchstr=CF-Access-Client-Secret
-            -config replacer.full_list\(0\).regex=false
-            -config replacer.full_list\(0\).replacement=${{ secrets.CF_ACCESS_CLIENT_SECRET }}"
 
       - name: ZAP Web baseline · FastAPI Cloud API
         id: zap_web_cloud_api
@@ -136,28 +161,6 @@ jobs:
           fail_action: true
           artifact_name: zap-web-fastapi-cloud-api
           cmd_options: "-I -T 4 -s"
-
-      - name: ZAP OpenAPI active scan · TrueNAS
-        id: zap_api_truenas
-        if: ${{ steps.preflight_truenas.outcome == 'success' }}
-        continue-on-error: true
-        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
-        with:
-          docker_name: ghcr.io/zaproxy/zaproxy:2.17.0
-          target: ${{ env.TRUENAS_OPENAPI_URL }}
-          format: openapi
-          rules_file_name: ".zap/api-rules.tsv"
-          allow_issue_writing: false
-          fail_action: true
-          artifact_name: zap-api-truenas
-          cmd_options: >-
-            -I -T 4 -s
-            -z "-config replacer.full_list\(0\).description=cf-access-client-secret
-            -config replacer.full_list\(0\).enabled=true
-            -config replacer.full_list\(0\).matchtype=REQ_HEADER
-            -config replacer.full_list\(0\).matchstr=CF-Access-Client-Secret
-            -config replacer.full_list\(0\).regex=false
-            -config replacer.full_list\(0\).replacement=${{ secrets.CF_ACCESS_CLIENT_SECRET }}"
 
       - name: ZAP OpenAPI active scan · FastAPI Cloud
         id: zap_api_cloud
@@ -174,55 +177,27 @@ jobs:
           artifact_name: zap-api-fastapi-cloud
           cmd_options: "-I -T 4 -s"
 
-      - name: Summarize ZAP outcomes
+      - name: Enforce Cloud ZAP production policy
         if: always()
         env:
-          TRUENAS_PREFLIGHT: ${{ steps.preflight_truenas.outcome }}
           CLOUD_PREFLIGHT: ${{ steps.preflight_cloud.outcome }}
-          TRUENAS_ROOT_OUTCOME: ${{ steps.zap_web_truenas_root.outcome }}
-          TRUENAS_API_OUTCOME: ${{ steps.zap_web_truenas_api.outcome }}
           CLOUD_WEB_OUTCOME: ${{ steps.zap_web_cloud_api.outcome }}
-          TRUENAS_OPENAPI_OUTCOME: ${{ steps.zap_api_truenas.outcome }}
-          CLOUD_OPENAPI_OUTCOME: ${{ steps.zap_api_cloud.outcome }}
-        shell: bash
-        run: |
-          {
-            echo "## OWASP ZAP post-deployment DAST"
-            echo
-            echo "- Source SHA: ${GITHUB_SHA}"
-            echo "- TrueNAS preflight: **${TRUENAS_PREFLIGHT:-not-run}**"
-            echo "- Cloud preflight: **${CLOUD_PREFLIGHT:-not-run}**"
-            echo "- TrueNAS Web root: **${TRUENAS_ROOT_OUTCOME:-not-run}** · ${TRUENAS_ROOT_URL}"
-            echo "- TrueNAS Web API: **${TRUENAS_API_OUTCOME:-not-run}** · ${TRUENAS_API_URL}"
-            echo "- FastAPI Cloud Web API: **${CLOUD_WEB_OUTCOME:-not-run}** · ${CLOUD_API_URL}"
-            echo "- TrueNAS OpenAPI active scan: **${TRUENAS_OPENAPI_OUTCOME:-not-run}**"
-            echo "- FastAPI Cloud OpenAPI active scan: **${CLOUD_OPENAPI_OUTCOME:-not-run}**"
-            echo "- Policy: configured FAIL findings block; WARN findings stay visible in artifacts via -I."
-            echo "- Management APIs for pfSense and TrueNAS are intentionally excluded."
-            echo "- Artifacts are split by production surface for remediation."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Enforce ZAP production policy
-        if: always()
-        env:
-          TRUENAS_ROOT_OUTCOME: ${{ steps.zap_web_truenas_root.outcome }}
-          TRUENAS_API_OUTCOME: ${{ steps.zap_web_truenas_api.outcome }}
-          CLOUD_WEB_OUTCOME: ${{ steps.zap_web_cloud_api.outcome }}
-          TRUENAS_OPENAPI_OUTCOME: ${{ steps.zap_api_truenas.outcome }}
           CLOUD_OPENAPI_OUTCOME: ${{ steps.zap_api_cloud.outcome }}
         shell: bash
         run: |
           set -euo pipefail
-          outcomes=(
-            "${TRUENAS_ROOT_OUTCOME:-not-run}"
-            "${TRUENAS_API_OUTCOME:-not-run}"
-            "${CLOUD_WEB_OUTCOME:-not-run}"
-            "${TRUENAS_OPENAPI_OUTCOME:-not-run}"
-            "${CLOUD_OPENAPI_OUTCOME:-not-run}"
-          )
-          for outcome in "${outcomes[@]}"; do
+          {
+            echo "## Cloud ZAP evidence"
+            echo "- Source SHA: ${GITHUB_SHA}"
+            echo "- CLOUD_PREFLIGHT: **${CLOUD_PREFLIGHT:-not-run}**"
+            echo "- CLOUD_WEB_OUTCOME: **${CLOUD_WEB_OUTCOME:-not-run}**"
+            echo "- CLOUD_OPENAPI_OUTCOME: **${CLOUD_OPENAPI_OUTCOME:-not-run}**"
+            echo "- Management APIs for pfSense and TrueNAS are intentionally excluded."
+          } >> "$GITHUB_STEP_SUMMARY"
+          for outcome in "${CLOUD_PREFLIGHT:-not-run}" "${CLOUD_WEB_OUTCOME:-not-run}" "${CLOUD_OPENAPI_OUTCOME:-not-run}"; do
             if [[ "${outcome}" != "success" ]]; then
-              echo "::error::At least one production ZAP Web/OpenAPI scan did not satisfy the blocking policy. Inspect the per-surface artifacts."
+              echo "::error::At least one production ZAP Web/OpenAPI scan did not satisfy the blocking policy"
               exit 1
             fi
           done
+

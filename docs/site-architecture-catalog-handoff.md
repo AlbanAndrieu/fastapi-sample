@@ -55,3 +55,20 @@ Les anciens `/api/homelab-services` et `/api/public-homelab/v1` ont été **supp
 `nabla/api/catalog_routes.py` reste nécessaire **en interne** pour `/sickz`, les sondes et la posture d'exposition : il projette directement le Backstage v2 vérifié, sans servir de route HTTP héritée. `/api/homelab-topology` reste provisoirement protégé pour la page opérateur `/api/topology` ; son contenu et le `service-topology.json` correspondant n'ont pas encore été remplacés par une projection v2 équivalente. Les sources v1 de `nabla-compose` restent opérationnelles tant que les derniers lecteurs TrueNAS n'ont pas migré et que la parité d'exposition n'est pas établie.
 
 Le retrait des routes de Git n'est pas une preuve de déploiement Cloud ou TrueNAS. Vérifier les GET anonymes négatifs et les deux GET SERVICE authentifiés sur le SHA effectivement déployé.
+
+
+## Graphe opérateur lié à Backstage v2 (19 novembre 2026)
+
+`catalog/generated/operator-inventory.json` (Compose #416) remplace le GET distant
+de `catalog/service-topology.json` : `catalogRevision` doit correspondre à
+`entities.json`, `operatorRevision` garantit la cohérence du graphe natif et
+`identityBindings` relie les lignes Compose à leurs références Backstage
+explicites. Les nœuds opérationnels sans association ne sont pas inventés.
+Le contrat HTTP OWNER `/api/homelab-topology` et sa projection publique
+conservent le format du viewer, distinct du catalogue SERVICE v2. Le snapshot
+embarquе les deux projections issues du même producteur; aucun fallback HTTP v1.
+
+Déployer Compose #416 avant cette PR FastAPI. Vérifier les deux révisions du
+graphe, les liens de topologie, les plans TrueNAS et les API SERVICE en production.
+Les anciens JSON Compose sont conservés pour la fenêtre de rollback et les tests
+de parité uniquement. Runtime NOT_RUN.

@@ -103,18 +103,24 @@ jobs:
           docker push "${dockerhub_tag}"
 
       - name: Run Trivy vulnerability scanner
+        id: trivy_image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.71.2
           image-ref: ${{ steps.meta.outputs.ghcr_tag }}
           format: json
           output: trivy-results.json
-          ignore-unfixed: true
+          scanners: vuln,secret
+          ignore-unfixed: false
           vuln-type: os,library
-          severity: CRITICAL,HIGH
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      - name: Validate native Trivy report before any publication
+        id: trivy_publication
+        run: python3 scripts/security/validate_trivy_handoff.py trivy-results.json
 
       - name: Convert same Trivy scan to SARIF (no second scan)
-        if: always() && hashFiles('trivy-results.json') != ''
+        if: steps.trivy_publication.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
@@ -124,7 +130,7 @@ jobs:
       # JSON goes to one private collector source; never publish secret/DAST
       # evidence, and do not start extra scheduled CI.
       - name: Publish native Trivy report for LAN collector
-        if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && hashFiles('trivy-results.json') != '' }}
+        if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.trivy_publication.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: defectdojo-fastapi-trivy-${{ github.sha }}
@@ -133,7 +139,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Trivy scan results
-        if: always() && hashFiles('trivy-results.sarif') != ''
+        if: steps.trivy_publication.outcome == 'success' && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: trivy-results.sarif

@@ -1,5 +1,5 @@
 {
-  "catalogRevision": "sha256:9fb25382454bb4b2bec4fe67144c1f38270a3ddb416238fafe17ca46a6abc9be",
+  "catalogRevision": "sha256:70313b0968fd2278cc4b0bede2fc188e01f12c8a09af87dbd46550c2fe9271c6",
   "entities": [
     {
       "apiVersion": "backstage.io/v1alpha1",
@@ -119,7 +119,13 @@
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
-        ]
+        ],
+        "runtime": {
+          "appId": "adguard-home",
+          "containerService": "adguard",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
       }
     },
     {
@@ -140,7 +146,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "affine",
         "tags": [
@@ -418,7 +424,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "anythingllm",
         "tags": [
@@ -471,7 +477,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "disabled"
         },
         "name": "anythingllm-albandrieu",
         "tags": [
@@ -499,11 +505,8 @@
               "port": 3007
             },
             "gatewayRef": "resource:default/workstation",
-            "hostnames": [
-              "anythingllm-albandrieu.albandrieu.com"
-            ],
             "name": "lan",
-            "protocol": "HTTPS",
+            "protocol": "HTTP",
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
@@ -574,7 +577,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "autokuma",
         "tags": [
@@ -855,6 +858,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "bitcoind",
@@ -908,7 +912,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "cartography",
         "tags": [
@@ -965,6 +969,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "medium",
           "albandrieu.com/operational-criticality": "high",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "clamav",
@@ -1007,6 +1012,41 @@
           "provider": "truenas-app",
           "source": "apps/clamav/compose.yml#services/clamav"
         }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/cleanuparr",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Removes stalled downloads from the *arr Apps, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "cleanuparr",
+        "tags": [
+          "media"
+        ],
+        "title": "Cleanuparr"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
       }
     },
     {
@@ -1329,6 +1369,7 @@
           }
         ],
         "runtime": {
+          "appId": "ddns-updater",
           "containerService": "ddns-updater",
           "provider": "truenas-app",
           "source": "apps/ddns-updater/compose.yml#services/ddns-updater"
@@ -1751,6 +1792,7 @@
           }
         ],
         "runtime": {
+          "appId": "dockhand",
           "containerService": "dockhand",
           "provider": "truenas-app",
           "source": "apps/dockhand/compose.yml#services/dockhand"
@@ -1898,6 +1940,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "domain-watchdog",
@@ -1974,7 +2017,7 @@
       "sourcePath": "apps/dozzle/catalog-info.yaml",
       "spec": {
         "dependsOn": [
-          "resource:default/docker"
+          "component:default/docker-socket-proxy"
         ],
         "lifecycle": "production",
         "owner": "group:default/nabla-platform",
@@ -1998,6 +2041,7 @@
           }
         ],
         "runtime": {
+          "appId": "dozzle",
           "containerService": "dozzle",
           "provider": "truenas-app",
           "source": "apps/dozzle/compose.yml#services/dozzle"
@@ -2064,6 +2108,7 @@
           }
         ],
         "runtime": {
+          "appId": "drawio",
           "containerService": "drawio",
           "provider": "truenas-app",
           "source": "apps/drawio/compose.yml#services/drawio"
@@ -2171,6 +2216,47 @@
     },
     {
       "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/emby",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Media server, installed as a TrueNAS catalog App and kept stopped.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-state": "disabled"
+        },
+        "name": "emby",
+        "tags": [
+          "media"
+        ],
+        "title": "Emby"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      },
+      "x-nabla": {
+        "runtime": {
+          "appId": "emby",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
       "entityRef": "component:default/fastapi-sample",
       "kind": "Component",
       "metadata": {
@@ -2262,6 +2348,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "freshrss",
@@ -2580,6 +2667,63 @@
           "containerService": "gatus",
           "provider": "truenas-app",
           "source": "apps/gatus/compose.yml#services/gatus"
+        }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/glances",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Host monitoring dashboard, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "glances",
+        "tags": [
+          "observability"
+        ],
+        "title": "Glances"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      },
+      "x-nabla": {
+        "exposure": [
+          {
+            "backend": {
+              "appProtocol": "http",
+              "host": "172.17.0.24",
+              "port": 30015
+            },
+            "gatewayRef": "resource:default/truenas",
+            "name": "lan",
+            "probePath": "/api/4/status",
+            "protocol": "HTTP",
+            "source": "catalog/catalog-info.yaml",
+            "visibility": "lan"
+          }
+        ],
+        "runtime": {
+          "appId": "glances",
+          "containerService": "glances",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
         }
       }
     },
@@ -2950,6 +3094,7 @@
           }
         ],
         "runtime": {
+          "appId": "nginx",
           "containerService": "nginx",
           "provider": "truenas-app",
           "source": "apps/nginx/compose.yml#services/nginx"
@@ -3163,6 +3308,136 @@
     },
     {
       "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/honeypot",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-confidentiality": "low",
+          "albandrieu.com/bia-impact-customer": "low",
+          "albandrieu.com/bia-impact-financial": "low",
+          "albandrieu.com/bia-impact-integrity": "low",
+          "albandrieu.com/bia-impact-legal-regulatory": "low",
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-impact-privacy": "low",
+          "albandrieu.com/bia-impact-reputation": "low",
+          "albandrieu.com/bia-mbco": "spam-harvester-detection-can-pause-without-user-impact",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rpo": "P7D",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional",
+          "backstage.io/source-location": "url:https://github.com/AlbanAndrieu/nabla-compose/tree/master/apps/honeypot/",
+          "github.com/project-slug": "AlbanAndrieu/nabla-compose"
+        },
+        "description": "Project Honey Pot address distribution script, moved from the workstation Apache to TrueNAS.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "honeypot",
+        "tags": [
+          "security"
+        ],
+        "title": "Project Honey Pot"
+      },
+      "sourcePath": "apps/honeypot/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "experimental",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "security-agent"
+      },
+      "x-nabla": {
+        "exposure": [
+          {
+            "backend": {
+              "appProtocol": "http",
+              "host": "172.17.0.24",
+              "port": 31090
+            },
+            "backendPort": "web",
+            "gatewayRef": "resource:default/truenas",
+            "name": "lan",
+            "protocol": "HTTP",
+            "source": "apps/honeypot/compose.yml#services/honeypot",
+            "visibility": "lan"
+          }
+        ],
+        "runtime": {
+          "containerService": "honeypot",
+          "provider": "truenas-app",
+          "source": "apps/honeypot/compose.yml#services/honeypot"
+        }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/immich",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-confidentiality": "high",
+          "albandrieu.com/bia-impact-operational": "medium",
+          "albandrieu.com/bia-mbco": "photo-library-restorable-from-backup",
+          "albandrieu.com/bia-mtpd": "P3D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P1D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Photo and video library, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "high",
+          "albandrieu.com/operational-criticality": "medium",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "immich",
+        "tags": [
+          "media"
+        ],
+        "title": "Immich"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      },
+      "x-nabla": {
+        "exposure": [
+          {
+            "access": {
+              "required": true
+            },
+            "backend": {
+              "appProtocol": "http",
+              "host": "172.17.0.24",
+              "port": 30041
+            },
+            "gatewayRef": "resource:default/cloudflare-tunnel",
+            "hostnames": [
+              "immich.albandrieu.com"
+            ],
+            "name": "public",
+            "probePath": "/api/server/ping",
+            "protocol": "HTTPS",
+            "source": "catalog/catalog-info.yaml",
+            "visibility": "public"
+          }
+        ],
+        "runtime": {
+          "appId": "immich",
+          "containerService": "server",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
       "entityRef": "component:default/ittools",
       "kind": "Component",
       "metadata": {
@@ -3214,7 +3489,13 @@
             "source": "catalog/catalog-info.yaml",
             "visibility": "public"
           }
-        ]
+        ],
+        "runtime": {
+          "appId": "it-tools",
+          "containerService": "it-tools",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
       }
     },
     {
@@ -3710,6 +3991,7 @@
               "languagetool.albandrieu.com"
             ],
             "name": "public",
+            "probePath": "/v2/languages",
             "protocol": "HTTPS",
             "source": "apps/languagetool/compose.yml#services/languagetool",
             "visibility": "public"
@@ -3734,6 +4016,7 @@
         "description": "Planned Lidarr instance of the media stack (media-manager).",
         "labels": {
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "planned"
         },
         "name": "lidarr",
@@ -3857,11 +4140,8 @@
             },
             "backendPort": "web",
             "gatewayRef": "resource:default/truenas",
-            "hostnames": [
-              "litellm.albandrieu.com"
-            ],
             "name": "lan",
-            "protocol": "HTTPS",
+            "protocol": "HTTP",
             "source": "apps/litellm/compose.yml#services/litellm",
             "visibility": "lan"
           }
@@ -3919,11 +4199,8 @@
               "port": 4000
             },
             "gatewayRef": "resource:default/workstation",
-            "hostnames": [
-              "litellm-albandrieu.albandrieu.com"
-            ],
             "name": "lan",
-            "protocol": "HTTPS",
+            "protocol": "HTTP",
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
@@ -4001,7 +4278,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "localai-gpu",
         "tags": [
@@ -4067,6 +4344,47 @@
           "containerService": "mcp-cyberbro",
           "provider": "truenas-app",
           "source": "apps/cyberbro/compose.yml#services/mcp-cyberbro"
+        }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/memos",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Note-taking service, installed as a TrueNAS catalog App and kept stopped.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-state": "disabled"
+        },
+        "name": "memos",
+        "tags": [
+          "productivity"
+        ],
+        "title": "Memos"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      },
+      "x-nabla": {
+        "runtime": {
+          "appId": "memos",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
         }
       }
     },
@@ -4174,7 +4492,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "netalertx",
         "tags": [
@@ -4228,7 +4546,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "netbootxyz",
         "tags": [
@@ -4291,7 +4609,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "high",
           "albandrieu.com/operational-criticality": "medium",
-          "albandrieu.com/operational-state": "planned"
+          "albandrieu.com/operational-state": "active"
         },
         "name": "netbox",
         "tags": [
@@ -4337,45 +4655,13 @@
     },
     {
       "apiVersion": "backstage.io/v1alpha1",
-      "entityRef": "component:default/netbox-housekeeping",
-      "kind": "Component",
-      "metadata": {
-        "labels": {
-          "albandrieu.com/bia-scope": "inherited",
-          "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "planned"
-        },
-        "name": "netbox-housekeeping",
-        "tags": [
-          "infrastructure"
-        ],
-        "title": "NetBox Housekeeping"
-      },
-      "sourcePath": "apps/netbox/catalog-info.yaml",
-      "spec": {
-        "lifecycle": "production",
-        "owner": "group:default/nabla-platform",
-        "subcomponentOf": "component:default/netbox",
-        "system": "system:default/nabla-homelab",
-        "type": "worker"
-      },
-      "x-nabla": {
-        "runtime": {
-          "containerService": "netbox-housekeeping",
-          "provider": "truenas-app",
-          "source": "apps/netbox/compose.yml#services/netbox-housekeeping"
-        }
-      }
-    },
-    {
-      "apiVersion": "backstage.io/v1alpha1",
       "entityRef": "component:default/netbox-worker",
       "kind": "Component",
       "metadata": {
         "labels": {
           "albandrieu.com/bia-scope": "inherited",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "planned"
+          "albandrieu.com/operational-state": "active"
         },
         "name": "netbox-worker",
         "tags": [
@@ -4397,6 +4683,41 @@
           "provider": "truenas-app",
           "source": "apps/netbox/compose.yml#services/netbox-worker"
         }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/netdata",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Real-time host metrics, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "netdata",
+        "tags": [
+          "observability"
+        ],
+        "title": "Netdata"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
       }
     },
     {
@@ -4447,17 +4768,23 @@
       "x-nabla": {
         "exposure": [
           {
+            "access": {
+              "required": true
+            },
             "backend": {
               "appProtocol": "http",
               "host": "172.17.0.24",
               "port": 8081
             },
             "backendPort": "web",
-            "gatewayRef": "resource:default/truenas",
-            "name": "lan",
-            "protocol": "HTTP",
+            "gatewayRef": "resource:default/cloudflare-tunnel",
+            "hostnames": [
+              "nexus.albandrieu.com"
+            ],
+            "name": "public",
+            "protocol": "HTTPS",
             "source": "apps/nexus/compose.yml#services/nexus",
-            "visibility": "lan"
+            "visibility": "public"
           }
         ],
         "runtime": {
@@ -4934,6 +5261,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "open-speed-test",
@@ -5037,7 +5365,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "openarchiver",
         "tags": [
@@ -5106,23 +5434,12 @@
         "type": "ai-service"
       },
       "x-nabla": {
-        "exposure": [
-          {
-            "backend": {
-              "appProtocol": "https",
-              "host": "172.17.0.24",
-              "port": 30325
-            },
-            "gatewayRef": "resource:default/truenas",
-            "hostnames": [
-              "openclaw.albandrieu.com"
-            ],
-            "name": "lan",
-            "protocol": "HTTPS",
-            "source": "catalog/catalog-info.yaml",
-            "visibility": "lan"
-          }
-        ]
+        "runtime": {
+          "appId": "openclaw-gateway",
+          "containerService": "openclaw-gateway",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
       }
     },
     {
@@ -5224,6 +5541,7 @@
           }
         ],
         "runtime": {
+          "appId": "openhands",
           "containerService": "openhands",
           "provider": "truenas-app",
           "source": "apps/openhands/compose.yml#services/openhands"
@@ -5500,7 +5818,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "openssf-scorecard",
         "tags": [
@@ -5622,6 +5940,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "paperless-ai",
@@ -5676,6 +5995,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "paperless-ngx",
@@ -5903,7 +6223,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "medium",
           "albandrieu.com/operational-criticality": "medium",
-          "albandrieu.com/operational-state": "planned"
+          "albandrieu.com/operational-state": "active"
         },
         "name": "plumber",
         "tags": [
@@ -5977,9 +6297,6 @@
               "port": 3001
             },
             "gatewayRef": "resource:default/workstation",
-            "hostnames": [
-              "plumber-albandrieu.albandrieu.com"
-            ],
             "name": "lan",
             "protocol": "HTTPS",
             "source": "catalog/catalog-info.yaml",
@@ -5997,7 +6314,7 @@
         "labels": {
           "albandrieu.com/bia-scope": "inherited",
           "albandrieu.com/operational-criticality": "medium",
-          "albandrieu.com/operational-state": "planned"
+          "albandrieu.com/operational-state": "active"
         },
         "name": "plumber-api",
         "tags": [
@@ -6056,7 +6373,7 @@
         "labels": {
           "albandrieu.com/bia-scope": "inherited",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "planned"
+          "albandrieu.com/operational-state": "active"
         },
         "name": "plumber-worker",
         "tags": [
@@ -6098,7 +6415,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "portainer",
         "tags": [
@@ -6243,25 +6560,6 @@
         "owner": "group:default/nabla-platform",
         "system": "system:default/nabla-homelab",
         "type": "website"
-      },
-      "x-nabla": {
-        "exposure": [
-          {
-            "backend": {
-              "appProtocol": "http",
-              "host": "172.17.0.57",
-              "port": 4999
-            },
-            "gatewayRef": "resource:default/workstation",
-            "hostnames": [
-              "portracker-albandrieu.albandrieu.com"
-            ],
-            "name": "lan",
-            "protocol": "HTTPS",
-            "source": "catalog/catalog-info.yaml",
-            "visibility": "lan"
-          }
-        ]
       }
     },
     {
@@ -6888,11 +7186,8 @@
               "port": 3008
             },
             "gatewayRef": "resource:default/workstation",
-            "hostnames": [
-              "reactive-albandrieu.albandrieu.com"
-            ],
             "name": "lan",
-            "protocol": "HTTPS",
+            "protocol": "HTTP",
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
@@ -7054,7 +7349,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "sabnzbd",
         "tags": [
@@ -8222,6 +8517,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
           "albandrieu.com/operational-state": "active"
         },
         "name": "speedtest",
@@ -8254,7 +8550,12 @@
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
-        ]
+        ],
+        "runtime": {
+          "appId": "speedtest-tracker",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
       }
     },
     {
@@ -8374,7 +8675,12 @@
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
-        ]
+        ],
+        "runtime": {
+          "appId": "stirling-pdf",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
       }
     },
     {
@@ -8395,7 +8701,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "disabled"
         },
         "name": "stirling-albandrieu",
         "tags": [
@@ -8423,11 +8729,8 @@
               "port": 8085
             },
             "gatewayRef": "resource:default/workstation",
-            "hostnames": [
-              "stirling-albandrieu.albandrieu.com"
-            ],
             "name": "lan",
-            "protocol": "HTTPS",
+            "protocol": "HTTP",
             "source": "catalog/catalog-info.yaml",
             "visibility": "lan"
           }
@@ -8526,6 +8829,117 @@
           "provider": "truenas-app",
           "source": "apps/sybase-exporter/compose.yml#services/sybase-exporter"
         }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/tailscale",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Mesh VPN client, installed as a TrueNAS catalog App and kept stopped.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-state": "disabled"
+        },
+        "name": "tailscale",
+        "tags": [
+          "network"
+        ],
+        "title": "Tailscale"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      },
+      "x-nabla": {
+        "runtime": {
+          "appId": "tailscale",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
+        }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/three-proxy",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "3proxy forward proxy, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "three-proxy",
+        "tags": [
+          "network"
+        ],
+        "title": "3proxy"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/tracearr",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Media server stream monitoring, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "tracearr",
+        "tags": [
+          "media"
+        ],
+        "title": "Tracearr"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
       }
     },
     {
@@ -8668,7 +9082,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "name": "transmission",
         "tags": [
@@ -8728,7 +9142,7 @@
           "albandrieu.com/bia-scope": "direct",
           "albandrieu.com/business-criticality": "low",
           "albandrieu.com/operational-criticality": "low",
-          "albandrieu.com/operational-state": "active"
+          "albandrieu.com/operational-state": "planned"
         },
         "links": [
           {
@@ -9066,6 +9480,76 @@
           "provider": "truenas-app",
           "source": "apps/wazuh/compose.yml#services/wazuh.manager"
         }
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/wizarr",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Media server invitation manager, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "wizarr",
+        "tags": [
+          "media"
+        ],
+        "title": "Wizarr"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
+      }
+    },
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "entityRef": "component:default/zabbix",
+      "kind": "Component",
+      "metadata": {
+        "annotations": {
+          "albandrieu.com/bia-impact-operational": "low",
+          "albandrieu.com/bia-mbco": "manual-restore-can-wait-for-the-operator",
+          "albandrieu.com/bia-mtpd": "P7D",
+          "albandrieu.com/bia-reviewed-at": "2026-11-16",
+          "albandrieu.com/bia-rto": "P3D",
+          "albandrieu.com/bia-status": "provisional"
+        },
+        "description": "Zabbix monitoring server, installed as a TrueNAS catalog App.",
+        "labels": {
+          "albandrieu.com/bia-scope": "direct",
+          "albandrieu.com/business-criticality": "low",
+          "albandrieu.com/operational-criticality": "low",
+          "albandrieu.com/operational-schedule": "night",
+          "albandrieu.com/operational-state": "active"
+        },
+        "name": "zabbix",
+        "tags": [
+          "observability"
+        ],
+        "title": "Zabbix"
+      },
+      "sourcePath": "catalog/catalog-info.yaml",
+      "spec": {
+        "lifecycle": "production",
+        "owner": "group:default/nabla-platform",
+        "system": "system:default/nabla-homelab",
+        "type": "service"
       }
     },
     {
@@ -9883,6 +10367,12 @@
         "probePolicy": {
           "position": 0,
           "rank": 3
+        },
+        "runtime": {
+          "appId": "postgres",
+          "containerService": "postgres",
+          "provider": "truenas-app",
+          "source": "catalog/catalog-info.yaml"
         }
       }
     },
@@ -9935,6 +10425,7 @@
           "rank": 4
         },
         "runtime": {
+          "appId": "redis",
           "containerService": "redis",
           "provider": "truenas-app",
           "source": "apps/redis/compose.yml#services/redis"
