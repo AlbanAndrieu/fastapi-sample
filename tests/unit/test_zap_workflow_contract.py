@@ -28,7 +28,8 @@ def test_zap_scans_authorized_production_web_and_openapi_surfaces() -> None:
     assert dast_env["TRUENAS_OPENAPI_URL"] == "https://fastapi-sample.albandrieu.com/openapi.json"
     assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
     assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
-    assert workflow_text.count("format: openapi") == 2
+    assert workflow_text.count("format: openapi") == 1
+    assert "zap_access_scan.py openapi" in workflow_text
 
 
 def test_zap_policy_keeps_auth_findings_and_management_boundaries_explicit() -> None:
@@ -36,11 +37,12 @@ def test_zap_policy_keeps_auth_findings_and_management_boundaries_explicit() -> 
 
     assert ".zap/web-rules.tsv" in workflow
     assert ".zap/api-rules.tsv" in workflow
-    assert "CF-Access-Client-Id" in workflow
-    assert "CF-Access-Client-Secret" in workflow
+    assert "CF_ACCESS_CLIENT_ID" in workflow
+    assert "CF_ACCESS_CLIENT_SECRET" in workflow
     assert "Management APIs for pfSense and TrueNAS are intentionally excluded" in workflow
     assert "home.albandrieu.com:10443" not in workflow
-    assert workflow.count("fail_action: true") == 5
+    assert workflow.count("fail_action: true") == 2
+    assert workflow.count("zap_access_scan.py ") == 4
     assert "-I -T 4 -s" in workflow
     assert "timeout-minutes: 30" in workflow
 
@@ -76,13 +78,17 @@ def test_cloud_scans_are_independent_of_truenas_credentials() -> None:
         assert job["if"] == "${{ github.ref == 'refs/heads/master' }}"
     true_steps = {step["id"]: step for step in truenas["steps"] if "id" in step}
     cloud_steps = {step["id"]: step for step in cloud["steps"] if "id" in step}
-    assert "id=\"health-board\"" in true_steps["preflight_truenas"]["run"]
+    assert "zap_access_scan.py preflight" in true_steps["preflight_truenas"]["run"]
     assert "id=\"health-board\"" in cloud_steps["preflight_cloud"]["run"]
     assert "--location" not in WORKFLOW.read_text(encoding="utf-8")
     for key in ("zap_web_truenas_root", "zap_web_truenas_api", "zap_api_truenas"):
-        assert true_steps[key]["if"] == "${{ steps.auth_rules.outcome == 'success' }}"
-        assert "-configfile" in true_steps[key]["with"]["cmd_options"]
-        assert "secrets." not in true_steps[key]["with"]["cmd_options"]
+        assert true_steps[key]["if"] == "${{ steps.preflight_truenas.outcome == 'success' }}"
+        assert "zap_access_scan.py" in true_steps[key]["run"]
+        assert "CF_ACCESS_CLIENT_SECRET" in true_steps[key]["env"]
     for key in ("zap_web_cloud_api", "zap_api_cloud"):
         assert cloud_steps[key]["if"] == "${{ steps.preflight_cloud.outcome == 'success' }}"
-    assert "fastapi-sample[.]albandrieu[.]com" in true_steps["auth_rules"]["run"]
+    assert "CF_ACCESS_CLIENT_SECRET" not in truenas["env"]
+    for step in truenas["steps"]:
+        if step.get("uses", "").startswith("actions/upload-artifact@"):
+            assert step["with"]["path"].startswith("reports/dast/")
+            assert "env" not in step
