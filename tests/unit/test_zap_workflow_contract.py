@@ -75,7 +75,7 @@ def test_cloud_scans_are_independent_of_truenas_credentials() -> None:
     assert "environment" not in cloud
     assert not any(key.startswith("CF_ACCESS_") for key in cloud["env"])
     for job in (truenas, cloud):
-        assert job["if"] == "${{ github.ref == 'refs/heads/master' }}"
+        assert job["if"] == "${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}"
     true_steps = {step["id"]: step for step in truenas["steps"] if "id" in step}
     cloud_steps = {step["id"]: step for step in cloud["steps"] if "id" in step}
     assert "zap_access_scan.py preflight" in true_steps["preflight_truenas"]["run"]

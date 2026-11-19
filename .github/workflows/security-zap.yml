@@ -15,7 +15,7 @@ concurrency:
 jobs:
   dast_truenas:
     name: ZAP production · TrueNAS via Access
-    if: ${{ github.ref == 'refs/heads/master' }}
+    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dast-truenas
@@ -121,7 +121,7 @@ jobs:
 
   dast_cloud:
     name: ZAP production · FastAPI Cloud
-    if: ${{ github.ref == 'refs/heads/master' }}
+    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
