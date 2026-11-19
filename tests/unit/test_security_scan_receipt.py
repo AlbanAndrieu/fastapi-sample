@@ -90,6 +90,7 @@ def test_zero_findings_nuclei_is_a_completed_scan_not_missing_report(
     dast = reports / "fastapi-sample"
     dast.mkdir()
     (dast / "zap.json").write_text('{"site":[]}')
+    (dast / "zap.xml").write_text("<OWASPZAPReport/>")
     (dast / "nuclei.jsonl").write_bytes(b"")
     scan._write_completed_receipt(reports, mode="master", dast=True)
     receipt = json.loads((reports / "scan-receipt.json").read_text())

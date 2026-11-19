@@ -20,6 +20,7 @@ import socket
 import ssl
 import stat
 import uuid
+from xml.parsers import expat
 
 PROJECT = "fastapi-sample"
 HOST = "defectdojo.int.albandrieu.com"
@@ -32,7 +33,8 @@ AUTHORIZED_SOURCES = ipaddress.ip_network("172.17.0.0/24")
 REPORTS = {
     "trivy": ("trivy.json", "Trivy Scan"),
     "sbom": ("sbom.cdx.json", "CycloneDX Scan"),
-    "zap": ("fastapi-sample/zap.json", "Zed Attack Proxy"),
+    "zap": ("fastapi-sample/zap.xml", "ZAP Scan"),
+    "prowler": ("prowler-github.json", "Prowler Scan"),
     "nuclei": ("fastapi-sample/nuclei.jsonl", "Nuclei Scan"),
 }
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -81,10 +83,79 @@ def _validate_trivy(report: dict) -> None:
         raise ValueError("Trivy secret evidence is forbidden for import")
 
 
+def validate_prowler(content: bytes) -> int:
+    """Accept only nonempty native GitHub OCSF evidence from the scoped scanner."""
+    report = json.loads(content)
+    if not isinstance(report, list) or not report:
+        raise ValueError("missing Prowler OCSF findings")
+    failed = 0
+    for finding in report:
+        if not isinstance(finding, dict):
+            raise ValueError("invalid Prowler OCSF finding")
+        cloud = finding.get("cloud")
+        status = finding.get("status_code")
+        if (
+            not isinstance(cloud, dict)
+            or cloud.get("provider") != "github"
+            or status not in ("PASS", "FAIL", "MANUAL", "MUTED")
+            or not isinstance(finding.get("finding_info"), dict)
+            or not isinstance(finding.get("message"), str)
+        ):
+            raise ValueError("invalid or non-GitHub Prowler evidence")
+        failed += status == "FAIL"
+    return failed
+
+
+def _validate_zap_xml(content: bytes) -> None:
+    """Accept native XML without resolving DTDs or external entities."""
+    parser = expat.ParserCreate()
+    depth = sites = 0
+
+    def reject_declaration(*_args):
+        raise ValueError("ZAP XML must not contain DTD or entity declarations")
+
+    def start(tag, attributes):
+        nonlocal depth, sites
+        if depth == 0 and tag != "OWASPZAPReport":
+            raise ValueError("invalid ZAP XML root")
+        if depth == 1 and tag == "site":
+            if attributes.get("name") not in (
+                "https://fastapi-sample.fastapicloud.dev",
+                "https://fastapi-sample.fastapicloud.dev:443",
+            ):
+                raise ValueError("ZAP report outside approved public origin")
+            sites += 1
+        if tag.lower() in ("requestheader", "requestbody", "responseheader", "responsebody"):
+            raise ValueError("raw ZAP request/response evidence is forbidden")
+        depth += 1
+
+    def end(_tag):
+        nonlocal depth
+        depth -= 1
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = end
+    parser.StartDoctypeDeclHandler = reject_declaration
+    parser.EntityDeclHandler = reject_declaration
+    parser.ExternalEntityRefHandler = reject_declaration
+    try:
+        parser.Parse(content, True)
+    except expat.ExpatError:
+        raise ValueError("invalid ZAP XML report") from None
+    if not sites:
+        raise ValueError("missing expected ZAP XML site")
+
+
 def validate_format(kind: str, content: bytes) -> None:
     """Schema guard, not a substitute for scanner/parser acceptance."""
     if kind == "nuclei":
         _validate_nuclei(content)
+        return
+    if kind == "zap":
+        _validate_zap_xml(content)
+        return
+    if kind == "prowler":
+        validate_prowler(content)
         return
     report = json.loads(content)
     if not isinstance(report, dict):
@@ -94,9 +165,6 @@ def validate_format(kind: str, content: bytes) -> None:
     elif kind == "sbom":
         if report.get("bomFormat") != "CycloneDX":
             raise ValueError("invalid CycloneDX report")
-    elif kind == "zap":
-        if not isinstance(report.get("site"), list):
-            raise ValueError("invalid ZAP report")
 
 
 def validate_receipt(root: Path, kind: str, content: bytes) -> str:
@@ -114,9 +182,14 @@ def validate_receipt(root: Path, kind: str, content: bytes) -> str:
         or receipt.get("policy_status") not in ("pass", "needs_review")
         or type(receipt.get("critical_count")) is not int
         or receipt["critical_count"] < 0
-        or (receipt["critical_count"] > 0) != (receipt["policy_status"] == "needs_review")
+        or type(receipt.get("prowler_failed_count", 0)) is not int
+        or receipt.get("prowler_failed_count", 0) < 0
+        or (receipt["critical_count"] > 0 or receipt.get("prowler_failed_count", 0) > 0)
+        != (receipt["policy_status"] == "needs_review")
     ):
         raise ValueError("missing complete master scan receipt")
+    if kind == "prowler" and receipt.get("prowler_failed_count") != validate_prowler(content):
+        raise ValueError("Prowler receipt policy mismatch")
     expected = receipt["reports"].get(REPORTS[kind][0])
     digest = hashlib.sha256(content).hexdigest()
     if expected != digest:
