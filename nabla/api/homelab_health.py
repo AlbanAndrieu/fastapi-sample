@@ -8,6 +8,7 @@ import asyncio
 from functools import partial
 import time
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -54,6 +55,23 @@ classify_public_http_status = homelab_probe_runner.classify_public_http_status
 def internal_probes_enabled() -> bool:
     """Return whether internal TCP probes are explicitly enabled for this runtime."""
     return env_bool(_INTERNAL_PROBE_ENV)
+
+
+_PRIVATE_NAMESPACE_SUFFIX = ".int.albandrieu.com"
+
+
+def public_probe_candidates(services: list[CatalogRoute], *, lan_vantage: bool) -> list[CatalogRoute]:
+    """Routes probed outside-in from this runtime.
+
+    F14 (16/11): from the LAN a ``*.int`` name resolves privately by design, so the
+    public probe only saw a non-global DNS answer and reported ``warn``. Its WAN
+    check belongs to Cloud; the LAN instance probes the backend instead.
+    """
+    return [
+        service
+        for service in services
+        if service.public_https_probe_url is not None and not (lan_vantage and (urlsplit(service.public_https_probe_url).hostname or "").endswith(_PRIVATE_NAMESPACE_SUFFIX))
+    ]
 
 
 _probe_http_endpoint = homelab_probe_runner.probe_http_endpoint
@@ -287,9 +305,9 @@ async def build_homelab_health_payload(
 
         refresh_started = time.perf_counter()
         services = list(catalog_services) if catalog_services is not None else await fetch_catalog_routes()
-        public_candidates = [service for service in services if service.public_https_probe_url is not None]
-        internal_candidates = [service for service in services if service.backend_host and service.backend_port is not None]
         internal_enabled = internal_probes_enabled()
+        public_candidates = public_probe_candidates(services, lan_vantage=internal_enabled)
+        internal_candidates = [service for service in services if service.backend_host and service.backend_port is not None]
         public_services = _select_probe_subset(
             public_candidates,
             limit=_MAX_PUBLIC_PROBES_PER_REFRESH,

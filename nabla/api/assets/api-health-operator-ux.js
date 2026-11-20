@@ -1,7 +1,7 @@
 const SECTION_DEFINITIONS = [
   {
     id: "health-board",
-    label: "Health",
+    label: "Health checks",
     metric: () =>
       visibleRatio(
         "#health-checks > [data-service-filter-target], #health-services-groups [data-service-filter-target]",

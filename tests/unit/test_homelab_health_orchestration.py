@@ -1,8 +1,10 @@
 """Multi-provider orchestration tests for homelab health."""
 
 import asyncio
+from types import SimpleNamespace
 
 from nabla.api import homelab_health_evidence as module
+from nabla.api import homelab_service_health
 from tests.unit.catalog_v2_fixture import service as v2_service
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
@@ -176,3 +178,42 @@ def test_reconciliation_reuses_prepared_provider_context(monkeypatch) -> None:
     assert result["reconciliation"]["provider_reads_reused"] is True
     assert result["reconciliation"]["truenas_runtime_source"] == "health_api"
     assert result["performance"]["phases_ms"]["truenas_runtime"] >= 0
+
+
+def test_night_app_off_window_never_fails_its_dependents(monkeypatch) -> None:
+    """F13 (16/11): dependents see the night App as scheduled, not as a failure."""
+    seen: dict[str, str] = {}
+
+    def propagate(rows, _topology):
+        seen.update({row["id"]: row["state"] for row in rows})
+        return rows
+
+    rows = [{"id": "bitcoind", "state": "fail", "effective_state": "fail"}, {"id": "mempool", "state": "ok"}]
+    night = SimpleNamespace(service_id="bitcoind", schedule="night", lifecycle=None)
+    monkeypatch.setattr(homelab_service_health, "in_night_window", lambda _now: False)
+    monkeypatch.setattr(module, "build_reconciled_service_health", lambda *_a, **_k: rows)
+    monkeypatch.setattr(module, "propagate_required_dependency_health", propagate)
+    monkeypatch.setattr(module, "enrich_service_exposure", lambda services, *_a: services)
+
+    class Cloudflare:
+        tunnels = []
+        access_applications = []
+        stale = False
+        configured = True
+
+        def summary(self):
+            return {"configured": True, "status_confirmed": True, "warning": None}
+
+    context = {
+        "services": [night],
+        "declared": SimpleNamespace(services=[]),
+        "cloudflare": Cloudflare(),
+        "topology": HomelabTopology(),
+        "pfsense_dns": {},
+    }
+    payload = {"checked_at": "2026-11-16T14:00:00Z", "services": [], "internal_services": [], "truenas": {"api": {"reachable": True, "stale": False, "apps": []}}}
+
+    result = asyncio.run(module.reconcile_homelab_health_payload(payload, context=context))
+
+    assert seen == {"bitcoind": "scheduled", "mempool": "ok"}
+    assert {row["id"]: row["effective_state"] for row in result["services"] if "effective_state" in row} == {"bitcoind": "scheduled"}
