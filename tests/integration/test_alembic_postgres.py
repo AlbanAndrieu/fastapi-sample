@@ -40,10 +40,11 @@ pytestmark = [
 ]
 
 _ROOT = Path(__file__).resolve().parents[2]
-_OWNED_TABLES = ("alembic_version", "user", "note", "sensor_reading")
-_BASELINE_TABLES = {"user", "note", "sensor_reading"}
+_OWNED_TABLES = ("alembic_version", "user", "note", "sensor_reading", "operation_approval")
+_BASELINE_TABLES = {"user", "note", "sensor_reading", "operation_approval"}
 _BASELINE_REVISION = "992855f73a8d"
 _NOTES_REVISION = "4b7c2d9e1a6f"
+_APPROVAL_REVISION = "82db3b1f90a2"
 
 
 def _sync_url() -> str:
@@ -98,8 +99,8 @@ def _schema_diff(engine: sa.Engine) -> list[object]:
         return list(compare_metadata(context, application_metadata()))
 
 
-def test_head_is_the_notes_revision() -> None:
-    assert _head() == _NOTES_REVISION
+def test_head_is_the_approval_revision() -> None:
+    assert _head() == _APPROVAL_REVISION
 
 
 def test_upgrade_head_on_empty_database_matches_application_metadata(engine: sa.Engine) -> None:
@@ -107,7 +108,7 @@ def test_upgrade_head_on_empty_database_matches_application_metadata(engine: sa.
 
     _alembic(engine, "upgrade", "head")
 
-    assert _current(engine) == _NOTES_REVISION
+    assert _current(engine) == _APPROVAL_REVISION
     assert _tables(engine) == _BASELINE_TABLES
     assert _schema_diff(engine) == []
 
@@ -118,7 +119,7 @@ def test_upgrade_head_on_empty_database_matches_application_metadata(engine: sa.
 
     _alembic(engine, "upgrade", "head")
 
-    assert _current(engine) == _NOTES_REVISION
+    assert _current(engine) == _APPROVAL_REVISION
     assert _schema_diff(engine) == []
 
 
@@ -136,7 +137,7 @@ def test_upgrade_head_keeps_create_all_database_and_rows(engine: sa.Engine, stam
 
     _alembic(engine, "upgrade", "head")
 
-    assert _current(engine) == _NOTES_REVISION
+    assert _current(engine) == _APPROVAL_REVISION
     assert _schema_diff(engine) == []
     with engine.connect() as connection:
         rows = connection.execute(sa.text("SELECT title, completed FROM note")).all()
@@ -149,5 +150,5 @@ def test_baseline_upgrade_tolerates_unstamped_create_all_schema(engine: sa.Engin
 
     _alembic(engine, "upgrade", "head")
 
-    assert _current(engine) == _NOTES_REVISION
+    assert _current(engine) == _APPROVAL_REVISION
     assert _schema_diff(engine) == []

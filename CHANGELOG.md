@@ -1,3 +1,10 @@
+# [1.39.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.2...1.39.0) (2026-11-20)
+
+
+### Features
+
+* **auth:** Cloudflare Access SSO for TrueNAS OWNER diagnostics ([#449](https://github.com/AlbanAndrieu/fastapi-sample/issues/449)) ([8954ee9](https://github.com/AlbanAndrieu/fastapi-sample/commit/8954ee93ed00b4f2ce241b9b13c5915c03c0b165))
+
 ## [1.38.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.1...1.38.2) (2026-11-18)
 
 
