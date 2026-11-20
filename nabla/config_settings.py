@@ -207,6 +207,11 @@ class _Settings(DatabaseSettings):
             parse_cidrs(value)
         return value.strip()
 
+    # Enable direct Cloudflare human owner SSO only on the homelab runtime.
+    homelab_owner_access_sso: Annotated[
+        bool,
+        Field(default=False, validation_alias=AliasChoices("HOMELAB_OWNER_ACCESS_SSO")),
+    ]
     ops_access_issuer: Annotated[
         Optional[str],
         Field(default=None, validation_alias=AliasChoices("OPS_ACCESS_ISSUER")),

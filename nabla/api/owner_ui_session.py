@@ -16,6 +16,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import SecretStr
 
+from nabla.api.runtime_environment import homelab_runtime_detected
+from nabla.cloudflare_ops_access import OwnerConfigError, OwnerKeysUnavailable, OwnerUnauthorized, verify_owner_token
 from nabla.config_settings import get_settings
 from nabla.diagnostics_readonly_mode import public_diagnostics_readonly_enabled
 from nabla.homelab_trusted_ip import owner_source_permitted
@@ -73,7 +75,28 @@ def owner_cookie_valid(token: str | None, settings: object, *, now: int | None =
     return hmac.compare_digest(parts[3], _signature(secret, ".".join(parts[:3])))
 
 
+async def cloudflare_ui_owner(request: Request, settings: object) -> bool:
+    """Verify a human Access JWT once per request; never mint a second cookie."""
+    if not getattr(settings, "homelab_owner_access_sso", False) or not homelab_runtime_detected():
+        return False
+    assertions = request.headers.getlist("cf-access-jwt-assertion")
+    if len(assertions) != 1 or not assertions[0].strip():
+        return False
+    if not owner_source_permitted(request.scope, settings):
+        return False
+    if getattr(request.state, "cloudflare_ui_owner_verified", False):
+        return True
+    try:
+        await verify_owner_token(assertions[0].strip())
+    except (OwnerConfigError, OwnerKeysUnavailable, OwnerUnauthorized):
+        return False
+    request.state.cloudflare_ui_owner_verified = True
+    return True
+
+
 def owner_ui_authenticated(request: Request, settings: object) -> bool:
+    if getattr(request.state, "cloudflare_ui_owner_verified", False):
+        return True
     return owner_source_permitted(request.scope, settings) and owner_cookie_valid(
         request.cookies.get(COOKIE_NAME), settings,
     )
@@ -104,7 +127,11 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
 
     @app.get("/api/ui/session", include_in_schema=False)
     async def session_status(request: Request) -> JSONResponse:
-        payload = {"authenticated": owner_ui_authenticated(request, get_settings())}
+        settings = get_settings()
+        cloudflare = await cloudflare_ui_owner(request, settings)
+        payload = {"authenticated": owner_ui_authenticated(request, settings)}
+        if cloudflare:
+            payload["provider"] = "cloudflare_access"
         if public_diagnostics_readonly_enabled():
             payload["readOnlyDiagnostics"] = True
         return JSONResponse(payload, headers=_DENY_HEADERS)
@@ -157,7 +184,11 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
             return JSONResponse(
                 {"detail": "Same-origin request required"}, status_code=403, headers=_DENY_HEADERS,
             )
-        response = JSONResponse({"authenticated": False}, headers=_DENY_HEADERS)
+        cloudflare = await cloudflare_ui_owner(request, get_settings())
+        payload = {"authenticated": False}
+        if cloudflare:
+            payload["provider"] = "cloudflare_access"
+        response = JSONResponse(payload, headers=_DENY_HEADERS)
         response.delete_cookie(
             COOKIE_NAME, secure=True, httponly=True, samesite="strict", path="/",
         )

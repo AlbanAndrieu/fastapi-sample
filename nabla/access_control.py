@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from fastapi.responses import JSONResponse
 
-from nabla.api.owner_ui_session import owner_cookie_write_allowed, owner_ui_authenticated
+from nabla.api.owner_ui_session import cloudflare_ui_owner, owner_cookie_write_allowed, owner_ui_authenticated
 from nabla.cloudflare_ops_access import (
     OwnerConfigError,
     OwnerKeysUnavailable,
@@ -131,6 +131,21 @@ async def operations_access_middleware(
         if denied is not None:
             return denied
         return await call_next(request)
+
+    # SSO grants only the existing OWNER diagnostics scope, never SERVICE or
+    # INTERNAL credentials. The original network policy and CSRF guard remain.
+    if policy.visibility is Visibility.OWNER and policy.credential is Credential.DIAGNOSTICS_KEY:
+        if await cloudflare_ui_owner(request, settings):
+            if request.method.upper() not in {"GET", "HEAD", "OPTIONS"} and not owner_cookie_write_allowed(request):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Same-origin mutation required"},
+                    headers=_DENY_HEADERS,
+                )
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "private, no-store"
+            response.headers["X-Robots-Tag"] = "noindex, nofollow"
+            return response
 
     key_fields = {
         Credential.ADMIN_KEY: ("admin_access_key", "X-Admin-Key"),
