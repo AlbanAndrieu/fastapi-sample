@@ -7,6 +7,7 @@ that module; importing them here creates no cycle.
 from sqlalchemy import MetaData
 
 from nabla.api.approvals.persistence import approval_metadata
+from nabla.api.approvals import notification_outbox as _notification_outbox  # noqa: F401 -- register outbox table
 from nabla.api.demo.models import Base as DemoBase
 from nabla.api.notes.models import Base as NoteBase
 from nabla.api.users.models import Base as UserBase
