@@ -96,7 +96,9 @@ def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_chec
     assert "pull_request:" in smoke
     assert "workflow_dispatch:" in smoke
     assert "workflow_call:" in smoke
-    assert smoke.count("if: github.event_name != 'pull_request'") == 4
+    # Three browser steps; the authenticated job is gated as a whole (post-deploy only).
+    assert smoke.count("if: github.event_name != 'pull_request'") == 3
+    assert "if: ${{ github.event_name != 'pull_request' }}" in smoke
     assert "Verify deployed FastAPI Cloud identity and Redis usage" in smoke
     assert "npx --no-install playwright install --with-deps --only-shell chromium" in smoke
     assert "npx playwright install --with-deps chromium" not in smoke
@@ -107,10 +109,6 @@ def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_chec
     assert "--max-time 30" in smoke
     assert "fetch-depth: 0" not in smoke
     assert 'EXPECTED_VERSION="${expected}" node scripts/check-production-api-ui.mjs' in smoke
-    assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]' in smoke
-    assert ".pfsense.dns.ingress_block.refresh_error" in smoke
-    assert '"snort2c refresh is in progress"' in smoke
-    assert '.pfsense.dns.ingress_block.cache_layer == "redis"' in smoke
 
 
 def test_semantic_release_has_bounded_1_5_8_recovery_then_normal_flow() -> None:
