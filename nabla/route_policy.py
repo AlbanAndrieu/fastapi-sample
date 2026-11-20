@@ -21,6 +21,7 @@ class Credential(StrEnum):
     METRICS_KEY = "metrics_key"
     MCP_KEY = "mcp_key"
     ACCESS_JWT = "access_jwt"
+    GITHUB_WEBHOOK = "github_webhook"
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +79,8 @@ _PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
 
 
 def _http_route_policy(path: str, method: str) -> RoutePolicy:
+    if path == "/webhooks/github" and method == "POST":
+        return RoutePolicy(Visibility.SERVICE, Credential.GITHUB_WEBHOOK)
     if path == "/metrics" and method in _READ_METHODS:
         return METRICS
     if (path == "/api/ui/session" and method in {"GET", "HEAD", "POST"}) or (path == "/api/ui/session/logout" and method == "POST"):

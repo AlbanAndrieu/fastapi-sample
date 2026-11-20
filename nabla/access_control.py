@@ -126,6 +126,10 @@ async def operations_access_middleware(
             )
         return await call_next(request)
 
+    if policy.credential is Credential.GITHUB_WEBHOOK:
+        # The exact POST handler verifies the signature over bounded raw bytes.
+        return await call_next(request)
+
     if policy.credential is Credential.ACCESS_JWT:
         denied = await _authorize_owner(request, settings)
         if denied is not None:

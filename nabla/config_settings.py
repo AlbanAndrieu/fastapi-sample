@@ -208,6 +208,19 @@ class _Settings(DatabaseSettings):
         return value.strip()
 
     # Enable direct Cloudflare human owner SSO only on the homelab runtime.
+    github_webhook_enabled: Annotated[
+        bool,
+        Field(default=False, validation_alias=AliasChoices("GITHUB_WEBHOOK_ENABLED")),
+    ]
+    github_webhook_secret: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(default=None, validation_alias=AliasChoices("GITHUB_WEBHOOK_SECRET")),
+    ]
+    github_webhook_installation_id: Annotated[
+        int,
+        Field(default=0, ge=0, validation_alias=AliasChoices("GITHUB_WEBHOOK_INSTALLATION_ID")),
+    ]
     homelab_owner_access_sso: Annotated[
         bool,
         Field(default=False, validation_alias=AliasChoices("HOMELAB_OWNER_ACCESS_SSO")),

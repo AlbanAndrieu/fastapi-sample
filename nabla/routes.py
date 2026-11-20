@@ -16,6 +16,7 @@ from prometheus_client.openmetrics.exposition import (
 from starlette.routing import Mount
 
 from nabla.api.health_routes import register_health_routes
+from nabla.api.github_webhooks import register_github_webhook_routes
 from nabla.api.owner_ui_session import (
     cloudflare_ui_owner,
     owner_ui_authenticated,
@@ -276,6 +277,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
 
     register_health_routes(app)
     register_owner_ui_session_routes(app)
+    register_github_webhook_routes(app)
 
     @app.exception_handler(Exception)
     def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
