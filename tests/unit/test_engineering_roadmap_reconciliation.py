@@ -7,7 +7,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_active_roadmap_has_one_owner_per_operational_layer() -> None:
     text = (ROOT / "docs/engineering-roadmap.md").read_text(encoding="utf-8")
-    assert "Réconciliation mise à jour le 14 novembre 2026" in text
+    assert "Réconciliation mise à jour le 20 novembre 2026" in text
+    assert "H01 → H02 → H04 → H05 → H12 → H13 → H16" in text
     assert "docs/roadmap-portfolio.md" in text
     assert "## P0" in text and "## P1" in text and "## P2" in text
     for item in ("F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F10", "F11", "F12"):
