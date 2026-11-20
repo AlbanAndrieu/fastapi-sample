@@ -282,3 +282,47 @@ def test_jwks_loss_fails_closed_with_503(identity, monkeypatch):
     response = client.get("/private/ops/api/v1/summary", headers={"Cf-Access-Jwt-Assertion": signed()})
     assert response.status_code == 503
     assert response.json() == {"detail": "Owner identity provider unavailable"}
+
+
+
+def test_homelab_sso_owner_only_and_no_secondary_cookie(identity, monkeypatch):
+    settings, signed = identity
+    settings.homelab_owner_access_sso = True
+    settings.ops_route_policy_strict = True
+    from nabla.api import owner_ui_session
+
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+    monkeypatch.setattr(owner_ui_session, "get_settings", lambda: settings)
+    app = FastAPI()
+    app.middleware("http")(access_control.operations_access_middleware)
+    owner_ui_session.register_owner_ui_session_routes(app)
+
+    @app.get("/api/health-board")
+    def board():
+        return {"owner": True}
+
+    @app.post("/api/health-board/cache/reset")
+    def reset():
+        return {"owner": True}
+
+    @app.get("/api/site/catalog/v2")
+    def service():
+        return {"service": True}
+
+    client = TestClient(app, base_url="https://fixture.example", client=("82.66.4.247", 53000))
+    headers = {"Cf-Access-Jwt-Assertion": signed()}
+    session = client.get("/api/ui/session", headers=headers)
+    assert session.json() == {"authenticated": True, "provider": "cloudflare_access"}
+    assert "set-cookie" not in session.headers
+    assert client.get("/api/health-board", headers=headers).status_code == 200
+    assert client.get("/api/health-board").status_code == 401
+    assert client.get("/api/health-board", headers={"Cf-Access-Authenticated-User-Email": "owner@example.invalid"}).status_code == 401
+    assert client.get("/api/health-board", headers={"Cf-Access-Jwt-Assertion": signed(sub="", common_name="monitor")}).status_code == 401
+    assert client.get("/api/site/catalog/v2", headers=headers).status_code == 401
+    assert client.post("/api/health-board/cache/reset", headers=headers).status_code == 403
+    assert client.post("/api/health-board/cache/reset", headers={**headers, "Origin": "https://fixture.example", "Sec-Fetch-Site": "same-origin"}).status_code == 200
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "fastapi_cloud")
+    assert client.get("/api/health-board", headers=headers).status_code == 401
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+    settings.homelab_owner_access_sso = False
+    assert client.get("/api/health-board", headers=headers).status_code == 401

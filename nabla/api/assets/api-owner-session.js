@@ -22,6 +22,7 @@ async function sessionCapabilities() {
       return {
         authenticated: status.authenticated === true,
         readOnly: status.readOnlyDiagnostics === true,
+        provider: status.provider === "cloudflare_access" ? "cloudflare_access" : "",
       };
     }, SESSION_DEADLINE_MS).catch(() => ({
       // Fail closed for diagnostic/owner capabilities; the public directory
@@ -57,14 +58,19 @@ export function installOwnerSessionControls(onAuthenticated) {
   form.dataset.ownerSessionInitialized = "1";
 
   let previousAuthentication = null;
-  function update(authenticated, readable = false) {
+  let activeProvider = "";
+  function update(authenticated, readable = false, provider = "") {
+    activeProvider = authenticated ? provider : "";
     state.textContent = authenticated
-      ? "Owner authorized (20 minute session). Use Open detailed diagnostics for service probes."
+      ? (activeProvider === "cloudflare_access"
+          ? "Owner authorized via Cloudflare Access."
+          : "Owner authorized (20 minute session). Use Open detailed diagnostics for service probes.")
       : readable
         ? "Owner locked. Read-only diagnostics permitted; sign in for OWNER access."
         : "Owner locked. Public service status remains available.";
     login.hidden = authenticated;
     logout.hidden = !authenticated;
+    logout.textContent = activeProvider === "cloudflare_access" ? "Sign out of Cloudflare Access" : "Lock diagnostics";
     form.hidden = true;
     input.value = "";
     if (previousAuthentication !== authenticated) {
@@ -87,8 +93,9 @@ export function installOwnerSessionControls(onAuthenticated) {
     const check = ++sessionCheck;
     resetOwnerSessionStatus();
     void Promise.all([ownerSessionAvailable(), diagnosticsReadAvailable()])
-      .then(([authenticated, readable]) => {
-        if (check === sessionCheck && form.hidden) update(authenticated, readable);
+      .then(async ([authenticated, readable]) => {
+        const { provider } = await sessionCapabilities();
+        if (check === sessionCheck && form.hidden) update(authenticated, readable, provider);
       });
   }
   refreshStatus();
@@ -163,6 +170,7 @@ export function installOwnerSessionControls(onAuthenticated) {
     }
   });
   logout.addEventListener("click", async () => {
+    const cloudflare = activeProvider === "cloudflare_access";
     try {
       await fetch("/api/ui/session/logout", {
         method: "POST",
@@ -172,7 +180,8 @@ export function installOwnerSessionControls(onAuthenticated) {
     } finally {
       resetOwnerSessionStatus();
       update(false);
-      window.location.reload();
+      if (cloudflare) window.location.assign("/cdn-cgi/access/logout");
+      else window.location.reload();
     }
   });
 }

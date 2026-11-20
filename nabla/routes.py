@@ -16,7 +16,9 @@ from prometheus_client.openmetrics.exposition import (
 from starlette.routing import Mount
 
 from nabla.api.health_routes import register_health_routes
+from nabla.api.github_webhooks import register_github_webhook_routes
 from nabla.api.owner_ui_session import (
+    cloudflare_ui_owner,
     owner_ui_authenticated,
     register_owner_ui_session_routes,
 )
@@ -232,7 +234,15 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
         }
 
     @app.get("/api", response_class=HTMLResponse)
-    async def read_root(request: Request) -> HTMLResponse:
+    async def read_root(request: Request) -> Response:
+        # Only a verified SSO session may opt in automatically to the rich UI.
+        # Emergency safe mode and an explicit UI preference always win.
+        if not request.query_params and await cloudflare_ui_owner(request, get_settings()):
+            return RedirectResponse(
+                "/api?operator=1&ui_full=1",
+                status_code=307,
+                headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow"},
+            )
         return HTMLResponse(
             render_api_root_page(
                 title_suffix=os.getenv("TITLE_SUFFIX"),
@@ -267,6 +277,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
 
     register_health_routes(app)
     register_owner_ui_session_routes(app)
+    register_github_webhook_routes(app)
 
     @app.exception_handler(Exception)
     def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:

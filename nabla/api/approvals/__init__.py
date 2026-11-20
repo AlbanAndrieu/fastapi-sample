@@ -1,0 +1,1 @@
+"""Operation approval domain."""
