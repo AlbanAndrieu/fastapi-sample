@@ -350,22 +350,27 @@ def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> N
     workflow_text = (ROOT / ".github/workflows/security-zap.yml").read_text(encoding="utf-8")
     workflow = yaml.safe_load(workflow_text)
     triggers = workflow_text.split("jobs:", maxsplit=1)[0]
-    dast_env = workflow["jobs"]["dast"]["env"]
+    # TrueNAS (behind Access) and FastAPI Cloud scan in separate jobs since #448.
+    truenas_env = workflow["jobs"]["dast_truenas"]["env"]
+    cloud_env = workflow["jobs"]["dast_cloud"]["env"]
 
     assert "pull_request:" not in triggers
     assert "workflow_call:" in triggers
     assert "workflow_dispatch:" in triggers
     assert "127.0.0.1" not in workflow_text
     assert "uvicorn" not in workflow_text
-    assert dast_env["TRUENAS_ROOT_URL"] == "https://fastapi-sample.albandrieu.com/"
-    assert dast_env["TRUENAS_API_URL"] == "https://fastapi-sample.albandrieu.com/api"
-    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://fastapi-sample.albandrieu.com/openapi.json"
-    assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
-    assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
-    assert "CF-Access-Client-Id" in workflow_text
-    assert "CF-Access-Client-Secret" in workflow_text
+    assert truenas_env["TRUENAS_ROOT_URL"] == "https://fastapi-sample.albandrieu.com/"
+    assert truenas_env["TRUENAS_API_URL"] == "https://fastapi-sample.albandrieu.com/api"
+    assert truenas_env["TRUENAS_OPENAPI_URL"] == "https://fastapi-sample.albandrieu.com/openapi.json"
+    assert cloud_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
+    assert cloud_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
+    # Access headers are built by the scan helper from the environment secrets, never inlined.
+    assert workflow["jobs"]["dast_truenas"]["environment"] == "dast-truenas"
+    assert "secrets.CF_ACCESS_CLIENT_ID" in workflow_text
+    assert "secrets.CF_ACCESS_CLIENT_SECRET" in workflow_text
+    assert workflow_text.count("scripts/security/zap_access_scan.py") == 4
     assert "Management APIs for pfSense and TrueNAS are intentionally excluded" in workflow_text
-    assert workflow_text.count("fail_action: true") == 5
+    assert workflow_text.count("fail_action: true") == 2
     assert "zap-web-truenas-root" in workflow_text
     assert "zap-web-truenas-api" in workflow_text
     assert "zap-web-fastapi-cloud-api" in workflow_text
