@@ -1,0 +1,230 @@
+"""Explicit operator-only RSS integration. No API endpoint, scheduler or fallback.
+
+The worker must run on TrueNAS. The CLI is read-only and has a separate opt-in.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import hashlib
+import json
+import os
+import re
+from urllib.parse import urlsplit
+
+import httpx
+from redis.exceptions import RedisError
+
+from nabla.integrations.freshrss_greader import recent_public_articles
+from nabla.integrations.rss_relevance import filter_articles
+
+_ALLOWED_PROMPT_HOSTS = {"langfuse.albandrieu.com", "172.17.0.24", "langfuse"}
+_MODEL = "fastapi-qwen"
+_LITELLM = "http://172.17.0.24:4000"
+_BAD_TAGS = {"production", "development", "service", "website", "internal", "active", "managed"}
+
+
+class RSSConfigurationError(RuntimeError):
+    """Safe failure type; never print credentials or upstream responses."""
+
+
+def technology_projection(catalog: object) -> tuple[str, list[str]]:
+    """Accept only the already-sanitized, revision-verified Backstage DTO."""
+    from nabla.api.site_architecture_catalog import SiteArchitectureCatalogV2
+
+    if not isinstance(catalog, SiteArchitectureCatalogV2):
+        raise RSSConfigurationError("Verified Backstage catalog required")
+    names: set[str] = set()
+    for entity in catalog.entities:
+        if entity.kind not in ("Component", "Resource", "System"):
+            continue
+        labels = [entity.metadata.name, *(entity.metadata.tags or [])]
+        for value in labels:
+            if (value not in _BAD_TAGS and
+                    re.fullmatch(r"[a-z0-9][a-z0-9-]{1,63}", value)):
+                names.add(value)
+    selected = sorted(names)[:250]
+    if not selected:
+        raise RSSConfigurationError("No safe technology labels in Backstage catalog")
+    return catalog.catalogRevision, selected
+
+
+def _checked_langfuse_host(value: str) -> None:
+    parsed = urlsplit(value)
+    if (parsed.scheme not in {"http", "https"} or parsed.hostname not in _ALLOWED_PROMPT_HOSTS
+            or parsed.port not in (None, 443, 3000)
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or parsed.path not in ("", "/")
+            or (parsed.scheme == "http" and parsed.hostname not in {"172.17.0.24", "langfuse"})):
+        raise RSSConfigurationError("Private Langfuse endpoint required")
+
+
+async def managed_prompt(name: str, label: str) -> tuple[str, int]:
+    """Fetch a versioned prompt; never use the general fallback-enabled helper."""
+    from nabla.integrations.langfuse_prompts import _langfuse_client
+
+    host = os.getenv("LANGFUSE_BASE_URL", "").strip()
+    _checked_langfuse_host(host)
+    if not os.getenv("LANGFUSE_PUBLIC_KEY") or not os.getenv("LANGFUSE_SECRET_KEY"):
+        raise RSSConfigurationError("Langfuse credentials not configured")
+    try:
+        value = await asyncio.to_thread(
+            lambda: _langfuse_client().get_prompt(name, type="text", label=label, max_retries=1),
+        )
+        prompt, version = value.compile(), value.version
+        if not isinstance(prompt, str) or type(version) is not int or version <= 0:
+            raise RSSConfigurationError("Unversioned Langfuse prompt rejected")
+        return prompt, version
+    except RSSConfigurationError:
+        raise
+    except Exception:
+        raise RSSConfigurationError("Managed Langfuse prompt unavailable") from None
+
+
+async def lite_llm_json(client: httpx.AsyncClient, prompt: str, content: str, *, key: str) -> str:
+    """One bounded TrueNAS LiteLLM chat completion with no tools or provider fallback."""
+    if not key or "\r" in key or "\n" in key:
+        raise RSSConfigurationError("Dedicated LiteLLM virtual key required")
+    request = {
+        "model": _MODEL,
+        "temperature": 0,
+        "max_tokens": 200,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": content},
+        ],
+    }
+    try:
+        async with asyncio.timeout(12):
+            async with client.stream(
+                "POST", _LITELLM + "/v1/chat/completions",
+                json=request,
+                headers={"Authorization": "Bearer " + key, "Accept": "application/json"},
+                follow_redirects=False,
+            ) as response:
+                if response.status_code != 200:
+                    raise RSSConfigurationError("LiteLLM completion unavailable")
+                body = bytearray()
+                async for part in response.aiter_bytes():
+                    if len(body) + len(part) > 8192:
+                        raise RSSConfigurationError("LiteLLM response too large")
+                    body.extend(part)
+        message = json.loads(body)["choices"][0]["message"]["content"]
+        if not isinstance(message, str) or len(message) > 4096:
+            raise RSSConfigurationError("Invalid LiteLLM response")
+        return message
+    except (httpx.HTTPError, TimeoutError, ValueError, KeyError, IndexError, TypeError):
+        raise RSSConfigurationError("LiteLLM response rejected") from None
+
+
+async def run_once() -> list[dict]:
+    """Read-only execution in TrueNAS; no mark-read, no writes or notifications."""
+    from nabla.api.external_probe_cache_redis import resolve_redis_client
+    from nabla.api.runtime_environment import homelab_runtime_detected
+    from nabla.api.site_architecture_catalog import fetch_site_catalog_v2
+    from nabla.config_settings import get_settings
+
+    if not homelab_runtime_detected():
+        raise RSSConfigurationError("RSS inference is TrueNAS-only")
+    settings = get_settings()
+    if settings.litellm_url.strip().rstrip("/") != _LITELLM:
+        raise RSSConfigurationError("LiteLLM must use the reviewed TrueNAS endpoint")
+    key = settings.litellm_api_key.get_secret_value()
+    auth = os.getenv("FRESHRSS_RELEVANCE_AUTH", "").strip()
+    if not auth:
+        raise RSSConfigurationError("Dedicated FreshRSS account not configured")
+    cf_id = os.getenv("FRESHRSS_CF_ACCESS_CLIENT_ID", "").strip()
+    cf_secret = os.getenv("FRESHRSS_CF_ACCESS_CLIENT_SECRET", "").strip()
+    catalog = await fetch_site_catalog_v2()
+    revision, technologies = technology_projection(catalog)
+    redis_cache = resolve_redis_client()
+    prompt_version = 0
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(8), follow_redirects=False, trust_env=False,
+    ) as client:
+        async def fetch() -> list[dict]:
+            return await recent_public_articles(
+                client, auth=auth, cf_access_id=cf_id, cf_access_secret=cf_secret,
+                limit=5,  # cap interactive LiteLLM cost and the 30-second overall deadline
+            )
+
+        async def resolve(name: str, label: str) -> tuple[str, int]:
+            nonlocal prompt_version
+            prompt, prompt_version = await managed_prompt(name, label)
+            return prompt, prompt_version
+
+        def verified_result(raw: str) -> bool:
+            if not isinstance(raw, str) or len(raw) > 4096:
+                return False
+            try:
+                value = json.loads(raw)
+            except ValueError:
+                return False
+            return (
+                isinstance(value, dict)
+                and set(value) == {"relevant", "matched", "reason"}
+                and type(value["relevant"]) is bool
+                and isinstance(value["matched"], list)
+                and len(value["matched"]) <= 250
+                and all(isinstance(t, str) and t in technologies for t in value["matched"])
+                and isinstance(value["reason"], str)
+                and len(value["reason"]) <= 300
+                and (not value["relevant"] or bool(value["matched"]))
+            )
+
+        async def classify(prompt: str, content: str) -> str:
+            # The cache stores only validated, minimal classification JSON.
+            # Key binds model, catalog revision, immutable prompt version+text
+            # and sanitized article metadata; never raw feed IDs or secrets.
+            digest = hashlib.sha256(
+                json.dumps([_MODEL, revision, prompt_version,
+                            hashlib.sha256(prompt.encode()).hexdigest(), content],
+                           separators=(",", ":"), ensure_ascii=False).encode()
+            ).hexdigest()
+            cache_key = "rss:v1:classify:" + digest
+            if redis_cache is not None:
+                try:
+                    async with asyncio.timeout(0.8):
+                        cached = await redis_cache.get(cache_key)
+                    if verified_result(cached):
+                        return cached
+                except (RedisError, TimeoutError, OSError):
+                    pass
+            result = await lite_llm_json(client, prompt, content, key=key)
+            if verified_result(result) and redis_cache is not None:
+                try:
+                    async with asyncio.timeout(0.8):
+                        await redis_cache.set(cache_key, result, ex=86400)
+                except (RedisError, TimeoutError, OSError):
+                    pass
+            return result
+
+        return await filter_articles(
+            catalog_revision=revision, technologies=technologies,
+            fetch_articles=fetch, load_prompt=resolve, classify_litellm=classify,
+        )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Private read-only RSS relevance pilot")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--check", action="store_true", help="Offline configuration contract")
+    group.add_argument("--once", action="store_true", help="One approved TrueNAS read-only run")
+    args = parser.parse_args()
+    if args.check:
+        print("CHECK: FreshRSS GReader + Backstage V2 + Langfuse + LiteLLM contract; no network")
+        return 0
+    if os.getenv("FRESHRSS_RELEVANCE_RUN_APPROVED") != "YES":
+        raise RSSConfigurationError("Explicit read-only RSS run approval required")
+    rows = asyncio.run(run_once())
+    # Only approved, sanitized classification data; no raw feeds or secrets.
+    print(json.dumps({"state": "classified", "count": len(rows), "matches": rows}, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception:  # noqa: BLE001 -- no upstream URL, credential or body in CLI errors
+        raise SystemExit("REJECTED: RSS relevance pilot could not be verified") from None

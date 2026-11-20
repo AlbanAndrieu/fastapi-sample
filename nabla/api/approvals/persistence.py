@@ -52,7 +52,10 @@ def pending_insert(
     ).on_conflict_do_nothing(index_elements=[approvals.c.challenge_sha256])
 
 
-def pending_list(*, limit: int = 50):
+def pending_list(*, limit: int = 50, now: datetime | None = None):
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("invalid page size")
-    return sa.select(approvals).order_by(approvals.c.created_at.desc(), approvals.c.challenge_sha256).limit(limit)
+    return (sa.select(approvals)
+            .where(approvals.c.state == 'pending', approvals.c.expires_at > (now or utc_now()))
+            .order_by(approvals.c.created_at.desc(), approvals.c.challenge_sha256)
+            .limit(limit))

@@ -221,6 +221,10 @@ class _Settings(DatabaseSettings):
         int,
         Field(default=0, ge=0, validation_alias=AliasChoices("GITHUB_WEBHOOK_INSTALLATION_ID")),
     ]
+    operation_approval_read_model_enabled: Annotated[
+        bool,
+        Field(default=False, validation_alias=AliasChoices("OPERATION_APPROVAL_READ_MODEL_ENABLED")),
+    ]
     homelab_owner_access_sso: Annotated[
         bool,
         Field(default=False, validation_alias=AliasChoices("HOMELAB_OWNER_ACCESS_SSO")),
