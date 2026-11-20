@@ -33,6 +33,22 @@ policy, not the runtime trust boundary.
 | `/api/homelab-topology` | design-time nodes and directed relationships |
 | `/api/homelab/health` | detailed platform state and optional provider probes |
 
+### `/sickz` IPv6 negative exposure
+
+Behind the R7000, homelab hosts have public IPv6 addresses (`2a01:e0a:a17:3c01::/64`): no NAT, only
+the Freebox IPv6 firewall and host firewalls keep them closed. `SICKZ_IPV6_TARGETS` lists
+`label=address` pairs (global IPv6 only, others are ignored), set in the FastAPI Cloud environment,
+never in the repository. `/sickz` then reports `ipv6_exposure`:
+
+| `status` | Meaning |
+| --- | --- |
+| `not_exposed` | IPv6 egress works and no HTTP port answered (80, 443, 3100, 8087, 9090, 11434) |
+| `exposed` | at least one port answered: fix the firewall now |
+| `unknown` | this runtime has no IPv6 egress, so a failed probe proves nothing |
+| `not_configured` | `SICKZ_IPV6_TARGETS` is empty |
+
+Use the stable SLAAC address (`ip -6 addr show scope global mngtmpaddr`), not a temporary one.
+
 Missing optional credentials are disabled/skipped unless the integration is
 explicitly enabled and requires them.
 
