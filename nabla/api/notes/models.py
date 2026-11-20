@@ -1,6 +1,6 @@
 import json
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated, Any, Dict
 
 from pydantic import AfterValidator, BaseModel, Field
@@ -10,6 +10,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, false
 from sqlalchemy.orm import declarative_base
 
 from nabla.api.db.database import SessionLocal, engine
+from nabla.api.db.timestamps import ensure_utc, utc_now
 from nabla.api.demo.socket.redis import (
     REDIS_CHANNEL,
     REDIS_NOTES_CHANNEL,
@@ -74,23 +75,6 @@ class Note(Base):
 #     prompt: str = Field(..., min_length=3, max_length=100)
 #     completed: bool = False
 #     created_date: str = datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M")
-
-
-def utc_now() -> datetime:
-    """Return the current instant as a timezone-aware UTC datetime."""
-    return datetime.now(timezone.utc)
-
-
-def ensure_utc(value: datetime) -> datetime:
-    """Normalize a datetime to aware UTC.
-
-    Naive values are legacy rows/payloads written before the timestamptz
-    migration; they are interpreted as UTC, matching the migration's
-    ``AT TIME ZONE 'UTC'`` conversion.
-    """
-    if value.tzinfo is None or value.utcoffset() is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
 
 
 UtcDatetime = Annotated[datetime, AfterValidator(ensure_utc)]

@@ -303,3 +303,8 @@ Incident-specific forensic evidence and recovery procedures remain in
   is the primary TrueNAS Compose file (precedence by default); `build.sh` and
   the Makefile select `docker-compose.yaml` explicitly.
 - [ ] **P2 merge evidence**: for every changed contract, record targeted test,
+
+
+## Convergence des démonstrations Notes
+
+Le sujet Notes ancien est repris sous F15/H20 dans [la roadmap active](engineering-roadmap.md). Ne pas transformer `completed` ou `prompt` en autorisation. Conserver temporairement le CRUD ancien, extraire les primitives partagées et migrer vers des enregistrements d'approbation typés, puis retrait des routes/templates/worker de démonstration après inventaire des consommateurs et recette. Slack F18 réutilise l'outbox future, sans dupliquer un worker.
