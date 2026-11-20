@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import re
 from urllib.parse import urlsplit
 
 import httpx
+from redis.exceptions import RedisError
 
 from nabla.integrations.freshrss_greader import recent_public_articles
 from nabla.integrations.rss_relevance import filter_articles
@@ -50,6 +52,7 @@ def technology_projection(catalog: object) -> tuple[str, list[str]]:
 def _checked_langfuse_host(value: str) -> None:
     parsed = urlsplit(value)
     if (parsed.scheme not in {"http", "https"} or parsed.hostname not in _ALLOWED_PROMPT_HOSTS
+            or parsed.port not in (None, 443, 3000)
             or parsed.username or parsed.password or parsed.query or parsed.fragment
             or parsed.path not in ("", "/")
             or (parsed.scheme == "http" and parsed.hostname not in {"172.17.0.24", "langfuse"})):
@@ -117,6 +120,7 @@ async def lite_llm_json(client: httpx.AsyncClient, prompt: str, content: str, *,
 
 async def run_once() -> list[dict]:
     """Read-only execution in TrueNAS; no mark-read, no writes or notifications."""
+    from nabla.api.external_probe_cache_redis import resolve_redis_client
     from nabla.api.runtime_environment import homelab_runtime_detected
     from nabla.api.site_architecture_catalog import fetch_site_catalog_v2
     from nabla.config_settings import get_settings
@@ -134,20 +138,71 @@ async def run_once() -> list[dict]:
     cf_secret = os.getenv("FRESHRSS_CF_ACCESS_CLIENT_SECRET", "").strip()
     catalog = await fetch_site_catalog_v2()
     revision, technologies = technology_projection(catalog)
+    redis_cache = resolve_redis_client()
+    prompt_version = 0
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(8), follow_redirects=False, trust_env=False,
     ) as client:
         async def fetch() -> list[dict]:
             return await recent_public_articles(
                 client, auth=auth, cf_access_id=cf_id, cf_access_secret=cf_secret,
+                limit=5,  # cap interactive LiteLLM cost and the 30-second overall deadline
+            )
+
+        async def resolve(name: str, label: str) -> tuple[str, int]:
+            nonlocal prompt_version
+            prompt, prompt_version = await managed_prompt(name, label)
+            return prompt, prompt_version
+
+        def verified_result(raw: str) -> bool:
+            if not isinstance(raw, str) or len(raw) > 4096:
+                return False
+            try:
+                value = json.loads(raw)
+            except ValueError:
+                return False
+            return (
+                isinstance(value, dict)
+                and set(value) == {"relevant", "matched", "reason"}
+                and type(value["relevant"]) is bool
+                and isinstance(value["matched"], list)
+                and len(value["matched"]) <= 250
+                and all(isinstance(t, str) and t in technologies for t in value["matched"])
+                and isinstance(value["reason"], str)
+                and len(value["reason"]) <= 300
+                and (not value["relevant"] or bool(value["matched"]))
             )
 
         async def classify(prompt: str, content: str) -> str:
-            return await lite_llm_json(client, prompt, content, key=key)
+            # The cache stores only validated, minimal classification JSON.
+            # Key binds model, catalog revision, immutable prompt version+text
+            # and sanitized article metadata; never raw feed IDs or secrets.
+            digest = hashlib.sha256(
+                json.dumps([_MODEL, revision, prompt_version,
+                            hashlib.sha256(prompt.encode()).hexdigest(), content],
+                           separators=(",", ":"), ensure_ascii=False).encode()
+            ).hexdigest()
+            cache_key = "rss:v1:classify:" + digest
+            if redis_cache is not None:
+                try:
+                    async with asyncio.timeout(0.8):
+                        cached = await redis_cache.get(cache_key)
+                    if verified_result(cached):
+                        return cached
+                except (RedisError, TimeoutError, OSError):
+                    pass
+            result = await lite_llm_json(client, prompt, content, key=key)
+            if verified_result(result) and redis_cache is not None:
+                try:
+                    async with asyncio.timeout(0.8):
+                        await redis_cache.set(cache_key, result, ex=86400)
+                except (RedisError, TimeoutError, OSError):
+                    pass
+            return result
 
         return await filter_articles(
             catalog_revision=revision, technologies=technologies,
-            fetch_articles=fetch, load_prompt=managed_prompt, classify_litellm=classify,
+            fetch_articles=fetch, load_prompt=resolve, classify_litellm=classify,
         )
 
 
@@ -171,5 +226,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (RSSConfigurationError, TimeoutError, ValueError):
+    except Exception:  # noqa: BLE001 -- no upstream URL, credential or body in CLI errors
         raise SystemExit("REJECTED: RSS relevance pilot could not be verified") from None

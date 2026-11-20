@@ -100,3 +100,54 @@ async def test_langfuse_must_be_private_versioned_and_never_fallback(monkeypatch
             return Prompt()
     monkeypatch.setattr("nabla.integrations.langfuse_prompts._langfuse_client", lambda: Client())
     assert await live.managed_prompt("nabla-homelab-rss-relevance", "production") == ("Strict JSON only", 3)
+
+
+
+@pytest.mark.asyncio
+async def test_redis_classification_cache_avoids_repeated_litellm(monkeypatch):
+    class MemoryRedis:
+        def __init__(self):
+            self.data = {}
+            self.ttls = []
+        async def get(self, key):
+            return self.data.get(key)
+        async def set(self, key, value, *, ex):
+            self.data[key] = value
+            self.ttls.append(ex)
+
+    cache = MemoryRedis()
+    network_calls = []
+    def transport(req):
+        network_calls.append(req.method)
+        if req.url.path.endswith("/subscription/list"):
+            return httpx.Response(200, json={"subscriptions": [
+                {"id": "feed/public", "url": "https://security.example.com/feed"}
+            ]})
+        if req.url.path.endswith("/stream/contents/reading-list"):
+            return httpx.Response(200, json={"items": [
+                {"id": "a", "title": "Traefik patch",
+                 "origin": {"streamId": "feed/public"},
+                 "summary": {"content": "CVE patch"}},
+            ]})
+        return httpx.Response(200, json={"choices": [
+            {"message": {"content": '{"relevant":true,"matched":["traefik"],"reason":"Patch"}'}}
+        ]})
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(live.httpx, "AsyncClient", lambda **kw: real_client(
+        transport=httpx.MockTransport(transport), **kw,
+    ))
+    monkeypatch.setattr("nabla.api.runtime_environment.homelab_runtime_detected", lambda: True)
+    from unittest.mock import AsyncMock
+    monkeypatch.setattr("nabla.api.site_architecture_catalog.fetch_site_catalog_v2",
+                        AsyncMock(return_value=catalog()))
+    monkeypatch.setattr("nabla.config_settings.get_settings", lambda: SimpleNamespace(
+        litellm_url="http://172.17.0.24:4000", litellm_api_key=SecretStr("unit-key"),
+    ))
+    monkeypatch.setattr("nabla.api.external_probe_cache_redis.resolve_redis_client", lambda: cache)
+    monkeypatch.setattr(live, "managed_prompt", AsyncMock(return_value=("strict", 2)))
+    monkeypatch.setenv("FRESHRSS_RELEVANCE_AUTH", "unit-auth")
+    assert len(await live.run_once()) == 1
+    assert len(await live.run_once()) == 1
+    assert network_calls.count("POST") == 1
+    assert cache.ttls == [86400]
+    assert all(key.startswith("rss:v1:classify:") for key in cache.data)
