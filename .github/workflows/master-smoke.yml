@@ -156,95 +156,26 @@ jobs:
             end)
           ' "${RUNNER_TEMP}/runtime-topology.json" >/dev/null
 
-      - name: Check production pfSense observability
+      - name: Check retired pfSense and Freebox observer contract
         shell: bash
         env:
           PRODUCTION_SMOKE_ACCESS_KEY: ${{ secrets.PRODUCTION_SMOKE_ACCESS_KEY }}
         run: |
           set -euo pipefail
+          curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            --header "X-Smoke-Key: ${PRODUCTION_SMOKE_ACCESS_KEY}" \
+            "${PRODUCTION_ROOT_URL}/healthz" > "${RUNNER_TEMP}/healthz.json"
 
-          fetch_json() {
-            local url="$1"
-            local output="$2"
-            curl --fail --silent --show-error \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --retry 3 \
-              --retry-delay 5 \
-              --retry-all-errors \
-              --header "X-Smoke-Key: ${PRODUCTION_SMOKE_ACCESS_KEY}" \
-              "${url}" >"${output}"
-          }
-
-          fetch_json "${PRODUCTION_ROOT_URL}/healthz" "${RUNNER_TEMP}/healthz.json"
-          fetch_json "${PRODUCTION_API_URL}/homelab/health" "${RUNNER_TEMP}/homelab-health.json"
-          fetch_json "${PRODUCTION_API_URL}/homelab/status" "${RUNNER_TEMP}/homelab-status.json"
-
-          # FastAPI Cloud is a transport-only pfSense observer: WAN TCP/10443
-          # only accepts PFSENSE_ADMIN_WAN (nabla-compose
-          # docs/pfsense-wan-exposure-roadmap.md) and authenticated pfSense
-          # probes run on the TrueNAS LAN observer. The smoke accepts that
-          # explicit transport-only contract; an authenticated run must still
-          # succeed, and a confirmed authentication rejection fails the smoke.
+          # Cloud is not a Freebox-LAN vantage: no direct router requests.
+          # No pfSense calls may be made after NETWORK_EDGE_PROVIDER=freebox.
           jq -e '
-            (
-              .checks.pfsense.credential_mode == "disabled" and
-              .checks.pfsense.authenticated_probes_enabled == false and
-              .checks.pfsense.observation_mode == "transport_only" and
-              .checks.pfsense.skipped == true and
-              .checks.pfsense.reachable == null and
-              .checks.pfsense.status_confirmed == false and
-              .checks.pfsense.state == "unknown" and
-              .checks.pfsense.degraded == false and
-              .checks.pfsense.vantage_point == "fastapi_cloud"
-            ) or
-            .checks.pfsense.credential_mode == "dedicated_posture" and
-            (
-              (
-                .checks.pfsense.reachable == true and
-                .checks.pfsense.api_authenticated == true and
-                .checks.pfsense.status_confirmed == true and
-                .checks.pfsense.state == "ok" and
-                (.checks.pfsense.http_status >= 200 and .checks.pfsense.http_status < 300)
-              ) or
-              (
-                .checks.pfsense.reachable == null and
-                .checks.pfsense.state == "unknown" and
-                .checks.pfsense.status_confirmed == false and
-                .checks.pfsense.degraded == false and
-                .checks.pfsense.vantage_point == "fastapi_cloud" and
-                (.checks.pfsense.error_kind | type == "string" and length > 0) and
-                (.checks.pfsense.failure_stage | type == "string" and length > 0) and
-                (.checks.pfsense.warning | type == "string" and startswith("⚠️"))
-              )
-            )
+            .checks.pfsense.skipped == true and
+            .checks.pfsense.credential_mode == "disabled" and
+            .checks.pfsense.reachable == null and
+            .checks.freebox.skipped == true and
+            .checks.freebox.vantage_point == "fastapi_cloud" and
+            .checks.freebox.reachable == null and
+            .checks.freebox.status_confirmed == false
           ' "${RUNNER_TEMP}/healthz.json" >/dev/null
-
-          jq -e '
-            .providerCredentials.pfsense.configured == true and
-            .providerCredentials.pfsense.credential_mode == "dedicated" and
-            .providerCredentials.pfsense_security.configured == true and
-            .providerCredentials.pfsense_security.credential_mode == "dedicated"
-          ' "${RUNNER_TEMP}/homelab-status.json" >/dev/null
-
-          # Post-deploy smoke stays strict: stale data needs last-success evidence.
-          jq -e --slurpfile healthz "${RUNNER_TEMP}/healthz.json" '
-            (.pfsense.dns.security_filters | type == "array" and length > 0) and
-            (.pfsense.dns.ingress_block | type == "object") and
-            (.pfsense.dns.ingress_block.state as $state |
-              ["clear", "blocked", "attribution_unavailable", "telemetry_stale", "telemetry_unavailable", "telemetry_disabled"] | index($state) != null) and
-            (if .pfsense.dns.ingress_block.state == "telemetry_stale" then
-              .pfsense.dns.ingress_block.stale == true and
-              .pfsense.dns.ingress_block.attribution_available == false and
-              (.pfsense.dns.ingress_block.last_success_at | type == "string" and length > 0)
-            elif .pfsense.dns.ingress_block.state == "telemetry_disabled" then
-              .pfsense.dns.ingress_block.telemetry_available == false and
-              .pfsense.dns.ingress_block.attribution_available == false and
-              .pfsense.dns.ingress_block.control_path.mode == "disabled" and
-              $healthz[0].checks.pfsense.credential_mode == "disabled"
-            elif .pfsense.dns.ingress_block.state == "telemetry_unavailable" then
-              .pfsense.dns.ingress_block.telemetry_available == false and
-              (.pfsense.dns.ingress_block.failure_stage | type == "string" and length > 0) and
-              (.pfsense.dns.ingress_block.error_kind | type == "string" and length > 0)
-            else true end)
-          ' "${RUNNER_TEMP}/homelab-health.json" >/dev/null
