@@ -258,6 +258,11 @@ class _Settings(DatabaseSettings):
             validation_alias=AliasChoices("SICKZ_TARGETS"),
         ),
     ]
+    # label=address pairs (global IPv6) that must stay unreachable from this runtime.
+    sickz_ipv6_targets: Annotated[
+        str,
+        Field(default="", validation_alias=AliasChoices("SICKZ_IPV6_TARGETS")),
+    ]
     sickz_internal_network: Annotated[
         bool,
         Field(default=False, validation_alias=AliasChoices("SICKZ_INTERNAL_NETWORK")),
