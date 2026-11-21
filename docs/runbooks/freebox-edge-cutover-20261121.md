@@ -30,14 +30,28 @@ configured as a public Internet target.
 
 ## Next LAN evidence and credentials
 
-The existing `nabla-compose/scripts/pfsense/freebox-edge.py check` supports
-more detailed Freebox OS inspection. A read-only inventory of WAN mode/link,
-IPv4/IPv6, connection uptime, LAN DHCP and DNS can be added after the
-**Freebox OS App authorization** has been approved locally. This requires
-a **dedicated Freebox app_token**, acquired through Freebox OS and stored in
-Vaultwarden, not the administrator password. Do not inject the token into
-GitHub Actions, a public FastAPI Cloud process, or a browser. The current
-Freebox discovery probe deliberately uses no credential.
+**Reuse the already-authorized `Nabla edge` Freebox OS App** from
+`nabla-compose` (`app_id=fr.nabla.edge`), not a new Freebox App.
+The original `scripts/pfsense/freebox-edge.py` uses its existing
+`FREEBOX_APP_TOKEN` Vaultwarden item, Freebox-pinned HTTPS CA and Freebox
+session challenge for bounded authenticated read-only checks of WAN mode/link,
+IPv4/IPv6, LAN DHCP and DNS. The user confirmed that this App is authorized.
+
+On a trusted LAN workstation with an unlocked Vaultwarden session, perform
+a **read-only** acceptance:
+```bash
+# Repo: nabla-compose. Secret is consumed locally, never printed.
+FREEBOX_APP_TOKEN="$(bw get password FREEBOX_APP_TOKEN)" \
+  python3 scripts/pfsense/freebox-edge.py check --expect-mode router
+```
+
+Before considering FastAPI integration, export only *redacted* observations
+from the existing trusted Compose collector to Prometheus/TrueNAS, then have
+FastAPI consume those observations with provenance, TTL and unknown/stale
+states. Do not duplicate the high-privilege Freebox App token in a public-facing
+FastAPI service, GitHub Actions, FastAPI Cloud or a browser. The current
+FastAPI LAN discovery uses no credentials and is not a substitute for the
+existing `nabla-compose` authenticated check.
 
 Validation after deployment:
 
