@@ -54,7 +54,6 @@ def test_backstage_entity_ref_rejects_ambiguous_or_noncanonical_refs(
         BackstageEntityRef.model_validate(value)
 
 
-
 def test_backstage_entity_ref_rejects_oversized_namespace_or_name() -> None:
     with pytest.raises(ValidationError):
         BackstageEntityRef.model_validate(f"component:{'n' * 64}/service")
@@ -71,6 +70,7 @@ def test_backstage_entity_ref_rejects_oversized_namespace_or_name() -> None:
         ("binding_conflict", "False", "BindingConflict"),
         ("runtime_unknown", "Unknown", "RuntimeUnavailable"),
         ("not_observed", "Unknown", "ObservationNotApplicable"),
+        ("on_demand", "True", "ComposeProfile"),
     ],
 )
 def test_reconciliation_condition_is_kubernetes_style(
