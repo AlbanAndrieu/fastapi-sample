@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Request
 from starlette.responses import JSONResponse
 
@@ -15,6 +17,8 @@ def api_version(request: Request) -> dict[str, object]:
         "api_version": API_VERSION,
         "release_version": RELEASE_VERSION,
         "build_revision": BUILD_REVISION or None,
+        # F01 owner decision (21/11): FastAPI Cloud provides no Git SHA; correlate by its deployment id.
+        "deployment_id": os.getenv("FASTAPICLOUD_DEPLOYMENT_ID", "").strip() or None,
         "service": "fastapi-sample",
         "mcp": {
             "transport": "streamable-http",
