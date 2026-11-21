@@ -435,6 +435,17 @@ async def observe_pfsense_dns_posture(
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
     """Return cached posture plus egress-specific Snort/PF evidence."""
+    from nabla.api.edge_provider import pfsense_retired
+    if pfsense_retired():
+        return {
+            **transport_only_posture(
+                pfsense_api_configuration_status(),
+                _unauthenticated_filters(dict(TELEMETRY_DISABLED_INGRESS)),
+            ),
+            "configured": False,
+            "reason": "pfSense retired; Freebox is the active network edge",
+            "operational_state": "disabled",
+        }
     if settings is None and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
         return transport_only_posture(
             pfsense_api_configuration_status(),
