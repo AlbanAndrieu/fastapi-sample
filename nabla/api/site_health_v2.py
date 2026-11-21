@@ -36,7 +36,7 @@ class SiteHealthV2(BaseModel):
     services: list[SiteHealthServiceV2] = Field(max_length=2000)
 
 
-def _verified_state(row: object, snapshot_age_seconds: float = 0.0) -> State:
+def _verified_state(row: object, snapshot_age_seconds: float = 0.0, *, require_age_evidence: bool = False) -> State:
     if not isinstance(row, dict):
         return "unknown"
     if row.get("observation_stale") is True or row.get("probe_stale") is True:
@@ -50,6 +50,9 @@ def _verified_state(row: object, snapshot_age_seconds: float = 0.0) -> State:
             return "unknown"
         if limit <= 0 or age + snapshot_age_seconds >= limit:
             return "unknown"
+    elif require_age_evidence:
+        # A stale snapshot can only vouch for rows that carry their own probe clock.
+        return "unknown"
     state = row.get("effective_state") or row.get("state")
     return state if state in ("ok", "warn", "fail", "scheduled") else "unknown"
 
@@ -67,8 +70,12 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
     homelab = board.get("homelab")
     rows = homelab.get("services") if isinstance(homelab, dict) else None
     rows = rows if isinstance(rows, list) else []
-    if board_state != "fresh":
+    if board_state == "pending":
         return board_state, {}
+    # A stale snapshot (expired cache TTL, refresh pending) keeps each row only
+    # while its own probe is younger than its stale-after limit, advanced by the
+    # snapshot age; rows without that evidence stay UNKNOWN. Dropping every row
+    # at TTL expiry blanked the whole board between two refreshes.
 
     raw_age = board.get("age_seconds")
     snapshot_age_seconds = max(0.0, float(raw_age)) if isinstance(raw_age, (int, float)) and not isinstance(raw_age, bool) and math.isfinite(raw_age) else 0.0
@@ -84,7 +91,8 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
             duplicates.add(key)
         else:
             by_id[key] = row
-    return board_state, {key: _verified_state(row, snapshot_age_seconds) for key, row in by_id.items() if key not in duplicates}
+    require_age = board_state == "stale"
+    return board_state, {key: _verified_state(row, snapshot_age_seconds, require_age_evidence=require_age) for key, row in by_id.items() if key not in duplicates}
 
 
 def project_site_health_v2(

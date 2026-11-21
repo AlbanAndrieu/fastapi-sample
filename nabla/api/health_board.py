@@ -7,6 +7,7 @@ import asyncio
 from collections.abc import Awaitable
 from copy import deepcopy
 import logging
+import math
 import time
 from typing import Any
 
@@ -570,8 +571,6 @@ async def peek_public_health_board_snapshot(request: Request | None = None) -> d
         age = time.monotonic() - _cached_at
         cloud = request is not None and fastapi_cloud_runtime_detected(request.url.hostname)
         ttl = max(_ttl_seconds(), _CLOUD_CACHE_MIN_TTL_SECONDS) if cloud else _ttl_seconds()
-        if age >= ttl:
-            return {"state": "stale"}
         homelab = snapshot.get("homelab")
         rows = homelab.get("services") if isinstance(homelab, dict) else None
         public_rows = []
@@ -590,9 +589,15 @@ async def peek_public_health_board_snapshot(request: Request | None = None) -> d
                             "probe_stale",
                         )
                         if key in item and isinstance(item[key], (str, bool))
+                    }
+                    | {
+                        # Probe clocks let a stale snapshot expire row by row (site_health_v2).
+                        key: item[key]
+                        for key in ("probe_age_seconds", "probe_stale_after_seconds")
+                        if isinstance(item.get(key), (int, float)) and not isinstance(item[key], bool) and math.isfinite(item[key])
                     },
                 )
-    return {"state": "fresh", "homelab": {"services": public_rows}}
+    return {"state": "fresh" if age < ttl else "stale", "age_seconds": round(age, 3), "homelab": {"services": public_rows}}
 
 
 async def reset_health_board_cache() -> None:

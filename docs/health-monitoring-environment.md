@@ -52,6 +52,24 @@ Use the stable SLAAC address (`ip -6 addr show scope global mngtmpaddr`), not a 
 Missing optional credentials are disabled/skipped unless the integration is
 explicitly enabled and requires them.
 
+## External audit: which observer answers what
+
+A scheduled audit outside the LAN must not read a 4xx or an all-UNKNOWN board
+as an outage:
+
+| Question | Source | Anonymous result (expected) |
+| --- | --- | --- |
+| Liveness and release | `/livez`, `/v2/version` on both observers | `200` |
+| Deployed SHA | `/v2/version.build_revision` | TrueNAS: set; FastAPI Cloud: `null`, the platform deploys from Git without a stamped revision |
+| Per-service state | `GET /api/site/health/v2` on the **TrueNAS** observer, `X-Diagnostics-Key` (SERVICE, no CIDR) behind a Cloudflare Access service token | `401` without the key |
+| Dependency detail | `/readyz`, `/healthz`, `/api/health-board` | `401`: OWNER key **and** trusted CIDR since #447, so LAN or Workstation only |
+
+FastAPI Cloud cannot probe the homelab and its anonymous reads are passive: its
+`boardState` is `stale` or `pending` most of the time, by design. Only the
+TrueNAS observer refreshes the board. A `stale` board keeps each row while its
+own probe clock (`probe_age_seconds` + board age) is below
+`probe_stale_after_seconds`; rows without that evidence are UNKNOWN.
+
 ## Diagnostics access key
 
 To protect service inventory, topology and detailed health endpoints, configure:
