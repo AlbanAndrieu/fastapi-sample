@@ -747,6 +747,7 @@ test("resource heatmap exposes only fresh evidence and retains missing versus ze
       beta: {
         cpu_cores: 1,
         memory_bytes: 209715200,
+        zfs_dataset_bytes: 2147483648,
         network_bytes_per_second: 0,
       },
       gamma: { memory_bytes: null },
@@ -757,7 +758,13 @@ test("resource heatmap exposes only fresh evidence and retains missing versus ze
   assert.equal(matrix.declaredServices, 3);
   assert.deepEqual(
     matrix.dimensions.map((cell) => cell.key),
-    ["cpu_cores", "memory_bytes", "fs_bytes", "network_bytes_per_second"],
+    [
+      "cpu_cores",
+      "memory_bytes",
+      "fs_bytes",
+      "network_bytes_per_second",
+      "zfs_dataset_bytes",
+    ],
   );
   const beta = matrix.rows.find((row) => row.name === "beta");
   const alpha = matrix.rows.find((row) => row.name === "alpha");
@@ -768,6 +775,8 @@ test("resource heatmap exposes only fresh evidence and retains missing versus ze
   assert.equal(alpha.cells[2].relativePercent, null);
   assert.equal(beta.cells[3].value, 0);
   assert.equal(beta.cells[3].relativePercent, 0);
+  assert.equal(beta.cells[4].value, 2);
+  assert.equal(alpha.cells[4].value, null);
   assert.equal(
     projectResourceHeatmap({ ...source, state: "unavailable" }, NOW),
     null,

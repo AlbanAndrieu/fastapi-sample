@@ -87,6 +87,8 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
             result = [_sample("", "2048", **{label: "fastapi-sample"})]
         elif "container_network_transmit_bytes_total" in query:
             result = [_sample("", "1024", **{label: "fastapi-sample"})]
+        elif "node_filesystem_avail_bytes" in query:
+            result = [_sample("", "4096", mountpoint="/mnt/cpool/fastapi-sample", fstype="zfs")]
         else:
             result = [
                 _sample("nabla:network_flow:pfsense_bytes_per_second", "8192"),
@@ -114,6 +116,8 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
     assert result["resources"]["fastapi-sample"]["cpu_cores"] == 0.4
     assert result["resources"]["fastapi-sample"]["fs_bytes"] == 157286400.0
     assert result["resources"]["fastapi-sample"]["network_bytes_per_second"] == 3072.0
+    assert result["resources"]["fastapi-sample"]["zfs_dataset_bytes"] == 4096.0
+    assert result["storage_source"] == "truenas_node_filesystem"
     assert result["network_flow"]["pfsense_bytes_per_second"] == 8192.0
     assert result["edge_bandwidth"] == {}
     assert result["edge_bandwidth_state"] == "unattributed"
@@ -181,3 +185,17 @@ def test_topology_telemetry_owner_can_fetch_bounded_projection(monkeypatch) -> N
     assert response.status_code == 200
     assert response.headers["cache-control"] == "private, no-store"
     assert response.json()["resources"]["sample"]["cpu_cores"] == 0
+
+
+def test_zfs_dataset_maps_to_the_service_named_by_its_mountpoint() -> None:
+    """F07 owner decision: /mnt/cpool/<service> belongs to catalog service <service>."""
+    result = _resource_values(
+        {
+            "zfs_dataset_bytes": [
+                _sample("", "63233589248", mountpoint="/mnt/cpool/nexus"),
+                _sample("", "1", mountpoint="/mnt/cpool/nexus/nested"),
+                _sample("", "1", mountpoint="/mnt/other/nexus"),
+            ],
+        },
+    )
+    assert result == {"nexus": {"zfs_dataset_bytes": 63233589248.0}}
