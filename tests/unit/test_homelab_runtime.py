@@ -293,6 +293,7 @@ async def test_status_matches_declared_service_by_container_service(
         "bindingConflicts": 0,
         "runtimeUnknown": 0,
         "notObserved": 0,
+        "onDemand": 0,
         "observedOnly": 0,
         "hasDrift": False,
     }
@@ -475,3 +476,61 @@ async def test_catalog_membership_drift_flags_uptime_kuma_contract_split(
             "topology": True,
         },
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("profiles", "observed", "state", "has_drift"),
+    [
+        (["security"], False, "on_demand", False),
+        (["security"], True, "in_sync", False),
+        (None, False, "declared_only", True),
+    ],
+)
+async def test_compose_profile_turns_an_unobserved_service_into_on_demand(
+    monkeypatch,
+    profiles,
+    observed,
+    state,
+    has_drift,
+) -> None:
+    service = {
+        "id": "opensearch-security",
+        "name": "OpenSearch security",
+        "kind": "service",
+        "category": "security",
+        "sourcePath": "apps/opensearch/compose.yml",
+        "runtime": {"provider": "truenas-app", "appId": "opensearch", "containerService": "opensearch-security"},
+    }
+    if profiles is not None:
+        service["composeProfiles"] = profiles
+    catalog = DeclaredServiceCatalog.model_validate(
+        {"version": 1, "catalogRevision": "sha256:" + "a" * 64, "topologyVersion": 1, "name": "test", "services": [service]},
+    )
+    workloads = {"container_details": [{"service_name": "opensearch-security", "state": "running"}]} if observed else {}
+    runtime = TrueNASRuntimeSnapshot(
+        observed_at="2026-11-21T02:00:00Z",
+        configured=True,
+        reachable=True,
+        apps=[_observed_app({"id": "opensearch", "state": "RUNNING", "active_workloads": workloads})] if observed else [],
+    )
+
+    async def fake_catalog():
+        return catalog
+
+    async def fake_runtime():
+        return runtime
+
+    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
+    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
+    monkeypatch.setattr("nabla.api.homelab_runtime._catalog_membership_drift", _no_catalog_membership_drift)
+
+    payload = await build_homelab_status_payload()
+
+    assert payload["services"][0]["reconciliation"] == state
+    summary = payload["driftSummary"]
+    assert summary["hasDrift"] is has_drift
+    assert summary["onDemand"] == (state == "on_demand")
+    assert summary["declaredOnly"] == (state == "declared_only")
+    if state == "on_demand":
+        assert payload["services"][0]["conditions"][0]["reason"] == "ComposeProfile"

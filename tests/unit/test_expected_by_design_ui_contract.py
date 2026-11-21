@@ -16,7 +16,13 @@ def test_expected_state_logic_is_hermetic() -> None:
     if shutil.which("node") is None:
         pytest.skip("Node.js unavailable")
     process = subprocess.run(
-        ["node", "--test", str(ROOT / "tests/js/expected-by-design.test.mjs")],
+        [
+            "node",
+            "--test",
+            str(ROOT / "tests/js/expected-by-design.test.mjs"),
+            # 16/11: a skipped (blue) check must not be counted as Degraded.
+            str(ROOT / "tests/js/service-row-status.test.mjs"),
+        ],
         capture_output=True,
         text=True,
         check=False,

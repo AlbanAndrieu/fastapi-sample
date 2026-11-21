@@ -168,6 +168,12 @@ class _Settings(DatabaseSettings):
             validation_alias=AliasChoices("DIAGNOSTICS_ACCESS_KEY"),
         ),
     ]
+    # Post-deploy CI smoke only: GET/HEAD on a fixed route list, never the owner key.
+    production_smoke_access_key: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(default=None, validation_alias=AliasChoices("PRODUCTION_SMOKE_ACCESS_KEY")),
+    ]
     metrics_scrape_key: Annotated[
         Optional[SecretStr],
         BeforeValidator(_unset_empty_env),

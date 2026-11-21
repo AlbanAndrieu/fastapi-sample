@@ -165,7 +165,7 @@ function postureAtRisk(check) {
   return policy === "warn" || policy === "fail";
 }
 
-function rowStatus(row, check = {}) {
+export function rowStatus(row, check = {}) {
   if (normalize(check?.effective_state || check?.state) === "scheduled")
     return "Scheduled";
   // Planned or disabled App that does not answer: grey, never an outage.
@@ -200,6 +200,9 @@ function rowStatus(row, check = {}) {
   }
   if (localState === "ok") return "Operational";
   if (atRisk) return "At risk";
+  // Not probed from this vantage (LAN skip) or integration not configured:
+  // no evidence either way, never a degradation.
+  if (check?.skipped === true) return "Unknown";
 
   const severity = rowSeverity(row);
   if (severity === 0) return "Down";

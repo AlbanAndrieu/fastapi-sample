@@ -253,3 +253,15 @@ async def test_public_probes_do_not_inherit_ambient_http_proxy(monkeypatch) -> N
 
     await homelab_health.build_homelab_health_payload()
     assert any(options.get("trust_env") is False and options.get("follow_redirects") is False for options in client_options)
+
+
+def test_lan_runtime_never_probes_a_private_int_name_from_outside() -> None:
+    # F14 (16/11): hello.int resolved privately on TrueNAS and the public probe said warn.
+    hello = v2_service("hello-nginx", "https://hello.int.albandrieu.com", public=True, edge="direct", backend=("172.17.0.24", 8099))
+    gatus = v2_service("gatus", "https://gatus.albandrieu.com", public=True)
+
+    lan = homelab_health.public_probe_candidates([hello, gatus], lan_vantage=True)
+    cloud = homelab_health.public_probe_candidates([hello, gatus], lan_vantage=False)
+
+    assert [item.service_id for item in lan] == ["gatus"]
+    assert [item.service_id for item in cloud] == ["hello-nginx", "gatus"]
