@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.39.0...1.40.0) (2026-11-21)
+
+
+### Features
+
+* **sickz:** probe homelab IPv6 addresses for negative exposure ([#451](https://github.com/AlbanAndrieu/fastapi-sample/issues/451)) ([bb2fcb1](https://github.com/AlbanAndrieu/fastapi-sample/commit/bb2fcb1c0a37c63554f462f7a2fa18eaf839dd4a))
+
 # [1.39.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.2...1.39.0) (2026-11-20)
 
 
