@@ -127,6 +127,33 @@ jobs:
           scanners: secret
           exit-code: "0"
 
+      # Security triage only: bounded dependency basename and fixed rule family.
+      # Never print Trivy Match, Code, message, raw target, URL or JSON report.
+      # The actual secrets gate below still FAILS CLOSED with any finding.
+      - name: Summarize private Trivy rule families without secret evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -r '
+            (.Results // [])[]?
+            | (if (.Target | type) == "string" then .Target else "" end) as $target
+            | (if ($target | contains("site-packages/")) then
+                ($target | split("site-packages/")[1] | split("/")[0])
+              else "other" end) as $candidate
+            | (if ($candidate | test("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")) then
+                $candidate
+              else "other" end) as $package
+            | (.Secrets // [])[]?
+            | (if (.RuleID | type) == "string" then .RuleID else "" end) as $rule
+            | (if ($rule | test("github"; "i")) then "github"
+              elif ($rule | test("aws"; "i")) then "aws"
+              elif ($rule | test("private.key"; "i")) then "private_key"
+              elif ($rule | test("token"; "i")) then "token"
+              elif ($rule | test("password"; "i")) then "password"
+              else "other" end) as $category
+            | [$package, $category] | @tsv
+          ' trivy-secrets-private.json | LC_ALL=C sort | uniq -c
+
       - name: Gate private Trivy secrets without publication
         run: python3 scripts/security/validate_trivy_handoff.py trivy-secrets-private.json
 

@@ -64,6 +64,22 @@ def test_publication_guard():
     assert workflow.index("validate_trivy_handoff.py") < workflow.index("trivy convert")
 
 
+def test_docker_trivy_triage_is_metadata_only_and_fail_closed():
+    workflow = (ROOT / ".github/workflows/docker-build.yml").read_text()
+    first = workflow.index("Summarize private Trivy rule families without secret evidence")
+    second = workflow.index("Gate private Trivy secrets without publication", first)
+    snippet = workflow[first:second]
+    assert "RuleID" in snippet
+    assert "site-packages/" in snippet
+    assert "Match," not in snippet
+    assert ".Match" not in snippet
+    assert ".Code" not in snippet
+    assert ".Message" not in snippet
+    assert ".Target |" in snippet
+    assert 'test("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")' in snippet
+    assert "validate_trivy_handoff.py trivy-secrets-private.json" in workflow[second:]
+
+
 def test_private_evidence_diagnostics_never_expose_matches(tmp_path):
     report = tmp_path / "trivy.json"
     report.write_text(
