@@ -3,6 +3,11 @@ name: OWASP ZAP Web and API
 
 on:
   workflow_call:
+    secrets:
+      CF_ACCESS_CLIENT_ID:
+        required: false
+      CF_ACCESS_CLIENT_SECRET:
+        required: false
   workflow_dispatch:
 
 permissions:
