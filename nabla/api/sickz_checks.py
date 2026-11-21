@@ -320,10 +320,18 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
             "Home LAN skip would apply but a cloud/PaaS runtime was detected; sickz probes still run.",
         )
 
-    groups = ensure_pfsense_group(
-        parse_sickz_target_groups(settings.sickz_targets) + homelab_groups,
-        default_targets=_default_sickz_targets_value(),
-    )
+    from nabla.api.edge_provider import pfsense_retired
+
+    configured_groups = parse_sickz_target_groups(settings.sickz_targets) + homelab_groups
+    if pfsense_retired():
+        # Retire pfSense WAN/HAProxy exposure probes without deleting the
+        # historical implementation. Do not probe Freebox private IP from PaaS.
+        groups = [group for group in configured_groups if pfsense_canonical_href(group) is None]
+    else:
+        groups = ensure_pfsense_group(
+            configured_groups,
+            default_targets=_default_sickz_targets_value(),
+        )
     if _internal_network_effective(settings):
         return {
             "checks": _internal_skip_checks(groups, row_maps),

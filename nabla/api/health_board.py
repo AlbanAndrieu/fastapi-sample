@@ -171,7 +171,7 @@ async def _build_homelab_snapshot(
     else:
         _enter_stage(progress, "probes")
         homelab = await homelab_task
-        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
+        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "freebox", "pfsense")}
         components["truenas"] = truenas_component(homelab)
     _enter_stage(progress, "reconciliation_context")
     reconciliation_context_value = context_awaitable if isinstance(context_awaitable, dict) else await context_awaitable
@@ -182,7 +182,18 @@ async def _build_homelab_snapshot(
         shared_checks=components,
     )
     _enter_stage(progress, "complete")
-    components["unbound"] = pfsense_unbound_component(payload)
+    from nabla.api.edge_provider import pfsense_retired
+    components["unbound"] = (
+        {
+            "reachable": None,
+            "state": "unknown",
+            "skipped": True,
+            "critical": False,
+            "reason": "pfSense Unbound retired; monitor the current LAN DNS separately",
+        }
+        if pfsense_retired()
+        else pfsense_unbound_component(payload)
+    )
     payload["components_status"] = component_status(components)
     payload["components"] = components
     payload["provider_credentials"] = infrastructure_provider_credentials()

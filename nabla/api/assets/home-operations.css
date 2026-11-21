@@ -681,13 +681,13 @@ button {
   overflow-x: auto;
 }
 .op-heatmap {
-  min-width: 560px;
+  min-width: 660px;
   display: grid;
   gap: 5px;
 }
 .op-heatmap-row {
   display: grid;
-  grid-template-columns: minmax(100px, 1.5fr) repeat(4, minmax(83px, 1fr));
+  grid-template-columns: minmax(100px, 1.5fr) repeat(5, minmax(83px, 1fr));
   align-items: stretch;
   gap: 5px;
   font-size: 11px;

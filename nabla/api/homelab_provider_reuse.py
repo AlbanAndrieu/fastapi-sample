@@ -125,10 +125,15 @@ async def platform_checks_from_reconciliation_context(
     if pfsense_check is None:
         pfsense_check = await get_pfsense_api_snapshot()
 
-    return {
+    result = {
         "cloudflare": cloudflare_check,
         "pfsense": pfsense_check,
     }
+    from nabla.api.edge_provider import pfsense_retired
+    if pfsense_retired():
+        from nabla.api.freebox_health import check_freebox_api
+        result["freebox"] = await check_freebox_api()
+    return result
 
 
 __all__ = [

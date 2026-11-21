@@ -255,6 +255,7 @@
                 <option value="memory_bytes">Mémoire active (MiB)</option>
                 <option value="cpu_cores">CPU consommé (cœurs)</option>
                 <option value="fs_bytes">Système de fichiers conteneur (MiB)</option>
+                <option value="zfs_dataset_bytes">Dataset ZFS du service (GiB)</option>
                 <option value="network_bytes_per_second">Débit RX + TX (KiB/s)</option>
               </select>
               <p class="op-correlation-footnote" id="home-footprint-source">En attente de mesures récentes.</p>
@@ -269,10 +270,15 @@
                 <p>12 services maximum · intensités relatives par colonne</p>
               </div>
               <label class="op-field-label" for="home-resource-heatmap-sort">Classer les services par</label>
-              <select id="home-resource-heatmap-sort" class="op-select" aria-label="Classer les services de la carte thermique">
+              <select
+                id="home-resource-heatmap-sort"
+                class="op-select"
+                aria-label="Classer les services de la carte thermique"
+              >
                 <option value="memory_bytes">Mémoire active (RAM)</option>
                 <option value="cpu_cores">CPU consommé</option>
                 <option value="fs_bytes">FS conteneur</option>
+                <option value="zfs_dataset_bytes">Dataset ZFS</option>
                 <option value="network_bytes_per_second">Débit réseau RX + TX</option>
               </select>
               <p class="op-correlation-footnote" id="home-resource-heatmap-source">Aucune mesure privée vérifiée</p>

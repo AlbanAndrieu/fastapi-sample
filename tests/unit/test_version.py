@@ -43,3 +43,10 @@ def test_version_endpoint_exposes_api_release_and_mcp_metadata():
     assert payload["mcp"]["openapi_endpoint"] == "/openapi.json"
     assert payload["mcp"]["api_ui"] == "/api"
     assert payload["knowledge"]["alban_profile"] == "https://www.albanandrieu.com/"
+
+
+def test_version_endpoint_exposes_the_fastapi_cloud_deployment_id(monkeypatch):
+    monkeypatch.delenv("FASTAPICLOUD_DEPLOYMENT_ID", raising=False)
+    assert TestClient(app).get("/v2/version").json()["deployment_id"] is None
+    monkeypatch.setenv("FASTAPICLOUD_DEPLOYMENT_ID", "deploy-example")
+    assert TestClient(app).get("/v2/version").json()["deployment_id"] == "deploy-example"

@@ -33,6 +33,9 @@ class _TopologyTelemetryCache:
 _cache = _TopologyTelemetryCache()
 
 _SERVICE_LABEL = "container_label_com_docker_compose_service"
+# AGENTS.md convention: the ZFS dataset /mnt/cpool/<service> belongs to catalog service <service>.
+_ZFS_SERVICE_PREFIX = "/mnt/cpool/"
+_ZFS_DATASETS = 'job="truenas_node",fstype="zfs",mountpoint=~"/mnt/cpool/[^/]+"'
 _RESOURCE_QUERIES = {
     "cpu_cores": (
         'sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{job="truenas_cadvisor",container_label_com_docker_compose_service!=""}[2m]))'
@@ -51,10 +54,20 @@ _RESOURCE_QUERIES = {
         "sum by (container_label_com_docker_compose_service) "
         '(rate(container_network_transmit_bytes_total{job="truenas_cadvisor",container_label_com_docker_compose_service!=""}[2m]))'
     ),
+    # statfs of a ZFS dataset: size - avail is the bytes it references, without child datasets or snapshots.
+    "zfs_dataset_bytes": f"node_filesystem_size_bytes{{{_ZFS_DATASETS}}} - node_filesystem_avail_bytes{{{_ZFS_DATASETS}}}",
 }
 _FLOW_QUERY = (
     "nabla:network_flow:pfsense_bytes_per_second or nabla:network_flow:pfsense_packets_per_second or nabla:telemetry:akvorado_inlet_up or nabla:telemetry:akvorado_outlet_up"
 )
+
+
+def _sample_service(field: str, labels: dict[str, Any]) -> str:
+    if field != "zfs_dataset_bytes":
+        return str(labels.get(_SERVICE_LABEL) or "").strip()
+    mountpoint = str(labels.get("mountpoint") or "")
+    name = mountpoint.removeprefix(_ZFS_SERVICE_PREFIX)
+    return name if mountpoint.startswith(_ZFS_SERVICE_PREFIX) and name and "/" not in name else ""
 
 
 def _resource_values(
@@ -66,7 +79,7 @@ def _resource_values(
             labels = sample.get("metric")
             if not isinstance(labels, dict):
                 continue
-            service = str(labels.get(_SERVICE_LABEL) or "").strip()
+            service = _sample_service(field, labels)
             value = sample_value(sample)
             if not service or value is None:
                 continue
@@ -146,6 +159,7 @@ async def _fetch_origin(
         "configured": True,
         "source": "prometheus",
         "resource_source": "truenas_cadvisor",
+        "storage_source": "truenas_node_filesystem",
         "flow_source": "pfsense_pflow_ipfix_via_akvorado",
         "resources": resources,
         "network_flow": flow,

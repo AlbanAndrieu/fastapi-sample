@@ -223,6 +223,11 @@ export function projectServiceFootprint(
     cpu_cores: { label: "CPU", unit: "c" },
     memory_bytes: { label: "Mémoire", unit: "MiB", divisor: 1048576 },
     fs_bytes: { label: "FS conteneur", unit: "MiB", divisor: 1048576 },
+    zfs_dataset_bytes: {
+      label: "Dataset ZFS",
+      unit: "GiB",
+      divisor: 1073741824,
+    },
     network_bytes_per_second: {
       label: "Réseau RX + TX",
       unit: "KiB/s",
@@ -265,7 +270,9 @@ export function projectServiceFootprint(
     storageScope:
       dimension === "fs_bytes"
         ? "Système de fichiers du conteneur (cAdvisor) ; hors datasets ZFS / PVC."
-        : null,
+        : dimension === "zfs_dataset_bytes"
+          ? "Dataset ZFS /mnt/cpool/<service> (node_exporter) ; hors snapshots et datasets enfants."
+          : null,
   };
 }
 
@@ -284,6 +291,7 @@ export function projectResourceHeatmap(
     ["memory_bytes", "RAM", "MiB", 1048576],
     ["fs_bytes", "FS", "MiB", 1048576],
     ["network_bytes_per_second", "RX+TX", "KiB/s", 1024],
+    ["zfs_dataset_bytes", "ZFS", "GiB", 1073741824],
   ];
   const telemetry = record(payload);
   if (
