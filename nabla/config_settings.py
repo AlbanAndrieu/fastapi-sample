@@ -168,6 +168,12 @@ class _Settings(DatabaseSettings):
             validation_alias=AliasChoices("DIAGNOSTICS_ACCESS_KEY"),
         ),
     ]
+    # Post-deploy CI smoke only: GET/HEAD on a fixed route list, never the owner key.
+    production_smoke_access_key: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(default=None, validation_alias=AliasChoices("PRODUCTION_SMOKE_ACCESS_KEY")),
+    ]
     metrics_scrape_key: Annotated[
         Optional[SecretStr],
         BeforeValidator(_unset_empty_env),
@@ -257,6 +263,11 @@ class _Settings(DatabaseSettings):
             default_factory=_default_sickz_targets_value,
             validation_alias=AliasChoices("SICKZ_TARGETS"),
         ),
+    ]
+    # label=address pairs (global IPv6) that must stay unreachable from this runtime.
+    sickz_ipv6_targets: Annotated[
+        str,
+        Field(default="", validation_alias=AliasChoices("SICKZ_IPV6_TARGETS")),
     ]
     sickz_internal_network: Annotated[
         bool,

@@ -1,3 +1,17 @@
+## [1.40.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.0...1.40.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **health:** suites F12–F14 du 16/11, contrats master rouges et réconciliation roadmap ([#452](https://github.com/AlbanAndrieu/fastapi-sample/issues/452)) ([f21a9b7](https://github.com/AlbanAndrieu/fastapi-sample/commit/f21a9b75fce8a09d25904b30e2d8a09c58a01b99)), closes [448/#449](https://github.com/AlbanAndrieu/fastapi-sample/issues/449) [#448](https://github.com/AlbanAndrieu/fastapi-sample/issues/448) [#449](https://github.com/AlbanAndrieu/fastapi-sample/issues/449) [448/#449](https://github.com/AlbanAndrieu/fastapi-sample/issues/449) [#423](https://github.com/AlbanAndrieu/fastapi-sample/issues/423) [#447](https://github.com/AlbanAndrieu/fastapi-sample/issues/447) [#447](https://github.com/AlbanAndrieu/fastapi-sample/issues/447) [#447](https://github.com/AlbanAndrieu/fastapi-sample/issues/447) [#449](https://github.com/AlbanAndrieu/fastapi-sample/issues/449) [nabla-compose#430](https://github.com/nabla-compose/issues/430)
+
+# [1.40.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.39.0...1.40.0) (2026-11-21)
+
+
+### Features
+
+* **sickz:** probe homelab IPv6 addresses for negative exposure ([#451](https://github.com/AlbanAndrieu/fastapi-sample/issues/451)) ([bb2fcb1](https://github.com/AlbanAndrieu/fastapi-sample/commit/bb2fcb1c0a37c63554f462f7a2fa18eaf839dd4a))
+
 # [1.39.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.38.2...1.39.0) (2026-11-20)
 
 

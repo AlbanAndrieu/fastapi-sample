@@ -30,6 +30,7 @@ ReconciliationState = Literal[
     "binding_conflict",
     "runtime_unknown",
     "not_observed",
+    "on_demand",
 ]
 
 _ENTITY_REF_PATTERN = re.compile(
@@ -49,17 +50,10 @@ def _bia_duration_seconds(value: str) -> int:
     match = _ISO8601_DURATION_PATTERN.fullmatch(value)
     if match is None or not any(match.groupdict().values()):
         raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
-    if "T" in value and not any(
-        match.group(key) for key in ("hours", "minutes", "seconds")
-    ):
+    if "T" in value and not any(match.group(key) for key in ("hours", "minutes", "seconds")):
         raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
     parts = {key: int(raw or 0) for key, raw in match.groupdict().items()}
-    total_seconds = (
-        parts["days"] * 86400
-        + parts["hours"] * 3600
-        + parts["minutes"] * 60
-        + parts["seconds"]
-    )
+    total_seconds = parts["days"] * 86400 + parts["hours"] * 3600 + parts["minutes"] * 60 + parts["seconds"]
     if total_seconds <= 0:
         raise ValueError("BIA duration must be greater than zero")
     return total_seconds
@@ -77,8 +71,7 @@ class BackstageEntityRef(RootModel[str]):
         match = _ENTITY_REF_PATTERN.fullmatch(value)
         if match is None:
             raise ValueError(
-                "entity ref must be a full lowercase Backstage ref "
-                "(<kind>:<namespace>/<name>)",
+                "entity ref must be a full lowercase Backstage ref (<kind>:<namespace>/<name>)",
             )
         if len(match.group("namespace")) > 63 or len(match.group("name")) > 63:
             raise ValueError(
@@ -247,6 +240,11 @@ _RECONCILIATION_CONDITIONS: dict[
         "Unknown",
         "ObservationNotApplicable",
         "This declaration is not observed by the selected runtime provider.",
+    ),
+    "on_demand": (
+        "True",
+        "ComposeProfile",
+        "Declared service starts only with its Compose profile; no running resource is expected.",
     ),
 }
 

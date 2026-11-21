@@ -222,7 +222,7 @@ def _reconcile_declared(
         if matched:
             matches.append((app, container))
     if not matches:
-        return {**base, **_reconciliation_fields("declared_only")}, set()
+        return {**base, **_reconciliation_fields("on_demand" if service.compose_profiles else "declared_only")}, set()
     if len(matches) > 1:
         return {
             **base,
@@ -340,6 +340,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
             "binding_conflict",
             "runtime_unknown",
             "not_observed",
+            "on_demand",
         )
     }
     drift_summary = {
@@ -348,6 +349,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
         "bindingConflicts": reconciliation_counts["binding_conflict"],
         "runtimeUnknown": reconciliation_counts["runtime_unknown"],
         "notObserved": reconciliation_counts["not_observed"],
+        "onDemand": reconciliation_counts["on_demand"],
         "observedOnly": len(observed_only),
         "hasDrift": bool(
             reconciliation_counts["declared_only"] or reconciliation_counts["binding_conflict"] or observed_only,

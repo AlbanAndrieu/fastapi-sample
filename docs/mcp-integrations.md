@@ -133,10 +133,10 @@ Prefer it for project/deployment/log inspection instead of scraping dashboard pa
 
 ## Sentry
 
-Use Sentry's official stdio MCP server for the self-hosted instance. The shared configuration points it at:
+Use Sentry's official stdio MCP server for the self-hosted instance. Sentry is LAN-only since 16/11/2026 (its public route is retired), so the shared configuration points it at the private name, resolved from the LAN only:
 
 ```text
-sentry.albandrieu.com
+sentry.int.albandrieu.com
 ```
 
 It is intentionally disabled by default in `opencode.json`. Create a dedicated **User Auth Token** in the self-hosted Sentry instance, keep it outside Git, then export it before enabling the server locally:
@@ -149,7 +149,7 @@ The shared command uses only the read-oriented `inspect` skill, explicitly disab
 
 ```bash
 npx -y @sentry/mcp-server@0.39.0 \
-  --host=sentry.albandrieu.com \
+  --host=sentry.int.albandrieu.com \
   --skills=inspect \
   --disable-skills=seer \
   --sentry-dsn=

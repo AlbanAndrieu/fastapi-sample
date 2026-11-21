@@ -19,6 +19,7 @@ from nabla.api.health_probe_utils import (
 from nabla.api.catalog_routes import sickz_catalog
 from nabla.api.probe_budget import ProbeBudget
 from nabla.api.runtime_environment import known_paas_runtime_detected
+from nabla.api.sickz_ipv6_exposure import probe_ipv6_exposure
 from nabla.api.sickz_pfsense import (
     PFSENSE_EXTRA_TCP_PORTS,
     ensure_pfsense_group,
@@ -344,6 +345,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         }
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    ipv6_task = asyncio.create_task(probe_ipv6_exposure(settings.sickz_ipv6_targets))
     group_keys = [" | ".join(group) for group in groups]
     group_results = await asyncio.gather(
         *(
@@ -364,6 +366,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         }
     return {
         "checks": checks,
+        "ipv6_exposure": await ipv6_task,
         "version": request.app.version,
         "network_label": network_label,
         "runtime": runtime,

@@ -17,10 +17,10 @@ def test_master_red_passes_only_named_reusable_workflow_secrets() -> None:
         "DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}",
         "DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}",
         "CI_PIP_GITLABNABLA_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}",
-        "CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}",
-        "CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}",
     ):
         assert mapping in workflow
+    # #448: Access credentials live only in the dast-truenas environment, never forwarded.
+    assert "CF_ACCESS_CLIENT" not in workflow
 
     production_smoke = workflow.split("  production-smoke:", maxsplit=1)[1].split(
         "  codeql:",
@@ -45,3 +45,23 @@ def test_python_reusable_workflow_declares_every_forwarded_secret() -> None:
     ):
         assert f"      {secret_name}:" in workflow_call
     assert workflow_call.count("required: false") == 5
+
+
+def test_zap_reusable_scopes_cloudflare_secrets_to_zap_only() -> None:
+    """The GitHub reusable caller forwards only the secrets the ZAP callee declares."""
+    import yaml
+
+    master = yaml.safe_load(MASTER_RED.read_text(encoding="utf-8"))
+    zap = yaml.safe_load((ROOT / ".github/workflows/security-zap.yml").read_text(encoding="utf-8"))
+    # YAML 1.1 interprets the key 'on' as boolean True; support both parsers.
+    declared = zap.get("on", zap.get(True))["workflow_call"]["secrets"]
+    expected = {
+        "CF_ACCESS_CLIENT_ID": "${{ secrets.CF_ACCESS_CLIENT_ID }}",
+        "CF_ACCESS_CLIENT_SECRET": "${{ secrets.CF_ACCESS_CLIENT_SECRET }}",
+    }
+    assert master["jobs"]["zap"]["uses"] == "./.github/workflows/security-zap.yml"
+    assert master["jobs"]["zap"]["secrets"] == expected
+    assert set(declared) == set(expected)
+    assert all(value["required"] is False for value in declared.values())
+    for job in ("production-smoke", "codeql", "remediate"):
+        assert "secrets" not in master["jobs"][job]
