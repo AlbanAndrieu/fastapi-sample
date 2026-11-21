@@ -353,6 +353,10 @@ def _pfsense_provider_success(value: dict[str, Any]) -> bool:
 
 async def get_pfsense_api_snapshot() -> dict[str, Any]:
     """Use L1/Redis L2 cache and stale-last-good for pfSense liveness."""
+    from nabla.api.edge_provider import pfsense_retired
+
+    if pfsense_retired():
+        return {**_pfsense_probes_disabled_result(), "reason": "pfSense retired; Freebox is the active network edge"}
     cached = await get_or_refresh_probe(
         _PFSENSE_CACHE_KEY,
         check_pfsense_api,
@@ -377,6 +381,10 @@ async def enrich_optional_platform_checks(payload: dict[str, Any]) -> dict[str, 
     checks = dict(payload.get("checks") or {})
     checks["cloudflare"] = cloudflare
     checks["pfsense"] = pfsense
+    from nabla.api.edge_provider import pfsense_retired
+    if pfsense_retired():
+        from nabla.api.freebox_health import check_freebox_api
+        checks["freebox"] = await check_freebox_api()
     return {**payload, "checks": checks}
 
 
