@@ -1,3 +1,10 @@
+## [1.40.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.2...1.40.3) (2026-11-21)
+
+
+### Bug Fixes
+
+* **health:** passe roadmap du 21/11, suite de [#452](https://github.com/AlbanAndrieu/fastapi-sample/issues/452) (F14, F01, F07, master rouge) ([#455](https://github.com/AlbanAndrieu/fastapi-sample/issues/455)) ([e303c85](https://github.com/AlbanAndrieu/fastapi-sample/commit/e303c85e8abca0e062403451887e86afb8473b75)), closes [#451](https://github.com/AlbanAndrieu/fastapi-sample/issues/451) [#451](https://github.com/AlbanAndrieu/fastapi-sample/issues/451)
+
 ## [1.40.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.1...1.40.2) (2026-11-21)
 
 
