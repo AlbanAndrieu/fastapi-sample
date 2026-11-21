@@ -270,6 +270,7 @@ def _append_runtime_topology_component_evidence(
     *,
     topology: Any,
     runtime: TrueNASRuntimeSnapshot | None,
+    job_ids: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     """Project observed runtime-backed topology nodes missing from the legacy service list."""
     if runtime is None or not runtime.reachable:
@@ -293,12 +294,16 @@ def _append_runtime_topology_component_evidence(
         app, container = matched
         observed_state = container.state if container is not None else app.state
         local_state = "unknown" if runtime.stale else _runtime_health_state(observed_state)
+        # F14: TrueNAS reports a container `exited` only with exit code 0 (non-zero is `crashed`): a finished job.
+        job_completed = local_state == "warn" and container is not None and node.id in job_ids and str(observed_state).strip().upper() == "EXITED"
+        if job_completed:
+            local_state = "ok"
         result.append(
             {
                 "id": node.id,
                 "name": node.name,
                 "url": node.url or node.internal_url,
-                "reachable": local_state == "ok",
+                "reachable": local_state == "ok" and not job_completed,
                 "http_status": 0,
                 "state": local_state,
                 "direct_state": None,
@@ -421,6 +426,7 @@ async def reconcile_homelab_health_payload(
         reconciled,
         topology=topology,
         runtime=runtime,
+        job_ids=frozenset(service.service_id for service in declared.services if service.kind == "job"),
     )
     reconciled = _reconcile_shared_component_evidence(reconciled, shared_checks)
     now = datetime.now(timezone.utc)

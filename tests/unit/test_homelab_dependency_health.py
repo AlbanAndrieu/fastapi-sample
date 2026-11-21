@@ -289,3 +289,44 @@ def test_postgres_sql_success_prevents_false_sentry_dependency_block() -> None:
     assert by_id["sentry"]["dependency_state"] == "ok"
     assert by_id["sentry"]["blocked_by"] == []
     assert by_id["sentry"]["effective_state"] == "fail"
+
+
+def test_exited_job_container_is_ok_but_crashed_or_non_job_exit_is_not() -> None:
+    """F14 (1): TrueNAS reports `exited` only for exit code 0; a non-zero exit is `crashed`."""
+    names = ("defectdojo-initializer", "failed-job", "homarr-sync")
+    topology = HomelabTopology.model_validate(
+        {
+            "nodes": [{"id": name, "name": name, "kind": "job", "category": "operations", "runtime": {"provider": "truenas-app", "containerService": name}} for name in names],
+            "relations": [],
+        },
+    )
+    states = {"defectdojo-initializer": "exited", "failed-job": "crashed", "homarr-sync": "exited"}
+    runtime = runtime_snapshot_from_health_api(
+        {
+            "reachable": True,
+            "last_success_at": "2026-11-21T11:50:00Z",
+            "apps": [
+                {
+                    "id": "defectdojo",
+                    "name": "defectdojo",
+                    "state": "RUNNING",
+                    "active_workloads": {"container_details": [{"service_name": name, "state": state} for name, state in states.items()]},
+                },
+            ],
+        },
+    )
+    assert runtime is not None
+
+    rows = _append_runtime_topology_component_evidence(
+        [],
+        topology=topology,
+        runtime=runtime,
+        job_ids=frozenset({"defectdojo-initializer", "failed-job"}),  # homarr-sync is declared a controller.
+    )
+    by_id = {str(row["id"]): row for row in rows}
+
+    assert by_id["defectdojo-initializer"]["state"] == "ok"
+    assert by_id["defectdojo-initializer"]["reachable"] is False
+    assert by_id["defectdojo-initializer"]["runtime_state"] == "exited"
+    assert by_id["failed-job"]["state"] == "fail"
+    assert by_id["homarr-sync"]["state"] == "warn"

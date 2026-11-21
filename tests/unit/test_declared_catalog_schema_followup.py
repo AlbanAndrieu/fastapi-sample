@@ -247,3 +247,5 @@ def test_packaged_backstage_runtime_projection_preserves_every_explicit_binding(
         assert service.runtime.app_id == binding.get("appId")
         assert service.runtime.container_service == binding.get("containerService")
     assert projected.catalog_revision == raw["catalogRevision"]
+    # F14 (1): spec.type job is the one-shot marker that lets an exited (code 0) container be ok.
+    assert "defectdojo-initializer" in {service.service_id for service in projected.services if service.kind == "job"}
