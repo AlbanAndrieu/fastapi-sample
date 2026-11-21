@@ -387,10 +387,10 @@ def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
     assert "branches: [master]" in workflow
     assert "workflow_dispatch:" in workflow
     for required in (
-        "uses: ./.github/workflows/python.yml",
-        "uses: ./.github/workflows/master-smoke.yml",
-        "uses: ./.github/workflows/codeql.yml",
-        "uses: ./.github/workflows/security-zap.yml",
+        "uses: $/.github/workflows/python.yml",
+        "uses: $/.github/workflows/master-smoke.yml",
+        "uses: $/.github/workflows/codeql.yml",
+        "uses: $/.github/workflows/security-zap.yml",
         "needs: [classify, production-smoke]",
         "needs.production-smoke.result == 'success'",
         "needs: [classify, python, production-smoke, codeql, zap]",
