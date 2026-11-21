@@ -84,7 +84,7 @@ async def test_missing_pair_and_empty_or_internal_feeds_denied():
     [
         ("&lt;script&gt;FAKE_CREDENTIAL&lt;/script&gt; Cloudflare", "Cloudflare"),
         ("<style>hidden</style><p>CrowdSec <b>AppSec</b></p>", "CrowdSec AppSec"),
-        ("Traefik\\u202e reverse\\u200f proxy\\x00", "Traefik reverse proxy"),
+        ("Traefik\u202e reverse\u200f proxy\x00", "Traefik reverse proxy"),
         ("<div>Line1<br/>Line2</div>", "Line1 Line2"),
     ],
 )

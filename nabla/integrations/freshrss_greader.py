@@ -83,7 +83,7 @@ class _RSSPlainText(HTMLParser):
             self.parts.append(data)
 
 
-_BIDI_CONTROLS = re.compile("[\\u200b\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]")
+_BIDI_CONTROLS = re.compile("[\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
 
 
 def _plain_text(value: object, limit: int) -> str:
@@ -96,7 +96,7 @@ def _plain_text(value: object, limit: int) -> str:
     parser.close()
     cleaned = _BIDI_CONTROLS.sub("", "".join(parser.parts))
     cleaned = "".join(" " if ord(char) < 32 or ord(char) == 127 else char for char in cleaned)
-    return re.sub(r"\\s+", " ", cleaned).strip()[:limit]
+    return re.sub(r"\s+", " ", cleaned).strip()[:limit]
 
 
 async def _read_document(client: httpx.AsyncClient, path: str, headers: dict[str, str]) -> dict:
