@@ -1,6 +1,7 @@
 """Temporary public overview must never leak owner-only diagnostic evidence."""
 
 import asyncio
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -10,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from nabla import access_control
-from nabla.api import health_routes, ui_public_services
+from nabla.api import health_board, health_routes, ui_public_services
 from nabla.api.site_health_v2 import verified_health_by_service_id
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
@@ -325,3 +326,32 @@ def test_cached_board_never_keeps_green_after_probe_freshness_deadline():
 
     source["age_seconds"] = 30
     assert verified_health_by_service_id(source)[1] == {"garage": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_stale_public_peek_keeps_sanitized_rows_with_probe_clocks(monkeypatch):
+    await health_board.reset_health_board_cache()
+    rows = [
+        {
+            "id": "garage",
+            "effective_state": "ok",
+            "probe_age_seconds": 5.0,
+            "probe_stale_after_seconds": 300.0,
+            "url": "https://172.17.0.24:3900",
+        },
+        {"id": "redis", "state": "ok", "probe_age_seconds": float("nan"), "probe_stale_after_seconds": True},
+    ]
+    monkeypatch.setattr(health_board, "_cached_snapshot", {"homelab": {"services": rows}})
+    monkeypatch.setattr(health_board, "_cached_at", time.monotonic() - 70)
+    monkeypatch.setattr(health_board, "_ttl_seconds", lambda: 30.0)
+    peek = await health_board.peek_public_health_board_snapshot(None)
+    assert peek["state"] == "stale"
+    assert peek["age_seconds"] >= 70
+    assert peek["homelab"]["services"] == [
+        {"id": "garage", "effective_state": "ok", "probe_age_seconds": 5.0, "probe_stale_after_seconds": 300.0},
+        {"id": "redis", "state": "ok"},
+    ]
+    assert "172.17" not in str(peek)
+    # The garage probe is 75 s old against a 300 s limit: still a real state.
+    assert verified_health_by_service_id(peek) == ("stale", {"garage": "ok", "redis": "unknown"})
+    await health_board.reset_health_board_cache()

@@ -1,3 +1,10 @@
+## [1.40.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.1...1.40.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **health:** expire stale board rows by their own probe clock ([#454](https://github.com/AlbanAndrieu/fastapi-sample/issues/454)) ([e2c8d4c](https://github.com/AlbanAndrieu/fastapi-sample/commit/e2c8d4cf13b69e496e03749959d98069a794e8bb))
+
 ## [1.40.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.0...1.40.1) (2026-11-21)
 
 
