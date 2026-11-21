@@ -11,6 +11,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GUARD = re.compile(r"github\.event\.pull_request\.draft\s*==\s*false")
+# A job that never runs on pull_request allocates no Draft runner; the whole line
+# must match, so no `||` can re-admit pull requests.
+NEVER_PR = re.compile(
+    r"^    if:\s*(?:\$\{\{\s*)?github\.event_name\s*!=\s*'pull_request'\s*(?:\}\})?\s*$",
+    re.MULTILINE,
+)
 TRIGGER = re.compile(r"^  pull_request:\s*$", re.MULTILINE)
 REVIEW = re.compile(r"\bready_for_review\b")
 JOBS = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$")
@@ -66,7 +72,8 @@ def check_workflows(directory: Path) -> tuple[int, int, list[str]]:
             jobs_checked += 1
             if not re.search(r"^    (?:runs-on|uses):", header, re.MULTILINE):
                 failures.append(f"{path.name}:{name}: missing runner/reusable workflow")
-            if not GUARD.search(header) or not re.search(r"^    if:", header, re.MULTILINE):
+            draft_guarded = GUARD.search(header) and re.search(r"^    if:", header, re.MULTILINE)
+            if not (draft_guarded or NEVER_PR.search(header)):
                 failures.append(f"{path.name}:{name}: missing draft PR guard")
     if workflows == 0:
         failures.append("no pull_request workflows found")

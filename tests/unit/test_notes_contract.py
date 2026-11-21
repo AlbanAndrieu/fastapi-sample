@@ -4,7 +4,8 @@ from datetime import datetime as dt, timedelta, timezone
 
 import pytest
 
-from nabla.api.notes import models as note_models, notes as notes_routes
+from nabla.api.db import timestamps as timestamp_clock
+from nabla.api.notes import notes as notes_routes
 from nabla.api.notes.models import NoteData, NoteResponse
 from nabla.config import MCP_ALLOWED_ROUTES
 
@@ -32,7 +33,8 @@ def test_note_response_generates_utc_timestamp_for_each_instance(monkeypatch):
             assert tz is timezone.utc
             return next(timestamps)
 
-    monkeypatch.setattr(note_models, "datetime", Clock)
+    # #449 moved the clock to the shared timestamps module used by default_factory.
+    monkeypatch.setattr(timestamp_clock, "datetime", Clock)
 
     first_note = NoteResponse(**NOTE_FIELDS)
     second_note = NoteResponse(**NOTE_FIELDS)

@@ -25,17 +25,9 @@ def _workflow(directory: Path, *, guard: bool = True, review: bool = True) -> No
     workflow_dir.mkdir(parents=True, exist_ok=True)
     (workflow_dir / "test.yml").write_text(
         "name: test\non:\n  pull_request:\n"
-        + (
-            "    types: [opened, synchronize, ready_for_review]\n"
-            if review
-            else "    types: [opened, synchronize]\n"
-        )
+        + ("    types: [opened, synchronize, ready_for_review]\n" if review else "    types: [opened, synchronize]\n")
         + "jobs:\n  check:\n"
-        + (
-            "    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false\n"
-            if guard
-            else ""
-        )
+        + ("    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false\n" if guard else "")
         + "    runs-on: ubuntu-latest\n    steps:\n      - run: echo check\n",
         encoding="utf-8",
     )
@@ -65,3 +57,26 @@ def test_missing_workflows_are_not_success(tmp_path: Path) -> None:
     result = _invoke(tmp_path)
     assert result.returncode == 1
     assert "no pull_request workflows found" in result.stderr
+
+
+def _job_with_if(directory: Path, condition: str) -> None:
+    workflow_dir = directory / ".github/workflows"
+    workflow_dir.mkdir(parents=True, exist_ok=True)
+    (workflow_dir / "test.yml").write_text(
+        "name: test\non:\n  pull_request:\n    types: [opened, ready_for_review]\n"
+        f"jobs:\n  post-deploy:\n    if: {condition}\n"
+        "    runs-on: ubuntu-latest\n    steps:\n      - run: echo check\n",
+        encoding="utf-8",
+    )
+
+
+def test_job_that_never_runs_on_pull_request_needs_no_draft_guard(tmp_path: Path) -> None:
+    _job_with_if(tmp_path, "${{ github.event_name != 'pull_request' }}")
+    assert _invoke(tmp_path).returncode == 0
+
+
+def test_never_pr_guard_cannot_be_widened_with_or(tmp_path: Path) -> None:
+    _job_with_if(tmp_path, "${{ github.event_name != 'pull_request' || github.event.action == 'opened' }}")
+    result = _invoke(tmp_path)
+    assert result.returncode == 1
+    assert "missing draft PR guard" in result.stderr

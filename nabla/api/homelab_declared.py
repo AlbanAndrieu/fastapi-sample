@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     AliasChoices,
@@ -129,6 +129,13 @@ class DeclaredService(BaseModel):
         validation_alias=AliasChoices("composeService", "compose_service"),
         serialization_alias="composeService",
     )
+    # Compose `profiles:` of the service: it starts only on demand, so its absence is not drift.
+    compose_profiles: tuple[Annotated[str, Field(min_length=1)], ...] | None = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("composeProfiles", "compose_profiles"),
+        serialization_alias="composeProfiles",
+    )
     presentation_role: Literal["service", "core", "support"] | None = Field(
         default=None,
         validation_alias=AliasChoices("presentationRole", "presentation_role"),
@@ -177,6 +184,8 @@ class DeclaredService(BaseModel):
             set(self.security_functions),
         ):
             raise ValueError("securityFunctions must not contain duplicates")
+        if self.compose_profiles is not None and len(self.compose_profiles) != len(set(self.compose_profiles)):
+            raise ValueError("composeProfiles must not contain duplicates")
         if self.environments is not None:
             names = [environment.name for environment in self.environments]
             if len(names) != len(set(names)):
@@ -284,6 +293,7 @@ def project_declared_runtime_catalog(raw: dict[str, Any]) -> DeclaredServiceCata
                 category=next((tag for tag in tags if not tag.startswith("nist-")), "other"),
                 source_path=source_path,
                 compose_service=compose_service,
+                compose_profiles=binding.get("composeProfiles"),
                 runtime=runtime,
                 status=labels.get("albandrieu.com/operational-state"),
                 criticality=labels.get("albandrieu.com/operational-criticality"),
@@ -302,6 +312,7 @@ def project_declared_runtime_catalog(raw: dict[str, Any]) -> DeclaredServiceCata
 
 async def _fetch_declared_service_catalog_origin() -> DeclaredServiceCatalog:
     return project_declared_runtime_catalog(await fetch_catalog_v2_source())
+
 
 async def _refresh_declared_service_catalog() -> DeclaredServiceCatalog:
     """Refresh the remote declaration while retaining the last known good copy."""

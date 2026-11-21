@@ -69,6 +69,7 @@ def test_operational_routes_fail_closed_without_access_keys(
 def test_operational_access_keys_are_declared_as_application_settings() -> None:
     assert "admin_access_key" in APIDeploymentSettings.model_fields
     assert "diagnostics_access_key" in APIDeploymentSettings.model_fields
+    assert "production_smoke_access_key" in APIDeploymentSettings.model_fields
 
 
 def test_admin_key_only_protects_administration(
@@ -239,6 +240,31 @@ def test_service_v2_key_survives_private_diagnostics_default(
     for path in ("/api/homelab-topology", "/api/public-topology", "/api/runtime/topology"):
         assert protected_app.get(path).status_code == 401
         assert protected_app.get(path, headers=headers).status_code == 403
+
+
+def test_smoke_key_reads_only_the_four_smoke_routes(protected_app: TestClient) -> None:
+    """The CI smoke key is never a diagnostics key: fixed GET list, no CIDR bypass elsewhere."""
+    settings = protected_app.app.state.access_settings
+    smoke = "s" * 32
+    settings.production_smoke_access_key = SecretStr(smoke)
+    settings.diagnostics_access_key = SecretStr("d" * 32)
+    settings.homelab_trusted_cidrs = "10.0.0.0/8"
+    headers = {"X-Smoke-Key": smoke}
+
+    for path in ("/healthz", "/api/runtime/topology", "/api/homelab/status", "/api/homelab/health"):
+        response = protected_app.get(path, headers=headers)
+        assert response.status_code == 200, path
+        assert response.headers["cache-control"] == "private, no-store"
+    for path in ("/api/homelab/probes", "/api/homelab/runtime", "/api/site/catalog/v2", "/admin", "/metrics"):
+        assert protected_app.get(path, headers=headers).status_code in {401, 503}, path
+    assert protected_app.post("/api/health-board/cache/reset", headers=headers).status_code == 401
+    assert protected_app.get("/healthz", headers={"X-Smoke-Key": "x" * 32}).status_code == 401
+    # Neither the diagnostics header nor a bearer token carries the smoke key.
+    assert protected_app.get("/healthz", headers={"X-Diagnostics-Key": smoke}).status_code == 401
+    assert protected_app.get("/healthz", headers={"Authorization": f"Bearer {smoke}"}).status_code == 401
+
+    settings.production_smoke_access_key = SecretStr("short")
+    assert protected_app.get("/healthz", headers={"X-Smoke-Key": "short"}).status_code == 401
 
 
 def test_temporary_readonly_diagnostics_restores_probes_without_write_access(

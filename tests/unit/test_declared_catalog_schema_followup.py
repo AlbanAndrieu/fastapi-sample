@@ -176,6 +176,7 @@ def test_backstage_runtime_projection_keeps_only_explicit_bindings() -> None:
                     "runtime": {
                         "provider": "truenas-app",
                         "containerService": "worker",
+                        "composeProfiles": ["forwarding"],
                         "source": "apps/other/compose.yml#services/worker",
                     },
                 },
@@ -196,6 +197,36 @@ def test_backstage_runtime_projection_keeps_only_explicit_bindings() -> None:
     assert service.category == "security"
     assert worker.compose_service == "worker"
     assert worker.source_path == "apps/other/compose.yml"
+    assert worker.compose_profiles == ("forwarding",)
+    assert service.compose_profiles is None
+
+
+@pytest.mark.parametrize("profiles", [["security"], ["dsomm-baseline", "forwarding"]])
+def test_declared_catalog_accepts_compose_profiles(profiles: list[str]) -> None:
+    catalog = DeclaredServiceCatalog.model_validate(
+        _catalog_payload(services=[_profiled_service(profiles)]),
+    )
+    assert catalog.services[0].compose_profiles == tuple(profiles)
+    dumped = catalog.model_dump(mode="json", by_alias=True)["services"][0]
+    assert dumped["composeProfiles"] == profiles
+
+
+@pytest.mark.parametrize("profiles", [[], [""], ["security", "security"]])
+def test_declared_catalog_rejects_empty_or_duplicate_compose_profiles(profiles: list[str]) -> None:
+    with pytest.raises(ValidationError):
+        DeclaredServiceCatalog.model_validate(_catalog_payload(services=[_profiled_service(profiles)]))
+
+
+def _profiled_service(profiles: list[str]) -> dict[str, object]:
+    return {
+        "id": "wazuh-forwarder",
+        "name": "Wazuh forwarder",
+        "kind": "service",
+        "category": "security",
+        "sourcePath": "apps/wazuh/compose.yml",
+        "composeService": "wazuh-forwarder",
+        "composeProfiles": profiles,
+    }
 
 
 def test_backstage_runtime_projection_rejects_legacy_source() -> None:
@@ -206,11 +237,7 @@ def test_backstage_runtime_projection_rejects_legacy_source() -> None:
 def test_packaged_backstage_runtime_projection_preserves_every_explicit_binding() -> None:
     raw = load_catalog_snapshot()
     projected = project_declared_runtime_catalog(raw)
-    expected = {
-        entity["metadata"]["name"]: entity["x-nabla"]["runtime"]
-        for entity in raw["entities"]
-        if (entity.get("x-nabla") or {}).get("runtime") is not None
-    }
+    expected = {entity["metadata"]["name"]: entity["x-nabla"]["runtime"] for entity in raw["entities"] if (entity.get("x-nabla") or {}).get("runtime") is not None}
     assert expected
     assert len(projected.services) == len(expected)
     for service in projected.services:

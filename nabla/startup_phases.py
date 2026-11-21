@@ -5,16 +5,25 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 import psutil
+from prometheus_client import Gauge
 
 from nabla.utils.logger import logger
 
 # A phase over this bound logs a warning, so a slow boot names the phase that waits.
 STARTUP_PHASE_WARN_SECONDS = 5.0
 
+# Prometheus already scrapes /metrics on TrueNAS while Loki skips these logs; phases are code constants.
+STARTUP_PHASE_SECONDS = Gauge(
+    "nabla_startup_phase_duration_seconds",
+    "Duration of each create_app phase at the last start of this process.",
+    ("phase",),
+)
+
 
 def log_startup_phase(name: str, seconds: float) -> None:
     """Log one phase duration; warn when it exceeds the bound."""
     slow = seconds >= STARTUP_PHASE_WARN_SECONDS
+    STARTUP_PHASE_SECONDS.labels(phase=name).set(seconds)
     (logger.warning if slow else logger.info)("startup_phase", phase=name, duration_ms=round(seconds * 1000), slow=slow)
 
 

@@ -17,10 +17,10 @@ def test_master_red_passes_only_named_reusable_workflow_secrets() -> None:
         "DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}",
         "DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}",
         "CI_PIP_GITLABNABLA_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}",
-        "CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}",
-        "CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}",
     ):
         assert mapping in workflow
+    # #448: Access credentials live only in the dast-truenas environment, never forwarded.
+    assert "CF_ACCESS_CLIENT" not in workflow
 
     production_smoke = workflow.split("  production-smoke:", maxsplit=1)[1].split(
         "  codeql:",

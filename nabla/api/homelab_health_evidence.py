@@ -423,6 +423,10 @@ async def reconcile_homelab_health_payload(
         runtime=runtime,
     )
     reconciled = _reconcile_shared_component_evidence(reconciled, shared_checks)
+    now = datetime.now(timezone.utc)
+    # F13 (16/11): mark night and planned Apps before propagating, so their dependents
+    # see an unknown dependency, never a failure; mark again below to restore the label.
+    reconciled = mark_not_deployed(mark_scheduled_off_window(reconciled, services, now), services)
     dependency_aware = propagate_required_dependency_health(reconciled, topology)
     exposure_aware = enrich_service_exposure(
         dependency_aware,
@@ -443,7 +447,7 @@ async def reconcile_homelab_health_payload(
             "fixed_cardinality": True,
             "phase_count": len(HOMELAB_HEALTH_PERF_PHASES),
         },
-        "services": mark_not_deployed(mark_scheduled_off_window(exposure_aware, services, datetime.now(timezone.utc)), services),
+        "services": mark_not_deployed(mark_scheduled_off_window(exposure_aware, services, now), services),
         "truenas_runtime_reachable": runtime.reachable,
         "truenas_runtime_stale": runtime.stale,
         "truenas_runtime_error": runtime.error,

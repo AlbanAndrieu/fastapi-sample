@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "master-smoke.yml"
 
 
-def test_pr_smoke_accepts_legacy_transport_only_during_cutover() -> None:
+def test_smoke_accepts_transport_only_cloud_observer() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
 
     assert '.checks.pfsense.credential_mode == "disabled"' in text

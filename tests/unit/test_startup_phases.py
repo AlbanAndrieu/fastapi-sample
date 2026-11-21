@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from prometheus_client import REGISTRY
 from structlog.testing import capture_logs
 
 from nabla import startup_phases
@@ -18,6 +19,8 @@ def test_slow_phase_is_a_warning_and_failing_phase_is_still_timed(monkeypatch: p
     assert logs == [
         {"event": "startup_phase", "phase": "sentry", "duration_ms": 6500, "slow": True, "log_level": "warning"},
     ]
+    # Readable from Prometheus without docker logs on the TrueNAS host.
+    assert REGISTRY.get_sample_value("nabla_startup_phase_duration_seconds", {"phase": "sentry"}) == 6.5
 
 
 def test_create_app_names_each_phase() -> None:
