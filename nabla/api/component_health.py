@@ -15,10 +15,12 @@ from nabla.api.health_checks import (
 )
 from nabla.api.homelab_health import build_homelab_health_payload
 from nabla.api.platform_health import check_cloudflare_tunnels, get_pfsense_api_snapshot
+from nabla.api.edge_provider import pfsense_retired
+from nabla.api.freebox_health import check_freebox_api
 
 CORE_COMPONENT_KEYS = ("postgres", "redis", "supabase")
 CRITICAL_INFRA_COMPONENT_KEYS = ("unbound",)
-PLATFORM_COMPONENT_KEYS = ("truenas", "cloudflare", "pfsense")
+PLATFORM_COMPONENT_KEYS = ("truenas", "cloudflare", "freebox", "pfsense")
 
 
 def truenas_component(snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -107,7 +109,7 @@ async def build_component_checks(
         check_cloudflare_tunnels(),
         get_pfsense_api_snapshot(),
     )
-    return {
+    checks = {
         "postgres": postgres,
         "redis": redis,
         "supabase": supabase,
@@ -115,6 +117,9 @@ async def build_component_checks(
         "cloudflare": cloudflare,
         "pfsense": pfsense,
     }
+    if pfsense_retired():
+        checks["freebox"] = await check_freebox_api()
+    return checks
 
 
 def _critical_infra_status(components: dict[str, dict[str, Any]]) -> str | None:
@@ -153,7 +158,7 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
         check = components.get(key, {})
         if check.get("skipped") is True:
             continue
-        if key in {"cloudflare", "pfsense"} and check.get("status_confirmed") is False:
+        if key in {"cloudflare", "pfsense", "freebox"} and check.get("status_confirmed") is False:
             continue
         if check.get("reachable") is False or check.get("state") == "warn" or check.get("stale") is True or check.get("tls_trusted") is False:
             return "degraded"
