@@ -11,6 +11,7 @@ import ipaddress
 import json
 import re
 from html import unescape
+from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
 import httpx
@@ -50,11 +51,52 @@ def _public_https_source(value: object) -> bool:
     return False
 
 
+class _RSSPlainText(HTMLParser):
+    """Bounded HTML-to-text projection: untrusted RSS markup is never executable."""
+
+    _IGNORED = frozenset({"script", "style", "template", "iframe", "svg"})
+    _BREAKS = frozenset({"br", "p", "div", "li", "h1", "h2", "h3", "h4", "blockquote"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.ignored_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in self._IGNORED:
+            self.ignored_depth += 1
+        elif not self.ignored_depth and tag in self._BREAKS:
+            self.parts.append(" ")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if not self.ignored_depth and tag in self._BREAKS:
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._IGNORED and self.ignored_depth:
+            self.ignored_depth -= 1
+        elif not self.ignored_depth and tag in self._BREAKS:
+            self.parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if not self.ignored_depth:
+            self.parts.append(data)
+
+
+_BIDI_CONTROLS = re.compile("[\\u200b\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]")
+
+
 def _plain_text(value: object, limit: int) -> str:
     if not isinstance(value, str):
         return ""
-    cleaned = unescape(re.sub(r"<[^>]{0,4096}>", " ", value))
-    return re.sub(r"\s+", " ", cleaned).strip()[:limit]
+    # Bound CPU/memory before parsing, and decode escaped markup *before*
+    # stripping active tags (e.g. &lt;script&gt;).
+    parser = _RSSPlainText()
+    parser.feed(unescape(value[: min(32768, max(4096, limit * 16))]))
+    parser.close()
+    cleaned = _BIDI_CONTROLS.sub("", "".join(parser.parts))
+    cleaned = "".join(" " if ord(char) < 32 or ord(char) == 127 else char for char in cleaned)
+    return re.sub(r"\\s+", " ", cleaned).strip()[:limit]
 
 
 async def _read_document(client: httpx.AsyncClient, path: str, headers: dict[str, str]) -> dict:

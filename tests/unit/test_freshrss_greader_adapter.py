@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from nabla.integrations.freshrss_greader import FreshRSSUnavailable, recent_public_articles
+from nabla.integrations.freshrss_greader import FreshRSSUnavailable, _plain_text, recent_public_articles
 
 
 @pytest.mark.asyncio
@@ -77,3 +77,20 @@ async def test_missing_pair_and_empty_or_internal_feeds_denied():
             await recent_public_articles(client, auth="secret", cf_access_id="incomplete")
         with pytest.raises(FreshRSSUnavailable):
             await recent_public_articles(client, auth="unit-service-token")
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("&lt;script&gt;FAKE_CREDENTIAL&lt;/script&gt; Cloudflare", "Cloudflare"),
+        ("<style>hidden</style><p>CrowdSec <b>AppSec</b></p>", "CrowdSec AppSec"),
+        ("Traefik\\u202e reverse\\u200f proxy\\x00", "Traefik reverse proxy"),
+        ("<div>Line1<br/>Line2</div>", "Line1 Line2"),
+    ],
+)
+def test_untrusted_html_and_bidi_controls_are_removed(source: str, expected: str) -> None:
+    assert _plain_text(source, 300) == expected
+
+
+def test_untrusted_article_projection_has_bounded_text_cost() -> None:
+    assert len(_plain_text("<b>" + "a" * 50000 + "</b>", 300)) == 300

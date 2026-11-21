@@ -2,6 +2,23 @@
 
 FreshRSS: reuse Compose GReader identity separation; dedicated private FastAPI account/token, read-only subscriptions/stream; no article writeback, HTML sanitization and bounded titles/summaries before inference. Project Backstage V2 entity names/tags/type only, no topology, IPs or credentials. Managed Langfuse prompt source `config/prompts/nabla-homelab-rss-relevance.txt`, publish to private Langfuse with production label via approved operator; record actual version. Existing resolver silently falls back: for this pipeline require verified prompt version and strict homelab LiteLLM adapter (no Azure/direct OpenAI fallback). Dedicated virtual key/model alias and budget. Cache by article/content hash + catalog revision + prompt version + model, PostgreSQL durable article decisions when needed, Redis cache only. Offline pytest dependency seams and the bounded CLI reader/classifier are CODED in #453; prompt publication, live TrueNAS acceptance, ingestion scheduling and UI remain NOT_RUN or NOT_CODED as applicable.
 
+**API / MCP ownership and trust boundary (21/11):** `nabla-compose` already owns
+`scripts/mcp/freshrss_readonly.py`, a stdio-only MCP with
+`list_security_feeds` and `recent_security_articles` and an isolated
+`securityagent` identity. Its historical `config/freshrss/security-sources.json`
+contains 10 curated security feeds; the canonical broader site-alban OPML
+contains 78 feeds. Do not quietly promote the ten-feed MCP into unrestricted
+feed administration or reimport the 78 sources automatically. FastAPI's
+`freshrss_greader.py` remains a separate service-account read-only GReader
+consumer used by the TrueNAS-only Langfuse/LiteLLM classifier, with fixed
+HTTPS origin, no write endpoints, and no scheduler. The GReader Auth credential
+is not a server-enforced read-only scope: apply account isolation and optional
+Cloudflare Access. The article title and summary are untrusted input,
+normalized to bounded plain text; neither the MCP nor the classifier
+is authorized to execute article instructions. Live network acceptance and
+account provisioning remain NOT_RUN.
+
+
 Approvals: existing Notes uses databases/SQLAlchemy PostgreSQL and Redis RPUSH/BLPOP with unconstrained prompt, demo email handler and mutable completed flag; none may authorize apply. Extract shared UTC helpers, add separate pending-only table with explicit migration and idempotent digest insert, bounded list (not exposed). Next implement durable immutable challenge provenance, verify signature with existing Compose approval.py, one-time CAS transition + transactional outbox, separate privileges, expiry/replay tests, worker leases and audit. No destructive migration of demo rows. Inventory actual Notes REST/HTMX/MCP consumers, replace with approval list/notification views, archive legacy worker and template/demo routes only after test parity. Redis TTL for read projection, never approval or queue authority. Existing notes workers are not production approval handlers.
 
 Slack: existing nabla-openclaw App, Socket Mode owner-managed, token/installation not confirmed. Reuse approved delivery boundary; avoid copying app-level xapp token or expanding scope. Outbox retries and idempotency, fixed channel IDs configured privately, minimal summary/link, no plan/raw secrets/signatures, no approval from Slack click.
