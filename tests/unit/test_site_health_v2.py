@@ -85,6 +85,23 @@ def test_fail_closed_unknown_on_stale_or_ambiguous_evidence():
     assert project_site_health_v2(_catalog(), sample).services[0].state == "unknown"
 
 
+def test_stale_snapshot_keeps_rows_until_their_own_probe_expires():
+    row = {"id": "garage", "effective_state": "warn", "probe_age_seconds": 20.0, "probe_stale_after_seconds": 120.0}
+    sample = {"state": "stale", "age_seconds": 40.0, "homelab": {"services": [row]}}
+    # 20 s probe + 40 s snapshot age < 120 s: still evidence, not a blank board.
+    assert project_site_health_v2(_catalog(), sample).services[0].state == "warn"
+    sample["age_seconds"] = 100.0
+    assert project_site_health_v2(_catalog(), sample).services[0].state == "unknown"
+    sample["age_seconds"] = 0.0
+    # Without its own probe clock a stale row cannot be vouched for.
+    sample["homelab"]["services"] = [{"id": "garage", "effective_state": "warn"}]
+    assert project_site_health_v2(_catalog(), sample).services[0].state == "unknown"
+    assert project_site_health_v2(_catalog(), sample).boardState == "stale"
+    sample["state"] = "pending"
+    sample["homelab"]["services"] = [row]
+    assert project_site_health_v2(_catalog(), sample).services[0].state == "unknown"
+
+
 def test_only_machine_key_can_fetch_site_health(monkeypatch):
     settings = SimpleNamespace(
         diagnostics_access_key=SecretStr("site-machine-key"),
