@@ -2,7 +2,8 @@
 APPLY_FIXES: none
 DEFAULT_BRANCH: master
 ENABLE_LINTERS:
-  - ACTION_ZIZMOR
+  # Zizmor v1.31+ runs as a mandatory standalone gate in python.yml.
+  # MegaLinter's older bundled parser rejects GitHub's valid $/ local refs.
   - COPYPASTE_JSCPD
   - EDITORCONFIG_EDITORCONFIG_CHECKER
   - HTML_HTMLHINT

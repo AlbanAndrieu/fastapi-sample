@@ -26,6 +26,20 @@ misconfigurations:
       - "charts/generic-service/base/deployment.yaml"
       - "charts/generic-service/templates/deployment.yaml"
     statement: Images intentionally come from the project GitLab registry
+  # Current production image declares USER 999:999. Changing only K8s UID/GID
+  # breaks file ownership; migration requires a coordinated image rebuild.
+  - id: KSV-0020
+    paths:
+      - "deploy/talos/fastapi-sample.yaml"
+    statement: Staging only; runAsNonRoot 999 matches production image owner; migrate to UID over 10000 with image rebuild
+  - id: KSV-0021
+    paths:
+      - "deploy/talos/fastapi-sample.yaml"
+    statement: Staging only; group 999 matches production image file ownership; change together with image
+  - id: KSV-0125
+    paths:
+      - "deploy/talos/fastapi-sample.yaml"
+    statement: Private Talos staging pins images from this repository owner GHCR; enforce reviewed immutable digest at deployment
   - id: AVD-DS-0002
     statement: The image needs root privileges
   - id: AVD-DS-0026

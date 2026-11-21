@@ -74,3 +74,22 @@ def test_smol_toml_override_excludes_known_vulnerable_releases() -> None:
     installed = lock["packages"]["node_modules/smol-toml"]["version"]
     major, minor, _patch = (int(part) for part in installed.split("."))
     assert (major, minor) >= (1, 9)
+
+
+def test_talos_stage_matches_image_uid_with_scoped_trivy_exceptions() -> None:
+    manifest = yaml.safe_load_all((ROOT / "deploy/talos/fastapi-sample.yaml").read_text(encoding="utf-8"))
+    deployment = next(x for x in manifest if x["kind"] == "Deployment")
+    spec = deployment["spec"]["template"]["spec"]
+    context = spec["securityContext"]
+    assert context["runAsNonRoot"] is True
+    assert context["runAsUser"] == 999  # Dockerfile USER 999:999
+    assert context["runAsGroup"] == 999
+    assert context["fsGroup"] == context["runAsGroup"]
+    container = spec["containers"][0]
+    assert container["image"].startswith("ghcr.io/albanandrieu/fastapi-sample@sha256:")
+    assert container["securityContext"]["readOnlyRootFilesystem"] is True
+    ignored = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"))
+    for risk in ("KSV-0020", "KSV-0021", "KSV-0125"):
+        targeted = [x for x in ignored["misconfigurations"] if x["id"] == risk and "deploy/talos/fastapi-sample.yaml" in x.get("paths", [])]
+        assert len(targeted) == 1
+        assert targeted[0]["paths"] == ["deploy/talos/fastapi-sample.yaml"]

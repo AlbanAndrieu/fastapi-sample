@@ -335,3 +335,5 @@ variables.
 - HTTPS/TLS verification stays enabled by default;
 - transport, authentication and workload evidence remain separate;
 - detailed recovery/history belongs in runbooks/incidents, not this reference.
+
+- Talos staging (21/11) : conteneur non-root UID/GID 999 imposé par l'image de production ; trois exceptions Trivy **limitées au seul manifeste** documentent le risque de collision avec les identités hôte et le registre GHCR propriétaire. Ne pas modifier le securityContext K8s seul : migrer simultanément le Dockerfile, les volumes et les commandes de déploiement après tests d'intégration. Trivy reste bloquant ailleurs.

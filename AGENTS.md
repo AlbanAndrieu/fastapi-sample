@@ -26,6 +26,14 @@
   file-by-file and rerun focused contract tests. Never discard another
   agent's changes. Rewriting a published branch requires an exact
   `--force-with-lease` and current HEAD verification.
+- **Mandatory pre-merge convergence:** compare the current PR HEAD against
+  the latest `origin/master` (behind=0 and base ancestor), rebase in an
+  isolated worktree if stale, resolve all merge conflicts without dropping
+  another agent's work, then verify GitHub `mergeable=true` / no dirty state.
+  Inspect every required CI check at the *new exact HEAD*, fix failures at
+  their root and rerun focused tests plus failed jobs. A skipped/pending or
+  old-SHA check is not PASS. Do not disable gates or mark the PR merge-ready
+  while required CI, review, or security findings are unresolved.
 - **Batch changes** rather than publish individual small edits; one coherent
   tested batch and one push. Exceptions: a production stability/security fix
   requiring prompt deployment, or a completed cross-service migration whose

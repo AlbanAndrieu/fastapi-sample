@@ -110,10 +110,25 @@ jobs:
           image-ref: ${{ steps.meta.outputs.ghcr_tag }}
           format: json
           output: trivy-results.json
-          scanners: vuln,secret
+          # Only publish vulnerability evidence; secrets stay in a private CI gate.
+          scanners: vuln
           ignore-unfixed: false
           vuln-type: os,library
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      # Private scanner results must never be logged, uploaded or sent to SARIF.
+      - name: Run private Trivy image secret scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.71.2
+          image-ref: ${{ steps.meta.outputs.ghcr_tag }}
+          format: json
+          output: trivy-secrets-private.json
+          scanners: secret
+          exit-code: "0"
+
+      - name: Gate private Trivy secrets without publication
+        run: python3 scripts/security/validate_trivy_handoff.py trivy-secrets-private.json
 
       - name: Validate native Trivy report before any publication
         id: trivy_publication

@@ -169,3 +169,15 @@ Voir [contrat d'intégration](runbooks/control-plane-integrations.md). Tests ajo
 - Vantage : workstation, sondes HTTP en lecture seule (`/v2/version` Cloud et TrueNAS `8091`, Prometheus) ; aucun déploiement ni action TrueNAS.
 - Avancés : F08 (jauge `nabla_startup_phase_duration_seconds`, **CODED**), F11/H05 (`composeProfiles` et état `on_demand`, **CODED**), F04 (gate locale), F01 et mise à jour TrueNAS (correctif Compose en attente de #430), doublons H04/H05 du portefeuille (fermés). Suite du 21/11 après les décisions owner : F14 (1) (`0da00c38`), F01 Cloud (`deployment_id`, `a8bc02df`), F07 ZFS (`zfs_dataset_bytes`, `185459dd`), décision O1 consignée (F18), retour de `master-red` à `$/` (`8952fda3`). #452 a été fusionnée par le propriétaire à 11:58 UTC (`f21a9b75`, release 1.40.1) avant le push de cette suite : ses commits sont rejoués depuis `master` sur la branche `fix/roadmap-pass2-followup-20261121`.
 - Inchangés, blocage identique : F07 source par App (décision owner non implémentable telle quelle, question corrigée), parité F11 et smoke F04 (identifiants ; Vaultwarden verrouillé : V1), F02 (console FastAPI Cloud), recettes F03/F06/F09/F12/F13 (après mise à jour TrueNAS ; observateur 401 sans `X-Diagnostics-Key`), F10 (import Compose), F15–F18 (activation et secrets).
+
+## 2026-11-21 — F15–F18, CI et sécurité IPv6
+
+- **PR #451 MERGED** (merge bb2fcb1c) : exposition IPv6 /sickz ; la CI originelle rouge ne doit pas être présentée comme verte. Le durcissement privacy/egress est poursuivi en PR #453 : HEAD, IPv6 direct sans proxy implicite, six cibles maximum, labels bornés, aucun préfixe réel dans la documentation.
+- **PR #453 F15/F18** : outbox PostgreSQL sans payload (migration d818c14f420a), transactions et idempotence ; liste OWNER uniquement en homelab opt-in, aucun Terraform apply, Slack ni signature YubiKey activés. Migrer avec une base PostgreSQL jetable avant recette.
+- **PR #453 F16** : intégration FreshRSS GReader, catalogue Backstage V2, Langfuse prompt versionné et LiteLLM TrueNAS, cache Redis (24h), 5 articles maximum par pilote CLI. Tests hermétiques et intégrations runtime à recevoir ; aucune planification automatique ni publication Slack.
+- **F04 / CI** : le smoke standard de master vérifie maintenant l'accès anonyme interdit et la disponibilité publique, et déporte les diagnostics sensibles vers le job authenticated-smoke protégé par l'environnement production-smoke. Préserver le design de master au rebase, ne jamais redonner un HTTP 200 anonyme à /api/homelab/status. La fin de fichier ZAP est normalisée.
+- **F17 / H04** : CrowdSec AppSec WAF et Traefik restent en PR Compose #432 ; contrôle des séries Prometheus et des règles WAF avant le basculement du tunnel.
+
+Preuves : CI à relancer après rebase ; le runtime TrueNAS et les migrations PostgreSQL ne sont pas validés ici.
+
+- **CI validation #453 (21/11)** : fixers pyupgrade, add-trailing-comma et Ruff appliqués par workflows temporaires de confiance, automatiquement retirés ; exécution des checks Python/CodeQL demandée sur la nouvelle révision. Résultats à évaluer avant merge, ne pas contourner les gates.
