@@ -36,10 +36,25 @@
   font-size: 0.7rem;
 }
 
-.truenas-platform-state--ok { color: #7dffc4; border-color: rgba(0, 255, 136, 0.35); }
-.truenas-platform-state--warn { color: #ffd966; border-color: rgba(255, 200, 50, 0.4); }
-.truenas-platform-state--fail { color: #ff9999; border-color: rgba(255, 80, 80, 0.45); }
-.truenas-platform-state--neutral { color: #aaa; }
+.truenas-platform-state--ok {
+  color: #7dffc4;
+  border-color: rgba(0, 255, 136, 0.35);
+}
+.truenas-platform-state--warn {
+  color: #ffd966;
+  border-color: rgba(255, 200, 50, 0.4);
+}
+.truenas-platform-state--fail {
+  color: #ff9999;
+  border-color: rgba(255, 80, 80, 0.45);
+}
+.truenas-platform-state--neutral {
+  color: #aaa;
+}
+.truenas-platform-state--expected {
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.5);
+}
 
 .truenas-platform-target {
   margin: 0.25rem 0 0.65rem;
@@ -136,14 +151,39 @@
   gap: 0.2rem;
 }
 
-.truenas-stage--ok { border-color: rgba(0, 255, 136, 0.35); color: #7dffc4; }
-.truenas-stage--warn { border-color: rgba(255, 200, 50, 0.4); color: #ffd966; }
-.truenas-stage--fail { border-color: rgba(255, 80, 80, 0.55); color: #ff9999; }
-.truenas-stage--blocked { border-color: #3a3a3a; color: #777; }
-.truenas-stage-icon { font-size: 1rem; min-height: 1.25rem; }
-.truenas-stage-label { font-size: 0.72rem; font-weight: 600; }
-.truenas-stage-time { font-size: 0.65rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.truenas-stage-detail { font-size: 0.62rem; color: #888; overflow-wrap: anywhere; }
+.truenas-stage--ok {
+  border-color: rgba(0, 255, 136, 0.35);
+  color: #7dffc4;
+}
+.truenas-stage--warn {
+  border-color: rgba(255, 200, 50, 0.4);
+  color: #ffd966;
+}
+.truenas-stage--fail {
+  border-color: rgba(255, 80, 80, 0.55);
+  color: #ff9999;
+}
+.truenas-stage--blocked {
+  border-color: #3a3a3a;
+  color: #777;
+}
+.truenas-stage-icon {
+  font-size: 1rem;
+  min-height: 1.25rem;
+}
+.truenas-stage-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.truenas-stage-time {
+  font-size: 0.65rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.truenas-stage-detail {
+  font-size: 0.62rem;
+  color: #888;
+  overflow-wrap: anywhere;
+}
 
 .truenas-connector {
   align-self: center;
@@ -196,25 +236,78 @@
   font-size: 0.64rem;
 }
 
-.truenas-probe-row--ok { border-color: rgba(0, 255, 136, 0.25); }
-.truenas-probe-row--warn { border-color: rgba(255, 200, 50, 0.32); }
-.truenas-probe-row--fail { border-color: rgba(255, 80, 80, 0.4); }
+.truenas-probe-row--ok {
+  border-color: rgba(0, 255, 136, 0.25);
+}
+.truenas-probe-row--warn {
+  border-color: rgba(255, 200, 50, 0.32);
+}
+.truenas-probe-row--fail {
+  border-color: rgba(255, 80, 80, 0.4);
+}
 
-.truenas-probe-name { color: #d4d4d4; font-weight: 600; }
+.truenas-probe-name {
+  color: #d4d4d4;
+  font-weight: 600;
+}
 .truenas-probe-target {
   color: #8f8f8f;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow-wrap: anywhere;
 }
-.truenas-probe-state { color: #b5b5b5; }
+.truenas-probe-state {
+  color: #b5b5b5;
+}
 .truenas-probe-latency {
   color: #8f8f8f;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (max-width: 700px) {
-  .truenas-platform-heading { flex-direction: column; }
-  .truenas-platform-state { align-self: flex-start; }
-  .truenas-security-filters { align-items: flex-start; }
-  .truenas-probe-row { grid-template-columns: 1fr; }
+  .truenas-platform-heading {
+    flex-direction: column;
+  }
+  .truenas-platform-state {
+    align-self: flex-start;
+  }
+  .truenas-security-filters {
+    align-items: flex-start;
+  }
+  .truenas-probe-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.crowdsec-decisions {
+  margin: 0.5rem 0;
+  font-size: 0.75rem;
+}
+.crowdsec-decisions-summary {
+  cursor: pointer;
+}
+.crowdsec-decisions-summary--ok {
+  color: #7dffc4;
+}
+.crowdsec-decisions-summary--warn {
+  color: #ffd966;
+}
+.crowdsec-decisions-summary--expected {
+  color: #7dd3fc;
+}
+.crowdsec-decisions-body {
+  overflow-x: auto;
+}
+.crowdsec-decisions table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.crowdsec-decisions th,
+.crowdsec-decisions td {
+  padding: 0.2rem 0.4rem;
+  text-align: left;
+  border-bottom: 1px solid #333;
+  white-space: nowrap;
+}
+.crowdsec-decision--honeypot {
+  color: #ffb86b;
 }

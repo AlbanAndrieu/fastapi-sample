@@ -418,6 +418,18 @@ docker exec fastapi-sample env | \
 
 For self-hosted Sentry, keep the project DSN in `/mnt/cpool/secrets/runtime/fastapisample/.env.secrets`. The local Nginx ingress is cleartext HTTP on `172.17.0.24:9005`; TLS, when desired for browser access, terminates on the external/internal reverse proxy rather than that host port.
 
+### CrowdSec blocked IPs (OWNER, TrueNAS runtime only)
+
+`GET /api/homelab/crowdsec/decisions` lists local CrowdSec decisions
+(`crowdsec` and `cscli` origins, not the community blocklist) for the owner, with
+honeypot scenarios first. It reads the LAN LAPI with a dedicated bouncer key,
+which can only read decisions; FastAPI Cloud answers `not_observed`.
+
+```dotenv
+CROWDSEC_LAPI_URL=http://172.17.0.24:8084   # default; private addresses only
+CROWDSEC_OBSERVER_LAPI_KEY=<secret, Vaultwarden nabla/prod/fastapisample>
+```
+
 ### Prometheus / core health metrics
 
 FastAPI Sample can optionally enrich the service-first health board from the

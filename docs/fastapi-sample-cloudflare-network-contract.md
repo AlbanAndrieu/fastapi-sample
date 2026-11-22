@@ -79,20 +79,19 @@ workstation -> pfSense default gateway -> Internet/Cloudflare edge
 
 It is **not** pfSense NAT reflection back to the local origin.
 
-### `truenas.albandrieu.com:7000`
+### `truenas.albandrieu.com`
 
-The pfSense/Unbound answer for `truenas.albandrieu.com` is the homelab public
-WAN address. A workstation request to the hostname/port is therefore the
-candidate hairpin path:
+pfSense and HAProxy were retired on 18 November 2026; no Freebox forward
+publishes TCP/7000. Public DNS answers with the Cloudflare Tunnel, so the
+public path is Access-protected HTTPS on 443:
 
 ```text
-workstation -> pfSense WAN address :7000 -> NAT reflection / HAProxy -> TrueNAS
+browser -> Cloudflare Access :443 -> cloudflared -> https://172.17.0.24:7000 (SNI truenas.albandrieu.com)
 ```
 
-Whether reflection/HAProxy was actually selected must be confirmed with the
-request to the hostname plus pfSense state/HAProxy evidence. By contrast,
-`https://172.17.0.24:7000/` is unambiguously direct LAN and bypasses the WAN
-reflection path.
+`https://truenas.albandrieu.com:7000/` is unreachable from the Internet by
+design. Port 7000 remains the native TrueNAS listener on the LAN: the TrueNAS
+observer and CSI pin the hostname to `172.17.0.24` to keep TLS verified.
 
 ## Operator verification
 
@@ -105,7 +104,8 @@ ip route get "$(getent ahostsv4 fastapi-sample.albandrieu.com | awk 'NR==1 {prin
 
 dig +short @172.17.0.1 truenas.albandrieu.com A
 ip route get 82.66.4.247
-curl -vkI https://truenas.albandrieu.com:7000/
+curl -sI https://truenas.albandrieu.com/   # expect an Access 302/403, never the TrueNAS login
+curl --resolve truenas.albandrieu.com:7000:172.17.0.24 -I https://truenas.albandrieu.com:7000/
 ```
 
 `dig @172.17.0.1` is an operator diagnostic against pfSense/Unbound. It is not

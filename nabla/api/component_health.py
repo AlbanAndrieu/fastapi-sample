@@ -33,6 +33,8 @@ def truenas_component(snapshot: dict[str, Any]) -> dict[str, Any]:
             "reason": "TrueNAS health unavailable",
         }
 
+    if truenas.get("skipped") is True:
+        return {"reachable": None, "skipped": True, "state": "unknown", "reason": truenas.get("reason")}
     state = str(truenas.get("state") or "unknown")
     public = truenas.get("public") if isinstance(truenas.get("public"), dict) else {}
     internal = truenas.get("internal") if isinstance(truenas.get("internal"), dict) else None

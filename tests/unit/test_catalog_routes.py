@@ -196,8 +196,10 @@ def test_snapshot_keeps_reviewed_exposure_intent() -> None:
     by_id = _snapshot_routes()
 
     truenas = by_id["truenas"]
-    assert (truenas.public, truenas.cloudflare_edge, truenas.access_required) == (True, False, False)
-    assert truenas.public_https_probe_url == "https://truenas.albandrieu.com:7000/"
+    # pfSense/HAProxy WAN :7000 is retired: TrueNAS is published on 443 behind Cloudflare Access.
+    assert (truenas.public, truenas.cloudflare_edge, truenas.access_required) == (True, True, True)
+    assert truenas.public_https_probe_url == "https://truenas.albandrieu.com/"
+    assert truenas.backend_port == 7000
 
     s3 = by_id["garage"]
     assert (s3.public, s3.url, s3.backend_port) == (False, "https://s3.int.albandrieu.com", 3900)

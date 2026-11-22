@@ -11,6 +11,7 @@ import httpx
 from nabla.api import truenas_probe_health
 from nabla.api.health_probe_utils import unverified_ssl_context, verified_ssl_context
 from nabla.api.catalog_routes import CatalogRoute
+from nabla.api.edge_provider import pfsense_retired
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.truenas_diagnostics import append_truenas_api_stages, append_truenas_http_stage, collect_truenas_network_diagnostics, unmeasured_truenas_network_diagnostics
 from nabla.api.truenas_health_observer import (
@@ -175,6 +176,49 @@ def _truenas_payload(
     }
 
 
+RETIRED_WAN_PATH_MODE = "pfsense_retired"
+
+
+def retired_wan_payload() -> dict[str, Any]:
+    """Off-LAN vantage after the pfSense/HAProxy WAN :7000 retirement: no TrueNAS I/O."""
+    reason = "pfSense/HAProxy WAN :7000 retired; TrueNAS is observed from the homelab runtime only"
+    skipped = {"reachable": None, "skipped": True, "state": "unknown", "reason": reason}
+    stages = [
+        {
+            "id": "pfsense_wan_ingress",
+            "label": "WAN :7000 via pfSense/HAProxy",
+            "state": "expected",
+            "detail": (
+                "Retired on 18/11/2026: the Freebox is the network edge and Traefik replaced HAProxy. No Freebox forward publishes TCP/7000, so this path is unreachable by design."
+            ),
+        },
+        {
+            "id": "https",
+            "label": "TrueNAS UI via Cloudflare Tunnel + Access :443",
+            "state": "expected",
+            "detail": (
+                "https://truenas.albandrieu.com/ requires a Cloudflare Access identity this runtime does not hold; "
+                "the homelab probe fan-out checks the Access challenge. Authenticated API evidence comes from "
+                "the TrueNAS staging observer on direct LAN :7000."
+            ),
+        },
+    ]
+    return {
+        "id": "truenas",
+        "state": "unknown",
+        "skipped": True,
+        "reason": reason,
+        "appliance_state": "unknown",
+        "public_ingress_state": "expected",
+        "public": skipped,
+        "internal": None,
+        "api": skipped,
+        "diagnostics": {"path_mode": RETIRED_WAN_PATH_MODE, "stages": stages},
+        "internal_probe_enabled": False,
+        "path_mode": RETIRED_WAN_PATH_MODE,
+    }
+
+
 async def probe_truenas(
     semaphore: asyncio.Semaphore,
     *,
@@ -183,6 +227,8 @@ async def probe_truenas(
     internal_probe: Callable[..., Awaitable[dict[str, Any]]],
 ) -> dict[str, Any]:
     """Probe TrueNAS with its own TLS policy while overlapping independent stages."""
+    if not homelab_runtime_detected() and pfsense_retired():
+        return retired_wan_payload()
     target = _resolve_truenas_target()
     api_task = asyncio.create_task(observe_truenas_health_api())
     public_task = asyncio.create_task(

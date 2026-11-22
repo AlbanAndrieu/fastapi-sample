@@ -40,7 +40,7 @@ export function isTrueNasExposureCheck(check) {
     : [];
   return (
     name === "truenas" ||
-    aliases.some((url) => String(url).includes("truenas.albandrieu.com:7000"))
+    aliases.some((url) => String(url).includes("//truenas.albandrieu.com"))
   );
 }
 

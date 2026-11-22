@@ -72,7 +72,7 @@ class CatalogRoute(BaseModel):
         """Desired HTTPS endpoint of the route's first hostname."""
         if not self.hostnames:
             return None
-        return f"https://{self.hostnames[0]}" + (f":{self.port}" if self.port else "")
+        return f"https://{self.hostnames[0]}" + (f":{self.port}" if self.port and self.port != 443 else "")
 
     @property
     def cloudflare_edge(self) -> bool | None:
