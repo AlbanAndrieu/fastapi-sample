@@ -149,7 +149,7 @@ def _safe_article(item: object, approved: set[str]) -> dict[str, str] | None:
     origin = item.get("origin")
     feed_id = origin.get("streamId") if isinstance(origin, dict) else None
     original_id = item.get("id")
-    if feed_id not in approved or not isinstance(original_id, str) or not 1 <= len(original_id) <= 1024:
+    if not isinstance(feed_id, str) or not 1 <= len(feed_id) <= 512 or feed_id not in approved or not isinstance(original_id, str) or not 1 <= len(original_id) <= 1024:
         return None
     title = _plain_text(item.get("title"), 300)
     if not title:

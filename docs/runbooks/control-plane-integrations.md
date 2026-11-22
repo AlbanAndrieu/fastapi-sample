@@ -84,3 +84,13 @@ and confirm Docker CI on the exact HEAD before merging.
 
 Runtime TrueNAS, IPv6 egress, FreshRSS and Freebox integration acceptance are
 independent of this CI-only rule qualification.
+
+
+**Durcissement pilote F16 (22/11)** : les erreurs Redis ne journalisent que
+la catégorie « lecture/écriture du cache indisponible », jamais l'exception
+(upstream pouvant contenir un mot de passe), l'URL Redis ni une clé de cache
+dérivée du contenu. En cas d'échec de lecture, seule l'inférence LiteLLM
+locale autorisée est réessayée ; l'échec d'écriture ne crée pas de faux état
+« cached ». Le lecteur GReader ignore les identifiants d'origine JSON mal
+typés plutôt que de faire échouer toute la collecte ; tests hermétiques
+ajoutés pour ces deux frontières. Aucun accès réseau ni activation modifié.

@@ -185,15 +185,17 @@ class _RSSClassifier:
                     cached = await self.redis_cache.get(cache_key)
                 if self.verified_result(cached):
                     return cached
-            except (RedisError, TimeoutError, OSError) as exc:
-                logger.warning("RSS classifier cache read failed for key %s: %s", cache_key, exc)
+            except (RedisError, TimeoutError, OSError):
+                # Avoid leaking Redis credentials, endpoint or key-derived metadata.
+                logger.warning("RSS classification cache read unavailable; local inference required")
         result = await lite_llm_json(self.client, prompt, content, key=self.key)
         if self.verified_result(result) and self.redis_cache is not None:
             try:
                 async with asyncio.timeout(0.8):
                     await self.redis_cache.set(cache_key, result, ex=86400)
-            except (RedisError, TimeoutError, OSError) as exc:
-                logger.warning("RSS classifier cache write failed for key %s: %s", cache_key, exc)
+            except (RedisError, TimeoutError, OSError):
+                # The inference result remains usable even when Redis is down.
+                logger.warning("RSS classification cache write unavailable; result not cached")
         return result
 
 

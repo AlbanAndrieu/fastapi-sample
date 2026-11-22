@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from pydantic import SecretStr
+from redis.exceptions import RedisError
 
 from nabla.api.site_architecture_catalog import SiteArchitectureCatalogV2, SiteV2Entity, SiteV2Metadata
 from nabla.integrations import rss_relevance_live as live
@@ -191,3 +192,42 @@ async def test_redis_classification_cache_avoids_repeated_litellm(monkeypatch):
     assert network_calls.count("POST") == 1
     assert cache.ttls == [86400]
     assert all(key.startswith("rss:v1:classify:") for key in cache.data)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_stage", ["read", "write"])
+async def test_redis_cache_failures_never_log_credentials_or_cache_keys(
+    monkeypatch, caplog, failure_stage
+):
+    """Redis is best effort; errors never publish credentials or content keys."""
+    class FailingCache:
+        async def get(self, key):
+            if failure_stage == "read":
+                raise RedisError("redis://:PRIVATE_CANARY@127.0.0.1:6379")
+            return None
+
+        async def set(self, key, value, *, ex):
+            assert ex == 86400
+            if failure_stage == "write":
+                raise RedisError("redis://:PRIVATE_CANARY@127.0.0.1:6379")
+
+    result = json.dumps({"relevant": True, "matched": ["traefik"], "reason": "Patch"})
+    llm = AsyncMock(return_value=result)
+    monkeypatch.setattr(live, "lite_llm_json", llm)
+    async with httpx.AsyncClient(trust_env=False) as client:
+        classifier = live._RSSClassifier(
+            client=client,
+            key="virtual-key-private",
+            redis_cache=FailingCache(),
+            revision="sha256:" + "a" * 64,
+            technologies=["traefik"],
+            prompt_version=7,
+        )
+        with caplog.at_level("WARNING", logger=live.__name__):
+            actual = await classifier.classify("strict prompt", "sanitized article")
+    assert actual == result
+    llm.assert_awaited_once()
+    assert "cache" in caplog.text
+    assert "PRIVATE_CANARY" not in caplog.text
+    assert "rss:v1:classify:" not in caplog.text
+    assert "virtual-key-private" not in caplog.text

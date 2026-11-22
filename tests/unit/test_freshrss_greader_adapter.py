@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from nabla.integrations.freshrss_greader import FreshRSSUnavailable, _plain_text, recent_public_articles
+from nabla.integrations.freshrss_greader import FreshRSSUnavailable, _plain_text, _project_recent_public_articles, recent_public_articles
 
 
 @pytest.mark.asyncio
@@ -94,3 +94,17 @@ def test_untrusted_html_and_bidi_controls_are_removed(source: str, expected: str
 
 def test_untrusted_article_projection_has_bounded_text_cost() -> None:
     assert len(_plain_text("<b>" + "a" * 50000 + "</b>", 300)) == 300
+
+
+@pytest.mark.parametrize(
+    "malformed_feed_id",
+    [[], {"stream": "feed/public"}, 7, None, "a" * 513],
+)
+def test_untrusted_greader_origin_id_is_skipped_without_aborting_public_articles(malformed_feed_id):
+    items = [
+        {"id": "untrusted", "title": "Reject", "origin": {"streamId": malformed_feed_id}},
+        {"id": "approved", "title": "Traefik security", "origin": {"streamId": "feed/public"}},
+    ]
+    rows = _project_recent_public_articles(items, {"feed/public"}, 5)
+    assert len(rows) == 1
+    assert rows[0]["title"] == "Traefik security"
