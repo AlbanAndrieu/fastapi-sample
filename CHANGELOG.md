@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.41.0...1.42.0) (2026-11-22)
+
+
+### Features
+
+* **homelab:** retire the TrueNAS WAN :7000 path and list CrowdSec blocked IPs ([#456](https://github.com/AlbanAndrieu/fastapi-sample/issues/456)) ([29d7cb6](https://github.com/AlbanAndrieu/fastapi-sample/commit/29d7cb6d55eb6b468fe0970c6d061b122bb4e78b))
+
 # [1.41.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.3...1.41.0) (2026-11-22)
 
 
