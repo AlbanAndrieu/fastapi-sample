@@ -64,6 +64,31 @@ def test_trivyignore_has_no_unscoped_vulnerability_suppression() -> None:
         assert entry["id"]
 
 
+def test_private_image_secret_ignores_are_explicit_vendor_examples_only() -> None:
+    config = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"))
+    rows = config["secrets"]
+    assert {row["id"] for row in rows} == {"gcp-service-account", "jwt-token"}
+    allowed = {
+        "gcp-service-account": {
+            "**/site-packages/anthropic/resources/beta/agents/agents.py",
+            "**/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-313.pyc",
+            "**/site-packages/anthropic/types/beta/agent_create_params.py",
+            "**/site-packages/anthropic/types/beta/agent_update_params.py",
+            "**/site-packages/anthropic/types/beta/beta_managed_agents_agent.py",
+            "**/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py",
+            "**/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py",
+        },
+        "jwt-token": {
+            "**/site-packages/fastapi_users/authentication/transport/__pycache__/bearer.cpython-313.pyc",
+        },
+    }
+    for row in rows:
+        assert set(row["paths"]) == allowed[row["id"]]
+        assert str(row["expired_at"]) == "2026-12-22"
+        assert row["statement"]
+        assert all(not path.endswith("/**") for path in row["paths"])
+
+
 def test_smol_toml_override_excludes_known_vulnerable_releases() -> None:
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     lock = json.loads(

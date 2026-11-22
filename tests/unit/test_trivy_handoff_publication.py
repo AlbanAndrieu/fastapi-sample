@@ -57,6 +57,10 @@ def test_publication_guard():
     assert "scanners: vuln\n" in workflow
     assert "scanners: secret\n" in workflow
     assert "output: trivy-secrets-private.json" in workflow
+    secret_scanner = workflow.split("Run private Trivy image secret scan", 1)[1].split(
+        "- name: Summarize private Trivy", 1,
+    )[0]
+    assert "trivyignores: .trivyignore.yaml" in secret_scanner
     assert "validate_trivy_handoff.py trivy-secrets-private.json" in workflow
     assert workflow.index("Gate private Trivy secrets") < workflow.index("Convert same Trivy scan")
     assert "ignore-unfixed: false" in workflow

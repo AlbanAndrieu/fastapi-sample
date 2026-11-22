@@ -46,3 +46,41 @@ API approbations : `GET /api/homelab/approvals/pending` lecture seule sur Postgr
 - Publier `nabla-homelab-rss-relevance` dans Langfuse avec label `production` et version entière non nulle ; délivrer une clé virtuelle LiteLLM dédiée au modèle `fastapi-qwen` avec quotas ; conserver `trust_env=False`, les limites de réponses et de temps, le JSON strict, et au plus cinq articles par exécution.
 - **Recette** : `python -m nabla.integrations.rss_relevance_live --check` valide uniquement le contrat hors réseau. Puis, en environnement homelab isolé, avec secrets montés depuis le coffre et décision OWNER explicite, exécuter `FRESHRSS_RELEVANCE_RUN_APPROVED=YES python -m nabla.integrations.rss_relevance_live --once`. Vérifier sans exposer de contenu privé : nombre traité, faux positifs, pertinence, quotas, cache Redis 24 h, timeouts, refus en cas d'indisponibilité Langfuse/LiteLLM, aucun POST GReader, aucun marquage lu et aucune publication Slack.
 - **Go/no-go :** CI complète verte sur SHA final et revue de toute détection de secrets Trivy, migrations PostgreSQL séparées, test FreshRSS/Langfuse/LiteLLM réel concluant. Aucune planification automatique avant validation.
+
+
+## 2026-11-22 · Trivy container-image secret baselines — verified public SDK examples
+
+Docker CI remains **fail-closed** after running Trivy `scanners: secret`: the
+private JSON is never uploaded, and `validate_trivy_handoff.py` rejects every
+remaining secret or misconfiguration finding. The `trivyignores` parameter
+loads `.trivyignore.yaml` explicitly only for this private secret scan.
+
+The 21/11 Docker run reported 12 matches, isolated by a metadata-only triage
+without disclosing secret contents. Public upstream source review verified two
+false-positive signatures in the exact pinned dependency versions:
+
+- **Anthropic 2.8.0 (11 hits)**: Trivy v0.71.2 rule
+  `gcp-service-account` matches the literal
+  `{"type": "service_account"}`, a documented execution-identity discriminator
+  in `src/anthropic/resources/beta/agents/agents.py` and the five
+  `src/anthropic/types/beta/*agent*.py` models. Its compiled
+  `agents.cpython-313.pyc` also repeats that public literal.
+  [Pinned vendor source](https://github.com/anthropics/anthropic-sdk-python/tree/v2.8.0/src/anthropic);
+  [Trivy rule](https://github.com/aquasecurity/trivy/blob/v0.71.2/pkg/fanal/secret/builtin-rules.go).
+  This is not a JSON service-account credential (no key material).
+- **FastAPI Users 15.0.5 (1 hit)**: Trivy rule `jwt-token` matches a
+  fixed, public OpenAPI example access token in the compiled
+  `fastapi_users/authentication/transport/__pycache__/bearer.cpython-313.pyc`.
+  The source splits the example over adjacent string literals;
+  the sample JWT claims `exp=1571504193` (2019-10-19 UTC), long expired.
+  [Pinned vendor source](https://github.com/fastapi-users/fastapi-users/blob/v15.0.5/fastapi_users/authentication/transport/bearer.py).
+
+**Scope and expiry:** only these two Trivy rule IDs and eight named vendor
+files can be exempted, expiring **2026-12-22**; no rule is disabled globally and
+no entire dependency directory or first-party code is skipped. Contract tests
+pin the allowlist. New secrets anywhere else still fail CI. Re-qualify the
+exceptions on upgrades of Trivy, the Anthropic SDK, Python, or FastAPI Users,
+and confirm Docker CI on the exact HEAD before merging.
+
+Runtime TrueNAS, IPv6 egress, FreshRSS and Freebox integration acceptance are
+independent of this CI-only rule qualification.
