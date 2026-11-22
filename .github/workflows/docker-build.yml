@@ -138,20 +138,31 @@ jobs:
             (.Results // [])[]?
             | (if (.Target | type) == "string" then .Target else "" end) as $target
             | (if ($target | contains("site-packages/")) then
-                ($target | split("site-packages/")[1] | split("/")[0])
-              else "other" end) as $candidate
+                ($target | split("site-packages/")[1] | split("/"))
+              else [] end) as $segments
+            | (if ($segments | length) > 0 then $segments[0] else "other" end) as $candidate
             | (if ($candidate | test("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")) then
                 $candidate
               else "other" end) as $package
+            | (if ($segments | length) > 0 then $segments[-1] else "other" end) as $filename
+            | (if ($filename | test("^[A-Za-z_][A-Za-z0-9_.-]{0,63}$")) then
+                $filename
+              else "other" end) as $safe_filename
             | (.Secrets // [])[]?
             | (if (.RuleID | type) == "string" then .RuleID else "" end) as $rule
-            | (if ($rule | test("github"; "i")) then "github"
+            | (if ($rule | test("anthropic|claude"; "i")) then "anthropic"
+              elif ($rule | test("generic"; "i")) then "generic"
+              elif ($rule | test("github"; "i")) then "github"
+              elif ($rule | test("gitlab"; "i")) then "gitlab"
               elif ($rule | test("aws"; "i")) then "aws"
               elif ($rule | test("private.key"; "i")) then "private_key"
+              elif ($rule | test("oauth"; "i")) then "oauth"
+              elif ($rule | test("jwt"; "i")) then "jwt"
               elif ($rule | test("token"; "i")) then "token"
               elif ($rule | test("password"; "i")) then "password"
+              elif ($rule | test("secret"; "i")) then "secret"
               else "other" end) as $category
-            | [$package, $category] | @tsv
+            | [$package, $safe_filename, $category] | @tsv
           ' trivy-secrets-private.json | LC_ALL=C sort | uniq -c
 
       - name: Gate private Trivy secrets without publication

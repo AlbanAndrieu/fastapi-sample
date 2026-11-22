@@ -70,6 +70,8 @@ def test_docker_trivy_triage_is_metadata_only_and_fail_closed():
     second = workflow.index("Gate private Trivy secrets without publication", first)
     snippet = workflow[first:second]
     assert "RuleID" in snippet
+    assert "$safe_filename" in snippet
+    assert "anthropic|claude" in snippet
     assert "site-packages/" in snippet
     assert "Match," not in snippet
     assert ".Match" not in snippet
