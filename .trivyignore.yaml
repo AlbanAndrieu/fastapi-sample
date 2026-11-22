@@ -59,7 +59,7 @@ misconfigurations:
 
 secrets:
   # Trivy v0.71.2's gcp-service-account regex matches the *literal*
-  # {"type": "service_account"} in public Anthropic SDK 2.8.0 API docstrings,
+  # documented JSON execution-identity type service_account in Anthropic SDK 2.8.0,
   # not a Google service-account key. Exact vendor files only.
   # Review again before 2026-12-22 or when the SDK/Trivy version changes.
   - id: gcp-service-account
