@@ -10,6 +10,7 @@ import asyncio
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 import os
 import re
 from typing import Any
@@ -23,6 +24,7 @@ from nabla.integrations.rss_relevance import filter_articles
 
 _ALLOWED_PROMPT_HOSTS = {"langfuse.albandrieu.com", "172.17.0.24", "langfuse"}
 _MODEL = "fastapi-qwen"
+logger = logging.getLogger(__name__)
 _LITELLM = "http://172.17.0.24:4000"
 _BAD_TAGS = {"production", "development", "service", "website", "internal", "active", "managed"}
 
@@ -183,15 +185,15 @@ class _RSSClassifier:
                     cached = await self.redis_cache.get(cache_key)
                 if self.verified_result(cached):
                     return cached
-            except (RedisError, TimeoutError, OSError):
-                pass
+            except (RedisError, TimeoutError, OSError) as exc:
+                logger.warning("RSS classifier cache read failed for key %s: %s", cache_key, exc)
         result = await lite_llm_json(self.client, prompt, content, key=self.key)
         if self.verified_result(result) and self.redis_cache is not None:
             try:
                 async with asyncio.timeout(0.8):
                     await self.redis_cache.set(cache_key, result, ex=86400)
-            except (RedisError, TimeoutError, OSError):
-                pass
+            except (RedisError, TimeoutError, OSError) as exc:
+                logger.warning("RSS classifier cache write failed for key %s: %s", cache_key, exc)
         return result
 
 
