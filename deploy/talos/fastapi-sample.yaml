@@ -45,6 +45,8 @@ spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 130
       securityContext:
+        # Aligned with the production image USER 999:999; migration to UID >10000
+        # requires rebuilding the image and verifying persistent volume ownership.
         runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999

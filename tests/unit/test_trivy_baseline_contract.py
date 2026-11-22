@@ -64,6 +64,31 @@ def test_trivyignore_has_no_unscoped_vulnerability_suppression() -> None:
         assert entry["id"]
 
 
+def test_private_image_secret_ignores_are_explicit_vendor_examples_only() -> None:
+    config = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"))
+    rows = config["secrets"]
+    assert {row["id"] for row in rows} == {"gcp-service-account", "jwt-token"}
+    allowed = {
+        "gcp-service-account": {
+            "**/site-packages/anthropic/resources/beta/agents/agents.py",
+            "**/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-313.pyc",
+            "**/site-packages/anthropic/types/beta/agent_create_params.py",
+            "**/site-packages/anthropic/types/beta/agent_update_params.py",
+            "**/site-packages/anthropic/types/beta/beta_managed_agents_agent.py",
+            "**/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py",
+            "**/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py",
+        },
+        "jwt-token": {
+            "**/site-packages/fastapi_users/authentication/transport/__pycache__/bearer.cpython-313.pyc",
+        },
+    }
+    for row in rows:
+        assert set(row["paths"]) == allowed[row["id"]]
+        assert str(row["expired_at"]) == "2026-12-22"
+        assert row["statement"]
+        assert all(not path.endswith("/**") for path in row["paths"])
+
+
 def test_smol_toml_override_excludes_known_vulnerable_releases() -> None:
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     lock = json.loads(
@@ -74,3 +99,22 @@ def test_smol_toml_override_excludes_known_vulnerable_releases() -> None:
     installed = lock["packages"]["node_modules/smol-toml"]["version"]
     major, minor, _patch = (int(part) for part in installed.split("."))
     assert (major, minor) >= (1, 9)
+
+
+def test_talos_stage_matches_image_uid_with_scoped_trivy_exceptions() -> None:
+    manifest = yaml.safe_load_all((ROOT / "deploy/talos/fastapi-sample.yaml").read_text(encoding="utf-8"))
+    deployment = next(x for x in manifest if x["kind"] == "Deployment")
+    spec = deployment["spec"]["template"]["spec"]
+    context = spec["securityContext"]
+    assert context["runAsNonRoot"] is True
+    assert context["runAsUser"] == 999  # Dockerfile USER 999:999
+    assert context["runAsGroup"] == 999
+    assert context["fsGroup"] == context["runAsGroup"]
+    container = spec["containers"][0]
+    assert container["image"].startswith("ghcr.io/albanandrieu/fastapi-sample@sha256:")
+    assert container["securityContext"]["readOnlyRootFilesystem"] is True
+    ignored = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"))
+    for risk in ("KSV-0020", "KSV-0021", "KSV-0125"):
+        targeted = [x for x in ignored["misconfigurations"] if x["id"] == risk and "deploy/talos/fastapi-sample.yaml" in x.get("paths", [])]
+        assert len(targeted) == 1
+        assert targeted[0]["paths"] == ["deploy/talos/fastapi-sample.yaml"]

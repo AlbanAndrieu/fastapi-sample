@@ -58,3 +58,13 @@ def test_pr_security_checks_have_enforced_secret_scanners() -> None:
     assert "REPOSITORY_BETTERLEAKS_DISABLE_ERRORS: false" in megalinter
     assert "REPOSITORY_TRIVY_DISABLE_ERRORS: false" in megalinter
     assert "pull_request:" in codeql
+
+
+def test_modern_zizmor_is_mandatory_without_stale_megalinter_duplicate() -> None:
+    """Keep a blocking security gate with GitHub's modern $/ workflow syntax."""
+    cfg = (ROOT / ".mega-linter.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
+    assert "  - ACTION_ZIZMOR" not in cfg
+    assert ".venv/bin/prek run zizmor --all-files --show-diff-on-failure" in workflow
+    assert ".venv/bin/prek run actionlint --all-files --show-diff-on-failure" in workflow
+    assert "REPOSITORY_TRIVY_DISABLE_ERRORS: false" in cfg

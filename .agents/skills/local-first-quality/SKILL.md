@@ -23,6 +23,23 @@ multi-service migration is a limited exception; do not bypass SAST/SCA,
 secrets scanning, reviews or security controls. For details consult the
 [conditional agent playbook](../../../docs/agent-execution-playbook.md).
 
+## Mandatory PR readiness (exact HEAD)
+
+- Fetch `origin/master` and the PR HEAD; inspect `git rev-list
+  --left-right --count origin/master...HEAD`, `git merge-base`,
+  and GitHub's mergeable/dirty state. If behind or conflicted, rebase
+  in the assigned worktree, resolve **every** conflict and check diff;
+  force-update a published branch **only** with exact expected SHA.
+- Run targeted tests and the L2/L3 gates applicable to the current
+  execution mode. Read failing CI job/step logs; fix the root cause
+  (including format, security, policy, workflow/secret contracts),
+  never disable checks to get green.
+- After push, recheck latest base/HEAD/mergeability and all required CI
+  conclusions at that **exact** SHA. A skipped, stale, queued or missing
+  required check does not count as green. If any blocker remains,
+  keep Draft / NOT_READY, record the blocker and exact acceptance
+  proof, and **do not merge**.
+
 ## Evidence levels and commands
 
 | Gate | Workstation command | Strongest evidence |

@@ -1,4 +1,5 @@
 """Persistent pending approval inventory. No authority to approve or execute."""
+
 from __future__ import annotations
 
 import re
@@ -29,8 +30,13 @@ approvals = sa.Table(
 
 
 def pending_insert(
-    *, challenge_sha256: str, commit_sha: str, plan_sha256: str,
-    run_id: int, expires_at: datetime, now: datetime | None = None,
+    *,
+    challenge_sha256: str,
+    commit_sha: str,
+    plan_sha256: str,
+    run_id: int,
+    expires_at: datetime,
+    now: datetime | None = None,
 ):
     """Only the existing Entra pilot; duplicate challenge is a no-op.
 
@@ -45,14 +51,29 @@ def pending_insert(
         raise ValueError("invalid run")
     if expires_at.tzinfo is None or not now < expires_at <= now + timedelta(minutes=90):
         raise ValueError("invalid expiry")
-    return insert(approvals).values(
-        challenge_sha256=challenge_sha256, repository="AlbanAndrieu/nabla-compose",
-        workflow="entra.yml", commit_sha=commit_sha, plan_sha256=plan_sha256,
-        run_id=run_id, created_at=now, expires_at=expires_at, state="pending",
-    ).on_conflict_do_nothing(index_elements=[approvals.c.challenge_sha256])
+    return (
+        insert(approvals)
+        .values(
+            challenge_sha256=challenge_sha256,
+            repository="AlbanAndrieu/nabla-compose",
+            workflow="entra.yml",
+            commit_sha=commit_sha,
+            plan_sha256=plan_sha256,
+            run_id=run_id,
+            created_at=now,
+            expires_at=expires_at,
+            state="pending",
+        )
+        .on_conflict_do_nothing(index_elements=[approvals.c.challenge_sha256])
+    )
 
 
-def pending_list(*, limit: int = 50):
+def pending_list(*, limit: int = 50, now: datetime | None = None):
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("invalid page size")
-    return sa.select(approvals).order_by(approvals.c.created_at.desc(), approvals.c.challenge_sha256).limit(limit)
+    return (
+        sa.select(approvals)
+        .where(approvals.c.state == "pending", approvals.c.expires_at > (now or utc_now()))
+        .order_by(approvals.c.created_at.desc(), approvals.c.challenge_sha256)
+        .limit(limit)
+    )

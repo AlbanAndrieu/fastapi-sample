@@ -26,6 +26,20 @@ misconfigurations:
       - "charts/generic-service/base/deployment.yaml"
       - "charts/generic-service/templates/deployment.yaml"
     statement: Images intentionally come from the project GitLab registry
+  # Current production image declares USER 999:999. Changing only K8s UID/GID
+  # breaks file ownership; migration requires a coordinated image rebuild.
+  - id: KSV-0020
+    paths:
+      - "deploy/talos/fastapi-sample.yaml"
+    statement: Staging only; runAsNonRoot 999 matches production image owner; migrate to UID over 10000 with image rebuild
+  - id: KSV-0021
+    paths:
+      - "deploy/talos/fastapi-sample.yaml"
+    statement: Staging only; group 999 matches production image file ownership; change together with image
+  - id: KSV-0125
+    paths:
+      - "deploy/talos/fastapi-sample.yaml"
+    statement: Private Talos staging pins images from this repository owner GHCR; enforce reviewed immutable digest at deployment
   - id: AVD-DS-0002
     statement: The image needs root privileges
   - id: AVD-DS-0026
@@ -42,6 +56,30 @@ misconfigurations:
     paths:
       - "charts/generic-service/templates/configmap.yaml"
     statement: Values are identifiers and endpoints, not secrets; secrets use Vault/ESO
+
+secrets:
+  # Trivy v0.71.2's gcp-service-account regex matches the *literal*
+  # documented JSON execution-identity type service_account in Anthropic SDK 2.8.0,
+  # not a Google service-account key. Exact vendor files only.
+  # Review again before 2026-12-22 or when the SDK/Trivy version changes.
+  - id: gcp-service-account
+    paths:
+      - "**/site-packages/anthropic/resources/beta/agents/agents.py"
+      - "**/site-packages/anthropic/resources/beta/agents/__pycache__/agents.cpython-313.pyc"
+      - "**/site-packages/anthropic/types/beta/agent_create_params.py"
+      - "**/site-packages/anthropic/types/beta/agent_update_params.py"
+      - "**/site-packages/anthropic/types/beta/beta_managed_agents_agent.py"
+      - "**/site-packages/anthropic/types/beta/beta_managed_agents_session_agent.py"
+      - "**/site-packages/anthropic/types/beta/beta_managed_agents_session_thread_agent.py"
+    expired_at: 2026-12-22
+    statement: Anthropic SDK 2.8.0 generated docstrings contain the public service_account type discriminator; Trivy v0.71.2 gcp-service-account regex flags it without credentials
+  # FastAPI Users 15.0.5 embeds an expired example JWT (2019-10-19)
+  # in BearerTransport's OpenAPI example; the .pyc concatenates string chunks.
+  - id: jwt-token
+    paths:
+      - "**/site-packages/fastapi_users/authentication/transport/__pycache__/bearer.cpython-313.pyc"
+    expired_at: 2026-12-22
+    statement: fastapi-users 15.0.5 public OpenAPI sample JWT expires 2019-10-19; only the compiled sample constant is ignored
 
 licenses:
   # Accepted transitive dependency licenses. Sharp dynamically links libvips;
