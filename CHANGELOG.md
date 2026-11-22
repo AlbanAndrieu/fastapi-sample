@@ -1,3 +1,10 @@
+# [1.41.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.3...1.41.0) (2026-11-22)
+
+
+### Features
+
+* **ops:** FreshRSS–Langfuse–LiteLLM pilot and OWNER approval inventory ([#453](https://github.com/AlbanAndrieu/fastapi-sample/issues/453)) ([3480870](https://github.com/AlbanAndrieu/fastapi-sample/commit/34808709d6bb33d0dcf784de03c60dca41ef9caa)), closes [#455](https://github.com/AlbanAndrieu/fastapi-sample/issues/455)
+
 ## [1.40.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.40.2...1.40.3) (2026-11-21)
 
 
