@@ -10,6 +10,8 @@ from pydantic import SecretStr, field_validator
 
 from nabla.settings.base import SettingsBase
 
+# Native TrueNAS listener, reached on the LAN with the hostname pinned to 172.17.0.24;
+# the public path is Cloudflare Tunnel + Access on 443 since pfSense/HAProxy was retired.
 DEFAULT_TRUENAS_URL = "https://truenas.albandrieu.com:7000"
 DEFAULT_TRUENAS_WS_PATH = "/api/current"
 _ALLOWED_TRUENAS_SCHEMES = frozenset({"http", "https", "ws", "wss"})
@@ -144,6 +146,7 @@ class TrueNASProviderSettings(SettingsBase):
     def websocket_path(self) -> str:
         return self.truenas_ws_path
 
+
 _ALLOWED_PFSENSE_SCHEMES = frozenset({"http", "https"})
 DEFAULT_PFSENSE_API_URL = "https://home.albandrieu.com:10443"
 
@@ -181,11 +184,7 @@ def _pfsense_url(value: str | None, *, variable: str) -> str | None:
     if parsed.scheme.casefold() not in _ALLOWED_PFSENSE_SCHEMES or not parsed.hostname:
         raise ValueError(f"{variable} must be an HTTP(S) URL with a host")
     normalized = value.rstrip("/")
-    if (
-        parsed.scheme.casefold() == "https"
-        and parsed.hostname.casefold() == "pfsense.albandrieu.com"
-        and parsed.port == 10443
-    ):
+    if parsed.scheme.casefold() == "https" and parsed.hostname.casefold() == "pfsense.albandrieu.com" and parsed.port == 10443:
         normalized = "https://home.albandrieu.com:10443"
     return normalized
 
@@ -196,21 +195,13 @@ def _secret_value(secret: SecretStr | None) -> str:
 
 def pfsense_posture_environment_variables() -> tuple[str, str]:
     """Return the selected posture URL/key variable names without secret values."""
-    url_var = (
-        "PFSENSE_POSTURE_API_URL"
-        if os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
-        else "PFSENSE_API_URL"
-    )
+    url_var = "PFSENSE_POSTURE_API_URL" if os.getenv("PFSENSE_POSTURE_API_URL", "").strip() else "PFSENSE_API_URL"
     return url_var, "PFSENSE_POSTURE_API_KEY"
 
 
 def pfsense_security_environment_variables() -> tuple[str, str]:
     """Return the selected security URL/key variable names without secret values."""
-    url_var = (
-        "PFSENSE_SECURITY_API_URL"
-        if os.getenv("PFSENSE_SECURITY_API_URL", "").strip()
-        else "PFSENSE_API_URL"
-    )
+    url_var = "PFSENSE_SECURITY_API_URL" if os.getenv("PFSENSE_SECURITY_API_URL", "").strip() else "PFSENSE_API_URL"
     return url_var, "PFSENSE_SECURITY_API_KEY"
 
 

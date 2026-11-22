@@ -79,7 +79,17 @@ def test_truenas_platform_distinguishes_direct_lan_from_public_wan_path() -> Non
     assert 'diagnostics?.path_mode === "direct_lan"' in javascript
     assert "TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current) · direct LAN" in javascript
     assert "public API path via pfSense/HAProxy" in javascript
-    assert 'if (pathMode === "direct_lan") return stages;' in javascript
+    assert 'if (pathMode === "direct_lan" || pathMode === "pfsense_retired")' in javascript
+
+
+def test_truenas_platform_renders_retired_wan_path_in_blue() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+    css = ASSET.with_suffix(".css").read_text(encoding="utf-8")
+
+    assert 'truenas?.diagnostics?.path_mode === "pfsense_retired"' in javascript
+    assert "truenas-platform-state--expected" in javascript
+    assert ".truenas-platform-state--expected" in css
+    assert "Freebox edge + Traefik ingress" in javascript
 
 
 def test_truenas_platform_distinguishes_listener_from_authenticated_api() -> None:

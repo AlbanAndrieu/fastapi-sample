@@ -1,3 +1,4 @@
+import { installCrowdsecDecisions } from "./api-crowdsec-decisions.js";
 import { escapeText } from "./api-health-ui.js";
 import { fetchHomelabHealth } from "./api-homelab-health.js";
 
@@ -77,6 +78,9 @@ function targetText(truenas) {
   const diagnostics = truenas?.diagnostics;
   const configuredTarget =
     diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  if (diagnostics?.path_mode === "pfsense_retired") {
+    return "https://truenas.albandrieu.com/ · Cloudflare Tunnel + Access :443 · WAN :7000 retired (Freebox edge, Traefik ingress) · API observed from the TrueNAS LAN runtime only";
+  }
   if (diagnostics?.path_mode === "direct_lan") {
     return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current) · direct LAN`;
   }
@@ -141,7 +145,8 @@ function ingressPolicyStage(data, measuredStages) {
 
 function trafficStages(data, stages) {
   const pathMode = data?.truenas?.diagnostics?.path_mode;
-  if (pathMode === "direct_lan") return stages;
+  if (pathMode === "direct_lan" || pathMode === "pfsense_retired")
+    return stages;
 
   const output = [];
   let inserted = false;
@@ -191,7 +196,11 @@ function renderIngressBlock(data, target) {
   const block = data?.pfsense?.dns?.ingress_block;
   const controlPath = block?.control_path;
   const wasOpen = container.open === true;
-  if (data?.truenas?.diagnostics?.path_mode === "direct_lan") {
+  if (
+    ["direct_lan", "pfsense_retired"].includes(
+      data?.truenas?.diagnostics?.path_mode,
+    )
+  ) {
     container.hidden = true;
     container.open = false;
     container.innerHTML = "";
@@ -394,10 +403,13 @@ function renderProbeFanout(data) {
     catalogCount != null ? `declared service catalog ${catalogCount} · ` : "";
   const pathMode = data?.truenas?.diagnostics?.path_mode;
   const connectTarget = data?.truenas?.diagnostics?.connect_target;
+  const retiredWan = pathMode === "pfsense_retired";
   const runtimeMode =
     pathMode === "direct_lan"
       ? `🏠 direct LAN${connectTarget ? ` · ${connectTarget}` : ""}`
-      : `☁ WAN pfSense/HAProxy${connectTarget ? ` · ${connectTarget}` : ""}`;
+      : retiredWan
+        ? "◆ WAN :7000 retired · Freebox edge + Traefik ingress"
+        : `☁ WAN pfSense/HAProxy${connectTarget ? ` · ${connectTarget}` : ""}`;
   const verifySsl = data?.truenas?.verify_ssl;
   const tlsMode =
     verifySsl === true
@@ -424,8 +436,9 @@ function renderProbeFanout(data) {
       : https.reachable === false
         ? "⚠ hostname HTTPS unreachable"
         : "◌ hostname HTTPS not measured";
-  const cloudflareMode =
-    "☁ Cloudflare Tunnel is not on the TrueNAS :7000 pfSense/HAProxy path";
+  const cloudflareMode = retiredWan
+    ? "☁ TrueNAS UI via Cloudflare Tunnel + Access :443"
+    : "☁ Cloudflare Tunnel is not on the TrueNAS :7000 pfSense/HAProxy path";
 
   const freshness = probeFreshnessText(data);
   summary.textContent = `${freshness} · ${runtimeMode} · ${httpsMode} · ${apiMode} · ${cloudflareMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
@@ -514,6 +527,7 @@ function render(data) {
   error.textContent = "";
   target.textContent = targetText(truenas);
   renderIngressBlock(data, target);
+  installCrowdsecDecisions();
 
   if (!Array.isArray(measuredStages) || measuredStages.length === 0) {
     const unavailable = diagnosticsUnavailable(data, truenas);
@@ -544,7 +558,11 @@ function render(data) {
   const api = truenas?.api || {};
   const rawTls = measuredStages?.find?.((stage) => stage?.id === "tls");
   const runtimeError = data?.truenas_runtime_error;
-  if (ingressBlock?.state === "blocked") {
+  if (truenas?.diagnostics?.path_mode === "pfsense_retired") {
+    // Blue: not observable from this vantage by design, never a DOWN.
+    state.className = "truenas-platform-state truenas-platform-state--expected";
+    state.textContent = "not observed off-LAN · WAN :7000 retired";
+  } else if (ingressBlock?.state === "blocked") {
     state.className = "truenas-platform-state truenas-platform-state--fail";
     state.textContent = "blocked by Snort/PF";
   } else {
