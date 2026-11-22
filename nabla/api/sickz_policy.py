@@ -327,7 +327,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         access_observer_error,
     ) = cloudflare_result
 
-    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.url)) is not None}
+    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.probe_url)) is not None}
     tunnels_by_host = _tunnels_by_hostname(tunnel_observations)
     access_by_host = _access_by_hostname(access_observations)
 
@@ -344,7 +344,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
     evidence_results = await asyncio.gather(
         *(
             _probe_http_edge_evidence(
-                service.url or "",
+                service.probe_url or "",
                 allow_service_token=bool(
                     service.public and (service.cloudflare_edge is True or service.access_required),
                 ),

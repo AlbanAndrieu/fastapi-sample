@@ -114,6 +114,17 @@ def test_sickz_targets_cover_private_hostnames_but_not_pfsense_admin() -> None:
     }
 
 
+def test_sickz_targets_read_the_declared_probe_path_never_the_honeypot_root() -> None:
+    groups, names, _ = sickz_targets(
+        routes(
+            entity("honeypot", route("https://login.albandrieu.com", public=True, probe_path="/healthz"), title="Honeypot"),
+        ),
+    )
+
+    assert groups == [["https://login.albandrieu.com/healthz"]]
+    assert names["https://login.albandrieu.com/healthz"] == "Honeypot"
+
+
 def test_probe_priority_follows_deployment_unit_rank_then_position() -> None:
     projected = routes(
         entity("garage-webui", route("https://garage.albandrieu.com", public=True), rank=0, position=2),

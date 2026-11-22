@@ -80,11 +80,19 @@ class CatalogRoute(BaseModel):
         return {CLOUDFLARE_TUNNEL_GATEWAY: True, DIRECT_WAN_GATEWAY: False}.get(self.gateway_ref or "")
 
     @property
-    def public_https_probe_url(self) -> str | None:
-        """Outside-in probe target, only for an intentionally public route."""
-        if not self.public or self.url is None:
+    def probe_url(self) -> str | None:
+        """The only URL probes may read: the declared probePath, else the root.
+
+        / of the login.albandrieu.com honeypot reports every visitor to Project Honey Pot.
+        """
+        if self.url is None:
             return None
         return self.url + (self.probe_path or "/")
+
+    @property
+    def public_https_probe_url(self) -> str | None:
+        """Outside-in probe target, only for an intentionally public route."""
+        return self.probe_url if self.public else None
 
     @model_validator(mode="after")
     def validate_route(self) -> CatalogRoute:
@@ -197,10 +205,6 @@ async def fetch_catalog_routes() -> list[CatalogRoute]:
     return list(_state["routes"])
 
 
-def _https_key(url: str) -> str:
-    return url.rstrip("/") + "/"
-
-
 def sickz_targets(
     routes: Sequence[CatalogRoute],
 ) -> tuple[list[list[str]], dict[str, str], dict[str, dict[str, Any]]]:
@@ -215,7 +219,7 @@ def sickz_targets(
     for route in routes:
         if route.entity_ref == _PFSENSE_REF or route.url is None:
             continue
-        key = _https_key(route.url)
+        key = route.probe_url
         groups.append([key])
         names[key] = route.name
         expectations[key] = {
