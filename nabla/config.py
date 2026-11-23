@@ -48,7 +48,8 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/runtime/metadata"),
         ("GET", "/v1/runtime/logs"),
         ("GET", "/v1/runtime/errors"),
-        # Read-only operational routes that are already public over HTTP.
+        # Read-only operational routes. All but /livez need DIAGNOSTICS_ACCESS_KEY:
+        # FastMCP forwards the MCP client's X-Diagnostics-Key header (see .mcp.json).
         ("GET", "/api/homelab/runtime"),
         ("GET", "/api/homelab/status"),
         ("GET", "/api/runtime/topology"),

@@ -223,8 +223,10 @@ async def test_database_dns_failure_remains_startup_fatal_when_required(monkeypa
             pytest.fail("critical PostgreSQL failure must prevent readiness")
 
     logger.error.assert_called_once()
-    assert "phase=%s stage=%s" in logger.error.call_args.args[0]
-    assert logger.error.call_args.args[1:4] == ("true", "dns", "name_resolution")
+    assert logger.error.call_args.args == ("startup_dependency_failed",)
+    fields = logger.error.call_args.kwargs
+    assert (fields["critical"], fields["phase"], fields["stage"]) == (True, "dns", "name_resolution")
+    assert fields["exception"] == "gaierror"
     resources["database"].disconnect.assert_not_awaited()
     resources["db_pool"].close.assert_called_once()
 
@@ -241,7 +243,7 @@ async def test_optional_database_failure_degrades_without_aborting_startup(monke
 
     degraded = [call for call in logger.warning.call_args_list if "startup_dependency_degraded" in call.args[0]]
     assert len(degraded) == 1
-    assert degraded[0].args[1] == "ConnectionRefusedError"
+    assert degraded[0].kwargs["exception"] == "ConnectionRefusedError"
     resources["database"].disconnect.assert_not_awaited()
     resources["db_pool"].close.assert_called_once()
 

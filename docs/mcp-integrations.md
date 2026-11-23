@@ -59,6 +59,26 @@ TrueNAS API:          http://172.17.0.24:8091/api
 
 Use the appropriate local server when the agent runs on the workstation/LAN. For runtime status rather than MCP tools, follow `.agents/skills/fastapi-cloud/SKILL.md`, which uses local HTTP health endpoints first and FastAPI Cloud as fallback.
 
+`/mcp` requires `MCP_OPS_KEY` (503 when the server has none, 401 without the
+header). The operational tools (`get_readiness`, homelab status/runtime,
+runtime topology) call diagnostics routes, so the client must also present
+`DIAGNOSTICS_ACCESS_KEY`; FastMCP forwards it and the HTTP protection is never
+bypassed. `.mcp.json` sends both from the environment:
+
+```text
+X-MCP-Key:          ${MCP_OPS_KEY}
+X-Diagnostics-Key:  ${DIAGNOSTICS_ACCESS_KEY}
+```
+
+Locally, both live in the gitignored `.env.local` loaded by mise: start the
+server with `mise run run` and Claude Code from a mise-activated shell (or
+`mise exec -- claude`) so the variables reach the MCP client. Set
+`HOMELAB_PROMETHEUS_URL=http://172.17.0.24:9090` and
+`RUNTIME_DIAGNOSTICS_ENABLED=true` for Prometheus and the runtime log tools.
+The TrueNAS API needs `truenas.albandrieu.com` to resolve to `172.17.0.24`
+(TLS stays valid; the TrueNAS runtime pins it with `extra_hosts`): public DNS
+answers Cloudflare, where `:7000` is retired.
+
 ### Local runtime devtools
 
 The local FastAPI MCP also exposes a small runtime-debug surface inspired by the built-in Next.js development MCP model. It does not require a second MCP process or access to the Docker socket: the running Python process captures a bounded in-memory ring buffer and exposes it through the same `/mcp` server.

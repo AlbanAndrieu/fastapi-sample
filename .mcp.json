@@ -2,7 +2,11 @@
   "mcpServers": {
     "fastapi-sample": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp"
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": {
+        "X-MCP-Key": "${MCP_OPS_KEY:-}",
+        "X-Diagnostics-Key": "${DIAGNOSTICS_ACCESS_KEY:-}"
+      }
     },
     "github": {
       "command": "bash",
