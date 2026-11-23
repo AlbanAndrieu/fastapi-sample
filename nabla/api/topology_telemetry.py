@@ -16,6 +16,7 @@ import httpx
 
 from nabla.api.platform_health_diagnostics import utc_now as _utc_now
 from nabla.api.prometheus_query import query_vector, sample_value
+from nabla.api.truenas_app_stats import fetch_app_stats
 from nabla.settings.observability import HomelabPrometheusSettings
 
 _CACHE_TTL_SECONDS = 15.0
@@ -57,6 +58,8 @@ _RESOURCE_QUERIES = {
     # statfs of a ZFS dataset: size - avail is the bytes it references, without child datasets or snapshots.
     "zfs_dataset_bytes": f"node_filesystem_size_bytes{{{_ZFS_DATASETS}}} - node_filesystem_avail_bytes{{{_ZFS_DATASETS}}}",
 }
+# Converts app.stats host CPU % into cores: the observer key may not read system.info (EACCES).
+_HOST_CORES_QUERY = 'count(node_cpu_seconds_total{job="truenas_node",mode="idle"})'
 _FLOW_QUERY = (
     "nabla:network_flow:pfsense_bytes_per_second or nabla:network_flow:pfsense_packets_per_second or nabla:telemetry:akvorado_inlet_up or nabla:telemetry:akvorado_outlet_up"
 )
@@ -131,6 +134,7 @@ async def _fetch_origin(
     try:
         tasks = {field: asyncio.create_task(query_vector(query_client, expression)) for field, expression in _RESOURCE_QUERIES.items()}
         flow_task = asyncio.create_task(query_vector(query_client, _FLOW_QUERY))
+        cores_task = asyncio.create_task(query_vector(query_client, _HOST_CORES_QUERY))
         results: dict[str, list[dict[str, Any]]] = {}
         errors: dict[str, str] = {}
         for field, task in tasks.items():
@@ -144,11 +148,17 @@ async def _fetch_origin(
         except (httpx.HTTPError, ValueError) as exc:
             errors["network_flow"] = type(exc).__name__
             flow_samples = []
+        try:
+            cores_samples = await cores_task
+        except (httpx.HTTPError, ValueError):
+            cores_samples = []
     finally:
         if owns_client:
             await query_client.aclose()
 
     resources = _resource_values(results)
+    cores = sample_value(cores_samples[0]) if cores_samples else None
+    host_cpu_cores = int(cores) if cores is not None and cores >= 1 and cores.is_integer() else None
     flow = _flow_values(flow_samples)
     signals = sum(bool(values) for values in results.values()) + int(bool(flow_samples))
     total = len(_RESOURCE_QUERIES) + 1
@@ -166,9 +176,47 @@ async def _fetch_origin(
         "edge_bandwidth": {},
         "edge_bandwidth_state": "unattributed",
         "edge_bandwidth_detail": ("Akvorado confirms aggregate pfSense flow throughput, but no source-to-target topology edge attribution is exported yet."),
+        "host_cpu_cores": host_cpu_cores,
         "query_errors": errors,
         "signals_available": signals,
         "signals_total": total,
+    }
+
+
+_APP_RESOURCE_KEYS = ("cpu_cores", "memory_bytes", "rx_bytes_per_second", "tx_bytes_per_second", "network_bytes_per_second")
+
+
+def _has_container_signals(resources: dict[str, Any]) -> bool:
+    return any(isinstance(row, dict) and (row.get("cpu_cores") is not None or row.get("memory_bytes") is not None) for row in resources.values())
+
+
+async def _with_app_stats(value: dict[str, Any]) -> dict[str, Any]:
+    """F07: without cAdvisor series, use TrueNAS per-App stats (App granularity, ZFS rows kept)."""
+    stats = await fetch_app_stats()
+    cores = value.get("host_cpu_cores")
+    running = {}
+    for name, row in stats.get("apps", {}).items():
+        if not row.get("running"):
+            continue
+        projected = {key: row.get(key) for key in _APP_RESOURCE_KEYS}
+        percent = row.get("cpu_host_percent")
+        if projected["cpu_cores"] is None and isinstance(percent, (int, float)) and isinstance(cores, int):
+            projected["cpu_cores"] = round(percent / 100 * cores, 4)
+        running[name] = projected
+    if stats.get("state") != "observed" or not running:
+        return {**value, "app_stats_state": stats.get("state")}
+    resources = dict(value.get("resources") or {})
+    for name, row in running.items():
+        resources[name] = {**resources.get(name, {}), **row}
+    return {
+        **value,
+        "resources": resources,
+        "resource_source": "truenas_app_stats",
+        "resource_granularity": "truenas_app",
+        # Prometheus signals may all be empty; the per-App sample is still a partial view.
+        "state": "partial" if value.get("state") == "telemetry_unavailable" else value.get("state"),
+        "app_stats_state": "observed",
+        "app_stats_observed_at": stats.get("observed_at"),
     }
 
 
@@ -222,6 +270,9 @@ async def fetch_topology_telemetry(
                 "error_kind": "query_failed",
                 "exception_type": type(exc).__name__,
             }
+        # Injected Prometheus clients are tests: keep them hermetic, no TrueNAS call.
+        if client is None and not _has_container_signals(value.get("resources") or {}):
+            value = await _with_app_stats(value)
         if client is None:
             _cache.value = value
             _cache.stored_at = time.monotonic()

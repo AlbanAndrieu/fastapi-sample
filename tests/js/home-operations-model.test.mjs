@@ -792,6 +792,12 @@ test("resource heatmap exposes only fresh evidence and retains missing versus ze
     projectResourceHeatmap({ ...source, resource_source: "unknown" }, NOW),
     null,
   );
+  // F07: TrueNAS app.stats rows (per App) use the same keys and gates.
+  const perApp = projectResourceHeatmap(
+    { ...source, resource_source: "truenas_app_stats" },
+    NOW,
+  );
+  assert.equal(perApp.measuredServices, 2);
 });
 
 test("resource heatmap stays bounded and never infers a missing service", () => {
