@@ -1,3 +1,10 @@
+# [1.43.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.42.0...1.43.0) (2026-11-23)
+
+
+### Features
+
+* relais TrueNAS signé, preuves Gatus/app.stats, journaux JSON unifiés et MCP local ([#457](https://github.com/AlbanAndrieu/fastapi-sample/issues/457)) ([c79945d](https://github.com/AlbanAndrieu/fastapi-sample/commit/c79945db9ebc830a88d1ae5fbf79d7b4bf6da6a9))
+
 # [1.42.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.41.0...1.42.0) (2026-11-22)
 
 
