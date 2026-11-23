@@ -20,6 +20,16 @@ from nabla.homelab_trusted_ip import owner_source_permitted
 from nabla.route_policy import Credential, route_policy_for, within
 
 
+def _owner_denial(exc: Exception) -> JSONResponse:
+    """Same contract as HTTP owner routes: an IdP outage is 503, not a bad credential."""
+    unavailable = not isinstance(exc, OwnerUnauthorized)
+    return JSONResponse(
+        {"detail": "Owner identity provider unavailable" if unavailable else "Owner identity required"},
+        status_code=503 if unavailable else 401,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
 class OpsASGITransportGuard:
     """Fail closed on unknown mounted ASGI applications, independent of strict mode.
 
@@ -51,13 +61,8 @@ class OpsASGITransportGuard:
                     subject = await verify_owner_token(
                         assertion_from_headers(Headers(scope=scope)),
                     )
-                except (OwnerConfigError, OwnerKeysUnavailable, OwnerUnauthorized):
-                    response = JSONResponse(
-                        {"detail": "Owner identity required"},
-                        status_code=401,
-                        headers={"Cache-Control": "private, no-store"},
-                    )
-                    await response(scope, receive, send)
+                except (OwnerConfigError, OwnerKeysUnavailable, OwnerUnauthorized) as exc:
+                    await _owner_denial(exc)(scope, receive, send)
                     return
                 settings = get_settings()
                 if not owner_source_permitted(scope, settings):

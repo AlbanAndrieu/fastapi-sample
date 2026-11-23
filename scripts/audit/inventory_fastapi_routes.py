@@ -28,7 +28,8 @@ def intended_policy(path: str, methods: Iterable[str], kind: str) -> str:
     """Classify from the same source used in middleware, not a duplicate list."""
     method_set = set(methods)
     if kind == "http" and not method_set:
-        return "REVIEW"
+        # Exact ASGI Route (FastMCP /mcp): every method reaches it, so read and write must agree.
+        method_set = {"GET", "POST"}
     choices = {route_policy_for(path, method=method, kind=kind).visibility.value for method in method_set}
     if not choices:
         return route_policy_for(path, kind=kind).visibility.value

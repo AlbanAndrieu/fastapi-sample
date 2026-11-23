@@ -218,6 +218,16 @@ class _Settings(DatabaseSettings):
         bool,
         Field(default=False, validation_alias=AliasChoices("GITHUB_WEBHOOK_ENABLED")),
     ]
+    # Signed TrueNAS -> Cloud evidence relay; both sides stay off until the shared secret exists.
+    truenas_federation_secret: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(default=None, validation_alias=AliasChoices("TRUENAS_FEDERATION_SECRET")),
+    ]
+    truenas_federation_cloud_url: Annotated[
+        str,
+        Field(default="", validation_alias=AliasChoices("TRUENAS_FEDERATION_CLOUD_URL")),
+    ]
     github_webhook_secret: Annotated[
         Optional[SecretStr],
         BeforeValidator(_unset_empty_env),
