@@ -162,10 +162,10 @@ authorized FastAPI Cloud control plane. GitHub release tags and the package publ
 **not** application deployment triggers. The read-only `master-smoke.yml`
 remains available for explicit diagnostic use, not automatic deployment.
 
-A Git SHA supplied by a local operator to
-`scripts/stamp_fastapi_deploy_revision.py` can be reported as
-`/v2/version.build_revision` only after runtime verification. A matching
-GitHub release number alone does not prove the running deployment SHA.
+FastAPI Cloud supplies no Git SHA: correlate a Cloud deployment through
+`/v2/version.deployment_id` (`FASTAPICLOUD_DEPLOYMENT_ID`), never by
+stamping a commit per deployment. A matching GitHub release number alone
+does not prove the running deployment SHA.
 On the TrueNAS (LAN) observer, use `false` only as an emergency kill-switch
 during credential rotation or a fresh Login Protection incident, then restore
 `true` after the key/path issue is corrected.
