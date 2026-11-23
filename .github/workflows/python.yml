@@ -358,6 +358,79 @@ jobs:
           -m integration
           tests/integration/test_external_probe_cache_redis.py
 
+  postgres-integration:
+    name: PostgreSQL integration
+    needs: build
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHON_VERSION: "3.13"
+      # Disposable service container reachable only from this runner: trust auth, no secret.
+      NOTES_POSTGRES_INTEGRATION_URL: postgresql://postgres@127.0.0.1:5432/postgres
+      KEYCLOAK_SERVER_URL: http://localhost:8080
+      KEYCLOAK_REALM: test
+      KEYCLOAK_CLIENT_ID: test
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
+      METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_ENVIRONMENT: test
+      LOGFIRE_TOKEN: ""
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: test
+      SENTRY_RELEASE: ci-${{ github.sha }}
+      DATADOG_ENABLED: "false"
+      DD_TRACE_ENABLED: "false"
+      DD_PROFILING_ENABLED: "false"
+      DD_LOGS_INJECTION: "false"
+      DD_APPSEC_ENABLED: "false"
+      DD_IAST_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          version: "0.12.22"
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      # One process, no xdist: these modules drop and recreate the same tables.
+      - name: Run PostgreSQL integration tests
+        run: >-
+          uv run --no-sync pytest
+          -m integration
+          tests/integration/test_alembic_postgres.py
+          tests/integration/test_notes_postgres.py
+          tests/integration/test_approval_outbox_postgres.py
+
   sonarcloud:
     name: Scan with SonarCloud
     needs: build
