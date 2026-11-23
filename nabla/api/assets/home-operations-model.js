@@ -12,6 +12,11 @@ const SAMPLE_IDS = new Set([
 const OBSERVED_SOURCES = new Set(["origin", "memory"]);
 const MAX_HISTORY = 24;
 const MAX_AGE_SECONDS = 180;
+// F07: cAdvisor rows are per Compose service, app.stats rows per TrueNAS App.
+const RESOURCE_SOURCES = Object.freeze([
+  "truenas_cadvisor",
+  "truenas_app_stats",
+]);
 
 function record(value) {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -239,7 +244,7 @@ export function projectServiceFootprint(
   if (
     telemetry.schema_version !== 1 ||
     !["healthy", "partial"].includes(telemetry.state) ||
-    telemetry.resource_source !== "truenas_cadvisor" ||
+    !RESOURCE_SOURCES.includes(telemetry.resource_source) ||
     !hasFreshTimestamp(telemetry.generated_at, nowMs)
   )
     return null;
@@ -297,7 +302,7 @@ export function projectResourceHeatmap(
   if (
     telemetry.schema_version !== 1 ||
     !["healthy", "partial"].includes(telemetry.state) ||
-    telemetry.resource_source !== "truenas_cadvisor" ||
+    !RESOURCE_SOURCES.includes(telemetry.resource_source) ||
     !hasFreshTimestamp(telemetry.generated_at, nowMs)
   )
     return null;

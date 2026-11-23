@@ -13,6 +13,7 @@ from nabla.api.health_probe_utils import unverified_ssl_context, verified_ssl_co
 from nabla.api.catalog_routes import CatalogRoute
 from nabla.api.edge_provider import pfsense_retired
 from nabla.api.runtime_environment import homelab_runtime_detected
+from nabla.api.truenas_federation import relayed_truenas_evidence, schedule_truenas_push
 from nabla.api.truenas_diagnostics import append_truenas_api_stages, append_truenas_http_stage, collect_truenas_network_diagnostics, unmeasured_truenas_network_diagnostics
 from nabla.api.truenas_health_observer import (
     TRUENAS_PROBE_DEADLINE_SEC,
@@ -216,6 +217,8 @@ def retired_wan_payload() -> dict[str, Any]:
         "diagnostics": {"path_mode": RETIRED_WAN_PATH_MODE, "stages": stages},
         "internal_probe_enabled": False,
         "path_mode": RETIRED_WAN_PATH_MODE,
+        # Signed LAN aggregate relayed by the TrueNAS runtime, with provenance and TTL; never a verdict.
+        "lan_relay": relayed_truenas_evidence(),
     }
 
 
@@ -251,6 +254,7 @@ async def probe_truenas(
             api_task,
             public_task,
         )
+        schedule_truenas_push(api_result)
         internal_result = await internal_task if internal_task is not None else None
         diagnostics = await diagnostics_task
     finally:

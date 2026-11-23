@@ -54,6 +54,25 @@ def set_process_id(_, __, event_dict):
     return event_dict
 
 
+def add_logger_name(_, __, event_dict):
+    event_dict.setdefault("logger", "nabla")
+    return event_dict
+
+
+# One schema for structlog and stdlib JSON lines (see log_config._json_log_record).
+LOG_KEY_ORDER = ("timestamp", "level", "logger", "event")
+
+
+def order_log_keys(event: Mapping) -> dict:
+    """Put the shared keys first, then context keys alphabetically."""
+    head = {key: event[key] for key in LOG_KEY_ORDER if key in event}
+    return head | {key: event[key] for key in sorted(event) if key not in head}
+
+
+def order_keys(_, __, event_dict):
+    return order_log_keys(event_dict)
+
+
 def drop_metrics(_, __, event_dict):
     if event_dict.get("route") == "metrics":
         raise structlog.DropEvent
@@ -72,6 +91,7 @@ LOG_LEVEL = getattr(logging, level, logging.INFO)
 shared_processors = [
     structlog.processors.TimeStamper(fmt="iso"),
     structlog.processors.add_log_level,
+    add_logger_name,
     set_process_id,
     add_user_id,
     drop_metrics,
@@ -88,7 +108,8 @@ else:
     processors = [
         *shared_processors,
         structlog.processors.dict_tracebacks,
-        structlog.processors.JSONRenderer(),
+        order_keys,
+        structlog.processors.JSONRenderer(ensure_ascii=False),
     ]
 
 

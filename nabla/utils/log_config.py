@@ -19,7 +19,7 @@ from pythonjsonlogger.json import JsonFormatter
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from nabla.config_settings import get_settings
-from nabla.utils.logger import logger
+from nabla.utils.logger import logger, order_log_keys
 from nabla.utils.runtime_logs import attach_runtime_log_handler
 
 _OTEL_LOG_FIELDS = ("otelTraceID", "otelSpanID", "otelServiceName")
@@ -146,14 +146,33 @@ class JsonBaseFormatter(JsonFormatter):
             log_data.pop("color_message")
 
 
+_ACCESS_LINE = re.compile(r'^(?P<client>\S+) - "(?P<method>[A-Z]+) (?P<path>[^ "]+) HTTP/[\d.]+" (?P<status>\d{3})')
+
+
 def _json_log_record(record: logging.LogRecord) -> dict[str, Any]:
-    """Return stable context shared by local and Gunicorn JSON logs."""
-    return {
+    """Return the schema shared with structlog: timestamp, level, logger, event."""
+    message = record.getMessage()
+    json_record: dict[str, Any] = {
         "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat().replace("+00:00", "Z"),
-        "service_name": record.name,
-        "level": record.levelname,
-        "message": record.getMessage(),
+        "level": record.levelname.lower(),
+        "logger": record.name,
+        "event": message,
     }
+    access = _ACCESS_LINE.match(message) if record.name == "uvicorn.access" else None
+    if access:
+        # Query strings may carry tokens: keep the path only.
+        json_record["event"] = "http_request"
+        json_record["http"] = {
+            "client": access["client"],
+            "method": access["method"],
+            "path": access["path"].split("?", 1)[0],
+            "status": int(access["status"]),
+        }
+    return json_record
+
+
+def _dump(json_record: dict[str, Any]) -> str:
+    return json.dumps(order_log_keys(json_record), ensure_ascii=False, default=str)
 
 
 class JsonRequestFormatter(JsonBaseFormatter):
@@ -168,7 +187,7 @@ class JsonRequestFormatter(JsonBaseFormatter):
             json_record["res"] = record.__dict__["res"]
         if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
-        return json.dumps(json_record)
+        return _dump(json_record)
 
 
 class LogMiddleware(BaseHTTPMiddleware):
@@ -194,7 +213,7 @@ class JsonErrorFormatter(JsonBaseFormatter):
         json_record = _json_log_record(record)
         if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
-        return json.dumps(json_record)
+        return _dump(json_record)
 
 
 class JMGunicornLogger(glogging.Logger):
@@ -260,13 +279,35 @@ class MetricsFilter(logging.Filter):
         return _access_log_path(record) != "/metrics"
 
 
+_LIBRARY_LOG_LEVELS = {
+    "UnleashClient": logging.WARNING,
+    "apscheduler.executors": logging.WARNING,
+    "apscheduler.scheduler": logging.WARNING,
+    # Connection URLs (user, project ref) are logged at INFO.
+    "databases": logging.WARNING,
+    # Transport traces: ~20 DEBUG lines per outbound request.
+    "hpack": logging.WARNING,
+    "httpcore": logging.WARNING,
+    "httpx": logging.WARNING,
+    "mcp": logging.INFO,
+    "passlib": logging.WARNING,
+    "urllib3": logging.WARNING,
+    "websocket": logging.WARNING,
+}
+
+
 def configure_library_log_levels() -> None:
-    """Keep routine third-party polling chatter out of application INFO logs."""
-    logging.getLogger("UnleashClient").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
-    logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
-    logging.getLogger("websocket").setLevel(logging.WARNING)
+    """Keep third-party chatter out of application logs, even when LOG_LEVEL=DEBUG."""
+    for name, level in _LIBRARY_LOG_LEVELS.items():
+        logging.getLogger(name).setLevel(level)
+
+
+def route_uvicorn_logs_to_root() -> None:
+    """Emit uvicorn startup and access lines through the JSON root handler."""
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = []
+        uvicorn_logger.propagate = True
 
 
 def setup_logging() -> None:
@@ -322,6 +363,7 @@ def setup_logging() -> None:
         logger.handlers = [console_handler]
         logger.setLevel(log_level)
 
+    route_uvicorn_logs_to_root()
     attach_runtime_log_handler(logger)
     sensitive_filter = SensitiveLogFilter()
     for configured_logger in (

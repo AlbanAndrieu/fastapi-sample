@@ -44,3 +44,11 @@ def test_smoke_key_stays_in_the_post_deploy_job_and_never_prints_payloads() -> N
     probe = next(step["run"] for step in public["steps"] if step["name"] == "Verify private diagnostics refuse anonymous reads")
     probed = {("/api" if base == "API" else "") + path for base, path in re.findall(r'"\$\{PRODUCTION_(ROOT|API)_URL\}(/[^"]+)"', probe)}
     assert probed == set(_SMOKE_READ_ROUTES)
+
+
+def test_playwright_smoke_runs_on_a_runner_playwright_supports() -> None:
+    """ubuntu-latest moved to 26.04, which Playwright 1.55 cannot provision (master-red, 22/11)."""
+    jobs = yaml.safe_load((ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8"))["jobs"]
+    for name, job in jobs.items():
+        if "playwright install" in yaml.safe_dump(job):
+            assert job["runs-on"] == "ubuntu-24.04", name

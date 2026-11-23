@@ -245,10 +245,3 @@ def test_deploy_token_not_required_for_github_release_or_smoke() -> None:
         workflow = (ROOT / ".github/workflows" / path).read_text(encoding="utf-8")
         assert "FASTAPI_CLOUD_TOKEN" not in workflow
         assert "fastapi deploy" not in workflow
-
-
-def test_deployment_revision_artifact_is_included_in_source_bundle() -> None:
-    ignored = (ROOT / ".fastapicloudignore").read_text(encoding="utf-8")
-    assert "_deployment_revision.py" not in ignored
-    assert (ROOT / "nabla/_deployment_revision.py").is_file()
-    assert (ROOT / "scripts/stamp_fastapi_deploy_revision.py").is_file()

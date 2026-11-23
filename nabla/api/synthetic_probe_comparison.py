@@ -221,3 +221,61 @@ def evaluate_internal_probe_delegation(
         "missing_gatus_reasons": comparison.get("missing_gatus_reasons", {}),
         "conflicting_direct_ids": comparison.get("conflicting_direct_ids", []),
     }
+
+
+def gatus_evidence_by_entity(
+    homelab: dict[str, Any],
+    platform_metrics: dict[str, Any],
+) -> dict[str, Any]:
+    """F03/F09: Gatus samples joined to catalog ``entityRef`` with provenance.
+
+    Evidence only, never a verdict: no row is emitted unless Prometheus served an
+    observed Gatus snapshot, and a service ID mapped to two entities is dropped
+    (fail closed). ``observed_at`` is the Prometheus query time, not the scrape
+    time, so it bounds freshness from above only.
+    """
+    synthetic = platform_metrics.get("synthetic_probes")
+    services = synthetic.get("services") if isinstance(synthetic, dict) else None
+    envelope: dict[str, Any] = {
+        "source": "gatus_via_prometheus",
+        "observed_at_basis": "prometheus_query_time",
+        "rows": [],
+        "ambiguous_ids": [],
+    }
+    if not isinstance(services, dict) or synthetic.get("state") != "observed":
+        state = synthetic.get("state") if isinstance(synthetic, dict) else None
+        # An "observed" snapshot without service samples is not evidence either.
+        usable = isinstance(state, str) and state and state != "observed"
+        return {**envelope, "state": state if usable else "unavailable", "observed_at": None}
+
+    refs: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    rows = homelab.get("services")
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        service_id = str(row.get("id") or "").strip()
+        entity_ref = str(row.get("entity_ref") or "").strip()
+        if service_id and entity_ref and refs.setdefault(service_id, entity_ref) != entity_ref:
+            ambiguous.add(service_id)
+
+    observed_at = platform_metrics.get("generated_at")
+    evidence = []
+    for service_id, entity_ref in sorted(refs.items()):
+        if service_id in ambiguous:
+            continue
+        sample = services.get(service_id)
+        match = _matching_gatus_probe(sample, _INTERNAL_TRANSPORT_TYPES + _INTERNAL_APPLICATION_TYPES) if isinstance(sample, dict) else None
+        evidence.append(
+            {
+                "entity_ref": entity_ref,
+                "service_id": service_id,
+                "source": "gatus_via_prometheus",
+                "protocol": match[0] if match else None,
+                "observed_at": observed_at,
+                # Same threshold as the internal comparison: only a full success is UP.
+                "state": "NO_SAMPLE" if match is None else ("UP" if match[1] >= 1.0 else "DOWN"),
+            },
+        )
+    counts = {state: sum(1 for row in evidence if row["state"] == state) for state in ("UP", "DOWN", "NO_SAMPLE")}
+    return {**envelope, "state": "observed", "observed_at": observed_at, "counts": counts, "rows": evidence, "ambiguous_ids": sorted(ambiguous)}

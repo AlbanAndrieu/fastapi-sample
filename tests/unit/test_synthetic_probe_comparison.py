@@ -3,6 +3,7 @@
 from nabla.api.synthetic_probe_comparison import (
     compare_internal_probe_evidence,
     evaluate_internal_probe_delegation,
+    gatus_evidence_by_entity,
 )
 
 
@@ -348,3 +349,55 @@ def test_non_boolean_gatus_up_gauge_is_rejected_for_delegation() -> None:
     )
     assert result["candidate"] is False
     assert "gatus_not_up" in result["blockers"]
+
+
+def test_gatus_evidence_carries_entity_ref_provenance_and_explicit_no_sample() -> None:
+    homelab = {
+        "services": [
+            {"id": "redis", "entity_ref": "component:default/redis"},
+            {"id": "keycloak", "entity_ref": "component:default/keycloak"},
+            {"id": "paperless", "entity_ref": "component:default/paperless"},
+            {"id": "twin", "entity_ref": "component:default/twin-a"},
+            {"id": "twin", "entity_ref": "component:default/twin-b"},
+            {"id": "orphan"},
+        ],
+    }
+    metrics = {
+        "generated_at": "2026-11-22T19:00:00Z",
+        "synthetic_probes": {
+            "state": "observed",
+            "services": {
+                "redis": {"TCP": {"success": 1.0}},
+                "keycloak": {"HTTPS": {"success": 0.0}},
+                "paperless": {"TCP": {"success": float("nan")}},
+                "twin": {"TCP": {"success": 1.0}},
+            },
+        },
+    }
+
+    evidence = gatus_evidence_by_entity(homelab, metrics)
+
+    assert evidence["state"] == "observed"
+    assert evidence["observed_at_basis"] == "prometheus_query_time"
+    assert evidence["ambiguous_ids"] == ["twin"]
+    assert evidence["counts"] == {"UP": 1, "DOWN": 1, "NO_SAMPLE": 1}
+    rows = {row["service_id"]: row for row in evidence["rows"]}
+    assert set(rows) == {"redis", "keycloak", "paperless"}
+    assert rows["redis"] == {
+        "entity_ref": "component:default/redis",
+        "service_id": "redis",
+        "source": "gatus_via_prometheus",
+        "protocol": "TCP",
+        "observed_at": "2026-11-22T19:00:00Z",
+        "state": "UP",
+    }
+    assert (rows["keycloak"]["state"], rows["keycloak"]["protocol"]) == ("DOWN", "HTTPS")
+    assert (rows["paperless"]["state"], rows["paperless"]["protocol"]) == ("NO_SAMPLE", None)
+
+
+def test_gatus_evidence_never_emits_rows_without_an_observed_snapshot() -> None:
+    homelab = {"services": [{"id": "redis", "entity_ref": "component:default/redis"}]}
+    for metrics in ({}, {"synthetic_probes": {"state": "not_configured", "services": {}}}, {"synthetic_probes": {"state": "observed"}}):
+        evidence = gatus_evidence_by_entity(homelab, metrics)
+        assert evidence["rows"] == [] and evidence["observed_at"] is None
+        assert evidence["state"] in {"unavailable", "not_configured"}

@@ -11,10 +11,13 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI, WebSocket
 from pydantic import SecretStr
 import pytest
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from nabla import access_control, asgi_transport_guard, cloudflare_ops_access as owner
+from nabla.api import owner_ui_session
 from nabla.asgi_transport_guard import OpsASGITransportGuard
 
 ISSUER = "https://fixture.cloudflareaccess.com"
@@ -284,13 +287,10 @@ def test_jwks_loss_fails_closed_with_503(identity, monkeypatch):
     assert response.json() == {"detail": "Owner identity provider unavailable"}
 
 
-
 def test_homelab_sso_owner_only_and_no_secondary_cookie(identity, monkeypatch):
     settings, signed = identity
     settings.homelab_owner_access_sso = True
     settings.ops_route_policy_strict = True
-    from nabla.api import owner_ui_session
-
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
     monkeypatch.setattr(owner_ui_session, "get_settings", lambda: settings)
     app = FastAPI()
@@ -326,3 +326,77 @@ def test_homelab_sso_owner_only_and_no_secondary_cookie(identity, monkeypatch):
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
     settings.homelab_owner_access_sso = False
     assert client.get("/api/health-board", headers=headers).status_code == 401
+
+
+_MCP_KEY = "mcp-fixture-key-0123456789abcdef"
+
+
+def _mcp_a2a_app():
+    app = FastAPI()
+    app.middleware("http")(access_control.operations_access_middleware)
+
+    class StreamableMcp:  # an ASGI app object like FastMCP.http_app(), not a GET endpoint
+        async def __call__(self, scope, receive, send):
+            await JSONResponse({"mcp": True})(scope, receive, send)
+
+    # Same registration as app_factory: an exact Route, not a Mount.
+    app.router.routes.append(Route("/mcp", StreamableMcp()))
+    a2a = FastAPI()
+
+    @a2a.get("/.well-known/agent-card.json")
+    def agent_card():
+        return {"name": "fixture"}
+
+    app.mount("/a2a", a2a)
+
+    @app.get("/v1/mcp/ops/servers")
+    def mcp_ops_servers():
+        return {"servers": []}
+
+    return TestClient(OpsASGITransportGuard(app, root_app=app), client=("82.66.4.247", 53000))
+
+
+@pytest.mark.parametrize("strict", [False, True], ids=["staged", "strict"])
+def test_mcp_and_a2a_recette_before_strict_mode(identity, strict):
+    """P2 sign-off: MCP needs its key, A2A a human owner, in both policy modes."""
+    settings, signed = identity
+    settings.ops_route_policy_strict = strict
+    settings.mcp_ops_key = SecretStr(_MCP_KEY)
+    client = _mcp_a2a_app()
+    card = "/a2a/.well-known/agent-card.json"
+
+    for headers in ({}, {"X-MCP-Key": "wrong"}, {"Cf-Access-Jwt-Assertion": signed()}, {"X-Diagnostics-Key": "machine-only-value"}):
+        assert client.post("/mcp", headers=headers).status_code == 401
+        assert client.get("/v1/mcp/ops/servers", headers=headers).status_code == 401
+    assert client.post("/mcp", headers={"X-MCP-Key": _MCP_KEY}).json() == {"mcp": True}
+    assert client.post("/mcp", headers={"Authorization": f"Bearer {_MCP_KEY}"}).status_code == 200
+    assert client.get("/v1/mcp/ops/servers", headers={"X-MCP-Key": _MCP_KEY}).status_code == 200
+
+    for token in (None, signed(aud=["another-audience"]), signed(service_token_id=SERVICE_CLIENT_ID)):
+        headers = {"Cf-Access-Jwt-Assertion": token} if token else {}
+        assert client.get(card, headers=headers).status_code == 401
+    assert client.get(card, headers={"Cf-Access-Jwt-Assertion": signed()}).json() == {"name": "fixture"}
+
+    for path in ("/mcp", "/a2a"):
+        with pytest.raises(WebSocketDisconnect) as closed, client.websocket_connect(path, headers={"X-MCP-Key": _MCP_KEY}):
+            pass
+        assert closed.value.code == 4403
+
+
+def test_mcp_ops_without_configured_key_fails_closed(identity):
+    """Before 22/11 /v1/mcp/ops was REVIEW, hence anonymous outside strict mode."""
+    settings, _signed = identity
+    settings.mcp_ops_key = None
+    assert _mcp_a2a_app().get("/v1/mcp/ops/servers").status_code == 503
+
+
+def test_a2a_mount_jwks_loss_is_503_like_http_owner_routes(identity, monkeypatch):
+    _settings, signed = identity
+
+    async def unavailable(_issuer):
+        raise owner.OwnerKeysUnavailable
+
+    monkeypatch.setattr(owner, "signing_keys", unavailable)
+    response = _mcp_a2a_app().get("/a2a/.well-known/agent-card.json", headers={"Cf-Access-Jwt-Assertion": signed()})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Owner identity provider unavailable"}

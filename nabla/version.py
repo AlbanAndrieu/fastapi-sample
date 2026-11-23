@@ -4,7 +4,6 @@ import os
 import re
 from importlib.metadata import PackageNotFoundError, version as package_version
 
-from nabla._deployment_revision import DEPLOYED_BUILD_SHA
 from nabla._release import __version__ as generated_release_version
 
 _SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
@@ -33,9 +32,9 @@ def resolve_release_version() -> str:
 
 
 def resolve_build_revision() -> str:
-    """Prefer the shipped source SHA over a possibly stale Cloud env variable."""
+    """Return the image build SHA; FastAPI Cloud is correlated by deployment_id instead."""
     # An empty BUILD_REVISION baked by an unstamped image build must not hide GIT_SHA.
-    return DEPLOYED_BUILD_SHA or (os.getenv("BUILD_REVISION") or os.getenv("GIT_SHA", "")).strip()
+    return (os.getenv("BUILD_REVISION") or os.getenv("GIT_SHA", "")).strip()
 
 
 API_VERSION = os.getenv("API_VERSION", os.getenv("APP_PREFIX_VERSION", "v0"))

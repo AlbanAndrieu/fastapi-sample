@@ -31,6 +31,7 @@ from nabla.api.platform_health_diagnostics import (
 from nabla.api.synthetic_probe_comparison import (
     compare_internal_probe_evidence,
     evaluate_internal_probe_delegation,
+    gatus_evidence_by_entity,
 )
 from nabla.settings.health_runtime import HealthRuntimeSettings
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
@@ -183,6 +184,7 @@ async def _build_homelab_snapshot(
     )
     _enter_stage(progress, "complete")
     from nabla.api.edge_provider import pfsense_retired
+
     components["unbound"] = (
         {
             "reachable": None,
@@ -461,6 +463,7 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         "platform_metrics": platform_metrics,
         "internal_probe_comparison": internal_probe_comparison,
         "internal_probe_delegation": internal_probe_delegation,
+        "gatus_evidence": gatus_evidence_by_entity(homelab, platform_metrics),
         "sickz": sickz,
     }
 

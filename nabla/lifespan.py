@@ -114,11 +114,12 @@ async def _connect_critical_database(*, critical: bool = True) -> None:
     settings = get_settings()
     started = time.perf_counter()
     logger.info(
-        "startup_dependency_begin dependency=postgres critical=%s host=%s port=%s db=%s",
-        str(critical).lower(),
-        settings.postgres_host,
-        settings.postgres_port,
-        settings.postgres_db,
+        "startup_dependency_begin",
+        dependency="postgres",
+        critical=critical,
+        host=settings.postgres_host,
+        port=settings.postgres_port,
+        db=settings.postgres_db,
     )
     try:
         await database.connect()
@@ -127,18 +128,20 @@ async def _connect_critical_database(*, critical: bool = True) -> None:
         # Optional: the single warning is `startup_dependency_degraded`.
         log = logger.error if critical else logger.info
         log(
-            "startup_dependency_failed dependency=postgres critical=%s phase=%s stage=%s exception=%s elapsed_ms=%s",
-            str(critical).lower(),
-            phase,
-            stage,
-            exc.__class__.__name__,
-            round((time.perf_counter() - started) * 1000),
+            "startup_dependency_failed",
+            dependency="postgres",
+            critical=critical,
+            phase=phase,
+            stage=stage,
+            exception=exc.__class__.__name__,
+            elapsed_ms=round((time.perf_counter() - started) * 1000),
         )
         raise
     logger.info(
-        "startup_dependency_ready dependency=postgres critical=%s elapsed_ms=%s",
-        str(critical).lower(),
-        round((time.perf_counter() - started) * 1000),
+        "startup_dependency_ready",
+        dependency="postgres",
+        critical=critical,
+        elapsed_ms=round((time.perf_counter() - started) * 1000),
     )
 
 
@@ -147,20 +150,24 @@ async def _start_critical_database(resources: AsyncExitStack, *, critical: bool 
     await _connect_critical_database(critical=critical)
     resources.push_async_callback(database.disconnect)
 
-    logger.info("startup_stage_begin stage=database_schema critical=true")
+    logger.info("startup_stage_begin", stage="database_schema", critical=True)
     schema_started = time.perf_counter()
     try:
         await init_db()
     except Exception as exc:
         logger.error(
-            "startup_stage_failed stage=database_schema critical=true exception=%s elapsed_ms=%s",
-            exc.__class__.__name__,
-            round((time.perf_counter() - schema_started) * 1000),
+            "startup_stage_failed",
+            stage="database_schema",
+            critical=True,
+            exception=exc.__class__.__name__,
+            elapsed_ms=round((time.perf_counter() - schema_started) * 1000),
         )
         raise
     logger.info(
-        "startup_stage_ready stage=database_schema critical=true elapsed_ms=%s",
-        round((time.perf_counter() - schema_started) * 1000),
+        "startup_stage_ready",
+        stage="database_schema",
+        critical=True,
+        elapsed_ms=round((time.perf_counter() - schema_started) * 1000),
     )
     from nabla.api.notes.models import init_db as init_db_note
     from nabla.api.users.models import init_db as init_db_user
@@ -188,9 +195,11 @@ async def _start_database(resources: AsyncExitStack) -> bool:
             resources.push_async_exit(attempt.pop_all())
     except Exception as exc:
         logger.warning(
-            "startup_dependency_degraded dependency=postgres critical=false exception=%s hint=%s",
-            exc.__class__.__name__,
-            "set POSTGRES_REQUIRED=true to fail fast",
+            "startup_dependency_degraded",
+            dependency="postgres",
+            critical=False,
+            exception=exc.__class__.__name__,
+            hint="set POSTGRES_REQUIRED=true to fail fast",
         )
         return False
     return True
@@ -221,7 +230,12 @@ def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], A
             if selected.database:
                 app.state.database_available = await _start_database(resources)
             else:
-                logger.warning("startup_dependency_skipped dependency=postgres critical=false reason=feature_disabled")
+                logger.warning(
+                    "startup_dependency_skipped",
+                    dependency="postgres",
+                    critical=False,
+                    reason="feature_disabled",
+                )
             initialize_demo_feature_flags()
             # Do not synthesize environmental data at application startup.
             # The explicit /demo/sensors path initializes the legacy fixture.

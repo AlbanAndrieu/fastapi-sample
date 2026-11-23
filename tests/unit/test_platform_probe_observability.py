@@ -154,5 +154,6 @@ def test_gunicorn_error_formatter_preserves_message() -> None:
         None,
     )
     payload = json.loads(log_config.JsonRequestFormatter().format(record))
-    assert payload["level"] == "INFO"
-    assert payload["message"] == "worker heartbeat"
+    assert payload["level"] == "info"
+    assert payload["logger"] == "gunicorn.error"
+    assert payload["event"] == "worker heartbeat"

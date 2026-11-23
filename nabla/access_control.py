@@ -171,7 +171,7 @@ async def _policy_without_static_key(
                 headers=_DENY_HEADERS,
             )
         return await call_next(request)
-    if policy.credential is Credential.GITHUB_WEBHOOK:
+    if policy.credential in {Credential.GITHUB_WEBHOOK, Credential.FEDERATION_HMAC}:
         # The exact POST handler verifies the signature over bounded raw bytes.
         return await call_next(request)
     if policy.credential is Credential.ACCESS_JWT:

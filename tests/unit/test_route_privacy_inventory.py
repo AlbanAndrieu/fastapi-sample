@@ -80,3 +80,14 @@ def test_mounts_and_websocket_are_included() -> None:
     assert inventory.intended_policy("/mcp", [], "opaque_mount") == "REVIEW"
     assert by_path["/__host_mount__"]["intended_policy"] == "REVIEW"
     assert output == sorted(output, key=lambda row: (row["path"], row["kind"], str(row["methods"])))
+
+
+def test_exact_asgi_routes_are_classified_like_the_middleware() -> None:
+    class AsgiApp:
+        async def __call__(self, scope, receive, send):
+            return None
+
+    rows = {row["path"]: row for row in inventory.inventory_routes([Route("/mcp", AsgiApp()), Route("/api/opaque", AsgiApp())])}
+    assert rows["/mcp"]["methods"] == []
+    assert rows["/mcp"]["intended_policy"] == "INTERNAL"
+    assert rows["/api/opaque"]["intended_policy"] == "REVIEW"

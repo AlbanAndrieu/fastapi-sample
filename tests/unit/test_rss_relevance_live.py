@@ -197,9 +197,12 @@ async def test_redis_classification_cache_avoids_repeated_litellm(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure_stage", ["read", "write"])
 async def test_redis_cache_failures_never_log_credentials_or_cache_keys(
-    monkeypatch, caplog, failure_stage
+    monkeypatch,
+    caplog,
+    failure_stage,
 ):
     """Redis is best effort; errors never publish credentials or content keys."""
+
     class FailingCache:
         async def get(self, key):
             if failure_stage == "read":

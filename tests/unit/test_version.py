@@ -9,11 +9,13 @@ from nabla.version import API_VERSION, resolve_build_revision, resolve_release_v
 
 def test_empty_baked_build_revision_falls_back_to_git_sha(monkeypatch):
     # Unstamped Docker builds bake BUILD_REVISION="" into the image environment.
-    monkeypatch.setattr("nabla.version.DEPLOYED_BUILD_SHA", "")
     monkeypatch.setenv("BUILD_REVISION", "")
     monkeypatch.setenv("GIT_SHA", "c" * 40)
 
     assert resolve_build_revision() == "c" * 40
+
+    monkeypatch.setenv("BUILD_REVISION", "b" * 40)
+    assert resolve_build_revision() == "b" * 40
 
 
 def test_release_version_environment_override(monkeypatch):

@@ -22,6 +22,7 @@ class Credential(StrEnum):
     MCP_KEY = "mcp_key"
     ACCESS_JWT = "access_jwt"
     GITHUB_WEBHOOK = "github_webhook"
+    FEDERATION_HMAC = "federation_hmac"
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +75,8 @@ _PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
     ("/a2a", OWNER),
     ("/admin", ADMIN),
     ("/mcp", MCP),
+    # Outbound MCP client operations (tool calls): never REVIEW, which was anonymous before strict mode.
+    ("/v1/mcp/ops", MCP),
     ("/metrics", INTERNAL),
 )
 
@@ -81,6 +84,8 @@ _PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
 def _http_route_policy(path: str, method: str) -> RoutePolicy:
     if path == "/webhooks/github" and method == "POST":
         return RoutePolicy(Visibility.SERVICE, Credential.GITHUB_WEBHOOK)
+    if path == "/federation/truenas" and method == "POST":
+        return RoutePolicy(Visibility.SERVICE, Credential.FEDERATION_HMAC)
     if path == "/metrics" and method in _READ_METHODS:
         return METRICS
     if (path == "/api/ui/session" and method in {"GET", "HEAD", "POST"}) or (path == "/api/ui/session/logout" and method == "POST"):
