@@ -94,6 +94,18 @@ def test_public_overview_strictly_excludes_probe_and_network_fields():
     assert not any(sensitive in str(payload) for sensitive in ("172.17.0.24", "private.invalid", "8443", "NEVER-ECHO", "entityRef"))
 
 
+def test_public_overview_preserves_scheduled_without_marking_outage():
+    board = {
+        "state": "fresh",
+        "homelab": {
+            "services": [{"id": "garage", "effective_state": "scheduled"}],
+        },
+    }
+    payload = project_public_ui_services(_catalog(), board)
+    assert payload.services[0].state == "scheduled"
+    assert payload.services[1].state == "unknown"
+
+
 def test_unverified_states_stay_unknown():
     board = {
         "state": "stale",

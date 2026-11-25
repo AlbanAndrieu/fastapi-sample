@@ -37,3 +37,11 @@ Les données brutes d'une matrice protégée nécessitent l'autorisation OWNER.
 **Critère d'acceptation :** chaque cible éligible a une observation exploitable
 ou une exclusion motivée ; les avertissements Access restent distincts d'une
 panne origine ; les délais affichés ne sont pas présentés comme une garantie.
+
+
+## 2026-11-26 — Etats absents sur l'accueil FastAPI Cloud
+
+- `GET /api/ui/services` est un **répertoire public sans clé**. En mode FastAPI Cloud, `FASTAPI_CLOUD_PUBLIC_DEEP_PROBES_ENABLED=false` (défaut) consulte seulement le snapshot mémoire (`peek_public_health_board_snapshot`) : un nouveau replica sans collecte OWNER répond `boardState=pending` et ses services sont `UNKNOWN`. Ni le Wi-Fi Freebox du navigateur ni `HOMELAB_TRUSTED_CIDRS` ne constituent une preuve de santé ou une identité OWNER. Les endpoints détaillés conservent une authentification explicite et une restriction source selon le déploiement.
+- Régression UI identifiée : Python autorise l'état `scheduled` alors que le validateur navigateur le rejetait et pouvait masquer le répertoire entier. Le frontend accepte désormais cet état, l'affiche en bleu neutre (`SCHEDULED`) et l'exclut des échecs. Les compteurs distinguent `UNKNOWN` et `SCHEDULED`, sans synthétiser de `OK`/`FAIL`.
+- La fédération HMAC `/federation/truenas` actuelle transmet exclusivement l'état agrégé API/stage TrueNAS, **pas** la santé par service. Aucun état LAN fiable n'est donc restauré sur Cloud par cette voie. La solution de fond exige un relais **signé et à TTL**, fondé sur les preuves effectivement collectées par TrueNAS, avec stockage partagé Redis côté Cloud, vérification de révision du catalogue, anti-rejeu, limitation des champs publics et état `UNKNOWN` après expiration. Ne jamais activer le fan-out public simplement pour rendre les cartes vertes.
+- Vérification après déploiement : visiter `/api/ui/services`, inspecter `boardState`, `catalogSource`, le nombre de `scheduled` puis vérifier la même session sur `/` ; contrôler `/api/ui/session` (`authenticated` seulement si propriétaire authentifié). Sur TrueNAS, vérifier le snapshot OWNER et son horodatage. Les endpoints Cloud ne prouvent **pas** la connectivité LAN.

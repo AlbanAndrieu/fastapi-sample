@@ -9,7 +9,7 @@ import { withRequestDeadline } from "./api-request-deadline.js";
 
 // Minimal public projection ONLY; no private probe URLs or credentials.
 const PREVIEW_LIMIT = 36;
-const STATES = new Set(["ok", "warn", "fail", "unknown"]);
+const STATES = new Set(["ok", "warn", "fail", "unknown", "scheduled"]);
 const KINDS = new Set(["API", "Component", "Resource"]);
 const SAFE_TAG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
@@ -109,7 +109,7 @@ export async function installPublicServiceOverview({
   let awaitingFreshEvidence = false;
 
   function countsForRows() {
-    const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
+    const counts = { ok: 0, warn: 0, fail: 0, unknown: 0, scheduled: 0 };
     for (const row of rows) counts[row.state] += 1;
     return counts;
   }
@@ -128,9 +128,9 @@ export async function installPublicServiceOverview({
             String(counts.ok),
             String(counts.warn),
             String(counts.fail),
-            String(counts.unknown),
+            String(counts.unknown + counts.scheduled),
           ];
-    const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
+    const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed / Scheduled"];
     const detail = historical
       ? "Last public response " +
         publicObservationAge(receivedAt) +
@@ -190,8 +190,10 @@ export async function installPublicServiceOverview({
         ? "Last public response " +
           publicObservationAge(receivedAt) +
           " ago; current probe is unverified"
-        : service.state === "unknown"
-          ? "No confirmed fresh observation"
+        : service.state === "scheduled"
+          ? "Outside its scheduled probe window; not an outage"
+          : service.state === "unknown"
+            ? "No confirmed fresh observation"
           : "Summarized public observation (not a full health audit)";
       item.append(identity, state);
       fragment.appendChild(item);
@@ -230,7 +232,9 @@ export async function installPublicServiceOverview({
       counts.fail +
       " FAIL · " +
       counts.unknown +
-      " UNKNOWN" +
+      " UNKNOWN · " +
+      counts.scheduled +
+      " SCHEDULED" +
       (note ? " · " + note : "") +
       " · detailed probes require authorization";
     render();
@@ -344,7 +348,11 @@ export async function installPublicServiceOverview({
           receivedAt = null;
           catalogRevision = payload.catalogRevision;
         }
-        updateSummary("New probe evidence pending or stale");
+        updateSummary(
+          window.location.hostname.endsWith(".fastapicloud.dev")
+            ? "Cloud collection is passive; home Wi-Fi does not authorize the Cloud session. Verified LAN states require an approved evidence relay."
+            : "New probe evidence pending or stale",
+        );
         schedulePendingRetry();
       }
     } catch (error) {
