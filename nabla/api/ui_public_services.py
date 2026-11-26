@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from nabla.api import health_board
+from nabla.api import health_board, public_status_light, public_status_relay
 from nabla.api.ui_public_directory_redis import (
     read_public_directory_redis,
     write_public_directory_redis,
@@ -24,6 +24,7 @@ from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
     fetch_site_catalog_v2,
+    fetch_catalog_v2_source,
     load_catalog_snapshot,
     project_site_catalog_v2,
 )
@@ -168,6 +169,62 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
         # collectors. No fresh evidence means UNKNOWN, never fabricated OK/FAIL.
         board = {"state": "pending"}
     projected = project_public_ui_services(catalog, board)
+    # Light public HTTP is NOT the deep Cloud fan-out. It samples at most six
+    # approved HTTPS targets per three minutes without delaying this request.
+    # A cold replica returns UNKNOWN initially, then gets real per-service
+    # public HTTP states on the next passive refresh.
+    hostname = request.url.hostname if request is not None else None
+    cloud = fastapi_cloud_runtime_detected(hostname)
+    light_enabled = os.getenv("FASTAPI_CLOUD_PUBLIC_LIGHT_PROBES_ENABLED", "true").strip().lower() == "true"
+    deep_enabled = os.getenv("FASTAPI_CLOUD_PUBLIC_DEEP_PROBES_ENABLED", "").strip().lower() == "true"
+    if cloud and light_enabled and not deep_enabled:
+        try:
+            raw = await asyncio.wait_for(fetch_catalog_v2_source(), timeout=0.15)
+            public_status_light.start_light_public_checks(catalog.catalogRevision, raw)
+        except (SiteCatalogV2Unavailable, TimeoutError):
+            pass  # Never block public inventory on the optional light wave.
+        light_states = public_status_light.fresh_public_states(catalog.catalogRevision)
+        if light_states:
+            # Preserve a confirmed full-board or scheduled result; never
+            # infer internal service state from the public HTTP vantage.
+            name_to_ref = {entity.metadata.title or entity.metadata.name: entity.entityRef for entity in catalog.entities if entity.kind in ("API", "Component", "Resource")}
+            counts: dict[str, int] = {}
+            for entity in catalog.entities:
+                if entity.kind in ("API", "Component", "Resource"):
+                    name = entity.metadata.title or entity.metadata.name
+                    counts[name] = counts.get(name, 0) + 1
+            services = [
+                service.model_copy(update={"state": light_states[name_to_ref[service.name]]})
+                if counts.get(service.name) == 1 and service.state == "unknown" and name_to_ref.get(service.name) in light_states
+                else service
+                for service in projected.services
+            ]
+            if services != projected.services:
+                # Fresh means at least one *recent PUBLIC HTTP* observation,
+                # not that the internal homelab or every service is healthy.
+                projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
+    if cloud:
+        relayed = await public_status_relay.read_states(catalog.catalogRevision)
+        if relayed:
+            # Only names already present in the reviewed public v2 projection
+            # may receive a LAN verdict. An ambiguous ID is never assigned.
+            counts: dict[str, int] = {}
+            for entity in catalog.entities:
+                if entity.kind in ("API", "Component", "Resource"):
+                    counts[entity.metadata.name] = counts.get(entity.metadata.name, 0) + 1
+            ref_to_name = {
+                entity.metadata.name: entity.metadata.title or entity.metadata.name
+                for entity in catalog.entities
+                if entity.kind in ("API", "Component", "Resource") and counts.get(entity.metadata.name) == 1
+            }
+            reverse = {name: ident for ident, name in ref_to_name.items()}
+            if len(reverse) == len(ref_to_name):
+                services = [
+                    service.model_copy(update={"state": relayed[reverse[service.name]]}) if service.name in reverse and reverse[service.name] in relayed else service
+                    for service in projected.services
+                ]
+                if services != projected.services:
+                    projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
     # L2 is opt-in, bounded to 150ms, and stores labels only; fail open to L1.
     await write_public_directory_redis(projected)
     return projected

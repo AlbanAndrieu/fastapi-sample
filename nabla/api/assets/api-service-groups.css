@@ -427,6 +427,11 @@
   color: #f87171;
 }
 
+/* Scheduled is expected downtime, never a failed service. */
+.public-service-state--scheduled {
+  color: #93c5fd;
+}
+
 [hidden].public-services-panel,
 [hidden].public-services-list {
   display: none;

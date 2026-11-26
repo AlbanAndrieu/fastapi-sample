@@ -5,7 +5,10 @@ import {
   readPublicObservation,
   savePublicObservation,
 } from "../../nabla/api/assets/api-public-observation-cache.js";
-import { reconcilePublicObservation } from "../../nabla/api/assets/api-public-services.js";
+import {
+  reconcilePublicObservation,
+  validOverview,
+} from "../../nabla/api/assets/api-public-services.js";
 
 const REVISION = "sha256:" + "a".repeat(64);
 const OTHER = "sha256:" + "b".repeat(64);
@@ -17,6 +20,22 @@ const snapshot = (state, revision = REVISION, source = "backstage-v2") => ({
   catalogRevision: revision,
   catalogSource: source,
   services: [service],
+});
+
+test("scheduled is a valid public state and remains neutral when cached", () => {
+  const scheduled = { ...snapshot("fresh"), services: [{ ...service, state: "scheduled" }] };
+  assert.equal(validOverview(scheduled), true);
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key),
+    setItem: (key, value) => values.set(key, value),
+  };
+  const now = Date.parse("2026-11-26T00:00:00Z");
+  assert.equal(savePublicObservation(storage, scheduled, now), true);
+  const cached = readPublicObservation(storage, now + 60000);
+  assert.equal(cached?.directory.services[0].state, "scheduled");
+  assert.equal(reconcilePublicObservation(scheduled, cached.directory).rows[0].state, "scheduled");
+  assert.equal(validOverview({ ...scheduled, services: [{ ...service, state: "down" }] }), false);
 });
 
 test("historical last known survives a pending response on the same catalog", () => {
