@@ -1,3 +1,10 @@
+# [1.44.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.43.0...1.44.0) (2026-11-26)
+
+
+### Features
+
+* **health:** public light status and signed TrueNAS relay without deep Cloud probes ([#458](https://github.com/AlbanAndrieu/fastapi-sample/issues/458)) ([e59e5c6](https://github.com/AlbanAndrieu/fastapi-sample/commit/e59e5c603ee11c7bb9d6c5b05df1a1e2f26ee48f))
+
 # [1.43.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.42.0...1.43.0) (2026-11-23)
 
 
