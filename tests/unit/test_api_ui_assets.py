@@ -396,7 +396,7 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert "renderPublicSummary(rows.length ? counts : null, rows.length)" in script
     assert 'document.getElementById("service-health-overview")' in script
     assert '"Healthy"' in script and '"Degraded"' in script
-    assert '"Failed"' in script and '"Unconfirmed"' in script
+    assert '"Failed"' in script and '"Unconfirmed / Scheduled"' in script
     assert "cards.length !== 5" in script
     assert "value.textContent = values[index]" in script
     assert "renderPublicSummary(null, 0)" in script

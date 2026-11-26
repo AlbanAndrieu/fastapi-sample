@@ -1,3 +1,4 @@
+# ruff: noqa: PLC0415, PLW0603 -- imports stay lazy to avoid cycles; relay state is process-local.
 """Signed, bounded service-state relay from TrueNAS to FastAPI Cloud.
 
 Only a minimised, timestamped set of states crosses the trust boundary.
@@ -7,6 +8,7 @@ No caller-supplied targets or authenticated LAN data are returned to clients.
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
@@ -30,15 +32,24 @@ HEADER = "x-nabla-federation-signature"
 _DOMAIN = b"nabla:public-service-status:v1\x00"
 _REDIS_KEY = "nabla:public-status:v1:latest"
 MAX_BODY = 16384
-TTL = 600
+# FastAPI Cloud Hobby bills awake replica-hours (180 h Nano) and scales to
+# zero; every accepted POST wakes Cloud. Send only on change or a 2 h
+# heartbeat, at most 24 times per rolling day (per TrueNAS worker).
+TTL = 9000  # Heartbeat plus one 30 min margin; afterwards states are UNKNOWN.
+FRESH_SECONDS = 900  # Older relayed evidence is displayed "stale", never "fresh".
 MAX_ROWS = 120
-_INTERVAL = 90.0
+_CHECK_INTERVAL = 90.0  # Local projection check only; no network.
+_MIN_GAP = 300.0
+_HEARTBEAT = 7200.0
+_DAILY_SENDS = 24
 _REF = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _REVISION = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SIGNATURE = re.compile(r"^sha256=[0-9a-f]{64}$")
 _STATES = frozenset({"ok", "warn", "fail", "scheduled", "unknown"})
 _received: dict[str, Any] | None = None
-_next_push = 0.0
+_next_check = 0.0
+_sent_fingerprint: str | None = None
+_sent_at: deque[float] = deque()
 _pending: set[asyncio.Task[str]] = set()
 _RESPONSE_HEADERS = {"Cache-Control": "private, no-store"}
 
@@ -82,12 +93,20 @@ def project_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
             age = row.get("probe_age_seconds")
             stale_after = row.get("probe_stale_after_seconds")
             if (
-                not isinstance(service_id, str) or len(service_id) > 128 or not _REF.fullmatch(service_id)
-                or state not in _STATES or state == "unknown"
+                not isinstance(service_id, str)
+                or len(service_id) > 128
+                or not _REF.fullmatch(service_id)
+                or state not in _STATES
+                or state == "unknown"
                 or row.get("probe_source") not in {"origin", "memory"}
-                or not isinstance(age, (int, float)) or isinstance(age, bool) or not math.isfinite(age)
-                or not isinstance(stale_after, (int, float)) or isinstance(stale_after, bool) or not math.isfinite(stale_after)
-                or age < 0 or stale_after <= age
+                or not isinstance(age, (int, float))
+                or isinstance(age, bool)
+                or not math.isfinite(age)
+                or not isinstance(stale_after, (int, float))
+                or isinstance(stale_after, bool)
+                or not math.isfinite(stale_after)
+                or age < 0
+                or stale_after <= age
             ):
                 continue
             if scope == "services":
@@ -96,7 +115,8 @@ def project_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 if state == "ok" and (type(status) is not int or not 200 <= status < 300):
                     continue
                 if row.get("public_probe_verification") in {
-                    "access_protected_origin_unverified", "origin_unverified",
+                    "access_protected_origin_unverified",
+                    "origin_unverified",
                 }:
                     continue
             elif state == "ok":
@@ -104,7 +124,7 @@ def project_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 # a neutral warning rather than a false service OK.
                 state = "warn"
             # Cloud never sees internal endpoints, probe text, device IDs or IPs.
-            item = {"id": service_id, "state": state, "age": min(599, int(age))}
+            item = {"id": service_id, "state": state, "age": min(TTL - 1, int(age))}
             collected[service_id] = item
     return sorted(collected.values(), key=lambda item: item["id"])[:MAX_ROWS]
 
@@ -132,20 +152,23 @@ def validate(payload: object, *, now: datetime) -> dict[str, Any] | None:
         return None
     if not isinstance(payload["nonce"], str) or not re.fullmatch(r"[a-f0-9]{32}", payload["nonce"]):
         return None
-    services = payload["services"]
+    return payload if _valid_rows(payload["services"]) else None
+
+
+def _valid_rows(services: object) -> bool:
     if not isinstance(services, list) or not 1 <= len(services) <= MAX_ROWS:
-        return None
+        return False
     ids: set[str] = set()
     for row in services:
         if not isinstance(row, dict) or set(row) != {"id", "state", "age"}:
-            return None
+            return False
         ident = row["id"]
         if not isinstance(ident, str) or len(ident) > 128 or not _REF.fullmatch(ident) or ident in ids:
-            return None
+            return False
         if not isinstance(row["state"], str) or row["state"] not in _STATES or type(row["age"]) is not int or not 0 <= row["age"] < TTL:
-            return None
+            return False
         ids.add(ident)
-    return payload
+    return True
 
 
 def _response(status: int, code: str) -> JSONResponse:
@@ -157,6 +180,7 @@ async def _redis() -> Any | None:
         return None
     try:
         from nabla.api.external_probe_cache_redis import resolve_redis_client
+
         return resolve_redis_client()
     except (ImportError, RuntimeError):
         return None
@@ -191,8 +215,8 @@ async def _save(data: dict[str, Any]) -> bool:
     return True
 
 
-async def read_states(revision: str) -> dict[str, str]:
-    """Read only current, revision-bound, validated states."""
+async def read_states(revision: str) -> tuple[dict[str, str], float]:
+    """Current, revision-bound, validated states and the relayed sample age in seconds."""
     data = None
     redis = await _redis()
     if redis is not None:
@@ -203,15 +227,28 @@ async def read_states(revision: str) -> dict[str, str]:
             if isinstance(raw, str) and len(raw) <= MAX_BODY:
                 data = json.loads(raw)
         except Exception:
-            return {}
+            return {}, 0.0
     else:
         data = _received
     verified = validate(data, now=datetime.now(timezone.utc))
     if verified is None or verified["catalogRevision"] != revision:
-        return {}
+        return {}, 0.0
     # Age from the originating sample is not reset on relay/retrieval.
     elapsed = max(0, (datetime.now(timezone.utc) - _parse(verified["observed_at"])).total_seconds())
-    return {row["id"]: row["state"] for row in verified["services"] if elapsed + row["age"] < TTL}
+    return {row["id"]: row["state"] for row in verified["services"] if elapsed + row["age"] < TTL}, elapsed
+
+
+async def _bounded_body(request: Request) -> bytes | JSONResponse:
+    body = bytearray()
+    try:
+        async with asyncio.timeout(3):
+            async for chunk in request.stream():
+                if len(body) + len(chunk) > MAX_BODY:
+                    return _response(413, "too_large")
+                body.extend(chunk)
+    except TimeoutError:
+        return _response(408, "body_timeout")
+    return bytes(body)
 
 
 def register_routes(app: FastAPI) -> None:
@@ -224,16 +261,9 @@ def register_routes(app: FastAPI) -> None:
             return _response(401, "signature_required")
         if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
             return _response(415, "json_required")
-        body = bytearray()
-        try:
-            async with asyncio.timeout(3):
-                async for chunk in request.stream():
-                    if len(body) + len(chunk) > MAX_BODY:
-                        return _response(413, "too_large")
-                    body.extend(chunk)
-        except TimeoutError:
-            return _response(408, "body_timeout")
-        raw = bytes(body)
+        raw = await _bounded_body(request)
+        if isinstance(raw, JSONResponse):
+            return raw
         if not hmac.compare_digest(sign(raw, _secret()), signatures[0]):
             return _response(401, "bad_signature")
         try:
@@ -249,10 +279,7 @@ def register_routes(app: FastAPI) -> None:
 
 def enabled_producer() -> bool:
     url = str(getattr(get_settings(), "truenas_federation_cloud_url", "") or "").rstrip("/")
-    return (
-        _enabled() and bool(_secret()) and homelab_runtime_detected()
-        and url == "https://fastapi-sample.fastapicloud.dev"
-    )
+    return _enabled() and bool(_secret()) and homelab_runtime_detected() and url == "https://fastapi-sample.fastapicloud.dev"
 
 
 async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None = None) -> str:
@@ -271,6 +298,11 @@ async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport |
     revision = source.get("catalogRevision")
     if not isinstance(revision, str) or not _REVISION.fullmatch(revision):
         return "catalog_unverified"
+    fingerprint = json.dumps([revision, [(row["id"], row["state"]) for row in rows]])
+    now = time.monotonic()
+    if not send_due(fingerprint, now):
+        return "unchanged_or_budget"
+    _sent_at.append(now)
     data = build_payload(revision, rows, now=datetime.now(timezone.utc))
     raw = json.dumps(data, separators=(",", ":"), sort_keys=True).encode()
     if len(raw) > MAX_BODY:
@@ -281,15 +313,31 @@ async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport |
             response = await client.post(str(get_settings().truenas_federation_cloud_url).rstrip("/") + PATH, content=raw, headers=headers)
     except httpx.HTTPError:
         return "network_unavailable"
-    return "sent" if response.status_code == 202 else f"http_{response.status_code}"
+    accepted = response.status_code == 202
+    _remember(fingerprint if accepted else None)
+    return "sent" if accepted else f"http_{response.status_code}"
+
+
+def _remember(fingerprint: str | None) -> None:
+    global _sent_fingerprint
+    _sent_fingerprint = fingerprint  # None retries after _MIN_GAP, inside the daily cap.
+
+
+def send_due(fingerprint: str, now: float) -> bool:
+    """Changed states or heartbeat, spaced by _MIN_GAP and capped per rolling day."""
+    while _sent_at and now - _sent_at[0] >= 86400:
+        _sent_at.popleft()
+    if len(_sent_at) >= _DAILY_SENDS or (_sent_at and now - _sent_at[-1] < _MIN_GAP):
+        return False
+    return fingerprint != _sent_fingerprint or not _sent_at or now - _sent_at[-1] >= _HEARTBEAT
 
 
 def schedule(payload: dict[str, Any]) -> None:
-    """At most one push per 90 s during existing TrueNAS health collection."""
-    global _next_push
-    if not enabled_producer() or time.monotonic() < _next_push:
+    """Check at most every 90 s during existing TrueNAS health collection."""
+    global _next_check
+    if not enabled_producer() or _pending or time.monotonic() < _next_check:
         return
-    _next_push = time.monotonic() + _INTERVAL
+    _next_check = time.monotonic() + _CHECK_INTERVAL
     task = asyncio.create_task(push(payload), name="truenas-public-status-relay")
     _pending.add(task)
     task.add_done_callback(_pending.discard)

@@ -145,6 +145,59 @@ _PUBLIC_BOARD_DEADLINE_SECONDS = 0.7
 _backstage_backoff: dict[str, float] = {"retry_after": 0.0}
 
 
+def _with_light_states(projected: PublicUiServices, catalog: SiteArchitectureCatalogV2, light_states: dict[str, str]) -> PublicUiServices:
+    """Fill only UNKNOWN, unambiguous names from fresh public HTTP observations."""
+    if not light_states:
+        return projected
+    # Preserve a confirmed full-board or scheduled result; never
+    # infer internal service state from the public HTTP vantage.
+    name_to_ref = {entity.metadata.title or entity.metadata.name: entity.entityRef for entity in catalog.entities if entity.kind in ("API", "Component", "Resource")}
+    counts: dict[str, int] = {}
+    for entity in catalog.entities:
+        if entity.kind in ("API", "Component", "Resource"):
+            name = entity.metadata.title or entity.metadata.name
+            counts[name] = counts.get(name, 0) + 1
+    services = [
+        service.model_copy(update={"state": light_states[name_to_ref[service.name]]})
+        if counts.get(service.name) == 1 and service.state == "unknown" and name_to_ref.get(service.name) in light_states
+        else service
+        for service in projected.services
+    ]
+    if services != projected.services:
+        # Fresh means at least one *recent PUBLIC HTTP* observation,
+        # not that the internal homelab or every service is healthy.
+        projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
+    return projected
+
+
+async def _with_relayed_states(projected: PublicUiServices, catalog: SiteArchitectureCatalogV2) -> PublicUiServices:
+    """Attach signed TrueNAS LAN states to reviewed, unambiguous public names only."""
+    relayed, relayed_age = await public_status_relay.read_states(catalog.catalogRevision)
+    if relayed:
+        # Only names already present in the reviewed public v2 projection
+        # may receive a LAN verdict. An ambiguous ID is never assigned.
+        counts: dict[str, int] = {}
+        for entity in catalog.entities:
+            if entity.kind in ("API", "Component", "Resource"):
+                counts[entity.metadata.name] = counts.get(entity.metadata.name, 0) + 1
+        ref_to_name = {
+            entity.metadata.name: entity.metadata.title or entity.metadata.name
+            for entity in catalog.entities
+            if entity.kind in ("API", "Component", "Resource") and counts.get(entity.metadata.name) == 1
+        }
+        reverse = {name: ident for ident, name in ref_to_name.items()}
+        if len(reverse) == len(ref_to_name):
+            services = [
+                service.model_copy(update={"state": relayed[reverse[service.name]]}) if service.name in reverse and reverse[service.name] in relayed else service
+                for service in projected.services
+            ]
+            if services != projected.services:
+                # An old relayed sample is history, never a current verdict.
+                board = "fresh" if relayed_age < public_status_relay.FRESH_SECONDS else "stale"
+                projected = projected.model_copy(update={"services": services, "boardState": board})
+    return projected
+
+
 async def get_public_ui_services(request: Request) -> PublicUiServices:
     """Read shared bounded server cache; no browser auth, no raw probe output."""
     if time.monotonic() < _backstage_backoff["retry_after"]:
@@ -184,47 +237,9 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
         except (SiteCatalogV2Unavailable, TimeoutError):
             pass  # Never block public inventory on the optional light wave.
         light_states = public_status_light.fresh_public_states(catalog.catalogRevision)
-        if light_states:
-            # Preserve a confirmed full-board or scheduled result; never
-            # infer internal service state from the public HTTP vantage.
-            name_to_ref = {entity.metadata.title or entity.metadata.name: entity.entityRef for entity in catalog.entities if entity.kind in ("API", "Component", "Resource")}
-            counts: dict[str, int] = {}
-            for entity in catalog.entities:
-                if entity.kind in ("API", "Component", "Resource"):
-                    name = entity.metadata.title or entity.metadata.name
-                    counts[name] = counts.get(name, 0) + 1
-            services = [
-                service.model_copy(update={"state": light_states[name_to_ref[service.name]]})
-                if counts.get(service.name) == 1 and service.state == "unknown" and name_to_ref.get(service.name) in light_states
-                else service
-                for service in projected.services
-            ]
-            if services != projected.services:
-                # Fresh means at least one *recent PUBLIC HTTP* observation,
-                # not that the internal homelab or every service is healthy.
-                projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
+        projected = _with_light_states(projected, catalog, light_states)
     if cloud:
-        relayed = await public_status_relay.read_states(catalog.catalogRevision)
-        if relayed:
-            # Only names already present in the reviewed public v2 projection
-            # may receive a LAN verdict. An ambiguous ID is never assigned.
-            counts: dict[str, int] = {}
-            for entity in catalog.entities:
-                if entity.kind in ("API", "Component", "Resource"):
-                    counts[entity.metadata.name] = counts.get(entity.metadata.name, 0) + 1
-            ref_to_name = {
-                entity.metadata.name: entity.metadata.title or entity.metadata.name
-                for entity in catalog.entities
-                if entity.kind in ("API", "Component", "Resource") and counts.get(entity.metadata.name) == 1
-            }
-            reverse = {name: ident for ident, name in ref_to_name.items()}
-            if len(reverse) == len(ref_to_name):
-                services = [
-                    service.model_copy(update={"state": relayed[reverse[service.name]]}) if service.name in reverse and reverse[service.name] in relayed else service
-                    for service in projected.services
-                ]
-                if services != projected.services:
-                    projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
+        projected = await _with_relayed_states(projected, catalog)
     # L2 is opt-in, bounded to 150ms, and stores labels only; fail open to L1.
     await write_public_directory_redis(projected)
     return projected

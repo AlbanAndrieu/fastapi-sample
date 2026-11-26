@@ -80,9 +80,38 @@ async def _no_redis():
 async def test_read_states_is_revision_bound_and_expiring(monkeypatch):
     monkeypatch.setattr(relay, "_redis", _no_redis)
     relay._received = relay.build_payload(REVISION, [{"id": "gatus", "state": "ok", "age": 2}], now=datetime.now(timezone.utc))
-    assert await relay.read_states(REVISION) == {"gatus": "ok"}
-    assert await relay.read_states("sha256:" + "a" * 64) == {}
+    states, age = await relay.read_states(REVISION)
+    assert states == {"gatus": "ok"}
+    assert 0 <= age < relay.FRESH_SECONDS
+    assert await relay.read_states("sha256:" + "a" * 64) == ({}, 0.0)
     relay._received = None
+
+
+def test_send_budget_wakes_cloud_only_on_change_or_heartbeat(monkeypatch):
+    """Hobby scales to zero: a steady TrueNAS must not keep Cloud awake."""
+    monkeypatch.setattr(relay, "_sent_at", relay.deque())
+    monkeypatch.setattr(relay, "_sent_fingerprint", None)
+
+    def send(fingerprint, now):
+        due = relay.send_due(fingerprint, now)
+        if due:
+            relay._sent_at.append(now)
+            relay._remember(fingerprint)
+        return due
+
+    assert send("a", 0.0)
+    assert not send("a", relay._CHECK_INTERVAL)  # unchanged
+    assert not send("b", relay._MIN_GAP - 1)  # changed, but spaced
+    assert send("b", relay._MIN_GAP)
+    assert not send("b", relay._MIN_GAP + relay._HEARTBEAT - 1)
+    assert send("b", relay._MIN_GAP + relay._HEARTBEAT)  # heartbeat refreshes TTL
+    assert relay._HEARTBEAT < relay.TTL
+
+    # A flapping service cannot exceed the rolling daily cap.
+    sends = sum(send(str(i % 2), 10_000.0 + i * relay._MIN_GAP) for i in range(200))
+    assert len(relay._sent_at) <= relay._DAILY_SENDS
+    assert sends <= relay._DAILY_SENDS
+    assert relay._DAILY_SENDS * relay._MIN_GAP <= 86400
 
 
 def test_route_never_falls_through_to_review():
