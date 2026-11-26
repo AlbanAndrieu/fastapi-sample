@@ -350,7 +350,7 @@ export async function installPublicServiceOverview({
         }
         updateSummary(
           window.location.hostname.endsWith(".fastapicloud.dev")
-            ? "Cloud collection is passive; home Wi-Fi does not authorize the Cloud session. Verified LAN states require an approved evidence relay."
+            ? "Deep Cloud probes are disabled; lightweight public HTTP checks refresh in the background. LAN states require a signed TrueNAS relay."
             : "New probe evidence pending or stale",
         );
         schedulePendingRetry();
