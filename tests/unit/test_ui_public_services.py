@@ -367,3 +367,24 @@ async def test_stale_public_peek_keeps_sanitized_rows_with_probe_clocks(monkeypa
     # The garage probe is 75 s old against a 300 s limit: still a real state.
     assert verified_health_by_service_id(peek) == ("stale", {"garage": "ok", "redis": "unknown"})
     await health_board.reset_health_board_cache()
+
+
+@pytest.mark.parametrize(("age", "expected"), [(10.0, "fresh"), (3600.0, "stale")])
+@pytest.mark.asyncio
+async def test_relayed_lan_state_older_than_fresh_window_is_stale(monkeypatch, age, expected):
+    """A sparse Hobby-budget relay keeps old LAN states as history only."""
+    catalog = _catalog()
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
+    monkeypatch.setattr(ui_public_services, "fetch_site_catalog_v2", AsyncMock(return_value=catalog))
+    monkeypatch.setattr(ui_public_services, "_public_board_reader", AsyncMock(return_value={"state": "pending"}))
+    monkeypatch.setattr(ui_public_services, "fastapi_cloud_runtime_detected", lambda _host: True)
+    monkeypatch.setenv("FASTAPI_CLOUD_PUBLIC_LIGHT_PROBES_ENABLED", "false")
+    monkeypatch.setattr(
+        ui_public_services.public_status_relay,
+        "read_states",
+        AsyncMock(return_value=({"garage": "ok"}, age)),
+    )
+    monkeypatch.setattr(ui_public_services, "write_public_directory_redis", AsyncMock())
+    result = await ui_public_services.get_public_ui_services(None)
+    assert {item.name: item.state for item in result.services}["Garage"] == "ok"
+    assert result.boardState == expected

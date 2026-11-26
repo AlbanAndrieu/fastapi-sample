@@ -39,6 +39,35 @@ def test_only_reviewed_public_https_is_eligible():
     assert light._approved_url(route("gatus.albandrieu.com", visibility=False)) is None
 
 
+def test_access_routes_need_the_monitor_token_and_the_owned_zone():
+    assert light._approved_url(route("freshrss.albandrieu.com", access=True), token=True) == "https://freshrss.albandrieu.com/health"
+    # The Service Token is never sent outside albandrieu.com nor to direct WAN *.int.
+    assert light._approved_url(route("www.bababou.com", access=True), token=True) is None
+    assert light._approved_url(route("redis.int.albandrieu.com", access=True), token=True) is None
+    assert light._approved_url(route("login.albandrieu.com", access=True), token=True) is None
+
+
+def _catalog_routes(monkeypatch):
+    rows = [
+        SimpleNamespace(entity_ref="component:default/gatus", **vars(route("gatus.albandrieu.com", access=True))),
+        SimpleNamespace(entity_ref="component:default/reactive-resume", **vars(route("reactive.albandrieu.com"))),
+    ]
+    monkeypatch.setattr(light, "routes_from_catalog", lambda raw: rows)
+
+
+def test_targets_flag_access_routes_only_when_the_token_is_configured(monkeypatch):
+    _catalog_routes(monkeypatch)
+    monkeypatch.delenv("CF_ACCESS_CLIENT_ID", raising=False)
+    monkeypatch.delenv("CF_ACCESS_CLIENT_SECRET", raising=False)
+    assert light._targets({}) == [("component:default/reactive-resume", "https://reactive.albandrieu.com/health", False)]
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "test-id.access")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "test-secret")
+    assert light._targets({}) == [
+        ("component:default/gatus", "https://gatus.albandrieu.com/health", True),
+        ("component:default/reactive-resume", "https://reactive.albandrieu.com/health", False),
+    ]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("code", "expected"),
@@ -70,6 +99,56 @@ async def test_minimal_head_verdicts_do_not_confuse_access_with_health(monkeypat
     assert len(requests) == 1
     assert requests[0].method == "HEAD"
     assert "authorization" not in requests[0].headers
+    assert "cf-access-client-id" not in requests[0].headers
+    assert "cf-access-client-secret" not in requests[0].headers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("code", "location", "expected"),
+    [
+        (200, None, "ok"),
+        # Token refused by the app policy: Access login, not a service failure.
+        (302, "https://albandrieu.cloudflareaccess.com/cdn-cgi/access/login", "unknown"),
+        (403, None, "unknown"),
+        # Cloudflare tunnel/origin unreachable behind a passed Access check.
+        (530, None, "fail"),
+        (502, None, "fail"),
+    ],
+)
+async def test_access_route_sends_the_monitor_token_once_without_redirects(monkeypatch, code, location, expected):
+    async def dns(*_args, **_kwargs):
+        return {"dns_state": "ok", "dns_resolved": ["104.21.10.10"]}
+
+    monkeypatch.setattr(light, "probe_dns_hostname", dns)
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "test-id.access")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "test-secret")
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(code, headers={"location": location} if location else {})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False) as client:
+        assert await light._checked_status(client, "https://gatus.albandrieu.com/", authenticated=True) == expected
+    assert [(r.method, r.url.host) for r in requests] == [("HEAD", "gatus.albandrieu.com")]
+    assert requests[0].headers["cf-access-client-id"] == "test-id.access"
+    assert requests[0].headers["cf-access-client-secret"] == "test-secret"
+
+
+@pytest.mark.asyncio
+async def test_monitor_token_never_leaves_the_owned_zone(monkeypatch):
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "test-id.access")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "test-secret")
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await light._checked_status(client, "https://www.bababou.com/", authenticated=True) == "unknown"
+    assert calls == []
 
 
 @pytest.mark.asyncio

@@ -20,6 +20,7 @@ from nabla.api.demo.demo import initialize_demo_feature_flags
 from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
+from nabla.api import public_status_relay
 from nabla.api.runtime_topology import runtime_topology_heartbeat
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.app_features import AppFeatures
@@ -245,7 +246,7 @@ def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], A
 
             background_tasks: list[asyncio.Task[None]] = []
             resources.push_async_callback(_cancel_background_tasks, background_tasks)
-            _start_background_workers(selected, redis_client, background_tasks)
+            _start_background_workers(selected, redis_client, background_tasks, app)
 
             logger.info("🚀 Operations Overview started; synthetic sensor demo is lazy")
             logger.info("Debug mode: %s", getattr(app, "debug", False))
@@ -278,6 +279,7 @@ def _start_background_workers(
     features: AppFeatures,
     redis_client: Any,
     tasks: list[asyncio.Task[None]],
+    app: FastAPI | None = None,
 ) -> None:
     """Start only explicitly authorized tickers on Cloud."""
     if not cloud_background_workers_allowed():
@@ -291,6 +293,12 @@ def _start_background_workers(
         _start_background_task(
             update_system_metrics(),
             name="system-metrics",
+            tasks=tasks,
+        )
+    if app is not None and public_status_relay.enabled_producer():
+        _start_background_task(
+            public_status_relay.run_wake_slots(app),
+            name="public-status-relay-wake-slots",
             tasks=tasks,
         )
     if redis_client is not None:

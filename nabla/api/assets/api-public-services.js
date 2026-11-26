@@ -67,6 +67,14 @@ export function reconcilePublicObservation(payload, cached) {
   ) {
     return { rows: payload.services, historical: false };
   }
+  // Server-side observations older than the fresh window (relayed TrueNAS
+  // states between wake slots): real history, shown grey, never "unknown".
+  if (
+    payload.boardState === "stale" &&
+    payload.catalogSource === "backstage-v2"
+  ) {
+    return { rows: payload.services, historical: true, serverStale: true };
+  }
   if (cached?.catalogRevision === payload.catalogRevision) {
     return { rows: cached.services, historical: true };
   }
@@ -99,6 +107,7 @@ export async function installPublicServiceOverview({
   let rows = [];
   let expanded = false;
   let historical = false;
+  let serverStale = false;
   let receivedAt = null;
   let catalogRevision = null;
   let catalogSource = "backstage-v2";
@@ -107,6 +116,10 @@ export async function installPublicServiceOverview({
   let retryTimer = null;
   let lastAttemptAt = 0;
   let awaitingFreshEvidence = false;
+
+  function historicalAge() {
+    return serverStale ? "more than 15 min" : publicObservationAge(receivedAt);
+  }
 
   function countsForRows() {
     const counts = { ok: 0, warn: 0, fail: 0, unknown: 0, scheduled: 0 };
@@ -130,11 +143,15 @@ export async function installPublicServiceOverview({
             String(counts.fail),
             String(counts.unknown + counts.scheduled),
           ];
-    const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed / Scheduled"];
+    const labels = [
+      "Services",
+      "Healthy",
+      "Degraded",
+      "Failed",
+      "Unconfirmed / Scheduled",
+    ];
     const detail = historical
-      ? "Last public response " +
-        publicObservationAge(receivedAt) +
-        " ago · not a current probe"
+      ? "Last observation " + historicalAge() + " ago · not a current probe"
       : catalogSource === "bootstrap-snapshot"
         ? "Last-known local inventory (not live)"
         : "Verified public summary (not full health audit)";
@@ -187,8 +204,8 @@ export async function installPublicServiceOverview({
         ? "LAST " + service.state.toUpperCase()
         : service.state.toUpperCase();
       state.title = historical
-        ? "Last public response " +
-          publicObservationAge(receivedAt) +
+        ? "Last observation " +
+          historicalAge() +
           " ago; current probe is unverified"
         : service.state === "scheduled"
           ? "Outside its scheduled probe window; not an outage"
@@ -214,9 +231,9 @@ export async function installPublicServiceOverview({
     if (receivedAt != null) summary.dataset.lastReceivedAt = String(receivedAt);
     else delete summary.dataset.lastReceivedAt;
     const prefix =
-      historical && receivedAt != null
-        ? "Last public response " +
-          publicObservationAge(receivedAt) +
+      historical && (serverStale || receivedAt != null)
+        ? "Last observation " +
+          historicalAge() +
           " ago · historical only, not current · "
         : catalogSource === "bootstrap-snapshot"
           ? "Bootstrap inventory · "
@@ -328,6 +345,7 @@ export async function installPublicServiceOverview({
       const projected = reconcilePublicObservation(payload, previous);
       rows = projected.rows;
       historical = projected.historical;
+      serverStale = projected.serverStale === true;
       catalogSource = payload.catalogSource || "backstage-v2";
       if (
         !historical &&
@@ -349,9 +367,11 @@ export async function installPublicServiceOverview({
           catalogRevision = payload.catalogRevision;
         }
         updateSummary(
-          window.location.hostname.endsWith(".fastapicloud.dev")
-            ? "Deep Cloud probes are disabled; lightweight public HTTP checks refresh in the background. LAN states require a signed TrueNAS relay."
-            : "New probe evidence pending or stale",
+          serverStale
+            ? "Last observed states (older than 15 min); current state unverified"
+            : window.location.hostname.endsWith(".fastapicloud.dev")
+              ? "Deep Cloud probes are disabled; lightweight public HTTP checks refresh in the background. LAN states require a signed TrueNAS relay."
+              : "New probe evidence pending or stale",
         );
         schedulePendingRetry();
       }
