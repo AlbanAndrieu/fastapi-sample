@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 import json
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 import pytest
 
+from nabla import lifespan
 from nabla.api import public_status_relay as relay
 from nabla.route_policy import Credential, Visibility, route_policy_for
 
@@ -87,13 +90,13 @@ async def test_read_states_is_revision_bound_and_expiring(monkeypatch):
     relay._received = None
 
 
-def test_send_budget_wakes_cloud_only_on_change_or_heartbeat(monkeypatch):
+def test_send_budget_wakes_cloud_only_on_change_or_wake_slot(monkeypatch):
     """Hobby scales to zero: a steady TrueNAS must not keep Cloud awake."""
     monkeypatch.setattr(relay, "_sent_at", relay.deque())
     monkeypatch.setattr(relay, "_sent_fingerprint", None)
 
-    def send(fingerprint, now):
-        due = relay.send_due(fingerprint, now)
+    def send(fingerprint, now, *, wake=False):
+        due = relay.send_due(fingerprint, now, wake=wake)
         if due:
             relay._sent_at.append(now)
             relay._remember(fingerprint)
@@ -101,17 +104,92 @@ def test_send_budget_wakes_cloud_only_on_change_or_heartbeat(monkeypatch):
 
     assert send("a", 0.0)
     assert not send("a", relay._CHECK_INTERVAL)  # unchanged
-    assert not send("b", relay._MIN_GAP - 1)  # changed, but spaced
-    assert send("b", relay._MIN_GAP)
-    assert not send("b", relay._MIN_GAP + relay._HEARTBEAT - 1)
-    assert send("b", relay._MIN_GAP + relay._HEARTBEAT)  # heartbeat refreshes TTL
-    assert relay._HEARTBEAT < relay.TTL
+    assert not send("a", 36_000.0)  # no periodic heartbeat between slots
+    assert send("a", 36_000.0, wake=True)  # owner slot, even when unchanged
+    assert not send("b", 36_000.0 + relay._MIN_GAP - 1)  # changed, but spaced
+    assert send("b", 36_000.0 + relay._MIN_GAP)
+    assert not send("b", 36_000.0 + relay._MIN_GAP + 1, wake=True)  # a slot is spaced too
 
     # A flapping service cannot exceed the rolling daily cap.
-    sends = sum(send(str(i % 2), 10_000.0 + i * relay._MIN_GAP) for i in range(200))
+    sends = sum(send(str(i % 2), 100_000.0 + i * relay._MIN_GAP, wake=i % 7 == 0) for i in range(200))
     assert len(relay._sent_at) <= relay._DAILY_SENDS
     assert sends <= relay._DAILY_SENDS
     assert relay._DAILY_SENDS * relay._MIN_GAP <= 86400
+
+
+PARIS = ZoneInfo("Europe/Paris")
+
+
+@pytest.mark.parametrize(
+    ("now", "expected"),
+    [
+        (datetime(2026, 11, 26, 6, 59, tzinfo=timezone.utc), datetime(2026, 11, 26, 8, tzinfo=PARIS)),
+        (datetime(2026, 11, 26, 7, 0, tzinfo=timezone.utc), datetime(2026, 11, 26, 12, tzinfo=PARIS)),  # 08:00 is past
+        (datetime(2026, 11, 26, 13, 0, tzinfo=timezone.utc), datetime(2026, 11, 26, 18, tzinfo=PARIS)),
+        (datetime(2026, 11, 26, 17, 30, tzinfo=timezone.utc), datetime(2026, 11, 26, 21, tzinfo=PARIS)),
+        (datetime(2026, 11, 26, 20, 30, tzinfo=timezone.utc), datetime(2026, 11, 27, 8, tzinfo=PARIS)),
+        (datetime(2026, 7, 1, 5, 59, tzinfo=timezone.utc), datetime(2026, 7, 1, 8, tzinfo=PARIS)),  # CEST
+    ],
+)
+def test_wake_slots_follow_paris_wall_clock(now, expected):
+    slot = relay.next_wake(now)
+    assert slot == expected
+    assert (slot.astimezone(PARIS).hour, slot.astimezone(PARIS).minute) == (expected.hour, 0)
+
+
+def test_relayed_states_outlive_the_longest_gap_between_slots():
+    slot = relay.next_wake(datetime(2026, 1, 1, tzinfo=timezone.utc))
+    gaps = []
+    while slot.year == 2026:
+        following = relay.next_wake(slot)
+        # Same-tzinfo subtraction is wall-clock; compare real instants in UTC.
+        gaps.append((following.astimezone(timezone.utc) - slot.astimezone(timezone.utc)).total_seconds())
+        slot = following
+    # 21:00 -> 08:00 lasts 12 h on the autumn DST night.
+    assert max(gaps) == 12 * 3600
+    assert max(gaps) + 1800 <= relay.TTL
+    assert len(relay.WAKE_HOURS) <= relay._DAILY_SENDS
+
+
+@pytest.mark.asyncio
+async def test_wake_loop_collects_and_forces_a_push_and_survives_errors(monkeypatch):
+    builds = []
+    pushes = []
+
+    async def build():
+        builds.append(1)
+        if len(builds) == 1:
+            raise RuntimeError("collection failed")
+        return {"services": []}
+
+    async def push(payload, *, wake=False):
+        pushes.append((payload, wake))
+        raise asyncio.CancelledError  # stop the infinite clock after one slot
+
+    monkeypatch.setattr(relay, "next_wake", lambda now: now)  # every slot is due now
+    monkeypatch.setattr("nabla.api.homelab_health.build_homelab_health_payload", build)
+    monkeypatch.setattr(relay, "push", push)
+    with pytest.raises(asyncio.CancelledError):
+        await relay.run_wake_slots()
+    assert len(builds) == 2  # the failed collection did not stop the clock
+    assert pushes == [({"services": []}, True)]
+
+
+def test_wake_clock_starts_only_with_an_enabled_producer(monkeypatch):
+    started = []
+
+    def start(coroutine, *, name, tasks):
+        coroutine.close()
+        started.append(name)
+
+    monkeypatch.setattr(lifespan, "cloud_background_workers_allowed", lambda: True)
+    monkeypatch.setattr(lifespan, "_start_background_task", start)
+    features = SimpleNamespace(observability=False)
+    for enabled in (False, True):
+        monkeypatch.setattr(relay, "enabled_producer", lambda enabled=enabled: enabled)
+        started.clear()
+        lifespan._start_background_workers(features, None, [])
+        assert started == (["public-status-relay-wake-slots"] if enabled else [])
 
 
 def test_route_never_falls_through_to_review():

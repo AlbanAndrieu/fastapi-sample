@@ -20,6 +20,7 @@ from nabla.api.demo.demo import initialize_demo_feature_flags
 from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
+from nabla.api import public_status_relay
 from nabla.api.runtime_topology import runtime_topology_heartbeat
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.app_features import AppFeatures
@@ -291,6 +292,12 @@ def _start_background_workers(
         _start_background_task(
             update_system_metrics(),
             name="system-metrics",
+            tasks=tasks,
+        )
+    if public_status_relay.enabled_producer():
+        _start_background_task(
+            public_status_relay.run_wake_slots(),
+            name="public-status-relay-wake-slots",
             tasks=tasks,
         )
     if redis_client is not None:

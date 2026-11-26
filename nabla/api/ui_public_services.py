@@ -222,7 +222,7 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
         # collectors. No fresh evidence means UNKNOWN, never fabricated OK/FAIL.
         board = {"state": "pending"}
     projected = project_public_ui_services(catalog, board)
-    # Light public HTTP is NOT the deep Cloud fan-out. It samples at most six
+    # Light public HTTP is NOT the deep Cloud fan-out. It samples at most nine
     # approved HTTPS targets per three minutes without delaying this request.
     # A cold replica returns UNKNOWN initially, then gets real per-service
     # public HTTP states on the next passive refresh.

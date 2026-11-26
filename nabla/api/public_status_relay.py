@@ -19,6 +19,7 @@ import re
 import secrets
 import time
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -32,15 +33,19 @@ HEADER = "x-nabla-federation-signature"
 _DOMAIN = b"nabla:public-service-status:v1\x00"
 _REDIS_KEY = "nabla:public-status:v1:latest"
 MAX_BODY = 16384
-# FastAPI Cloud Hobby bills awake replica-hours (180 h Nano) and scales to
-# zero; every accepted POST wakes Cloud. Send only on change or a 2 h
-# heartbeat, at most 24 times per rolling day (per TrueNAS worker).
-TTL = 9000  # Heartbeat plus one 30 min margin; afterwards states are UNKNOWN.
+# FastAPI Cloud Hobby counts awake replica-hours (180 h Nano) and always
+# scales to zero; every accepted POST wakes Cloud. Send on state change, and
+# unconditionally at the owner's wake slots, at most 24 times per rolling day
+# (per TrueNAS worker).
+WAKE_HOURS = (8, 12, 18, 21)  # Europe/Paris: morning, noon, evening, night.
+_WAKE_ZONE = ZoneInfo("Europe/Paris")
+# Longest silence 21:00 -> 08:00 is 11 h (12 h on the autumn DST night),
+# plus a 30 min margin; afterwards states are UNKNOWN.
+TTL = 45000
 FRESH_SECONDS = 900  # Older relayed evidence is displayed "stale", never "fresh".
 MAX_ROWS = 120
 _CHECK_INTERVAL = 90.0  # Local projection check only; no network.
 _MIN_GAP = 300.0
-_HEARTBEAT = 7200.0
 _DAILY_SENDS = 24
 _REF = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _REVISION = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -282,7 +287,7 @@ def enabled_producer() -> bool:
     return _enabled() and bool(_secret()) and homelab_runtime_detected() and url == "https://fastapi-sample.fastapicloud.dev"
 
 
-async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None = None) -> str:
+async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None = None, wake: bool = False) -> str:
     """Push sanitised results from an already executed homelab probe; no new LAN I/O."""
     from nabla.api.site_architecture_catalog import fetch_catalog_v2_source
 
@@ -300,7 +305,7 @@ async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport |
         return "catalog_unverified"
     fingerprint = json.dumps([revision, [(row["id"], row["state"]) for row in rows]])
     now = time.monotonic()
-    if not send_due(fingerprint, now):
+    if not send_due(fingerprint, now, wake=wake):
         return "unchanged_or_budget"
     _sent_at.append(now)
     data = build_payload(revision, rows, now=datetime.now(timezone.utc))
@@ -323,13 +328,13 @@ def _remember(fingerprint: str | None) -> None:
     _sent_fingerprint = fingerprint  # None retries after _MIN_GAP, inside the daily cap.
 
 
-def send_due(fingerprint: str, now: float) -> bool:
-    """Changed states or heartbeat, spaced by _MIN_GAP and capped per rolling day."""
+def send_due(fingerprint: str, now: float, *, wake: bool = False) -> bool:
+    """Changed states or a wake slot, spaced by _MIN_GAP and capped per rolling day."""
     while _sent_at and now - _sent_at[0] >= 86400:
         _sent_at.popleft()
     if len(_sent_at) >= _DAILY_SENDS or (_sent_at and now - _sent_at[-1] < _MIN_GAP):
         return False
-    return fingerprint != _sent_fingerprint or not _sent_at or now - _sent_at[-1] >= _HEARTBEAT
+    return wake or fingerprint != _sent_fingerprint
 
 
 def schedule(payload: dict[str, Any]) -> None:
@@ -341,3 +346,34 @@ def schedule(payload: dict[str, Any]) -> None:
     task = asyncio.create_task(push(payload), name="truenas-public-status-relay")
     _pending.add(task)
     task.add_done_callback(_pending.discard)
+
+
+def next_wake(now: datetime) -> datetime:
+    """First wake slot strictly after ``now``, in Europe/Paris wall-clock time."""
+    local = now.astimezone(_WAKE_ZONE)
+    for offset in (0, 1):
+        day = local.date() + timedelta(days=offset)
+        for hour in WAKE_HOURS:
+            slot = datetime(day.year, day.month, day.day, hour, tzinfo=_WAKE_ZONE)
+            if slot > local:
+                return slot
+    raise AssertionError("WAKE_HOURS must not be empty")
+
+
+async def run_wake_slots() -> None:
+    """TrueNAS clock: collect LAN health and wake Cloud at each slot, changed or not.
+
+    Gatus only probes ``/health``, which never runs the homelab collection,
+    so without this loop nothing would push while nobody views TrueNAS.
+    """
+    from nabla.api.homelab_health import build_homelab_health_payload
+    from nabla.utils.logger import logger
+
+    while True:
+        now = datetime.now(timezone.utc)
+        await asyncio.sleep((next_wake(now) - now).total_seconds())
+        try:
+            result = await push(await build_homelab_health_payload(), wake=True)
+        except Exception as exc:
+            result = f"error_{type(exc).__name__}"
+        logger.info("public_status_relay_wake", result=result)
