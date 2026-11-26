@@ -43,6 +43,8 @@ def test_schema_rejects_leaks_duplicates_stale_and_bad_states():
         {**data, "catalogRevision": "sha256:xyz"},
         {**data, "services": [{"id": "gatus", "state": "green", "age": 1}]},
         {**data, "services": [{"id": "gatus", "state": "ok", "age": True}]},
+        {**data, "services": [{"id": "gatus", "state": [], "age": 1}]},
+        {**data, "v": True},
         {**data, "services": data["services"] * 2},
         {**data, "observed_at": relay._iso(NOW - timedelta(minutes=8))},
     ):

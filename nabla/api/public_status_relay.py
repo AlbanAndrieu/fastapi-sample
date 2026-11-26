@@ -112,10 +112,10 @@ def build_payload(revision: str, rows: list[dict[str, Any]], *, now: datetime) -
 def validate(payload: object, *, now: datetime) -> dict[str, Any] | None:
     if not isinstance(payload, dict) or set(payload) != {"v", "catalogRevision", "observed_at", "expires_at", "nonce", "services"}:
         return None
-    if payload["v"] != 1 or not isinstance(payload["catalogRevision"], str) or not _REVISION.fullmatch(payload["catalogRevision"]):
+    if type(payload["v"]) is not int or payload["v"] != 1 or not isinstance(payload["catalogRevision"], str) or not _REVISION.fullmatch(payload["catalogRevision"]):
         return None
     observed, expiry = _parse(payload["observed_at"]), _parse(payload["expires_at"])
-    if observed is None or expiry is None or observed > now + timedelta(seconds=60) or observed < now - timedelta(minutes=5):
+    if observed is None or expiry is None or observed > now + timedelta(seconds=60) or observed < now - timedelta(seconds=TTL):
         return None
     if not now < expiry or not timedelta(seconds=0) < expiry - observed <= timedelta(seconds=TTL):
         return None
@@ -131,7 +131,7 @@ def validate(payload: object, *, now: datetime) -> dict[str, Any] | None:
         ident = row["id"]
         if not isinstance(ident, str) or len(ident) > 128 or not _REF.fullmatch(ident) or ident in ids:
             return None
-        if row["state"] not in _STATES or type(row["age"]) is not int or not 0 <= row["age"] < TTL:
+        if not isinstance(row["state"], str) or row["state"] not in _STATES or type(row["age"]) is not int or not 0 <= row["age"] < TTL:
             return None
         ids.add(ident)
     return payload
@@ -171,7 +171,7 @@ async def _save(data: dict[str, Any]) -> bool:
                 timeout=0.5,
             )
             return accepted == 1
-        except (Exception, asyncio.CancelledError):
+        except Exception:
             # No permissive fallback when shared state could be inconsistent.
             return False
     if _received is not None and _received["observed_at"] >= data["observed_at"]:
@@ -191,7 +191,7 @@ async def read_states(revision: str) -> dict[str, str]:
                 raw = raw.decode("utf-8")
             if isinstance(raw, str) and len(raw) <= MAX_BODY:
                 data = json.loads(raw)
-        except (Exception, asyncio.CancelledError):
+        except Exception:
             return {}
     else:
         data = _received
@@ -213,12 +213,16 @@ def register_routes(app: FastAPI) -> None:
             return _response(401, "signature_required")
         if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
             return _response(415, "json_required")
+        body = bytearray()
         try:
-            raw = await asyncio.wait_for(request.body(), timeout=3)
+            async with asyncio.timeout(3):
+                async for chunk in request.stream():
+                    if len(body) + len(chunk) > MAX_BODY:
+                        return _response(413, "too_large")
+                    body.extend(chunk)
         except TimeoutError:
             return _response(408, "body_timeout")
-        if len(raw) > MAX_BODY:
-            return _response(413, "too_large")
+        raw = bytes(body)
         if not hmac.compare_digest(sign(raw, _secret()), signatures[0]):
             return _response(401, "bad_signature")
         try:
@@ -251,7 +255,7 @@ async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport |
         return "no_evidence"
     try:
         source = await asyncio.wait_for(fetch_catalog_v2_source(), timeout=1.0)
-    except (Exception, asyncio.CancelledError):
+    except Exception:
         return "catalog_unavailable"
     revision = source.get("catalogRevision")
     if not isinstance(revision, str) or not _REVISION.fullmatch(revision):
