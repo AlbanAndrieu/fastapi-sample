@@ -192,19 +192,22 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
                 for entity in catalog.entities
                 if entity.kind in ("API", "Component", "Resource")
             }
-            names = [entity.metadata.title or entity.metadata.name for entity in catalog.entities if entity.kind in ("API", "Component", "Resource")]
-            unique = {name for name in names if names.count(name) == 1}
+            counts: dict[str, int] = {}
+            for entity in catalog.entities:
+                if entity.kind in ("API", "Component", "Resource"):
+                    name = entity.metadata.title or entity.metadata.name
+                    counts[name] = counts.get(name, 0) + 1
             services = [
                 service.model_copy(update={"state": light_states[name_to_ref[service.name]]})
-                if service.name in unique and service.state == "unknown" and name_to_ref[service.name] in light_states
+                if counts.get(service.name) == 1 and service.state == "unknown"
+                and name_to_ref.get(service.name) in light_states
                 else service
                 for service in projected.services
             ]
-            # Fresh is a *partial* public evidence snapshot, not a full audit.
-            projected = projected.model_copy(update={
-                "services": services,
-                "boardState": "fresh" if projected.boardState == "pending" else projected.boardState,
-            })
+            if services != projected.services:
+                # Fresh means at least one *recent PUBLIC HTTP* observation,
+                # not that the internal homelab or every service is healthy.
+                projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
     # L2 is opt-in, bounded to 150ms, and stores labels only; fail open to L1.
     await write_public_directory_redis(projected)
     return projected

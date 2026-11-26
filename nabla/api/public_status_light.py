@@ -139,6 +139,10 @@ async def _run_wave(targets: list[tuple[str, str]]) -> None:
                     continue
                 if status != "unknown":
                     _samples[ref] = (now, status)
+                else:
+                    # A failed/blocked recheck must never leave an old green
+                    # labelled current until its natural TTL expiry.
+                    _samples.pop(ref, None)
             for task in pending:
                 task.cancel()
             if pending:
