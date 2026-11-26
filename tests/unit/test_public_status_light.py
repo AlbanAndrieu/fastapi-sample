@@ -43,9 +43,15 @@ def test_only_reviewed_public_https_is_eligible():
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        (200, "ok"), (204, "ok"), (302, "unknown"),
-        (401, "unknown"), (403, "unknown"), (429, "unknown"),
-        (404, "fail"), (502, "fail"), (503, "fail"),
+        (200, "ok"),
+        (204, "ok"),
+        (302, "unknown"),
+        (401, "unknown"),
+        (403, "unknown"),
+        (429, "unknown"),
+        (404, "fail"),
+        (502, "fail"),
+        (503, "fail"),
     ],
 )
 async def test_minimal_head_verdicts_do_not_confuse_access_with_health(monkeypatch, code, expected):

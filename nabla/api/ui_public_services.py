@@ -187,11 +187,7 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
         if light_states:
             # Preserve a confirmed full-board or scheduled result; never
             # infer internal service state from the public HTTP vantage.
-            name_to_ref = {
-                entity.metadata.title or entity.metadata.name: entity.entityRef
-                for entity in catalog.entities
-                if entity.kind in ("API", "Component", "Resource")
-            }
+            name_to_ref = {entity.metadata.title or entity.metadata.name: entity.entityRef for entity in catalog.entities if entity.kind in ("API", "Component", "Resource")}
             counts: dict[str, int] = {}
             for entity in catalog.entities:
                 if entity.kind in ("API", "Component", "Resource"):
@@ -199,8 +195,7 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
                     counts[name] = counts.get(name, 0) + 1
             services = [
                 service.model_copy(update={"state": light_states[name_to_ref[service.name]]})
-                if counts.get(service.name) == 1 and service.state == "unknown"
-                and name_to_ref.get(service.name) in light_states
+                if counts.get(service.name) == 1 and service.state == "unknown" and name_to_ref.get(service.name) in light_states
                 else service
                 for service in projected.services
             ]
@@ -220,15 +215,12 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
             ref_to_name = {
                 entity.metadata.name: entity.metadata.title or entity.metadata.name
                 for entity in catalog.entities
-                if entity.kind in ("API", "Component", "Resource")
-                and counts.get(entity.metadata.name) == 1
+                if entity.kind in ("API", "Component", "Resource") and counts.get(entity.metadata.name) == 1
             }
             reverse = {name: ident for ident, name in ref_to_name.items()}
             if len(reverse) == len(ref_to_name):
                 services = [
-                    service.model_copy(update={"state": relayed[reverse[service.name]]})
-                    if service.name in reverse and reverse[service.name] in relayed
-                    else service
+                    service.model_copy(update={"state": relayed[reverse[service.name]]}) if service.name in reverse and reverse[service.name] in relayed else service
                     for service in projected.services
                 ]
                 if services != projected.services:

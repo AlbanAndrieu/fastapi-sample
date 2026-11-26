@@ -194,7 +194,7 @@ export async function installPublicServiceOverview({
           ? "Outside its scheduled probe window; not an outage"
           : service.state === "unknown"
             ? "No confirmed fresh observation"
-          : "Summarized public observation (not a full health audit)";
+            : "Summarized public observation (not a full health audit)";
       item.append(identity, state);
       fragment.appendChild(item);
     }
