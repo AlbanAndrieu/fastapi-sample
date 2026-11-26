@@ -22,7 +22,7 @@ REVISION = "sha256:" + "b" * 64
 def test_projection_sends_only_proven_minimal_states():
     payload = {
         "services": [
-            {"id": "gatus", "state": "ok", "probe_source": "origin", "probe_age_seconds": 2, "probe_stale_after_seconds": 120, "url": "https://172.17.0.24"},
+            {"id": "gatus", "state": "ok", "probe_source": "origin", "probe_age_seconds": 2, "probe_stale_after_seconds": 120, "http_status": 200, "url": "https://172.17.0.24"},
             {"id": "missing", "state": "fail", "probe_stale": True, "probe_source": "origin", "probe_age_seconds": 2, "probe_stale_after_seconds": 120},
             {"id": "unauthenticated", "state": "warn", "probe_source": "deadline", "probe_age_seconds": 2, "probe_stale_after_seconds": 120},
         ],
@@ -31,7 +31,7 @@ def test_projection_sends_only_proven_minimal_states():
         ],
     }
     rows = relay.project_rows(payload)
-    assert rows == [{"id": "gatus", "state": "ok", "age": 5}]
+    assert rows == [{"id": "gatus", "state": "warn", "age": 5}]
     assert "172.17" not in json.dumps(rows) and "192.168" not in json.dumps(rows)
 
 
@@ -89,3 +89,14 @@ def test_route_never_falls_through_to_review():
     p = route_policy_for("/federation/services", method="POST")
     assert (p.visibility, p.credential) == (Visibility.SERVICE, Credential.FEDERATION_HMAC)
     assert route_policy_for("/federation/services", method="GET").visibility == Visibility.REVIEW
+
+
+def test_access_challenge_or_redirect_does_not_publish_app_green():
+    examples = {
+        "services": [
+            {"id": "login", "state": "ok", "probe_source": "origin", "probe_age_seconds": 0, "probe_stale_after_seconds": 120, "http_status": 302},
+            {"id": "gatus", "state": "ok", "probe_source": "origin", "probe_age_seconds": 0, "probe_stale_after_seconds": 120, "http_status": 200},
+        ],
+        "internal_services": [],
+    }
+    assert relay.project_rows(examples) == [{"id": "gatus", "state": "ok", "age": 0}]

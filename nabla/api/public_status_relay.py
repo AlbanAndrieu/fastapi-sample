@@ -90,10 +90,21 @@ def project_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 or age < 0 or stale_after <= age
             ):
                 continue
+            if scope == "services":
+                # Access/redirect alone is never origin availability.
+                status = row.get("http_status")
+                if state == "ok" and (type(status) is not int or not 200 <= status < 300):
+                    continue
+                if row.get("public_probe_verification") in {
+                    "access_protected_origin_unverified", "origin_unverified",
+                }:
+                    continue
+            elif state == "ok":
+                # A connected TCP socket is NOT application health; display
+                # a neutral warning rather than a false service OK.
+                state = "warn"
             # Cloud never sees internal endpoints, probe text, device IDs or IPs.
             item = {"id": service_id, "state": state, "age": min(599, int(age))}
-            # Internal TCP is a useful LAN reachability hint, not app health;
-            # its state can override an Access-challenged public observation.
             collected[service_id] = item
     return sorted(collected.values(), key=lambda item: item["id"])[:MAX_ROWS]
 
