@@ -246,7 +246,7 @@ def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], A
 
             background_tasks: list[asyncio.Task[None]] = []
             resources.push_async_callback(_cancel_background_tasks, background_tasks)
-            _start_background_workers(selected, redis_client, background_tasks)
+            _start_background_workers(selected, redis_client, background_tasks, app)
 
             logger.info("🚀 Operations Overview started; synthetic sensor demo is lazy")
             logger.info("Debug mode: %s", getattr(app, "debug", False))
@@ -279,6 +279,7 @@ def _start_background_workers(
     features: AppFeatures,
     redis_client: Any,
     tasks: list[asyncio.Task[None]],
+    app: FastAPI | None = None,
 ) -> None:
     """Start only explicitly authorized tickers on Cloud."""
     if not cloud_background_workers_allowed():
@@ -294,9 +295,9 @@ def _start_background_workers(
             name="system-metrics",
             tasks=tasks,
         )
-    if public_status_relay.enabled_producer():
+    if app is not None and public_status_relay.enabled_producer():
         _start_background_task(
-            public_status_relay.run_wake_slots(),
+            public_status_relay.run_wake_slots(app),
             name="public-status-relay-wake-slots",
             tasks=tasks,
         )

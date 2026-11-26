@@ -8,12 +8,11 @@ No caller-supplied targets or authenticated LAN data are returned to clients.
 from __future__ import annotations
 
 import asyncio
-from collections import deque
+from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import json
-import math
 import os
 import re
 import secrets
@@ -32,30 +31,27 @@ PATH = "/federation/services"
 HEADER = "x-nabla-federation-signature"
 _DOMAIN = b"nabla:public-service-status:v1\x00"
 _REDIS_KEY = "nabla:public-status:v1:latest"
-MAX_BODY = 16384
+MAX_BODY = 32768
 # FastAPI Cloud Hobby counts awake replica-hours (180 h Nano) and always
-# scales to zero; every accepted POST wakes Cloud. Send on state change, and
-# unconditionally at the owner's wake slots, at most 24 times per rolling day
-# (per TrueNAS worker).
+# scales to zero; every accepted POST wakes Cloud. TrueNAS sends only at the
+# owner's wake slots (one retry each); the rolling daily cap is a safety net.
 WAKE_HOURS = (8, 12, 18, 21)  # Europe/Paris: morning, noon, evening, night.
 _WAKE_ZONE = ZoneInfo("Europe/Paris")
 # Longest silence 21:00 -> 08:00 is 11 h (12 h on the autumn DST night),
 # plus a 30 min margin; afterwards states are UNKNOWN.
 TTL = 45000
 FRESH_SECONDS = 900  # Older relayed evidence is displayed "stale", never "fresh".
-MAX_ROWS = 120
-_CHECK_INTERVAL = 90.0  # Local projection check only; no network.
+MAX_ROWS = 300  # TrueNAS confirmed 118 of 217 public services on 26/11.
 _MIN_GAP = 300.0
 _DAILY_SENDS = 24
 _REF = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _REVISION = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SIGNATURE = re.compile(r"^sha256=[0-9a-f]{64}$")
 _STATES = frozenset({"ok", "warn", "fail", "scheduled", "unknown"})
+_VIEW_ATTEMPTS = 4
+_VIEW_RETRY_SECONDS = 30.0  # The health board refreshes in the background.
 _received: dict[str, Any] | None = None
-_next_check = 0.0
-_sent_fingerprint: str | None = None
 _sent_at: deque[float] = deque()
-_pending: set[asyncio.Task[str]] = set()
 _RESPONSE_HEADERS = {"Cache-Control": "private, no-store"}
 
 
@@ -84,54 +80,6 @@ def _parse(value: object) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-
-
-def project_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Only proven non-stale probe rows. Prefer LAN over blocked WAN Access."""
-    collected: dict[str, dict[str, Any]] = {}
-    for scope in ("services", "internal_services"):
-        for row in payload.get(scope, []):
-            if not isinstance(row, dict) or row.get("probe_stale") is True or row.get("timed_out") is True:
-                continue
-            service_id = row.get("id")
-            state = row.get("effective_state") or row.get("state")
-            age = row.get("probe_age_seconds")
-            stale_after = row.get("probe_stale_after_seconds")
-            if (
-                not isinstance(service_id, str)
-                or len(service_id) > 128
-                or not _REF.fullmatch(service_id)
-                or state not in _STATES
-                or state == "unknown"
-                or row.get("probe_source") not in {"origin", "memory"}
-                or not isinstance(age, (int, float))
-                or isinstance(age, bool)
-                or not math.isfinite(age)
-                or not isinstance(stale_after, (int, float))
-                or isinstance(stale_after, bool)
-                or not math.isfinite(stale_after)
-                or age < 0
-                or stale_after <= age
-            ):
-                continue
-            if scope == "services":
-                # Access/redirect alone is never origin availability.
-                status = row.get("http_status")
-                if state == "ok" and (type(status) is not int or not 200 <= status < 300):
-                    continue
-                if row.get("public_probe_verification") in {
-                    "access_protected_origin_unverified",
-                    "origin_unverified",
-                }:
-                    continue
-            elif state == "ok":
-                # A connected TCP socket is NOT application health; display
-                # a neutral warning rather than a false service OK.
-                state = "warn"
-            # Cloud never sees internal endpoints, probe text, device IDs or IPs.
-            item = {"id": service_id, "state": state, "age": min(TTL - 1, int(age))}
-            collected[service_id] = item
-    return sorted(collected.values(), key=lambda item: item["id"])[:MAX_ROWS]
 
 
 def build_payload(revision: str, rows: list[dict[str, Any]], *, now: datetime) -> dict[str, Any]:
@@ -287,26 +235,57 @@ def enabled_producer() -> bool:
     return _enabled() and bool(_secret()) and homelab_runtime_detected() and url == "https://fastapi-sample.fastapicloud.dev"
 
 
-async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None = None, wake: bool = False) -> str:
-    """Push sanitised results from an already executed homelab probe; no new LAN I/O."""
-    from nabla.api.site_architecture_catalog import fetch_catalog_v2_source
+def public_view_rows(view: dict[str, Any], catalog: Any) -> list[dict[str, Any]]:
+    """Verdicts of TrueNAS's own anonymous ``/api/ui/services``, keyed by entity name.
 
+    That view is already public on TrueNAS (names and summarized states), so
+    relaying it adds no exposure. Only a fresh live Backstage v2 board of the
+    same catalog revision is relayed; ambiguous titles and UNKNOWN are dropped.
+    """
+    if (
+        not isinstance(view, dict)
+        or view.get("boardState") != "fresh"
+        or view.get("catalogSource") != "backstage-v2"
+        or view.get("catalogRevision") != catalog.catalogRevision
+        or not isinstance(view.get("services"), list)
+    ):
+        return []
+    entities = [entity for entity in catalog.entities if entity.kind in ("API", "Component", "Resource")]
+    titles = Counter(entity.metadata.title or entity.metadata.name for entity in entities)
+    names = Counter(entity.metadata.name for entity in entities)
+    by_title = {
+        entity.metadata.title or entity.metadata.name: entity.metadata.name
+        for entity in entities
+        if titles[entity.metadata.title or entity.metadata.name] == 1 and names[entity.metadata.name] == 1
+    }
+    rows: dict[str, dict[str, Any]] = {}
+    for service in view["services"]:
+        name = by_title.get(service.get("name")) if isinstance(service, dict) else None
+        state = service.get("state") if isinstance(service, dict) else None
+        if name and len(name) <= 128 and _REF.fullmatch(name) and state in _STATES and state != "unknown":
+            # A fresh board is younger than its own TTL; the Cloud ages it from observed_at.
+            rows[name] = {"id": name, "state": state, "age": 0}
+    return sorted(rows.values(), key=lambda row: row["id"])[:MAX_ROWS]
+
+
+def send_due(now: float) -> bool:
+    """Spaced by _MIN_GAP and capped per rolling day, whatever triggers the send."""
+    while _sent_at and now - _sent_at[0] >= 86400:
+        _sent_at.popleft()
+    return len(_sent_at) < _DAILY_SENDS and not (_sent_at and now - _sent_at[-1] < _MIN_GAP)
+
+
+async def send(rows: list[dict[str, Any]], revision: str, *, transport: httpx.AsyncBaseTransport | None = None) -> str:
+    """Sign and POST already public rows; this request is what wakes Cloud."""
     if not enabled_producer():
         return "disabled"
-    rows = project_rows(payload)
     if not rows:
         return "no_evidence"
-    try:
-        source = await asyncio.wait_for(fetch_catalog_v2_source(), timeout=1.0)
-    except Exception:
-        return "catalog_unavailable"
-    revision = source.get("catalogRevision")
-    if not isinstance(revision, str) or not _REVISION.fullmatch(revision):
+    if not _REVISION.fullmatch(revision):
         return "catalog_unverified"
-    fingerprint = json.dumps([revision, [(row["id"], row["state"]) for row in rows]])
     now = time.monotonic()
-    if not send_due(fingerprint, now, wake=wake):
-        return "unchanged_or_budget"
+    if not send_due(now):
+        return "budget"
     _sent_at.append(now)
     data = build_payload(revision, rows, now=datetime.now(timezone.utc))
     raw = json.dumps(data, separators=(",", ":"), sort_keys=True).encode()
@@ -314,38 +293,37 @@ async def push(payload: dict[str, Any], *, transport: httpx.AsyncBaseTransport |
         return "over_budget"
     headers = {"Content-Type": "application/json", HEADER: sign(raw, _secret())}
     try:
-        async with httpx.AsyncClient(timeout=3.0, follow_redirects=False, trust_env=False, transport=transport) as client:
+        # Generous timeout: this POST usually meets a Cloud cold start.
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=False, trust_env=False, transport=transport) as client:
             response = await client.post(str(get_settings().truenas_federation_cloud_url).rstrip("/") + PATH, content=raw, headers=headers)
     except httpx.HTTPError:
         return "network_unavailable"
-    accepted = response.status_code == 202
-    _remember(fingerprint if accepted else None)
-    return "sent" if accepted else f"http_{response.status_code}"
+    return "sent" if response.status_code == 202 else f"http_{response.status_code}"
 
 
-def _remember(fingerprint: str | None) -> None:
-    global _sent_fingerprint
-    _sent_fingerprint = fingerprint  # None retries after _MIN_GAP, inside the daily cap.
+async def _local_public_view(app: Any) -> dict[str, Any] | None:
+    """Read this TrueNAS app's own anonymous view in-process: no network, no port."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1", timeout=60.0) as client:
+        for _ in range(_VIEW_ATTEMPTS):
+            response = await client.get("/api/ui/services")
+            view = response.json() if response.status_code == 200 else None
+            if isinstance(view, dict) and view.get("boardState") == "fresh":
+                return view
+            await asyncio.sleep(_VIEW_RETRY_SECONDS)
+    return None
 
 
-def send_due(fingerprint: str, now: float, *, wake: bool = False) -> bool:
-    """Changed states or a wake slot, spaced by _MIN_GAP and capped per rolling day."""
-    while _sent_at and now - _sent_at[0] >= 86400:
-        _sent_at.popleft()
-    if len(_sent_at) >= _DAILY_SENDS or (_sent_at and now - _sent_at[-1] < _MIN_GAP):
-        return False
-    return wake or fingerprint != _sent_fingerprint
+async def wake_once(app: Any) -> str:
+    """One slot: read the local public view, then relay it to Cloud."""
+    from nabla.api.site_architecture_catalog import fetch_site_catalog_v2
 
-
-def schedule(payload: dict[str, Any]) -> None:
-    """Check at most every 90 s during existing TrueNAS health collection."""
-    global _next_check
-    if not enabled_producer() or _pending or time.monotonic() < _next_check:
-        return
-    _next_check = time.monotonic() + _CHECK_INTERVAL
-    task = asyncio.create_task(push(payload), name="truenas-public-status-relay")
-    _pending.add(task)
-    task.add_done_callback(_pending.discard)
+    if not enabled_producer():
+        return "disabled"
+    view = await _local_public_view(app)
+    if view is None:
+        return "view_not_fresh"
+    catalog = await asyncio.wait_for(fetch_site_catalog_v2(), timeout=10.0)
+    return await send(public_view_rows(view, catalog), catalog.catalogRevision)
 
 
 def next_wake(now: datetime) -> datetime:
@@ -360,20 +338,23 @@ def next_wake(now: datetime) -> datetime:
     raise AssertionError("WAKE_HOURS must not be empty")
 
 
-async def run_wake_slots() -> None:
-    """TrueNAS clock: collect LAN health and wake Cloud at each slot, changed or not.
+async def run_wake_slots(app: Any) -> None:
+    """TrueNAS clock: relay the local public view at each slot, retrying once.
 
-    Gatus only probes ``/health``, which never runs the homelab collection,
-    so without this loop nothing would push while nobody views TrueNAS.
+    Gatus only probes ``/health``, which never refreshes the board, and Cloud
+    has no timer: without this loop nothing would reach Cloud.
     """
-    from nabla.api.homelab_health import build_homelab_health_payload
     from nabla.utils.logger import logger
 
     while True:
         now = datetime.now(timezone.utc)
         await asyncio.sleep((next_wake(now) - now).total_seconds())
-        try:
-            result = await push(await build_homelab_health_payload(), wake=True)
-        except Exception as exc:
-            result = f"error_{type(exc).__name__}"
-        logger.info("public_status_relay_wake", result=result)
+        for attempt in (1, 2):
+            try:
+                result = await wake_once(app)
+            except Exception as exc:
+                result = f"error_{type(exc).__name__}"
+            logger.info("public_status_relay_wake", result=result, attempt=attempt)
+            if result == "sent":
+                break
+            await asyncio.sleep(_MIN_GAP)

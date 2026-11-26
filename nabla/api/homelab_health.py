@@ -393,9 +393,6 @@ async def build_homelab_health_payload(
         }
         _cached_payload = payload
         _cached_at = time.monotonic()
-        # Reuse observations already obtained on TrueNAS, never probe from Cloud.
-        from nabla.api.public_status_relay import schedule as schedule_public_status_relay
-        schedule_public_status_relay(payload)
         return _copy_payload(
             payload,
             cache_source="origin",
