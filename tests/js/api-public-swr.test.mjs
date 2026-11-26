@@ -23,7 +23,10 @@ const snapshot = (state, revision = REVISION, source = "backstage-v2") => ({
 });
 
 test("scheduled is a valid public state and remains neutral when cached", () => {
-  const scheduled = { ...snapshot("fresh"), services: [{ ...service, state: "scheduled" }] };
+  const scheduled = {
+    ...snapshot("fresh"),
+    services: [{ ...service, state: "scheduled" }],
+  };
   assert.equal(validOverview(scheduled), true);
   const values = new Map();
   const storage = {
@@ -34,8 +37,14 @@ test("scheduled is a valid public state and remains neutral when cached", () => 
   assert.equal(savePublicObservation(storage, scheduled, now), true);
   const cached = readPublicObservation(storage, now + 60000);
   assert.equal(cached?.directory.services[0].state, "scheduled");
-  assert.equal(reconcilePublicObservation(scheduled, cached.directory).rows[0].state, "scheduled");
-  assert.equal(validOverview({ ...scheduled, services: [{ ...service, state: "down" }] }), false);
+  assert.equal(
+    reconcilePublicObservation(scheduled, cached.directory).rows[0].state,
+    "scheduled",
+  );
+  assert.equal(
+    validOverview({ ...scheduled, services: [{ ...service, state: "down" }] }),
+    false,
+  );
 });
 
 test("historical last known survives a pending response on the same catalog", () => {
@@ -63,6 +72,31 @@ test("fresh evidence supersedes history; revision drift and bootstrap never clai
     assert.equal(result.historical, false);
     assert.equal(result.rows[0].state, "unknown");
   }
+});
+
+test("a stale server board is shown as history, never as unknown nor current", () => {
+  const stale = reconcilePublicObservation(snapshot("stale"), null);
+  assert.deepEqual(stale, {
+    rows: [service],
+    historical: true,
+    serverStale: true,
+  });
+  // Server history wins over an older browser cache of the same catalog.
+  const cached = {
+    catalogRevision: REVISION,
+    services: [{ ...service, state: "fail" }],
+  };
+  assert.equal(
+    reconcilePublicObservation(snapshot("stale"), cached).rows[0].state,
+    "ok",
+  );
+  // A stale bootstrap inventory never claims states.
+  const bootstrap = reconcilePublicObservation(
+    snapshot("stale", REVISION, "bootstrap-snapshot"),
+    null,
+  );
+  assert.equal(bootstrap.historical, false);
+  assert.equal(bootstrap.rows[0].state, "unknown");
 });
 
 test("a six-hour revisit retains only the historical public summary", () => {
