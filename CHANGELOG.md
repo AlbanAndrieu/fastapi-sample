@@ -1,3 +1,10 @@
+## [1.44.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.44.0...1.44.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **relay:** keep the TrueNAS status relay inside the FastAPI Cloud Hobby budget ([#459](https://github.com/AlbanAndrieu/fastapi-sample/issues/459)) ([5776c19](https://github.com/AlbanAndrieu/fastapi-sample/commit/5776c199cca4eaf292089f6a0240fe458487ce39)), closes [#458](https://github.com/AlbanAndrieu/fastapi-sample/issues/458)
+
 # [1.44.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.43.0...1.44.0) (2026-11-26)
 
 
