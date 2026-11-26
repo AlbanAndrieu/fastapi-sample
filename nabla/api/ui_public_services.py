@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from nabla.api import health_board, public_status_light
+from nabla.api import health_board, public_status_light, public_status_relay
 from nabla.api.ui_public_directory_redis import (
     read_public_directory_redis,
     write_public_directory_redis,
@@ -208,6 +208,31 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
                 # Fresh means at least one *recent PUBLIC HTTP* observation,
                 # not that the internal homelab or every service is healthy.
                 projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
+    if cloud:
+        relayed = await public_status_relay.read_states(catalog.catalogRevision)
+        if relayed:
+            # Only names already present in the reviewed public v2 projection
+            # may receive a LAN verdict. An ambiguous ID is never assigned.
+            counts: dict[str, int] = {}
+            for entity in catalog.entities:
+                if entity.kind in ("API", "Component", "Resource"):
+                    counts[entity.metadata.name] = counts.get(entity.metadata.name, 0) + 1
+            ref_to_name = {
+                entity.metadata.name: entity.metadata.title or entity.metadata.name
+                for entity in catalog.entities
+                if entity.kind in ("API", "Component", "Resource")
+                and counts.get(entity.metadata.name) == 1
+            }
+            reverse = {name: ident for ident, name in ref_to_name.items()}
+            if len(reverse) == len(ref_to_name):
+                services = [
+                    service.model_copy(update={"state": relayed[reverse[service.name]]})
+                    if service.name in reverse and reverse[service.name] in relayed
+                    else service
+                    for service in projected.services
+                ]
+                if services != projected.services:
+                    projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
     # L2 is opt-in, bounded to 150ms, and stores labels only; fail open to L1.
     await write_public_directory_redis(projected)
     return projected

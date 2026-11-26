@@ -145,6 +145,9 @@ def _header_denial(request: Request) -> JSONResponse | None:
 
 
 def register_truenas_federation_routes(app: FastAPI) -> None:
+    from nabla.api.public_status_relay import register_routes as register_status_routes
+
+    register_status_routes(app)
     @app.post(PATH, include_in_schema=False)
     async def receive(request: Request) -> JSONResponse:
         secret = _secret()
