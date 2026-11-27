@@ -51,6 +51,8 @@ secrets scanning, reviews or security controls. For details consult the
 
 If no worktree/dependencies: `bash scripts/agent-offline-check.sh` is syntax-only L1, never L2/L3. `[skip ci]` only in explicit no-credit Draft mode. Inspect failing job/step and bounded logs rather than entire CI or repeated polls.
 
+Owner files you must not touch (even untracked) fail L3 with `QG_PUBLISH_DIRTY`: run L3 in a `git clone --shared` of the exact SHA in the scratchpad, with `UV_LINK_MODE=copy uv sync --frozen --group extra` (`prek` lives in `extra`, else `QG_PUBLISH_TOOL_INVALID`), `VIRTUAL_ENV`/`PATH` on the clone's `.venv` and the pre-push hook installed, then push from that clone.
+
 ## Conditional references
 
 Read the relevant section of [worktree Python, shell safety, CI convergence, exact-HEAD snapshot and recovery](references/local-quality-details.md) when these details matter. No need to load it for routine code edits.

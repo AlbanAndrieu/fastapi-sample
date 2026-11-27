@@ -116,4 +116,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=1m --timeout=10s --start-period=60s --retries=5 \
     CMD ["curl", "--fail", "--silent", "--show-error", "http://localhost:8080/health"]
 
-CMD ["gunicorn", "server_all:app", "-k", "uvicorn_worker.UvicornWorker", "--name", "fastapi-sample", "--threads", "1", "--worker-connections", "1000", "--max-requests", "1000", "--max-requests-jitter", "100", "--bind", "0.0.0.0:8080", "--graceful-timeout", "120", "--timeout", "120", "--keep-alive", "5", "--logger-class=nabla.utils.log_config.JMGunicornLogger", "--log-level", "info", "--access-logfile", "-"]
+# No --max-requests: with one worker every recycle was a 1-17 min outage on TrueNAS (28/11) while RSS stayed flat.
+CMD ["gunicorn", "server_all:app", "-k", "uvicorn_worker.UvicornWorker", "--name", "fastapi-sample", "--threads", "1", "--worker-connections", "1000", "--bind", "0.0.0.0:8080", "--graceful-timeout", "120", "--timeout", "120", "--keep-alive", "5", "--logger-class=nabla.utils.log_config.JMGunicornLogger", "--log-level", "info", "--access-logfile", "-"]
