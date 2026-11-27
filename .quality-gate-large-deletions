@@ -21,3 +21,5 @@ dd44c23c9ad365d06ef60b6b326633769b3f2311 nabla/api/homelab_models.py
 dd44c23c9ad365d06ef60b6b326633769b3f2311 tests/unit/test_homelab_catalog.py
 # Requested by the owner: drop the archived roadmap that the #424 conflict resolution re-added (back to 5b64e3a6).
 960740b98d14f897330d24ed6801472c9d869d8a docs/engineering-roadmap.md
+# Owner decision 27/11: retire the /federation/truenas aggregate relay, superseded by /federation/services.
+02aab1854250b40a1c834dba5636832faef168b9 nabla/api/truenas_federation.py

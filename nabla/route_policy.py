@@ -84,7 +84,7 @@ _PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
 def _http_route_policy(path: str, method: str) -> RoutePolicy:
     if path == "/webhooks/github" and method == "POST":
         return RoutePolicy(Visibility.SERVICE, Credential.GITHUB_WEBHOOK)
-    if path in {"/federation/truenas", "/federation/services"} and method == "POST":
+    if path == "/federation/services" and method == "POST":
         return RoutePolicy(Visibility.SERVICE, Credential.FEDERATION_HMAC)
     if path == "/metrics" and method in _READ_METHODS:
         return METRICS

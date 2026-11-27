@@ -40,6 +40,8 @@ test("FastAPI Cloud idle tab does not repeatedly wake an autoscaled instance", a
     if (!nodes.has(id)) nodes.set(id, el(id));
     return nodes.get(id);
   };
+  // Server runtime marker read by home-operations.js (trusted, not the hostname).
+  get("home-operations").dataset.runtimeMode = "fastapi_cloud";
   try {
     Date.now = () => clock;
     globalThis.document = {
@@ -90,7 +92,8 @@ test("FastAPI Cloud idle tab does not repeatedly wake an autoscaled instance", a
     );
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(intervals.length, 1);
-    assert.equal(intervals[0].ms, 60000);
+    // homepageCadence: Cloud ticks every 180 s; anonymous ticks never refresh.
+    assert.equal(intervals[0].ms, 180000);
     assert.deepEqual(calls, ["/api/ui/services", "/api/ui/session"]);
 
     clock += 6 * 60 * 1000;
@@ -119,7 +122,7 @@ test("Cloud budget neither changes LAN polling nor permits browser cron", () => 
     "utf8",
   );
   assert.match(code, /CLOUD_IDLE_POLL_PAUSE_MS = 5 \* 60 \* 1000/);
-  assert.match(code, /const INTERVAL_MS = CLOUD_RUNTIME \? 60000 : 30000/);
+  assert.match(code, /const INTERVAL_MS = INITIAL_CADENCE\.pollIntervalMs/);
   assert.match(code, /if \(cloudPollingIdle\(\)\)/);
   assert.match(code, /document\.addEventListener\("pointerdown"/);
   assert.doesNotMatch(code, /localStorage\./);

@@ -267,3 +267,5 @@ def test_route_never_falls_through_to_review():
     p = route_policy_for("/federation/services", method="POST")
     assert (p.visibility, p.credential) == (Visibility.SERVICE, Credential.FEDERATION_HMAC)
     assert route_policy_for("/federation/services", method="GET").visibility == Visibility.REVIEW
+    # Retired on 27/11: no HMAC ingestion policy survives for the old TrueNAS aggregate path.
+    assert route_policy_for("/federation/truenas", method="POST").credential is not Credential.FEDERATION_HMAC
