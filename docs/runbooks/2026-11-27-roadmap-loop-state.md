@@ -12,14 +12,15 @@ Skill `nabla-roadmap-loop`, session fastapi-sample, PR [#460](https://github.com
 | Passe | Fin | Résultat |
 | --- | --- | --- |
 | 1 | 27/11 ~21:50 UTC | Recette lecture seule TrueNAS et Cloud (1.44.1), faux `fail` TrueNAS corrigé, `/federation/truenas` retiré, tests JS orphelins réalignés |
+| 2 | 27/11 ~23:40 UTC | #460 fusionnée (`b3d6b510`) ; smoke direct : clé Cloud et Redis Cloud acceptés, `checks.freebox` perdu par `/healthz` corrigé (`fix/healthz-freebox-check-20261128`) ; TrueNAS pas encore à jour |
 
 Réconciliation prévue à la passe 3. Les passes 2 à 5 ne valent que si un blocage tombe (fusion de #460, identifiant owner) : sinon elles se limitent à re-tester les blocages ci-dessous.
 
 ## Questions parquées (owner)
 
-1. Fusionner #460 : seule voie de déploiement des correctifs (la boucle ne fusionne jamais).
-2. Activer le relais de services : `TRUENAS_FEDERATION_SECRET` (≥ 32 caractères) sur Cloud et TrueNAS, `TRUENAS_SERVICE_STATUS_RELAY_ENABLED=true` des deux côtés, `TRUENAS_FEDERATION_CLOUD_URL` sur TrueNAS et `REDIS_URL` sur Cloud.
-3. `PRODUCTION_SMOKE_ACCESS_KEY` sur FastAPI Cloud et dans l'environnement GitHub `production-smoke`.
+1. Fusionner la PR du correctif `/healthz` (#460 fusionnée le 27/11 à 23:04 UTC).
+2. Activer le relais de services : `TRUENAS_FEDERATION_SECRET` (≥ 32 caractères) sur Cloud et TrueNAS, `TRUENAS_SERVICE_STATUS_RELAY_ENABLED=true` des deux côtés et `TRUENAS_FEDERATION_CLOUD_URL` sur TrueNAS (`REDIS_URL` sur Cloud : présent, vérifié par le smoke du 27/11).
+3. Smoke authentifié : la clé est acceptée par Cloud, mais le job appelé par master-red en `workflow_call` la reçoit vide ; choisir `secrets: inherit` ou un déclenchement hors `workflow_call`, et restreindre l'environnement `production-smoke` à `master`.
 4. Compose : Apps TrueNAS arrêtées et comptées `fail` (3proxy, ConvertX, Stirling PDF, Zabbix, pgAdmin, Bitcoin Core) : les démarrer, ou les étiqueter `albandrieu.com/operational-state: disabled` si l'arrêt est voulu.
 5. Compose : convergence Access des applications `fastapi-sample` et `fastapi-sample-api` avant `HOMELAB_OWNER_ACCESS_SSO=true`.
 

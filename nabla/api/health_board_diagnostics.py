@@ -123,6 +123,8 @@ async def build_extended_healthz(
                 "pfsense",
                 _failed_optional_check("pfsense"),
             ),
+            # Present only after the Freebox edge cutover; dropping it broke the production smoke contract.
+            **({"freebox": checks["freebox"]} if "freebox" in checks else {}),
         }
 
     async def observability_checks() -> dict[str, Any]:
