@@ -12,23 +12,24 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "nabla/api/assets"
 
 
-def test_expected_state_logic_is_hermetic() -> None:
+def test_all_hermetic_js_suites_pass() -> None:
+    """Every ``tests/js/*.test.mjs`` runs here, so no Node suite is orphaned.
+
+    Includes expected-by-design and service-row-status (16/11: a skipped blue
+    check must not be counted as Degraded).
+    """
     if shutil.which("node") is None:
         pytest.skip("Node.js unavailable")
+    suites = sorted((ROOT / "tests/js").glob("*.test.mjs"))
+    assert ROOT / "tests/js/expected-by-design.test.mjs" in suites
     process = subprocess.run(
-        [
-            "node",
-            "--test",
-            str(ROOT / "tests/js/expected-by-design.test.mjs"),
-            # 16/11: a skipped (blue) check must not be counted as Degraded.
-            str(ROOT / "tests/js/service-row-status.test.mjs"),
-        ],
+        ["node", "--test", *map(str, suites)],
         capture_output=True,
         text=True,
         check=False,
-        timeout=30,
+        timeout=120,
     )
-    assert process.returncode == 0, process.stdout + process.stderr
+    assert process.returncode == 0, process.stdout[-4000:] + process.stderr[-2000:]
 
 
 def test_legend_and_styles_declare_blue_expected_state() -> None:

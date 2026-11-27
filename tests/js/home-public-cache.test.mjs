@@ -60,7 +60,13 @@ test("session cache stores public names/kinds but NEVER status or secrets", () =
   );
   const restored = restorePublicDirectory(storage, NOW + 1000);
   const fleet = projectFleet(restored);
-  assert.deepEqual(fleet.counts, { ok: 0, warn: 0, fail: 0, unknown: 2 });
+  assert.deepEqual(fleet.counts, {
+    ok: 0,
+    warn: 0,
+    fail: 0,
+    unknown: 2,
+    scheduled: 0,
+  });
 });
 
 test("expired and future cache entries cannot be restored", () => {
