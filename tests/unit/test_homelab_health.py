@@ -265,3 +265,19 @@ def test_lan_runtime_never_probes_a_private_int_name_from_outside() -> None:
 
     assert [item.service_id for item in lan] == ["gatus"]
     assert [item.service_id for item in cloud] == ["hello-nginx", "gatus"]
+
+
+def test_lan_runtime_leaves_the_pinned_truenas_host_to_its_dedicated_probe(monkeypatch) -> None:
+    # 27/11: truenas.albandrieu.com is pinned to the LAN on TrueNAS; its public probe hit the self-signed UI.
+    truenas = v2_service("truenas", "https://truenas.albandrieu.com", public=True, edge="cloudflare")
+    gatus = v2_service("gatus", "https://gatus.albandrieu.com", public=True)
+    monkeypatch.setattr(homelab_health, "truenas_host_port", lambda: ("truenas.albandrieu.com", 7000))
+
+    assert [item.service_id for item in homelab_health.public_probe_candidates([truenas, gatus], lan_vantage=True)] == ["gatus"]
+    assert [item.service_id for item in homelab_health.public_probe_candidates([truenas, gatus], lan_vantage=False)] == ["truenas", "gatus"]
+
+    def invalid():
+        raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
+
+    monkeypatch.setattr(homelab_health, "truenas_host_port", invalid)
+    assert [item.service_id for item in homelab_health.public_probe_candidates([truenas, gatus], lan_vantage=True)] == ["truenas", "gatus"]

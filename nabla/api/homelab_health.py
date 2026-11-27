@@ -40,6 +40,7 @@ from nabla.api.homelab_probe_policy import (
 )
 from nabla.api.platform_health_diagnostics import utc_now
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
+from nabla.integrations.truenas_client import truenas_host_port
 from nabla.utils.environment import env_bool
 
 _PROBE_TIMEOUT_SEC = 5.0
@@ -66,12 +67,22 @@ def public_probe_candidates(services: list[CatalogRoute], *, lan_vantage: bool) 
     F14 (16/11): from the LAN a ``*.int`` name resolves privately by design, so the
     public probe only saw a non-global DNS answer and reported ``warn``. Its WAN
     check belongs to Cloud; the LAN instance probes the backend instead.
+    27/11: the TrueNAS API host is pinned to 172.17.0.24 in the homelab container, so
+    its public probe reached the self-signed native UI and said ``fail``; the dedicated
+    TrueNAS probe already checks its Access ingress with the right TLS policy.
     """
-    return [
-        service
-        for service in services
-        if service.public_https_probe_url is not None and not (lan_vantage and (urlsplit(service.public_https_probe_url).hostname or "").endswith(_PRIVATE_NAMESPACE_SUFFIX))
-    ]
+    pinned = None
+    if lan_vantage:
+        try:
+            pinned = truenas_host_port()[0]
+        except ValueError:  # A bad TRUENAS_URL must not stop every other probe.
+            pinned = None
+
+    def lan_resolved(url: str) -> bool:
+        host = urlsplit(url).hostname or ""
+        return host.endswith(_PRIVATE_NAMESPACE_SUFFIX) or host == pinned
+
+    return [service for service in services if service.public_https_probe_url is not None and not (lan_vantage and lan_resolved(service.public_https_probe_url))]
 
 
 _probe_http_endpoint = homelab_probe_runner.probe_http_endpoint
