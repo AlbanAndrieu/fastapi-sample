@@ -24,11 +24,16 @@ def test_master_red_passes_only_named_reusable_workflow_secrets() -> None:
     ):
         assert mapping in workflow
 
-    production_smoke = workflow.split("  production-smoke:", maxsplit=1)[1].split(
-        "  codeql:",
-        maxsplit=1,
-    )[0]
-    assert "secrets:" not in production_smoke
+
+def test_production_smoke_receives_only_its_read_only_key() -> None:
+    """Owner decision 28/11: a reusable call gets no secret unless passed."""
+    master = yaml.safe_load(MASTER_RED.read_text(encoding="utf-8"))
+    smoke = yaml.safe_load((ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8"))
+    declared = smoke.get("on", smoke.get(True))["workflow_call"]["secrets"]
+    assert master["jobs"]["production-smoke"]["secrets"] == {
+        "PRODUCTION_SMOKE_ACCESS_KEY": "${{ secrets.PRODUCTION_SMOKE_ACCESS_KEY }}",
+    }
+    assert declared == {"PRODUCTION_SMOKE_ACCESS_KEY": {"required": False}}
 
 
 def test_python_reusable_workflow_declares_every_forwarded_secret() -> None:
@@ -63,5 +68,5 @@ def test_zap_reusable_scopes_cloudflare_secrets_to_zap_only() -> None:
     assert master["jobs"]["zap"]["secrets"] == expected
     assert set(declared) == set(expected)
     assert all(value["required"] is False for value in declared.values())
-    for job in ("production-smoke", "codeql", "remediate"):
+    for job in ("codeql", "remediate"):
         assert "secrets" not in master["jobs"][job]

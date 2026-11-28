@@ -110,6 +110,9 @@ jobs:
     permissions:
       contents: read
     uses: $/.github/workflows/master-smoke.yml
+    # Owner decision 28/11: only the read-only smoke key, never every secret.
+    secrets:
+      PRODUCTION_SMOKE_ACCESS_KEY: ${{ secrets.PRODUCTION_SMOKE_ACCESS_KEY }}
 
   codeql:
     name: Re-run CodeQL for security-impacting merge
