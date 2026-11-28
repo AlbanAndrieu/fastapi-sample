@@ -121,9 +121,10 @@ def test_default_factory_matches_exported_production_app() -> None:
     assert mcp is not None
     assert any(isinstance(route, Route) and route.path == "/mcp" and route.app is mcp_app for route in production_app.routes)
     assert not any(isinstance(route, Mount) and route.path == "" for route in production_app.routes)
-    # 27/11: the TrueNAS aggregate relay is retired; only the service-status relay ingests signed posts.
+    # 27/11: the TrueNAS aggregate relay is retired; the service-status relay and the
+    # FreshRSS publication (#462) are the only routes that ingest signed posts.
     federation = {route.path for route in production_app.routes if getattr(route, "path", "").startswith("/federation/")}
-    assert federation == {"/federation/services"}
+    assert federation == {"/federation/services", "/federation/rss"}
 
 
 SUBSYSTEMS = ("database", "redis", "observability", "mcp", "rag")
