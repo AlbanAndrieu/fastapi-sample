@@ -181,7 +181,7 @@ if (safeMode || !richMode) {
         if (readable) startRichDashboard();
         else
           showUnavailable(
-            "Detailed diagnostics not authorized from this session. Public services remain available.",
+            "Detailed diagnostics locked. Open Owner access and unlock with your diagnostics key; public services remain available.",
           );
       })
       .catch(() =>

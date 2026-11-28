@@ -160,6 +160,11 @@ function localPfSenseStageState() {
 function ensureLocalPfSenseFlowStage() {
   const pipeline = document.getElementById("truenas-pipeline");
   if (!pipeline || !latestSnapshot) return;
+  const retired = latestSnapshot?.homelab?.pfsense?.dns;
+  if (retired?.operational_state === "disabled" && /pfsense retired/i.test(String(retired?.reason || ""))) {
+    pipeline.querySelectorAll("[data-followup-pfsense-stage], [data-followup-pfsense-connector]").forEach((node) => node.remove());
+    return;
+  }
   const runtime = normalize(latestSnapshot?.runtime?.runtime_mode);
   const pathMode = normalize(
     latestSnapshot?.homelab?.truenas?.diagnostics?.path_mode,

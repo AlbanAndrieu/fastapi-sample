@@ -176,6 +176,13 @@ function render() {
   scheduled = false;
   const container = ensureContainer();
   if (!container || !latestSnapshot) return;
+  const dns = latestSnapshot?.homelab?.pfsense?.dns;
+  if (dns?.operational_state === "disabled" && /pfsense retired/i.test(String(dns?.reason || ""))) {
+    // Historical pfBlockerNG and Snort inventories must never look live.
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
 
   const posture = postureFromSnapshot(latestSnapshot);
   if (posture.filters.length === 0 && posture.policyState === "unknown") {
