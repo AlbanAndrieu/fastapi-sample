@@ -30,6 +30,7 @@ Réconciliation faite à la passe 3 ; prochaine à la passe 6. Les passes 2 à 5
 6. Compose : PSI IO de l'hôte à 50–78 % le 27/11 vers 23:30 UTC, latence de lecture `cpool` jusqu'à 0,9 s ; l'App `kafka` lit ~7 Mo/s en continu (chaîne Sentry, runbook : ne pas la réinitialiser). À expliquer côté Compose (rétention, consommateur en boucle ?).
 7. Compose : tracearr, paperless-ngx et domain-watchdog passent `--requirepass` en ligne de commande, lisible par `docker inspect` ; ces trois mots de passe Redis ont été affichés dans la session du 28/11 : rotation par l'owner, et mot de passe par fichier ou variable.
 8. Agent `POST /run` appelable anonymement sur Cloud (422 sur un corps invalide) : le restreindre à l'owner ou à une clé.
+9. FreshRSS : créer le compte GReader dédié (flux publics seulement) et poser `FRESHRSS_RELEVANCE_AUTH` dans `.env.secrets` de Sample TrueNAS ; sans elle, l'outil MCP `triage_homelab_rss` et le classifieur de #462 répondent 503. `SEARXNG_URL` est déjà posé (28/11, actif à la prochaine mise à jour de Sample).
 
 ## À re-tester à la passe suivante
 

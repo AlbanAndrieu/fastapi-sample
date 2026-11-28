@@ -14,6 +14,7 @@ load from Langfuse when ``LANGFUSE_PUBLIC_KEY`` / ``LANGFUSE_SECRET_KEY`` are se
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import re
 import urllib.request
@@ -42,6 +43,11 @@ WHOAMI_HANDLE = "albandrieu"
 
 PROFESSIONAL_WEBSITE_URL = "https://www.albanandrieu.com/"
 LINKEDIN_URL = "https://www.linkedin.com/in/nabla/"
+# Public Reactive Resume CV. The App answers on the TrueNAS LAN only:
+# reactive.albandrieu.com sits behind Cloudflare Access.
+REACTIVE_RESUME_URL = "https://reactive.albandrieu.com/nabla/cv-aandrieu-2026-03-29-en"
+_REACTIVE_RESUME_API = "http://172.17.0.24:30393/api/openapi/resumes/nabla/cv-aandrieu-2026-03-29-en"
+_RESUME_SKIP = frozenset({"id", "hidden", "icon", "iconColor", "website", "level", "email", "phone", "customFields"})
 
 PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
     "alban",
@@ -194,19 +200,52 @@ def _web_search_profile_blocks() -> str | None:
         logger.warning("fetch_my_profile: albanandrieu.com web search failed: %s", exc)
     if primary_text:
         blocks.append(f"Web search — albanandrieu.com\n{primary_text}")
-    if not primary_text:
-        for query in linkedin_queries:
-            try:
-                linked = web_search_to_context_string(query, max_results=max_results).strip()
-            except Exception as exc:
-                logger.warning("fetch_my_profile: LinkedIn web search failed: %s", exc)
-                linked = ""
-            if linked:
-                blocks.append(f"Web search — LinkedIn ({LINKEDIN_URL})\n{linked}")
-                break
+    for query in linkedin_queries:
+        try:
+            linked = web_search_to_context_string(query, max_results=max_results).strip()
+        except Exception as exc:
+            logger.warning("fetch_my_profile: LinkedIn web search failed: %s", exc)
+            linked = ""
+        if linked:
+            blocks.append(f"Web search — LinkedIn ({LINKEDIN_URL})\n{linked}")
+            break
     if not blocks:
         return None
     return "\n\n---\n\n".join(blocks)
+
+
+def _resume_text(data: dict) -> str:
+    """Flatten the visible CV sections to ``section — field: value`` lines."""
+    basics = data.get("basics") or {}
+    lines = [", ".join(f"{key}: {value}" for key, value in basics.items() if key not in _RESUME_SKIP and isinstance(value, str) and value)]
+    lines.append(_html_to_visible_text((data.get("summary") or {}).get("content") or ""))
+    for name, section in (data.get("sections") or {}).items():
+        if not isinstance(section, dict) or section.get("hidden"):
+            continue
+        for item in section.get("items") or []:
+            if item.get("hidden"):
+                continue
+            fields = []
+            for key, value in item.items():
+                text = ", ".join(map(str, value)) if isinstance(value, list) else value
+                if key not in _RESUME_SKIP and isinstance(text, str) and text:
+                    fields.append(f"{key}: {_html_to_visible_text(text, max_chars=1500)}")
+            lines.append(f"{name} — " + "; ".join(fields))
+    return "\n".join(line for line in lines if line)[:12_000]
+
+
+def _reactive_resume_block() -> str | None:
+    """Return the public CV text, or None outside the homelab or on any failure."""
+    from nabla.api.runtime_environment import homelab_runtime_detected  # noqa: PLC0415 -- LAN-only source
+
+    if not homelab_runtime_detected():
+        return None
+    try:
+        text = _resume_text(json.loads(_http_get_text(_REACTIVE_RESUME_API, timeout=10.0))["data"])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        logger.warning("fetch_my_profile: Reactive Resume unavailable: %s", exc)
+        return None
+    return f"Reactive Resume CV ({REACTIVE_RESUME_URL})\n{text}" if text else None
 
 
 def search_alban_profile_context(user_question: str) -> str:
@@ -216,10 +255,12 @@ def search_alban_profile_context(user_question: str) -> str:
     if not question_refers_to_alban_profile(user_question):
         return "Skipped profile search: the question does not appear to be about Alban Andrieu."
     search_block = _web_search_profile_blocks()
-    if search_block:
-        return f"Profile context (web search; {PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n{search_block}"
-    http_block = _dr_alban_http_sitemap_fallback()
-    return f"Profile context (direct HTTP + sitemap; no web search API configured or no results):\n\n{http_block}"
+    web = (
+        f"Web search ({PROFESSIONAL_WEBSITE_URL}; LinkedIn {LINKEDIN_URL}):\n\n{search_block}"
+        if search_block
+        else f"Direct HTTP + sitemap of {PROFESSIONAL_WEBSITE_URL} (no web search configured or no results):\n\n{_dr_alban_http_sitemap_fallback()}"
+    )
+    return "Profile context:\n\n" + "\n\n---\n\n".join(block for block in (_reactive_resume_block(), web) if block)
 
 
 @tool

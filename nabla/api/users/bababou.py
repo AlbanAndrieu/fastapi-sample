@@ -135,6 +135,11 @@ def fetch_bababou_public_page(user_question: str | None = None) -> str:
     Pass the user's question verbatim in ``user_question`` so the tool can confirm
     the topic before fetching.
     """
+    return search_bababou_context(user_question or "")
+
+
+def search_bababou_context(user_question: str) -> str:
+    """Return bababou.com context for a question about Éléonore (Bababou)."""
     if not user_question or not user_question.strip():
         return (
             "Missing `user_question`. Pass the user's question verbatim so I can confirm "
