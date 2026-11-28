@@ -1,5 +1,4 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 import {
   dependencyHealthClass,
   mergeHomelabEvidence,
@@ -17,6 +16,7 @@ import {
   tunnelHref,
 } from "./api-health-ui.js";
 import { organizeHealthRows } from "./api-service-groups.js";
+import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 
 let lastHealthRowsSignature = null;
 
@@ -26,8 +26,6 @@ const LABELS = {
   supabase: "Supabase",
   openstack_me: "OVH / OpenStack API",
   tavily: "Tavily Search",
-  brave: "Brave Search",
-  google: "Google Programmable Search",
   appwrite: "Appwrite",
   keycloak: "Keycloak (OpenID)",
   unleash: "Unleash",
@@ -109,9 +107,12 @@ function classify(key, check) {
   if (protectedHttp) {
     // A 401/403 challenge is transport evidence only; never mask confirmed
     // dependency or runtime outages, and never override exposure policy.
-    if (String(check.runtime_state || "").toUpperCase() === "STOPPED" ||
-        (check.dependency_state === "fail" &&
-         Array.isArray(check.blocked_by) && check.blocked_by.length > 0)) {
+    if (
+      String(check.runtime_state || "").toUpperCase() === "STOPPED" ||
+      (check.dependency_state === "fail" &&
+        Array.isArray(check.blocked_by) &&
+        check.blocked_by.length > 0)
+    ) {
       return "red";
     }
     return postureAtRisk(check) ? "yellow" : "blue";

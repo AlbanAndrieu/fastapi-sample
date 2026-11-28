@@ -43,8 +43,7 @@ CORS_ORIGINS = [
 MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/tavily/search"),
-        ("POST", "/v1/brave/search"),
-        ("POST", "/v1/google/search"),
+        ("POST", "/v1/searxng/search"),
         ("GET", "/v1/runtime/metadata"),
         ("GET", "/v1/runtime/logs"),
         ("GET", "/v1/runtime/errors"),
@@ -60,6 +59,8 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
         # must not be bypassed through FastMCP's direct OpenAPI provider.
         ("GET", "/v2/version"),
         ("GET", "/v2/profile/search"),
+        ("GET", "/v2/bababou/search"),
+        ("GET", "/v2/rss/triage"),
         ("GET", "/demo/greet_user/{name}"),
         ("GET", "/demo/get_time"),
         ("GET", "/demo/add"),
