@@ -26,7 +26,8 @@ def clear_workflow_llm_cache() -> None:
 
 
 def test_post_run_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_safe_invoke(message: str) -> AIMessage:
+    def fake_safe_invoke(message: str, skills: tuple[str, ...] = ()) -> AIMessage:
+        assert skills == ()
         assert "LangGraph" in message
         return AIMessage(content="LangGraph is a graph-based orchestration layer for LLM apps.")
 
@@ -40,7 +41,7 @@ def test_post_run_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_post_run_returns_llm_result_person_question(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_safe_invoke(message: str) -> AIMessage:
+    def fake_safe_invoke(message: str, skills: tuple[str, ...] = ()) -> AIMessage:
         assert "Alban Andrieu" in message
         return AIMessage(content="Alban Andrieu is a software engineer focused on cloud orchestration.")
 
