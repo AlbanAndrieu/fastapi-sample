@@ -15,6 +15,7 @@ import {
   rowIcon,
   tunnelHref,
 } from "./api-health-ui.js";
+import { isRetiredCheck } from "./api-retired-check.js";
 import { organizeHealthRows } from "./api-service-groups.js";
 import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 
@@ -85,6 +86,7 @@ function postureAtRisk(check) {
 }
 
 function classify(key, check) {
+  if (isRetiredCheck(key, check)) return "pink";
   if (key === "cloudflare") {
     if (check.skipped === true) return "gray";
     if (check.api_reachable === true && check.status_confirmed === true) {
@@ -310,14 +312,16 @@ function render(data, platformMetrics = null) {
   if (groupedEl) groupedEl.innerHTML = "";
   keys.forEach((key) => {
     const check = checks[key];
-    const tier = MANDATORY.has(key)
-      ? key.indexOf("albandrieu_") === 0
-        ? "Required infra (albandrieu.com)"
-        : "Required health check"
-      : "Optional health check";
+    const tier = isRetiredCheck(key, check)
+      ? "Historical · retired (not monitored)"
+      : MANDATORY.has(key)
+        ? key.indexOf("albandrieu_") === 0
+          ? "Required infra (albandrieu.com)"
+          : "Required health check"
+        : "Optional health check";
     const cls = classify(key, check);
     const item = document.createElement("li");
-    item.className = "health-row";
+    item.className = `health-row${cls === "pink" ? " health-row--retired" : ""}`;
     item.dataset.serviceFilterTarget = "";
     item.dataset.serviceKey = key;
     item.dataset.serviceName = String(

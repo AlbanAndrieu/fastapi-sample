@@ -56,17 +56,22 @@ existing `nabla-compose` authenticated check.
 Validation after deployment:
 
 1. On TrueNAS: confirm `curl -fsS --max-time 3 http://192.168.1.254/api_version`
-   returns a JSON `api_version` (a redirect or response other than 200
-   requires endpoint investigation, never disable verification globally).
+    returns a JSON `api_version` (a redirect or response other than 200
+    requires endpoint investigation, never disable verification globally).
 2. Read authenticated `/healthz` and `/api/homelab/health` via the
-   existing service smoke identity. Expect `checks.pfsense.skipped=true`,
-   and on TrueNAS `checks.freebox.state=ok` only if the API responded.
+    existing service smoke identity. Expect `checks.pfsense.skipped=true`,
+    and on TrueNAS `checks.freebox.state=ok` only if the API responded.
 3. On FastAPI Cloud: `checks.freebox.skipped=true` and
-   `vantage_point=fastapi_cloud`; do not demand the private Freebox API
-   from GitHub-hosted runners.
+    `vantage_point=fastapi_cloud`; do not demand the private Freebox API
+    from GitHub-hosted runners.
 4. Check Gatus/Prometheus topology after the `nabla-compose` apply and
-   mark legacy pfSense monitors disabled, not deleted.
+    mark legacy pfSense monitors disabled, not deleted.
 
 Config and test contracts are in `nabla/api/freebox_health.py`,
 `nabla/api/edge_provider.py`, `tests/unit/test_freebox_health.py`
 and `.github/workflows/master-smoke.yml`.
+
+## 28/11/2026 — pfSense désaffecté dans l'interface
+
+L'inventaire public peut encore contenir d'anciennes entrées pfSense (historique, non probé). Un check n'est **Retired** que lorsque le runtime fournit une preuve explicite (raison `pfSense retired; Freebox is the active network edge` et état `skipped`), jamais seulement parce qu'un ping échoue. La vue `/healthz` affiche alors une pastille rose et un badge `Retired`, sans compter l'élément parmi les incidents. La légende n'affiche plus statiquement pfBlockerNG ou Snort : l'inventaire historique demeure disponible pour rollback.
+Les compteurs de la barre `Service health and filters` décrivent les **checks /healthz chargés**, et non toutes les entités du catalogue affichées séparément dans `Service directory`. La comparaison Cloud/TrueNAS doit reposer sur le même périmètre et la même fraîcheur.

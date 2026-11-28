@@ -5,6 +5,7 @@ const STATUS_OPTIONS = [
   ["degraded", "Degraded"],
   ["down", "Down"],
   ["unknown", "Unknown"],
+  ["retired", "Retired"],
   ["issues", "Issues only"],
 ];
 
@@ -167,7 +168,7 @@ function appendLegend(host) {
   }
   const help = document.createElement("small");
   help.textContent =
-    "green = operational · amber = warning · red = failed · gray = unknown / not confirmed";
+    "green = operational · amber = warning · red = failed · gray = unknown / not confirmed · pink = retired (historical, not a failure)";
   legend.appendChild(help);
   host.appendChild(legend);
 }
@@ -277,7 +278,8 @@ function syncFilterStateToUrl() {
 function statusMatches(row) {
   if (filters.status === "all") return true;
   const status = normalizedStatus(row);
-  if (filters.status === "issues") return status !== "operational";
+  if (filters.status === "issues")
+    return status !== "operational" && status !== "retired";
   return status === filters.status;
 }
 
@@ -382,9 +384,10 @@ function updateFilterResult(rows) {
   if (filters.probe !== "all") active.push(`probe=${filters.probe}`);
   if (filters.query) active.push(`search=“${filters.query}”`);
   const details = active.length ? ` · ${active.join(" · ")}` : "";
-  const message = visible === 0 && isFiltering()
-    ? `0/${rows.length} diagnostic views visible. No services match these filters. Remove a filter or select Reset.`
-    : `${visible}/${rows.length} diagnostic views visible${details}`;
+  const message =
+    visible === 0 && isFiltering()
+      ? `0/${rows.length} diagnostic views visible. No services match these filters. Remove a filter or select Reset.`
+      : `${visible}/${rows.length} diagnostic views visible${details}`;
   if (result.textContent !== message) result.textContent = message;
 }
 

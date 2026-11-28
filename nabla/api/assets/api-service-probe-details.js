@@ -570,6 +570,20 @@ function securityControlTone(filter) {
 function renderPfSenseDiagnostics(section, snapshot) {
   const platform = snapshot?.healthz?.checks?.pfsense || {};
   const dns = snapshot?.homelab?.pfsense?.dns || {};
+  if (
+    platform.skipped === true &&
+    /pfsense retired; freebox is the active network edge/i.test(
+      String(platform.reason || ""),
+    )
+  ) {
+    providerSummary(
+      section,
+      "neutral",
+      "🩷 pfSense REST API retired · historical only; Freebox is the active network edge.",
+    );
+    // No obsolete Snort, PF or pfBlockerNG badges from unobserved data.
+    return;
+  }
   const httpStatus = Number(platform.http_status);
   if (platform.reachable === true) {
     providerSummary(

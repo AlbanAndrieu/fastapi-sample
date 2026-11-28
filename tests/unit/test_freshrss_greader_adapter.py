@@ -30,7 +30,14 @@ async def test_public_subscriptions_only_and_no_html_or_feed_url_leak():
                 json={
                     "items": [
                         {"id": "private-id", "title": "Private", "origin": {"streamId": "feed/private"}},
-                        {"id": "article-id", "title": "<b>Traefik</b> &amp; CrowdSec", "origin": {"streamId": "feed/pub"}, "summary": {"content": "<p>Security update</p>"}},
+                        {
+                            "id": "article-id",
+                            "title": "<b>Traefik</b> &amp; CrowdSec",
+                            "origin": {"streamId": "feed/pub"},
+                            "summary": {"content": "<p>Security update</p>"},
+                            "canonical": [{"href": "http://172.17.0.24/tracker"}],
+                            "alternate": [{"href": "https://security.example.org/traefik-crowdsec", "type": "text/html"}],
+                        },
                         {"id": "article-id", "title": "duplicate", "origin": {"streamId": "feed/pub"}},
                     ],
                 },
@@ -42,6 +49,7 @@ async def test_public_subscriptions_only_and_no_html_or_feed_url_leak():
     assert len(rows) == 1
     assert rows[0]["title"] == "Traefik & CrowdSec"
     assert rows[0]["summary"] == "Security update"
+    assert rows[0]["url"] == "https://security.example.org/traefik-crowdsec"  # the LAN canonical link is dropped
     assert rows[0]["id"] != "article-id"
     assert not any("private" in str(row) for row in rows)
     assert len(paths) == 2
@@ -111,10 +119,7 @@ def test_untrusted_greader_origin_id_is_skipped_without_aborting_public_articles
 
 
 def test_public_article_rotation_covers_multiple_waves_without_extra_inference():
-    items = [
-        {"id": f"article-{index}", "title": f"Security advisory {index}", "origin": {"streamId": "feed/public"}}
-        for index in range(13)
-    ]
+    items = [{"id": f"article-{index}", "title": f"Security advisory {index}", "origin": {"streamId": "feed/public"}} for index in range(13)]
     first = _project_recent_public_articles(items, {"feed/public"}, 5, 0)
     second = _project_recent_public_articles(items, {"feed/public"}, 5, 1)
     third = _project_recent_public_articles(items, {"feed/public"}, 5, 2)

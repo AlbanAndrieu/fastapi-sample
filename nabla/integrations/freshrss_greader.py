@@ -157,7 +157,21 @@ def _safe_article(item: object, approved: set[str]) -> dict[str, str] | None:
     excerpt = item.get("summary") or item.get("content") or {}
     summary = _plain_text(excerpt.get("content"), 2000) if isinstance(excerpt, dict) else ""
     opaque_id = hashlib.sha256((feed_id + "\x00" + original_id).encode("utf-8")).hexdigest()
-    return {"id": opaque_id, "title": title, "summary": summary}
+    return {"id": opaque_id, "title": title, "summary": summary, "url": _article_url(item)}
+
+
+def _article_url(item: dict) -> str:
+    """Public HTTPS link of the article (owner request 28/11), or "" when none is safe.
+
+    Only the MCP triage shows it; the classifier and the Cloud publication never use it.
+    """
+    for key in ("canonical", "alternate"):
+        links = item.get(key)
+        for link in links if isinstance(links, list) else []:
+            href = link.get("href") if isinstance(link, dict) else None
+            if _public_https_source(href):
+                return href
+    return ""
 
 
 def _project_recent_public_articles(
@@ -194,7 +208,7 @@ async def recent_public_articles(
     limit: int = MAX_ARTICLES,
     rotation: int = 0,
 ) -> list[dict[str, str]]:
-    """Return sanitized metadata; no article URL, feed credentials or raw HTML."""
+    """Return sanitized metadata: public HTTPS article link only, no feed credentials or raw HTML."""
     if not auth.strip() or "\n" in auth or "\r" in auth:
         raise FreshRSSUnavailable("Dedicated GReader auth not configured")
     if bool(cf_access_id) != bool(cf_access_secret):

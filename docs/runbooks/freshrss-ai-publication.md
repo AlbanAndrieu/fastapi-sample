@@ -37,3 +37,39 @@ Lancer les tests hermétiques, vérifier le HEAD SHA/CI sur chaque dépôt, puis
 **Freebox / IP LAN** : le classifieur accepte désormais `http://<IPv4 RFC1918>:4000` ou `http://litellm:4000` tel que configuré dans `settings.litellm_url`, sans faire confiance à une IP historique. Pas d'adresse WAN, pas de port arbitraire, pas de redirection ni de proxy d'environnement. L'URL Langfuse peut également résider sur une IPv4 privée au port 3000/443.
 
 **Couverture rotative :** le classifieur conserve sa limite de cinq inférences par exécution, mais parcourt désormais jusqu'aux 100 derniers articles publics FreshRSS par tranches tournantes dépendant de l'heure UTC. Ainsi, plusieurs exécutions approuvées successives ne reclassent pas systématiquement les cinq mêmes titres. La couverture réelle dépend de la cadence, du nombre de flux, de la fenêtre de 100 articles et des interruptions; elle n'est pas garantie par la seule présence du code.
+
+## Dépannage réel du 28/11/2026 — ModuleNotFoundError et HTTP 404
+
+Le chemin `/mnt/cpool/home/albandrieu/.cache/nabla-compose/dev-venv/bin/python` est le Python de **nabla-compose**, pas nécessairement celui du projet `fastapi-sample`. La forme `python -m nabla.integrations.rss_relevance_live` ne fonctionne que lorsque le paquet `nabla` est installé ou que le dépôt `fastapi-sample` se trouve sur `sys.path`.
+
+**Exécution recommandée depuis la workstation administratrice/TrueNAS, dans le conteneur FastAPI réellement déployé** (ne pas utiliser l'environnement Compose) :
+
+```bash
+docker exec fastapi-sample /code/.venv/bin/python -c 'import nabla; print(nabla.__file__)'
+docker exec fastapi-sample /code/.venv/bin/python -m nabla.integrations.rss_relevance_live --check
+# Vérifier en premier que le conteneur a été rebâti depuis la fusion #462
+# et que les variables requises sont montées depuis le coffre.
+docker exec \
+  -e FRESHRSS_RELEVANCE_RUN_APPROVED=YES \
+  -e FRESHRSS_RELEVANCE_PUBLISH_APPROVED=YES \
+  fastapi-sample /code/.venv/bin/python -m nabla.integrations.rss_relevance_live --publish
+```
+
+Si le conteneur se nomme autrement, obtenir son nom avec `docker ps --format '{{.Names}}'`. Un ancien conteneur peut ne pas contenir le module ou le flag `--publish`. Autre méthode, sur une copie de travail avec les dépendances Python de FastAPI installées : `cd apps/fastapi-sample && /chemin/venv-fastapi/bin/python -m nabla.integrations.rss_relevance_live --check`.
+
+Le **HTTP 404** sur `/api/site/rss/v1` est prévu tant que `RSS_RELEVANCE_PUBLICATION_ENABLED` n'est pas strictement `true` côté **FastAPI Cloud**, ou si le code cloud n'est pas encore déployé sur une révision contenant #462. Une fois la publication activée, l'absence de Redis ou de décisions ingérées doit produire **503**, puis **200** après ingestion valide. Activer le flag sur **TrueNAS seulement** ne suffit pas. Le relais HMAC nécessite la même `TRUENAS_FEDERATION_SECRET` (≥32 caractères), une vraie URL Cloud configurée sur TrueNAS et `REDIS_URL` sur Cloud. Ne jamais copier les secrets dans les commandes de diagnostic.
+
+## 28/11/2026 — Déploiement TrueNAS du classifieur RSS
+
+`--check` peut réussir sur une image **ancienne** : ce mode vérifie le contrat hors réseau mais n'assure pas que `--publish` existe. Vérifier `docker exec fastapi-sample /code/.venv/bin/python -m nabla.integrations.rss_relevance_live --help` ; si seules `--check` et `--once` sont présentes, l'image en cours n'inclut pas la version de GitHub portant la publication (#462). Actualiser l'image suivant le processus de déploiement `nabla-compose/scripts/truenas/update-fastapi-sample.sh` (contrôler le SHA et sauvegarder le rollback), puis vérifier à nouveau `--help`. Ne pas considérer `--once` comme une publication : ce mode classe mais n'envoie rien au relais Cloud.
+
+
+## CLI troubleshooting (2026-11-28)
+
+`--check` n'exécute **aucun** prérequis. À partir de cette correction, `--preflight` vérifie uniquement la configuration locale (runtime, en-tête GReader présent, clés et URL Langfuse, destination et clé LiteLLM, paire CF Access, URL et secret de fédération). Résultat JSON booléen uniquement ; **pas d'appel réseau**, ni URL, ni jeton, ni données d'articles dans la sortie. Un `state=ready_for_live_validation` ne prouve pas l'authentification distante, la version du prompt, l'inférence ni la publication.
+
+```bash
+sudo docker exec fastapi-sample /code/.venv/bin/python -m nabla.integrations.rss_relevance_live --preflight
+```
+
+Le CLI conserve l'exécution explicite `FRESHRSS_RELEVANCE_RUN_APPROVED=YES`, ajoute des marqueurs de **phase sans secrets** (catalogue, Langfuse, GReader, LiteLLM, publication), et signale les erreurs codifiées `RSSConfigurationError` / `FreshRSSUnavailable` sans traces, URLs ni réponses brutes. Les autres exceptions ne divulguent que leur type. L'ancienne image qui retourne seulement `REJECTED: RSS relevance pilot could not be verified` nécessite la commande de diagnostic ponctuelle ou un redéploiement de cette correction.

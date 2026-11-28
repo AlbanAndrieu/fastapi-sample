@@ -1,9 +1,10 @@
+// The legacy pfSense, Snort and pfBlockerNG inventory is historical after
+// Freebox cutover; do not statically advertise these as active controls.
 const PLATFORM_ITEMS = [
-  ["🧱", "pfSense / PF path"],
-  ["🛡️", "Snort"],
-  ["🚫", "pfBlockerNG"],
+  ["🧱", "Network edge · current router evidence"],
   ["👥", "CrowdSec"],
   ["🌐", "Public / resolver DNS"],
+  ["🩷", "Retired · historical, not failed"],
 ];
 
 function appendPlatformLegend() {
@@ -20,7 +21,7 @@ function appendPlatformLegend() {
   const semantics = document.createElement("small");
   semantics.className = "service-probe-legend-model";
   semantics.textContent =
-    "Cards = canonical operational state · Flow = path/dependency context · green = confirmed healthy · amber = real attention/degradation · red = failed or proven block · gray = unavailable/unconfirmed or API-dependent control disabled.";
+    "Cards = canonical operational state · Flow = path/dependency context · green = confirmed healthy · amber = real attention/degradation · red = failed or proven block · gray = unavailable/unconfirmed or API-dependent control disabled · pink = explicitly retired, not an outage.";
   legend.appendChild(semantics);
 }
 

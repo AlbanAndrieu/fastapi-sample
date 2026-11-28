@@ -116,6 +116,20 @@ function securityFiltersSignature(filters) {
 function decoratePfSenseStage(snapshot) {
   const stage = stageByLabel("pfSense WAN ingress");
   if (!stage) return;
+  const dns = snapshot?.homelab?.pfsense?.dns;
+  if (
+    dns?.operational_state === "disabled" &&
+    /pfsense retired/i.test(String(dns?.reason || ""))
+  ) {
+    stage.className = "truenas-stage truenas-stage--expected";
+    const label = stage.querySelector(".truenas-stage-label");
+    if (label) label.textContent = "pfSense retired · former WAN ingress";
+    const detail = stage.querySelector(".truenas-stage-detail");
+    if (detail)
+      detail.textContent =
+        "Retired infrastructure. Freebox is the active network edge; no pfSense security filters are sampled.";
+    return;
+  }
   const label = stage.querySelector(".truenas-stage-label");
   if (label && !label.querySelector(".truenas-stage-service-link")) {
     label.replaceChildren(
@@ -252,8 +266,19 @@ function updatePfSenseDnsStage(stage, connector, dns) {
 
 function insertPfSenseDnsStage(snapshot) {
   const pipeline = document.getElementById("truenas-pipeline");
-  const pfsense = stageByLabel("pfSense WAN ingress");
   const dns = snapshot?.homelab?.pfsense?.dns;
+  if (
+    dns?.operational_state === "disabled" &&
+    /pfsense retired/i.test(String(dns?.reason || ""))
+  ) {
+    pipeline
+      ?.querySelectorAll('[data-platform-synthetic^="pfsense-dns"]')
+      .forEach((node) => {
+        node.remove();
+      });
+    return;
+  }
+  const pfsense = stageByLabel("pfSense WAN ingress");
   if (!pipeline || !pfsense || !dns) return;
 
   let stage = pipeline.querySelector('[data-platform-synthetic="pfsense-dns"]');
@@ -310,10 +335,10 @@ function ensureProtocolGuide() {
     title.textContent = "How the diagnostic flow works";
     const steps = document.createElement("span");
     steps.textContent =
-      "DNS resolves the name → TCP connects to the port → TLS verifies HTTPS → HTTP/API checks the response → metrics add context.";
+      "Domain / TLD registration (not probed) → DNS A/AAAA resolution → TCP connection → TLS certificate / handshake → Cloudflare Access (when applicable) → HTTP status → WebSocket / TrueNAS API → service metrics.";
     const note = document.createElement("small");
     note.textContent =
-      "Stages show independent evidence. A missing check is unconfirmed, not healthy. WebSocket and Cloudflare checks apply only where configured.";
+      "The diagram describes possible layers, not a claim that every check ran: TLD registration/expiry and DNS TTL are not measured here. Each observed stage has its own result; missing, blocked or stale checks remain unconfirmed. Access and WebSocket apply only when configured.";
     guide.append(title, steps, note);
     pipeline.insertAdjacentElement("beforebegin", guide);
   }
@@ -344,6 +369,9 @@ async function refresh() {
 }
 
 export function installPlatformFlowUi() {
+  // Render the diagnostic guide even if the private health board is pending
+  // or access fails: a failed fetch must not erase the explanation.
+  ensureProtocolGuide();
   const pipeline = document.getElementById("truenas-pipeline");
   if (pipeline) {
     new MutationObserver(() => scheduleDecorate()).observe(pipeline, {

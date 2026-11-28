@@ -249,7 +249,7 @@ test("a stale or empty rich board keeps the dated public fallback visible", () =
   );
   assert.ok(entry.includes("function shouldHidePublicFallback(detail)"));
   assert.ok(
-    entry.includes("fallback.hidden = shouldHidePublicFallback(event.detail)"),
+    entry.includes("detailedShown ||= shouldHidePublicFallback(event.detail)"),
   );
   assert.ok(!entry.includes("}, { once: true });\n  // An import may resolve"));
   assert.ok(controller.includes('state: snapshot?.state || "unknown"'));
@@ -290,8 +290,39 @@ test("rich fallback never registers a second public directory controller", () =>
   assert.ok(
     entry.includes('document.addEventListener("health-board-refreshed"'),
   );
-  assert.ok(
-    entry.includes("fallback.hidden = shouldHidePublicFallback(event.detail)"),
-  );
+  assert.ok(entry.includes("if (fallback) fallback.hidden = detailedShown;"));
   assert.ok(!entry.includes("if (fallback) fallback.hidden = true"));
+});
+
+test("the directory stays hidden once a complete owner board was shown", () => {
+  const predicate = entry.slice(
+    entry.indexOf("function shouldHidePublicFallback(detail)"),
+    entry.indexOf("\nfunction startRichDashboard()"),
+  );
+  const listener = entry.slice(
+    entry.indexOf("  let detailedShown = false;"),
+    entry.indexOf("  // An import may resolve"),
+  );
+  const panel = { hidden: false };
+  let onRefresh = null;
+  const document = {
+    getElementById: () => panel,
+    addEventListener: (_name, handler) => {
+      onRefresh = handler;
+    },
+  };
+  runInNewContext(`${predicate}\n${listener}`, { document });
+  const seen = [];
+  for (const detail of [
+    { state: "pending", refreshing: false, serviceEvidenceCount: 0 },
+    { state: "fresh", refreshing: false, serviceEvidenceCount: 10 },
+    { state: "fresh", refreshing: true, serviceEvidenceCount: 10 },
+    { state: "stale", refreshing: false, serviceEvidenceCount: 10 },
+    { state: "fresh", refreshing: false, serviceEvidenceCount: 10 },
+  ]) {
+    onRefresh({ detail });
+    seen.push(panel.hidden);
+  }
+  // Visible while nothing is proven, then hidden for good: no blinking.
+  assert.deepEqual(seen, [false, true, true, true, true]);
 });

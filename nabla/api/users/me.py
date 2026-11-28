@@ -201,7 +201,8 @@ def _web_search_profile_blocks() -> str | None:
         logger.warning("fetch_my_profile: albanandrieu.com web search failed: %s", exc)
     if primary_text:
         blocks.append(f"Web search — albanandrieu.com\n{primary_text}")
-    for query in linkedin_queries:
+    # LinkedIn reads badly without a login (owner, 28/11): only a fallback.
+    for query in () if primary_text else linkedin_queries:
         try:
             linked = web_search_to_context_string(query, max_results=max_results).strip()
         except Exception as exc:
@@ -257,7 +258,7 @@ def search_alban_profile_context(user_question: str) -> str:
         return "Skipped profile search: the question does not appear to be about Alban Andrieu."
     search_block = _web_search_profile_blocks()
     web = (
-        f"Web search ({PROFESSIONAL_WEBSITE_URL}; LinkedIn {LINKEDIN_URL}):\n\n{search_block}"
+        f"Web search ({PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n{search_block}"
         if search_block
         else f"Direct HTTP + sitemap of {PROFESSIONAL_WEBSITE_URL} (no web search configured or no results):\n\n{_dr_alban_http_sitemap_fallback()}"
     )

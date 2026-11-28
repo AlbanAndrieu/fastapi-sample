@@ -256,3 +256,67 @@ def test_private_litellm_endpoint_adapts_to_freebox_without_ssrf(url, valid):
     else:
         with pytest.raises(live.RSSConfigurationError):
             live._checked_litellm_url(url)
+
+
+def test_preflight_reports_only_bools_without_credentials(monkeypatch, capsys):
+    monkeypatch.setattr("nabla.api.runtime_environment.homelab_runtime_detected", lambda: True)
+    monkeypatch.setattr(
+        "nabla.config_settings.get_settings",
+        lambda: SimpleNamespace(
+            litellm_url="http://172.17.0.24:4000",
+            litellm_api_key=SecretStr("SECRET_VIRTUAL_KEY_CANARY"),
+            truenas_federation_cloud_url="https://fastapi-sample.fastapicloud.dev",
+            truenas_federation_secret=SecretStr("S" * 40),
+        ),
+    )
+    monkeypatch.setenv("FRESHRSS_RELEVANCE_AUTH", "SECRET_G_READER_CANARY")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "SECRET_LANGFUSE_CANARY")
+    monkeypatch.setenv("LANGFUSE_BASE_URL", "https://langfuse.albandrieu.com")
+    checks = live.preflight_checks()
+    assert checks and all(checks.values())
+    assert all(type(value) is bool for value in checks.values())
+    monkeypatch.setattr("sys.argv", ["rss_relevance_live.py", "--preflight"])
+    assert live.main() == 0
+    output = capsys.readouterr().out
+    assert json.loads(output)["state"] == "ready_for_live_validation"
+    assert "CANARY" not in output
+    assert "172.17.0.24" not in output
+
+
+def test_preflight_handles_absent_credentials_without_network(monkeypatch, capsys):
+    monkeypatch.setattr("nabla.api.runtime_environment.homelab_runtime_detected", lambda: True)
+    monkeypatch.setattr(
+        "nabla.config_settings.get_settings",
+        lambda: SimpleNamespace(
+            litellm_url="http://localhost:4000",
+            litellm_api_key=SecretStr(""),
+            truenas_federation_cloud_url="",
+            truenas_federation_secret=SecretStr(""),
+        ),
+    )
+    for name in (
+        "FRESHRSS_RELEVANCE_AUTH", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY",
+        "LANGFUSE_BASE_URL", "FRESHRSS_CF_ACCESS_CLIENT_ID", "FRESHRSS_CF_ACCESS_CLIENT_SECRET",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("sys.argv", ["rss_relevance_live.py", "--preflight"])
+    assert live.main() == 2
+    checks = json.loads(capsys.readouterr().out)["checks"]
+    assert checks["freshrss_auth_present"] is False
+    assert checks["litellm_endpoint_approved"] is False
+    assert checks["langfuse_keys_present"] is False
+    assert checks["cloudflare_service_pair_complete"] is True
+
+
+def test_cli_error_messages_are_safe(monkeypatch):
+    from nabla.integrations.freshrss_greader import FreshRSSUnavailable
+
+    assert "Dedicated FreshRSS account not configured" in live.safe_cli_failure(
+        live.RSSConfigurationError("Dedicated FreshRSS account not configured")
+    )
+    assert "GReader request refused" in live.safe_cli_failure(
+        FreshRSSUnavailable("GReader request refused")
+    )
+    assert "SECRET_CANARY" not in live.safe_cli_failure(RuntimeError("SECRET_CANARY"))
+    assert "unexpected RuntimeError" in live.safe_cli_failure(RuntimeError("SECRET_CANARY"))

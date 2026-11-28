@@ -140,7 +140,7 @@ test("rich readonly without verified read capability remains a public directory"
   assert.equal(page.timers.length, 0);
   assert.match(
     page.element("health-summary-text").textContent,
-    /not authorized/,
+    /Detailed diagnostics locked/,
   );
 });
 

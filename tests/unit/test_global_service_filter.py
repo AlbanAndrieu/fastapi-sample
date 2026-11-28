@@ -97,9 +97,9 @@ def test_health_legend_explains_card_flow_and_security_icons() -> None:
     assert "installPlatformLegend();" in bootstrap
     assert "Cards = canonical operational state" in legend
     assert "Flow = path/dependency context" in legend
-    assert '"🧱", "pfSense / PF path"' in legend
-    assert '"🛡️", "Snort"' in legend
-    assert '"🚫", "pfBlockerNG"' in legend
+    assert '"🧱", "Network edge · current router evidence"' in legend
+    assert '"🩷", "Retired · historical, not failed"' in legend
+    assert '"🚫", "pfBlockerNG"' not in legend
     assert '"👥", "CrowdSec"' in legend
     assert "gray = unavailable/unconfirmed" in legend
 
