@@ -23,7 +23,7 @@ Réconciliation faite à la passe 3 ; prochaine à la passe 6. Les passes 2 à 5
 ## Questions parquées (owner)
 
 1. Fusionner la PR de `refactor/agent-dead-code-20261128` (code mort agent/MCP, roadmap) ; #461 fusionnée le 28/11 à 09:34 UTC (release 1.44.2), #460 le 27/11 à 23:04 UTC.
-2. Relais de services : configuré des deux côtés le 28/11 (Sample TrueNAS en `b3d6b510` après la relance de 07:20, drapeaux et secret lus dans le conteneur ; Cloud `92afbf21` répond `401 signature_required`). Reste la preuve du premier envoi au créneau de 12:00 Paris (`public_status_relay_wake result=sent`).
+2. Relais de services : configuré des deux côtés le 28/11 (Sample TrueNAS en `b3d6b510` après la relance de 07:20, drapeaux et secret lus dans le conteneur ; Cloud `92afbf21` répond `401 signature_required`). Premier envoi reçu à 12:00:38 Paris (`result=sent`) ; Cloud affiche 79 `ok` au lieu de 10 : **ACCEPTED**, plus de question owner.
 3. Smoke authentifié : master-red transmet la seule clé (décision owner du 28/11, dans #461). Reste à restreindre l'environnement `production-smoke` à `master`.
 4. Compose : Apps TrueNAS arrêtées et comptées `fail` (3proxy, ConvertX, Stirling PDF, Zabbix, pgAdmin, Bitcoin Core) : les démarrer, ou les étiqueter `albandrieu.com/operational-state: disabled` si l'arrêt est voulu.
 5. Compose : convergence Access des applications `fastapi-sample` et `fastapi-sample-api` avant `HOMELAB_OWNER_ACCESS_SSO=true`.
