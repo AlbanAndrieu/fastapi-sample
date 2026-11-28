@@ -164,8 +164,9 @@ def _project_recent_public_articles(
     items: object,
     approved: set[str],
     limit: int,
+    rotation: int = 0,
 ) -> list[dict[str, str]]:
-    if not isinstance(items, list) or len(items) > 1000:
+    if not isinstance(items, list) or len(items) > 1000 or type(rotation) is not int or not 0 <= rotation < 1000:
         raise FreshRSSUnavailable("Invalid article inventory")
     articles: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -175,9 +176,13 @@ def _project_recent_public_articles(
             continue
         seen.add(projected["id"])
         articles.append(projected)
-        if len(articles) >= limit:
-            break
-    return articles
+    if not articles:
+        return []
+    # GReader lists the newest hundred entries. Rotate the five-article
+    # inference budget across all approved entries instead of classifying
+    # the same first five on every approved operator run.
+    offset = rotation * limit % len(articles)
+    return [articles[(offset + index) % len(articles)] for index in range(min(limit, len(articles)))]
 
 
 async def recent_public_articles(
@@ -187,6 +192,7 @@ async def recent_public_articles(
     cf_access_id: str = "",
     cf_access_secret: str = "",
     limit: int = MAX_ARTICLES,
+    rotation: int = 0,
 ) -> list[dict[str, str]]:
     """Return sanitized metadata; no article URL, feed credentials or raw HTML."""
     if not auth.strip() or "\n" in auth or "\r" in auth:
@@ -210,4 +216,4 @@ async def recent_public_articles(
         "stream/contents/reading-list?output=json&n=100",
         headers,
     )
-    return _project_recent_public_articles(articles_data.get("items"), approved, limit)
+    return _project_recent_public_articles(articles_data.get("items"), approved, limit, rotation)

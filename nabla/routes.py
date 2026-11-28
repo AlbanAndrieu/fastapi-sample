@@ -18,6 +18,7 @@ from starlette.routing import Mount
 from nabla.api.health_routes import register_health_routes
 from nabla.api.github_webhooks import register_github_webhook_routes
 from nabla.api.public_status_relay import register_routes as register_public_status_relay_routes
+from nabla.api.rss_publication import register_routes as register_rss_publication_routes
 from nabla.api.approvals.read_model import register_approval_read_routes
 from nabla.api.crowdsec_decisions import register_crowdsec_decision_routes
 from nabla.api.owner_ui_session import (
@@ -282,6 +283,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
     register_owner_ui_session_routes(app)
     register_github_webhook_routes(app)
     register_public_status_relay_routes(app)
+    register_rss_publication_routes(app)
     register_approval_read_routes(app)
     register_crowdsec_decision_routes(app)
 
