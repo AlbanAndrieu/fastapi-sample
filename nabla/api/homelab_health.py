@@ -40,8 +40,8 @@ from nabla.api.homelab_probe_policy import (
 )
 from nabla.api.platform_health_diagnostics import utc_now
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
-from nabla.integrations.truenas_client import truenas_host_port
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
+from nabla.integrations.truenas_client import truenas_host_port
 from nabla.utils.environment import env_bool
 
 _PROBE_TIMEOUT_SEC = 5.0
