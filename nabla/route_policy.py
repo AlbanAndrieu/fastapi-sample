@@ -44,7 +44,7 @@ METRICS = RoutePolicy(Visibility.INTERNAL, Credential.METRICS_KEY)
 MCP = RoutePolicy(Visibility.INTERNAL, Credential.MCP_KEY)
 WEBSOCKET = RoutePolicy(Visibility.INTERNAL, Credential.ACCESS_JWT)
 
-_PUBLIC = frozenset({"/health", "/livez", "/api/public-homelab/v1", "/api/ui/services"})
+_PUBLIC = frozenset({"/health", "/livez", "/api/public-homelab/v1", "/api/ui/services", "/api/site/rss/v1"})
 _DIAGNOSTIC_EXACT = frozenset(
     {
         "/api/homelab-services",  # Retired route: keep denial if accidentally re-registered.
@@ -84,7 +84,7 @@ _PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
 def _http_route_policy(path: str, method: str) -> RoutePolicy:
     if path == "/webhooks/github" and method == "POST":
         return RoutePolicy(Visibility.SERVICE, Credential.GITHUB_WEBHOOK)
-    if path == "/federation/services" and method == "POST":
+    if path in {"/federation/services", "/federation/rss"} and method == "POST":
         return RoutePolicy(Visibility.SERVICE, Credential.FEDERATION_HMAC)
     if path == "/metrics" and method in _READ_METHODS:
         return METRICS

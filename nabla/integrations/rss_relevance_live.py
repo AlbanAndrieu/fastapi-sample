@@ -256,6 +256,7 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check", action="store_true", help="Offline configuration contract")
     group.add_argument("--once", action="store_true", help="One approved TrueNAS read-only run")
+    group.add_argument("--publish", action="store_true", help="Classify once and publish opaque matches to Cloud")
     args = parser.parse_args()
     if args.check:
         print("CHECK: FreshRSS GReader + Backstage V2 + Langfuse + LiteLLM contract; no network")
@@ -263,6 +264,19 @@ def main() -> int:
     if os.getenv("FRESHRSS_RELEVANCE_RUN_APPROVED") != "YES":
         raise RSSConfigurationError("Explicit read-only RSS run approval required")
     rows = asyncio.run(run_once())
+    if args.publish:
+        if os.getenv("FRESHRSS_RELEVANCE_PUBLISH_APPROVED") != "YES":
+            raise RSSConfigurationError("Explicit RSS publication approval required")
+        from nabla.api.rss_publication import publish  # noqa: PLC0415 -- operator-only export
+
+        if not rows:
+            print(json.dumps({"state": "no_relevant_articles", "count": 0}))
+            return 0
+        result = asyncio.run(publish(rows))
+        if result != "sent":
+            raise RSSConfigurationError("RSS publication not accepted")
+        print(json.dumps({"state": "published", "count": len(rows)}))
+        return 0
     # Only approved, sanitized classification data; no raw feeds or secrets.
     print(json.dumps({"state": "classified", "count": len(rows), "matches": rows}, ensure_ascii=False))
     return 0
