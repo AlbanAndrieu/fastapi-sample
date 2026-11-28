@@ -62,3 +62,14 @@ Le **HTTP 404** sur `/api/site/rss/v1` est prévu tant que `RSS_RELEVANCE_PUBLIC
 ## 28/11/2026 — Déploiement TrueNAS du classifieur RSS
 
 `--check` peut réussir sur une image **ancienne** : ce mode vérifie le contrat hors réseau mais n'assure pas que `--publish` existe. Vérifier `docker exec fastapi-sample /code/.venv/bin/python -m nabla.integrations.rss_relevance_live --help` ; si seules `--check` et `--once` sont présentes, l'image en cours n'inclut pas la version de GitHub portant la publication (#462). Actualiser l'image suivant le processus de déploiement `nabla-compose/scripts/truenas/update-fastapi-sample.sh` (contrôler le SHA et sauvegarder le rollback), puis vérifier à nouveau `--help`. Ne pas considérer `--once` comme une publication : ce mode classe mais n'envoie rien au relais Cloud.
+
+
+## CLI troubleshooting (2026-11-28)
+
+`--check` n'exécute **aucun** prérequis. À partir de cette correction, `--preflight` vérifie uniquement la configuration locale (runtime, en-tête GReader présent, clés et URL Langfuse, destination et clé LiteLLM, paire CF Access, URL et secret de fédération). Résultat JSON booléen uniquement ; **pas d'appel réseau**, ni URL, ni jeton, ni données d'articles dans la sortie. Un `state=ready_for_live_validation` ne prouve pas l'authentification distante, la version du prompt, l'inférence ni la publication.
+
+```bash
+sudo docker exec fastapi-sample /code/.venv/bin/python -m nabla.integrations.rss_relevance_live --preflight
+```
+
+Le CLI conserve l'exécution explicite `FRESHRSS_RELEVANCE_RUN_APPROVED=YES`, ajoute des marqueurs de **phase sans secrets** (catalogue, Langfuse, GReader, LiteLLM, publication), et signale les erreurs codifiées `RSSConfigurationError` / `FreshRSSUnavailable` sans traces, URLs ni réponses brutes. Les autres exceptions ne divulguent que leur type. L'ancienne image qui retourne seulement `REJECTED: RSS relevance pilot could not be verified` nécessite la commande de diagnostic ponctuelle ou un redéploiement de cette correction.

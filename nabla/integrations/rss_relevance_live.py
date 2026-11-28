@@ -110,6 +110,7 @@ async def managed_prompt(name: str, label: str) -> tuple[str, int]:
     _checked_langfuse_host(host)
     if not os.getenv("LANGFUSE_PUBLIC_KEY") or not os.getenv("LANGFUSE_SECRET_KEY"):
         raise RSSConfigurationError("Langfuse credentials not configured")
+    logger.info("rss_relevance_stage=langfuse_prompt")
     try:
         value = await asyncio.to_thread(
             lambda: _langfuse_client().get_prompt(name, type="text", label=label, max_retries=1),
@@ -134,6 +135,7 @@ async def lite_llm_json(client: httpx.AsyncClient, prompt: str, content: str, *,
     """One bounded TrueNAS LiteLLM chat completion with no tools or provider fallback."""
     if not key or "\r" in key or "\n" in key:
         raise RSSConfigurationError("Dedicated LiteLLM virtual key required")
+    logger.info("rss_relevance_stage=litellm_completion")
     request = {
         "model": _MODEL,
         "temperature": 0,
@@ -255,6 +257,7 @@ async def run_once() -> list[dict]:
         raise RSSConfigurationError("Dedicated FreshRSS account not configured")
     cf_id = os.getenv("FRESHRSS_CF_ACCESS_CLIENT_ID", "").strip()
     cf_secret = os.getenv("FRESHRSS_CF_ACCESS_CLIENT_SECRET", "").strip()
+    logger.info("rss_relevance_stage=backstage_catalog")
     catalog = await fetch_site_catalog_v2()
     revision, technologies = technology_projection(catalog)
     redis_cache = resolve_redis_client()
@@ -265,6 +268,7 @@ async def run_once() -> list[dict]:
     ) as client:
 
         async def fetch() -> list[dict]:
+            logger.info("rss_relevance_stage=freshrss_greader")
             return await recent_public_articles(
                 client,
                 auth=auth,
@@ -311,20 +315,98 @@ async def triage_inputs() -> tuple[str, list[str], list[dict[str, str]]]:
     return revision, technologies, articles
 
 
+def preflight_checks() -> dict[str, bool]:
+    """Local validation without network, secrets, content or side effects."""
+    from nabla.api.runtime_environment import homelab_runtime_detected  # noqa: PLC0415
+    from nabla.config_settings import get_settings  # noqa: PLC0415
+
+    checks: dict[str, bool] = {
+        "truenas_runtime": homelab_runtime_detected(),
+        "freshrss_auth_present": bool(os.getenv("FRESHRSS_RELEVANCE_AUTH", "").strip()),
+        "langfuse_keys_present": bool(
+            os.getenv("LANGFUSE_PUBLIC_KEY", "").strip() and
+            os.getenv("LANGFUSE_SECRET_KEY", "").strip()
+        ),
+        "langfuse_endpoint_approved": False,
+        "litellm_endpoint_approved": False,
+        "litellm_key_present": False,
+        "federation_url_approved": False,
+        "federation_secret_present": False,
+        "cloudflare_service_pair_complete": bool(
+            os.getenv("FRESHRSS_CF_ACCESS_CLIENT_ID", "").strip()
+        ) == bool(os.getenv("FRESHRSS_CF_ACCESS_CLIENT_SECRET", "").strip()),
+    }
+    try:
+        _checked_langfuse_host(os.getenv("LANGFUSE_BASE_URL", "").strip())
+        checks["langfuse_endpoint_approved"] = True
+    except (RSSConfigurationError, ValueError):
+        pass
+    try:
+        settings = get_settings()
+    except Exception:
+        # Pydantic validation may include private URLs or values: never echo it.
+        checks["settings_loaded"] = False
+        return checks
+    checks["settings_loaded"] = True
+    try:
+        _checked_litellm_url(settings.litellm_url)
+        checks["litellm_endpoint_approved"] = True
+    except (RSSConfigurationError, ValueError, TypeError, AttributeError):
+        pass
+    key = getattr(settings, "litellm_api_key", None)
+    checks["litellm_key_present"] = bool(
+        key.get_secret_value() if hasattr(key, "get_secret_value") else ""
+    )
+    checks["federation_url_approved"] = (
+        str(getattr(settings, "truenas_federation_cloud_url", "") or "").rstrip("/")
+        == "https://fastapi-sample.fastapicloud.dev"
+    )
+    secret = getattr(settings, "truenas_federation_secret", None)
+    checks["federation_secret_present"] = bool(
+        hasattr(secret, "get_secret_value")
+        and len(secret.get_secret_value()) >= 32
+    )
+    return checks
+
+
+def safe_cli_failure(exc: Exception) -> str:
+    """Only print allowlisted constant errors; arbitrary upstream text stays hidden."""
+    from nabla.integrations.freshrss_greader import FreshRSSUnavailable  # noqa: PLC0415
+
+    if isinstance(exc, (RSSConfigurationError, FreshRSSUnavailable)):
+        return f"REJECTED [{type(exc).__name__}]: {exc}"
+    if isinstance(exc, TimeoutError):
+        return "REJECTED [timeout]: RSS pipeline deadline exceeded"
+    return f"REJECTED [unexpected {type(exc).__name__}]: inspect sanitized stage logs"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Private read-only RSS relevance pilot")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check", action="store_true", help="Offline configuration contract")
+    group.add_argument("--preflight", action="store_true", help="Offline local configuration readiness; prints booleans only")
     group.add_argument("--once", action="store_true", help="One approved TrueNAS read-only run")
     group.add_argument("--publish", action="store_true", help="Classify once and publish opaque matches to Cloud")
     args = parser.parse_args()
     if args.check:
         print("CHECK: FreshRSS GReader + Backstage V2 + Langfuse + LiteLLM contract; no network")
         return 0
+    if args.preflight:
+        checks = preflight_checks()
+        ready = all(checks.values())
+        print(json.dumps({
+            "state": "ready_for_live_validation" if ready else "configuration_incomplete",
+            "checks": checks,
+            "network_checked": False,
+            "articles_classified": False,
+            "published": False,
+        }, sort_keys=True))
+        return 0 if ready else 2
     if os.getenv("FRESHRSS_RELEVANCE_RUN_APPROVED") != "YES":
         raise RSSConfigurationError("Explicit read-only RSS run approval required")
     if args.publish and os.getenv("FRESHRSS_RELEVANCE_PUBLISH_APPROVED") != "YES":
         raise RSSConfigurationError("Explicit RSS publication approval required")
+    logger.info("rss_relevance_stage=runtime_and_catalog")
     rows = asyncio.run(run_once())
     if args.publish:
         from nabla.api.rss_publication import publish  # noqa: PLC0415 -- operator-only export
@@ -332,6 +414,7 @@ def main() -> int:
         if not rows:
             print(json.dumps({"state": "no_relevant_articles", "count": 0}))
             return 0
+        logger.info("rss_relevance_stage=federation_publish")
         result = asyncio.run(publish(rows))
         if result != "sent":
             raise RSSConfigurationError("RSS publication not accepted")
@@ -345,5 +428,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception:
-        raise SystemExit("REJECTED: RSS relevance pilot could not be verified") from None
+    except Exception as exc:
+        raise SystemExit(safe_cli_failure(exc)) from None
