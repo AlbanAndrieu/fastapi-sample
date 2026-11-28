@@ -291,3 +291,15 @@
     display: none;
   }
 }
+
+/* Distinguish retired services from down or unknown even in the status rail. */
+.service-filter--global .service-filter-health-chip[data-global-status-filter="retired"] {
+  color: #f9a8d4;
+  border-color: rgba(244, 114, 182, 0.48);
+}
+.service-filter--global .service-filter-health-chip[data-global-status-filter="retired"][aria-pressed="true"] {
+  color: #fbcfe8;
+  border-color: #f472b6;
+  background: rgba(244, 114, 182, 0.15);
+  outline-color: #f472b6;
+}

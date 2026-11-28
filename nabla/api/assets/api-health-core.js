@@ -312,11 +312,13 @@ function render(data, platformMetrics = null) {
   if (groupedEl) groupedEl.innerHTML = "";
   keys.forEach((key) => {
     const check = checks[key];
-    const tier = MANDATORY.has(key)
-      ? key.indexOf("albandrieu_") === 0
-        ? "Required infra (albandrieu.com)"
-        : "Required health check"
-      : "Optional health check";
+    const tier = isRetiredCheck(key, check)
+      ? "Historical · retired (not monitored)"
+      : MANDATORY.has(key)
+        ? key.indexOf("albandrieu_") === 0
+          ? "Required infra (albandrieu.com)"
+          : "Required health check"
+        : "Optional health check";
     const cls = classify(key, check);
     const item = document.createElement("li");
     item.className = isRetiredCheck(key, check)
