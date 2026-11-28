@@ -234,3 +234,25 @@ async def test_redis_cache_failures_never_log_credentials_or_cache_keys(
     assert "PRIVATE_CANARY" not in caplog.text
     assert "rss:v1:classify:" not in caplog.text
     assert "virtual-key-private" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("url", "valid"),
+    [
+        ("http://172.17.0.24:4000", True),
+        ("http://192.168.1.24:4000", True),
+        ("http://10.2.3.4:4000", True),
+        ("http://litellm:4000", True),
+        ("https://cloud.example.com:4000", False),
+        ("http://8.8.8.8:4000", False),
+        ("http://192.168.1.24:4001", False),
+        ("http://192.168.1.24:4000/redirect", False),
+        ("http://192.168.1.24:4000@attacker.example", False),
+    ],
+)
+def test_private_litellm_endpoint_adapts_to_freebox_without_ssrf(url, valid):
+    if valid:
+        assert live._checked_litellm_url(url) == url
+    else:
+        with pytest.raises(live.RSSConfigurationError):
+            live._checked_litellm_url(url)

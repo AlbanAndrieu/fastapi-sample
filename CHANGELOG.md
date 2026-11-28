@@ -1,3 +1,10 @@
+# [1.45.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.44.2...1.45.0) (2026-11-28)
+
+
+### Features
+
+* **freshrss:** publier le classement Langfuse/LiteLLM vers le site CISO ([#462](https://github.com/AlbanAndrieu/fastapi-sample/issues/462)) ([5fe4540](https://github.com/AlbanAndrieu/fastapi-sample/commit/5fe45405cf94937af23b898e182ef5cfd3660092))
+
 ## [1.44.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.44.1...1.44.2) (2026-11-28)
 
 
