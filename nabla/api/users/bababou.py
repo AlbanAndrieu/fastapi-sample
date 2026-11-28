@@ -113,7 +113,8 @@ def _http_sitemap_fallback(*, max_pages: int = 5, total_budget: int = 24_000) ->
         try:
             raw = _fetch_public_page_text(url)
         except OSError as exc:
-            chunks.append(f"URL: {url}\n(fetch failed: {exc!s})\n")
+            logger.warning("fetch_bababou_public_page: fetch failed for %s: %s", url, exc)
+            chunks.append(f"URL: {url}\n(fetch failed)\n")
             continue
         room = max(0, total_budget - used)
         if room <= 0:
