@@ -33,3 +33,5 @@ Le retour `503` avant ingestion est normal : aucune décision n’est fabriquée
 ## Recette et budget
 
 Lancer les tests hermétiques, vérifier le HEAD SHA/CI sur chaque dépôt, puis valider sur TrueNAS la présence effective des clés, la publication Langfuse et les chemins réseau après migration Freebox. Le CLI traite cinq articles par passe (budget LiteLLM ≤30 s), sans tâche de fond implicite. Ne planifier un cron régulier que lorsque les quotas et la pertinence des sorties sont mesurés. Pas de POST GReader, pas de marquage `read`, pas de publication de secrets, pas de changement de la sécurité OWNER.
+
+**Freebox / IP LAN** : le classifieur accepte désormais `http://<IPv4 RFC1918>:4000` ou `http://litellm:4000` tel que configuré dans `settings.litellm_url`, sans faire confiance à une IP historique. Pas d'adresse WAN, pas de port arbitraire, pas de redirection ni de proxy d'environnement. L'URL Langfuse peut également résider sur une IPv4 privée au port 3000/443.

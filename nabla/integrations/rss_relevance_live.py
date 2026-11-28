@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+from ipaddress import ip_address, ip_network
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -22,10 +23,35 @@ from redis.exceptions import RedisError
 from nabla.integrations.freshrss_greader import recent_public_articles
 from nabla.integrations.rss_relevance import filter_articles
 
-_ALLOWED_PROMPT_HOSTS = {"langfuse.albandrieu.com", "172.17.0.24", "langfuse"}
+_ALLOWED_PROMPT_HOSTS = {"langfuse.albandrieu.com", "langfuse"}
 _MODEL = "fastapi-qwen"
 logger = logging.getLogger(__name__)
-_LITELLM = "http://172.17.0.24:4000"
+_PRIVATE_NETS = tuple(ip_network(value) for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+
+
+def _private_host(hostname: str) -> bool:
+    if hostname in {"litellm", "langfuse"}:
+        return True
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        return False
+    return address.version == 4 and any(address in network for network in _PRIVATE_NETS)
+
+
+def _checked_litellm_url(value: str) -> str:
+    """The configured homelab backend may move after the Freebox transition."""
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme != "http"
+        or not _private_host(parsed.hostname or "")
+        or parsed.port != 4000
+        or parsed.username or parsed.password
+        or parsed.path not in ("", "/")
+        or parsed.query or parsed.fragment
+    ):
+        raise RSSConfigurationError("Dedicated private LiteLLM endpoint required")
+    return value.rstrip("/")
 _BAD_TAGS = {"production", "development", "service", "website", "internal", "active", "managed"}
 
 
@@ -57,14 +83,14 @@ def _checked_langfuse_host(value: str) -> None:
     parsed = urlsplit(value)
     if (
         parsed.scheme not in {"http", "https"}
-        or parsed.hostname not in _ALLOWED_PROMPT_HOSTS
+        or (parsed.hostname not in _ALLOWED_PROMPT_HOSTS and not _private_host(parsed.hostname or ""))
         or parsed.port not in (None, 443, 3000)
         or parsed.username
         or parsed.password
         or parsed.query
         or parsed.fragment
         or parsed.path not in ("", "/")
-        or (parsed.scheme == "http" and parsed.hostname not in {"172.17.0.24", "langfuse"})
+        or (parsed.scheme == "http" and not _private_host(parsed.hostname or ""))
     ):
         raise RSSConfigurationError("Private Langfuse endpoint required")
 
@@ -91,6 +117,12 @@ async def managed_prompt(name: str, label: str) -> tuple[str, int]:
         raise RSSConfigurationError("Managed Langfuse prompt unavailable") from None
 
 
+def _settings_litellm_url() -> str:
+    from nabla.config_settings import get_settings  # noqa: PLC0415 -- homelab only
+
+    return get_settings().litellm_url
+
+
 async def lite_llm_json(client: httpx.AsyncClient, prompt: str, content: str, *, key: str) -> str:
     """One bounded TrueNAS LiteLLM chat completion with no tools or provider fallback."""
     if not key or "\r" in key or "\n" in key:
@@ -109,7 +141,7 @@ async def lite_llm_json(client: httpx.AsyncClient, prompt: str, content: str, *,
         async with asyncio.timeout(12):
             async with client.stream(
                 "POST",
-                _LITELLM + "/v1/chat/completions",
+                _checked_litellm_url(_settings_litellm_url()) + "/v1/chat/completions",
                 json=request,
                 headers={"Authorization": "Bearer " + key, "Accept": "application/json"},
                 follow_redirects=False,
@@ -209,8 +241,7 @@ async def run_once() -> list[dict]:
     if not homelab_runtime_detected():
         raise RSSConfigurationError("RSS inference is TrueNAS-only")
     settings = get_settings()
-    if settings.litellm_url.strip().rstrip("/") != _LITELLM:
-        raise RSSConfigurationError("LiteLLM must use the reviewed TrueNAS endpoint")
+    _checked_litellm_url(settings.litellm_url)
     key = settings.litellm_api_key.get_secret_value()
     auth = os.getenv("FRESHRSS_RELEVANCE_AUTH", "").strip()
     if not auth:
