@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import time
 from ipaddress import ip_address, ip_network
 from typing import Any
 from urllib.parse import urlsplit
@@ -264,6 +265,7 @@ async def run_once() -> list[dict]:
                 cf_access_id=cf_id,
                 cf_access_secret=cf_secret,
                 limit=5,  # cap interactive LiteLLM cost and the 30-second overall deadline
+                rotation=int(time.time() // 3600) % 20,
             )
 
         classifier = _RSSClassifier(

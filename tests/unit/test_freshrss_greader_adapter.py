@@ -108,3 +108,18 @@ def test_untrusted_greader_origin_id_is_skipped_without_aborting_public_articles
     rows = _project_recent_public_articles(items, {"feed/public"}, 5)
     assert len(rows) == 1
     assert rows[0]["title"] == "Traefik security"
+
+
+def test_public_article_rotation_covers_multiple_waves_without_extra_inference():
+    items = [
+        {"id": f"article-{index}", "title": f"Security advisory {index}", "origin": {"streamId": "feed/public"}}
+        for index in range(13)
+    ]
+    first = _project_recent_public_articles(items, {"feed/public"}, 5, 0)
+    second = _project_recent_public_articles(items, {"feed/public"}, 5, 1)
+    third = _project_recent_public_articles(items, {"feed/public"}, 5, 2)
+    assert len({article["id"] for article in first + second + third}) == 13
+    assert all(len(batch) <= 5 for batch in (first, second, third))
+    assert _project_recent_public_articles(items, {"feed/public"}, 5, 0) == first
+    with pytest.raises(FreshRSSUnavailable):
+        _project_recent_public_articles(items, {"feed/public"}, 5, -1)
