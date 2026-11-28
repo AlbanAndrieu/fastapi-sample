@@ -56,7 +56,7 @@ async def test_failed_optional_probe_retries_after_one_minute() -> None:
     async def loader():
         return {"reachable": False, "error": "provider unavailable"}
 
-    result = await health_probe_cadence.run_cadenced_optional_probe("brave", loader)
+    result = await health_probe_cadence.run_cadenced_optional_probe("tavily", loader)
 
     assert result["probe_interval_seconds"] == 60.0
     assert result["next_probe_in_seconds"] <= 60.0

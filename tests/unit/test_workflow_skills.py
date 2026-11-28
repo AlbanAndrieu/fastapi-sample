@@ -22,7 +22,7 @@ def clear_workflow_caches() -> None:
 
 
 def test_shipped_skills_have_matching_frontmatter() -> None:
-    assert {"profile-research", "bababou-research"} <= wf.available_skills()
+    assert {"profile-research", "bababou-lawyer"} <= wf.available_skills()
     for name in wf.available_skills():
         text = (wf._SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
         front = yaml.safe_load(text.split("---", 2)[1])
@@ -39,9 +39,9 @@ def test_run_forwards_only_reviewed_skill_names(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(wf, "safe_invoke_llm", fake_safe_invoke)
     client = TestClient(app)
-    res = client.post("/run", json={"user_input": "Tell me about bababou", "skills": ["bababou-research", "bababou-research"]})
+    res = client.post("/run", json={"user_input": "Tell me about bababou", "skills": ["bababou-lawyer", "bababou-lawyer"]})
     assert res.status_code == 200
-    assert seen == [("bababou-research",)]
+    assert seen == [("bababou-lawyer",)]
 
 
 @pytest.mark.parametrize("skills", [["unknown-skill"], ["../../etc/passwd"], ["Profile-Research"], ["a", "b", "c", "d"]])
@@ -69,7 +69,7 @@ def test_selected_skill_reaches_the_model_system_prompt(monkeypatch: pytest.Monk
     model.system_prompts = []
     monkeypatch.setattr(wf, "_get_workflow_llm", lambda: model)
     monkeypatch.setattr(wf, "build_openrag_mcp_tools", list)
-    assert wf._invoke_agent("Who is Bababou?", ("bababou-research",)) == "first"
-    assert "bababou-research" in model.system_prompts[-1]
+    assert wf._invoke_agent("Who is Bababou?", ("bababou-lawyer",)) == "first"
+    assert "bababou-lawyer" in model.system_prompts[-1]
     assert wf._invoke_agent("Who is Bababou?") == "second"
-    assert "bababou-research" not in model.system_prompts[-1]
+    assert "bababou-lawyer" not in model.system_prompts[-1]

@@ -2,6 +2,7 @@
 
 from typing import Dict
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -166,76 +167,43 @@ def _fake(query: str, *, search_depth: str = "advanced", max_results: int = 1, m
     assert body["search_depth"] == "basic"
 
 
-def test_brave_search_returns_503_without_api_key(test_app, monkeypatch) -> None:
-    """Brave route returns 503 when the API key is missing or empty."""
-    monkeypatch.setenv("BRAVE_API_KEY", "")
-    response = test_app.post("/v1/brave/search", json={"query": "hello"})
+def test_searxng_search_returns_503_without_url(test_app, monkeypatch) -> None:
+    """SearXNG route returns 503 when SEARXNG_URL is missing (FastAPI Cloud)."""
+    monkeypatch.delenv("SEARXNG_URL", raising=False)
+    response = test_app.post("/v1/searxng/search", json={"query": "hello"})
     assert response.status_code == 503
 
 
-def test_brave_search_ok_when_mocked(test_app, monkeypatch) -> None:
-    """Brave route forwards the body and returns the search payload."""
+def test_searxng_search_keeps_title_url_and_snippet(test_app, monkeypatch) -> None:
+    """SearXNG route trims the raw JSON to the first results' title, URL and snippet."""
+    seen: dict = {}
 
-    def _fake(query: str, *, count: int = 10) -> dict:
-        return {"query": query, "web": {"results": []}, "count": count}
+    def _handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        rows = [{"title": f"t{i}", "url": f"https://e/{i}", "content": "c", "engine": "bing", "score": 1} for i in range(9)]
+        return httpx.Response(200, json={"results": rows, "unresponsive_engines": [["google", "timeout"]]})
 
-    monkeypatch.setattr("nabla.api.brave_route.web_search", _fake)
-    response = test_app.post(
-        "/v1/brave/search",
-        json={"query": "hello", "count": 5},
-    )
+    real_client = httpx.Client
+    monkeypatch.setenv("SEARXNG_URL", "http://searxng.test:8080/")
+    monkeypatch.setattr("nabla.integrations.searxng_search.httpx.Client", lambda **kw: real_client(transport=httpx.MockTransport(_handler), **kw))
+    response = test_app.post("/v1/searxng/search", json={"query": "hello", "max_results": 2})
+
     assert response.status_code == 200
+    assert seen["url"] == "http://searxng.test:8080/search?q=hello&format=json"
     body = response.json()
-    assert body["query"] == "hello"
-    assert body["count"] == 5
-
-
-def test_google_search_returns_503_without_api_key(test_app, monkeypatch) -> None:
-    """Google route returns 503 when the API key is missing or empty."""
-    monkeypatch.setenv("GOOGLE_SEARCH_API_KEY", "")
-    monkeypatch.setenv("GOOGLE_SEARCH_CX", "cx123")
-    response = test_app.post("/v1/google/search", json={"query": "hello"})
-    assert response.status_code == 503
-
-
-def test_google_search_returns_503_without_cx(test_app, monkeypatch) -> None:
-    """Google route returns 503 when cx is missing (Custom Search requires it)."""
-    monkeypatch.setenv("GOOGLE_SEARCH_API_KEY", "fake-key")
-    monkeypatch.setenv("GOOGLE_SEARCH_CX", "")
-    response = test_app.post("/v1/google/search", json={"query": "hello"})
-    assert response.status_code == 503
-
-
-def test_google_search_ok_when_mocked(test_app, monkeypatch) -> None:
-    """Google route forwards the body and returns the search payload."""
-
-    def _fake(query: str, *, num: int = 10) -> dict:
-        return {"queries": {"request": []}, "items": [], "q": query, "num": num}
-
-    monkeypatch.setattr(
-        "nabla.api.google_search_route.web_search",
-        _fake,
-    )
-    response = test_app.post(
-        "/v1/google/search",
-        json={"query": "hello", "num": 5},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["q"] == "hello"
-    assert body["num"] == 5
+    assert body["results"] == [{"title": "t0", "url": "https://e/0", "content": "c", "engine": "bing"}, {"title": "t1", "url": "https://e/1", "content": "c", "engine": "bing"}]
+    assert body["unresponsive_engines"] == [["google", "timeout"]]
 
 
 def test_search_providers_share_openapi_tag(test_app) -> None:
-    """Tavily, Brave and Google appear in one Swagger search group."""
+    """Tavily and SearXNG appear in one Swagger search group."""
     response = test_app.get("/openapi.json")
 
     assert response.status_code == 200
     paths = response.json()["paths"]
     for path in (
         "/v1/tavily/search",
-        "/v1/brave/search",
-        "/v1/google/search",
+        "/v1/searxng/search",
     ):
         assert paths[path]["post"]["tags"] == ["search"]
 

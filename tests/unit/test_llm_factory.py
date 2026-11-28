@@ -65,52 +65,6 @@ def test_build_chat_llm_falls_back_to_openai_direct(monkeypatch: pytest.MonkeyPa
     assert llm.model_name == "gpt-4o-mini"
 
 
-def test_resolve_openai_api_key_and_model_litellm(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake = SimpleNamespace(
-        litellm_url="http://proxy:4000",
-        litellm_api_key=SecretStr("sk-litellm"),
-        azure_openai_instance={},
-        default_chat_model=DEFAULT_CHAT_MODEL,
-    )
-    monkeypatch.setattr(lf, "get_settings", lambda: fake)
-    key, model = lf.resolve_openai_api_key_and_model()
-    assert key == "sk-litellm"
-    assert model == lf.DEFAULT_CHAT_MODEL
-
-
-def test_resolve_openai_api_key_and_model_azure_first_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    instance = AzureOpenAiInstance(
-        url="https://x.openai.azure.com",
-        api_key="azure-k",
-        api_alias="dep",
-        available_models="gpt-4o-global,gpt-4o",
-    )
-    fake = SimpleNamespace(
-        litellm_url="",
-        litellm_api_key=SecretStr(""),
-        azure_openai_instance={"a": instance},
-        default_chat_model=DEFAULT_CHAT_MODEL,
-    )
-    monkeypatch.setattr(lf, "get_settings", lambda: fake)
-    key, model = lf.resolve_openai_api_key_and_model()
-    assert key == "azure-k"
-    assert model == "gpt-4o-global"
-
-
-def test_resolve_openai_api_key_and_model_direct_openai(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake = SimpleNamespace(
-        litellm_url="",
-        litellm_api_key=SecretStr(""),
-        azure_openai_instance={},
-        default_chat_model=DEFAULT_CHAT_MODEL,
-    )
-    monkeypatch.setattr(lf, "get_settings", lambda: fake)
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
-    key, model = lf.resolve_openai_api_key_and_model(model_name="gpt-4o-mini")
-    assert key == "sk-env"
-    assert model == "gpt-4o-mini"
-
-
 def test_dedicated_fastapi_qwen_uses_truenas_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = SimpleNamespace(
         litellm_url="http://172.17.0.24:4000",
@@ -135,5 +89,3 @@ def test_litellm_configured_without_key_fails_closed(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(lf, "get_settings", lambda: fake)
     with pytest.raises(RuntimeError, match="LITELLM_API_KEY required"):
         lf.build_chat_llm()
-    with pytest.raises(RuntimeError, match="LITELLM_API_KEY required"):
-        lf.resolve_openai_api_key_and_model()

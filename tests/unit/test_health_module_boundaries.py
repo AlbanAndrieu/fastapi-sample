@@ -16,6 +16,5 @@ def test_health_orchestrator_delegates_optional_integrations() -> None:
     source = (_API_DIR / "health_checks.py").read_text(encoding="utf-8")
 
     assert "from nabla.api.integration_health import" in source
-    assert "def probe_brave_search" not in source
     assert "def probe_litellm_public_proxy" not in source
     assert "def probe_pyroscope_server" not in source

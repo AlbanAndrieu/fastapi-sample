@@ -28,75 +28,7 @@ from nabla.feature_flags import (
     unleash_requests_kwargs as _unleash_requests_kwargs,
 )
 from nabla.integrations.appwrite_client import appwrite_health
-from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
-from nabla.integrations.google_search import _GOOGLE_CSE_URL
 from nabla.utils.sentry_config import select_sentry_health_dsn, sentry_dsn_is_reachable
-
-
-def probe_brave_search() -> dict[str, Any]:
-    settings = get_settings()
-    if settings.brave_api_key is None:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "BRAVE_API_KEY not configured",
-        }
-    key = settings.brave_api_key.get_secret_value().strip()
-    if not key:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "BRAVE_API_KEY not configured",
-        }
-    try:
-        with httpx.Client(timeout=5.0) as http_client:
-            response = http_client.get(
-                _BRAVE_WEB_SEARCH_URL,
-                params={"q": ".", "count": 1},
-                headers={"X-Subscription-Token": key, "Accept": "application/json"},
-            )
-    except Exception as exc:
-        return {"reachable": False, "error": _normalize_probe_error(str(exc))}
-    return {
-        "reachable": response.status_code < 500,
-        "http_status": response.status_code,
-    }
-
-
-def probe_google_cse() -> dict[str, Any]:
-    settings = get_settings()
-    if settings.google_search_api_key is None:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "GOOGLE_SEARCH_API_KEY not configured",
-        }
-    api_key = settings.google_search_api_key.get_secret_value().strip()
-    if not api_key:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "GOOGLE_SEARCH_API_KEY not configured",
-        }
-    cx = (settings.google_search_cx or "").strip()
-    if not cx:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "Google CSE id (cx) not configured",
-        }
-    try:
-        with httpx.Client(timeout=5.0) as http_client:
-            response = http_client.get(
-                _GOOGLE_CSE_URL,
-                params={"key": api_key, "cx": cx, "q": ".", "num": 1},
-            )
-    except Exception as exc:
-        return {"reachable": False, "error": _normalize_probe_error(str(exc))}
-    return {
-        "reachable": response.status_code < 500,
-        "http_status": response.status_code,
-    }
 
 
 def probe_appwrite_health() -> dict[str, Any]:
