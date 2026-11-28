@@ -119,10 +119,14 @@ function loadHealthBoards({
   if (showPending) markHealthBoardsPending();
   loadHealth();
   loadSickz();
-  if (includeTechnical) {
-    loadRuntimeTopology();
-    loadTrueNas();
-  }
+  // Core drill-down is a visible section (not a <details> element).
+  // Even when the optional topology/fanout drawers are closed, render the
+  // already fetched OWNER snapshot and replace the locked placeholder.
+  // fetchHomelabHealth shares fetchHealthBoard(), so this is zero extra
+  // provider probes and does not change the Cloud refresh cadence.
+  const trueNasPanel = document.getElementById("truenas-platform");
+  if (trueNasPanel && !trueNasPanel.hidden) loadTrueNas();
+  if (includeTechnical) loadRuntimeTopology();
   return fetchHealthBoard()
     .then((snapshot) => {
       decorateCloudflareTunnelStatuses(

@@ -310,10 +310,10 @@ function ensureProtocolGuide() {
     title.textContent = "How the diagnostic flow works";
     const steps = document.createElement("span");
     steps.textContent =
-      "DNS resolves the name → TCP connects to the port → TLS verifies HTTPS → HTTP/API checks the response → metrics add context.";
+      "Domain / TLD registration (not probed) → DNS A/AAAA resolution → TCP connection → TLS certificate / handshake → Cloudflare Access (when applicable) → HTTP status → WebSocket / TrueNAS API → service metrics.";
     const note = document.createElement("small");
     note.textContent =
-      "Stages show independent evidence. A missing check is unconfirmed, not healthy. WebSocket and Cloudflare checks apply only where configured.";
+      "The diagram describes possible layers, not a claim that every check ran: TLD registration/expiry and DNS TTL are not measured here. Each observed stage has its own result; missing, blocked or stale checks remain unconfirmed. Access and WebSocket apply only when configured.";
     guide.append(title, steps, note);
     pipeline.insertAdjacentElement("beforebegin", guide);
   }
@@ -344,6 +344,9 @@ async function refresh() {
 }
 
 export function installPlatformFlowUi() {
+  // Render the diagnostic guide even if the private health board is pending
+  // or access fails: a failed fetch must not erase the explanation.
+  ensureProtocolGuide();
   const pipeline = document.getElementById("truenas-pipeline");
   if (pipeline) {
     new MutationObserver(() => scheduleDecorate()).observe(pipeline, {

@@ -41,6 +41,7 @@ from nabla.api.homelab_probe_policy import (
 from nabla.api.platform_health_diagnostics import utc_now
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.integrations.truenas_client import truenas_host_port
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.utils.environment import env_bool
 
 _PROBE_TIMEOUT_SEC = 5.0
@@ -54,8 +55,12 @@ classify_public_http_status = homelab_probe_runner.classify_public_http_status
 
 
 def internal_probes_enabled() -> bool:
-    """Return whether internal TCP probes are explicitly enabled for this runtime."""
-    return env_bool(_INTERNAL_PROBE_ENV)
+    """Never allow a Cloud runtime to perform internal LAN/TCP fan-out.
+
+    An operator setting alone does not grant Cloud a private network vantage;
+    the signed TrueNAS relay reports the homelab results instead.
+    """
+    return env_bool(_INTERNAL_PROBE_ENV) and not fastapi_cloud_runtime_detected()
 
 
 _PRIVATE_NAMESPACE_SUFFIX = ".int.albandrieu.com"
