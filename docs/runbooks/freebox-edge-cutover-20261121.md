@@ -70,3 +70,8 @@ Validation after deployment:
 Config and test contracts are in `nabla/api/freebox_health.py`,
 `nabla/api/edge_provider.py`, `tests/unit/test_freebox_health.py`
 and `.github/workflows/master-smoke.yml`.
+
+## 28/11/2026 — pfSense désaffecté dans l'interface
+
+L'inventaire public peut encore contenir d'anciennes entrées pfSense (historique, non probé). Un check n'est **Retired** que lorsque le runtime fournit une preuve explicite (raison `pfSense retired; Freebox is the active network edge` et état `skipped`), jamais seulement parce qu'un ping échoue. La vue `/healthz` affiche alors une pastille rose et un badge `Retired`, sans compter l'élément parmi les incidents. La légende n'affiche plus statiquement pfBlockerNG ou Snort : l'inventaire historique demeure disponible pour rollback.
+Les compteurs de la barre `Service health and filters` décrivent les **checks /healthz chargés**, et non toutes les entités du catalogue affichées séparément dans `Service directory`. La comparaison Cloud/TrueNAS doit reposer sur le même périmètre et la même fraîcheur.
