@@ -105,9 +105,13 @@ function startRichDashboard() {
   }
   // Keep the public directory visible until a complete health-board
   // refresh is observed. Import success alone is not an operational result.
+  // Then keep it hidden: re-showing it on each background or stale refresh
+  // made the directory blink (owner, 28/11); the rich board shows its own age.
+  let detailedShown = false;
   document.addEventListener("health-board-refreshed", (event) => {
     const fallback = document.getElementById("public-services-panel");
-    if (fallback) fallback.hidden = shouldHidePublicFallback(event.detail);
+    detailedShown ||= shouldHidePublicFallback(event.detail);
+    if (fallback) fallback.hidden = detailedShown;
   });
   // An import may resolve even if the asynchronous dashboard bootstrap fails.
   // Never expose the rejected error or hide the public fallback.
