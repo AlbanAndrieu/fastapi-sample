@@ -1,3 +1,10 @@
+## [1.44.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.44.1...1.44.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **runtime:** Redis-backed first Cloud page, smoke key, /run skills and TrueNAS runtime fixes ([#461](https://github.com/AlbanAndrieu/fastapi-sample/issues/461)) ([e662230](https://github.com/AlbanAndrieu/fastapi-sample/commit/e6622304d24174eda4c7ebd6c3375d067f5f8527))
+
 ## [1.44.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.44.0...1.44.1) (2026-11-26)
 
 
