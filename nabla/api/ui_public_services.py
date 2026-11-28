@@ -145,8 +145,14 @@ _PUBLIC_BOARD_DEADLINE_SECONDS = 0.7
 _backstage_backoff: dict[str, float] = {"retry_after": 0.0}
 
 
-def _with_light_states(projected: PublicUiServices, catalog: SiteArchitectureCatalogV2, light_states: dict[str, str]) -> PublicUiServices:
-    """Fill only UNKNOWN, unambiguous names from fresh public HTTP observations."""
+def _with_light_states(
+    projected: PublicUiServices,
+    catalog: SiteArchitectureCatalogV2,
+    light_states: dict[str, str],
+    *,
+    board_state: BoardState = "fresh",
+) -> PublicUiServices:
+    """Fill only UNKNOWN, unambiguous names from public HTTP observations."""
     if not light_states:
         return projected
     # Preserve a confirmed full-board or scheduled result; never
@@ -166,7 +172,9 @@ def _with_light_states(projected: PublicUiServices, catalog: SiteArchitectureCat
     if services != projected.services:
         # Fresh means at least one *recent PUBLIC HTTP* observation,
         # not that the internal homelab or every service is healthy.
-        projected = projected.model_copy(update={"services": services, "boardState": "fresh"})
+        # Older samples restored from Redis are history: they never make a board fresh.
+        state = "fresh" if "fresh" in (board_state, projected.boardState) else board_state
+        projected = projected.model_copy(update={"services": services, "boardState": state})
     return projected
 
 
@@ -224,13 +232,15 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
     projected = project_public_ui_services(catalog, board)
     # Light public HTTP is NOT the deep Cloud fan-out. It samples at most nine
     # approved HTTPS targets per three minutes without delaying this request.
-    # A cold replica returns UNKNOWN initially, then gets real per-service
-    # public HTTP states on the next passive refresh.
+    # A cold replica starts from the samples stored in Redis (stale when older
+    # than 15 min), then gets current states on the next passive refresh.
     hostname = request.url.hostname if request is not None else None
     cloud = fastapi_cloud_runtime_detected(hostname)
     light_enabled = os.getenv("FASTAPI_CLOUD_PUBLIC_LIGHT_PROBES_ENABLED", "true").strip().lower() == "true"
     deep_enabled = os.getenv("FASTAPI_CLOUD_PUBLIC_DEEP_PROBES_ENABLED", "").strip().lower() == "true"
     if cloud and light_enabled and not deep_enabled:
+        # After scale-to-zero, the first page shows the last samples from Redis.
+        await public_status_light.hydrate(catalog.catalogRevision)
         try:
             raw = await asyncio.wait_for(fetch_catalog_v2_source(), timeout=0.15)
             public_status_light.start_light_public_checks(catalog.catalogRevision, raw)
@@ -238,6 +248,8 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
             pass  # Never block public inventory on the optional light wave.
         light_states = public_status_light.fresh_public_states(catalog.catalogRevision)
         projected = _with_light_states(projected, catalog, light_states)
+        history = public_status_light.last_known_public_states(catalog.catalogRevision)
+        projected = _with_light_states(projected, catalog, history, board_state="stale")
     if cloud:
         projected = await _with_relayed_states(projected, catalog)
     # L2 is opt-in, bounded to 150ms, and stores labels only; fail open to L1.

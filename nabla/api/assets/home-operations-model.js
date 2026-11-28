@@ -63,7 +63,9 @@ export function projectFleet(payload) {
       !STATES.includes(row.state)
     )
       return null;
-    counts[payload.boardState === "fresh" ? row.state : "unknown"] += 1;
+    // A stale server board carries real past observations (Redis): history,
+    // shown grey and never "verified"; only "pending" has no evidence at all.
+    counts[payload.boardState === "pending" ? "unknown" : row.state] += 1;
   }
   return {
     total: payload.services.length,

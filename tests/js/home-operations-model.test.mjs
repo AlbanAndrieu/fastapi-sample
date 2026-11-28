@@ -50,7 +50,7 @@ function board(overrides = {}) {
   };
 }
 
-test("public fleet uses verified states only", () => {
+test("public fleet verifies fresh states and keeps stale ones as history", () => {
   const fresh = {
     schemaVersion: 2,
     model: "public-service-overview",
@@ -63,14 +63,18 @@ test("public fleet uses verified states only", () => {
   };
   assert.equal(projectFleet(fresh).counts.ok, 1);
   assert.equal(projectFleet(fresh).counts.fail, 1);
+  // Stale server evidence (Redis after scale-to-zero) is history, not current.
   const stale = projectFleet({ ...fresh, boardState: "stale" });
+  assert.equal(stale.verified, false);
   assert.deepEqual(stale.counts, {
-    ok: 0,
+    ok: 1,
     warn: 0,
-    fail: 0,
-    unknown: 2,
+    fail: 1,
+    unknown: 0,
     scheduled: 0,
   });
+  const pending = projectFleet({ ...fresh, boardState: "pending" });
+  assert.equal(pending.counts.unknown, 2);
   // A night-window App outside its window must not blank the whole panel.
   const night = projectFleet({
     ...fresh,

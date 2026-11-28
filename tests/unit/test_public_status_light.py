@@ -172,11 +172,115 @@ def test_evidence_is_revision_bound_and_expires(monkeypatch):
     revision = "sha256:" + "a" * 64
     light._revision = revision
     light._samples["component:default/gatus"] = (100.0, "ok")
-    monkeypatch.setattr(light.time, "monotonic", lambda: 101.0)
+    monkeypatch.setattr(light.time, "time", lambda: 101.0)
     assert light.fresh_public_states(revision) == {"component:default/gatus": "ok"}
+    assert light.last_known_public_states(revision) == {}
     assert light.fresh_public_states("sha256:" + "b" * 64) == {}
-    monkeypatch.setattr(light.time, "monotonic", lambda: 100.0 + light.MAX_AGE_SECONDS)
+    monkeypatch.setattr(light.time, "time", lambda: 100.0 + light.MAX_AGE_SECONDS)
     assert light.fresh_public_states(revision) == {}
+    # Too old to be current, still the last observation: history only.
+    assert light.last_known_public_states(revision) == {"component:default/gatus": "ok"}
+    monkeypatch.setattr(light.time, "time", lambda: 100.0 + light.LAST_KNOWN_SECONDS)
+    assert light.last_known_public_states(revision) == {}
+
+
+class FakeRedis:
+    """Hash subset of redis.asyncio; returns bytes like a raw client."""
+
+    def __init__(self) -> None:
+        self.hashes: dict[str, dict[str, str]] = {}
+        self.ttl: dict[str, int] = {}
+
+    async def hset(self, key, mapping):
+        self.hashes.setdefault(key, {}).update(mapping)
+
+    async def hdel(self, key, *fields):
+        for field in fields:
+            self.hashes.get(key, {}).pop(field, None)
+
+    async def expire(self, key, seconds):
+        self.ttl[key] = seconds
+
+    async def hgetall(self, key):
+        return {k.encode(): v.encode() for k, v in self.hashes.get(key, {}).items()}
+
+
+@pytest.mark.asyncio
+async def test_samples_survive_scale_to_zero_through_redis(monkeypatch):
+    """A cold replica shows the last stored samples on its first page."""
+    revision = "sha256:" + "a" * 64
+    redis = FakeRedis()
+    monkeypatch.setattr(light, "resolve_redis_client", lambda: redis)
+    verdicts = {"https://up.albandrieu.com/": "ok", "https://down.albandrieu.com/": "fail", "https://gone.albandrieu.com/": "unknown"}
+
+    async def checked(_client, url, *, authenticated=False):
+        return verdicts[url]
+
+    monkeypatch.setattr(light, "_checked_status", checked)
+    monkeypatch.setattr(light.time, "time", lambda: 1_000.0)
+    redis.hashes[light._REDIS_PREFIX + revision] = {"component:default/gone": "900 ok"}
+    light._revision = revision
+    await light._run_wave(
+        [
+            ("component:default/up", "https://up.albandrieu.com/", False),
+            ("component:default/down", "https://down.albandrieu.com/", False),
+            ("component:default/gone", "https://gone.albandrieu.com/", False),
+        ],
+    )
+    key = light._REDIS_PREFIX + revision
+    # An unconfirmed recheck removes the old green from Redis too.
+    assert redis.hashes[key] == {"component:default/up": "1000 ok", "component:default/down": "1000 fail"}
+    assert redis.ttl[key] == light.LAST_KNOWN_SECONDS
+
+    light.reset_light_public_checks()  # New process: memory is empty.
+    await light.hydrate(revision)
+    assert light.fresh_public_states(revision) == {"component:default/up": "ok", "component:default/down": "fail"}
+    monkeypatch.setattr(light.time, "time", lambda: 1_000.0 + light.MAX_AGE_SECONDS)
+    assert light.fresh_public_states(revision) == {}
+    assert light.last_known_public_states(revision) == {"component:default/up": "ok", "component:default/down": "fail"}
+
+
+@pytest.mark.asyncio
+async def test_hydrate_rejects_malformed_expired_and_older_samples(monkeypatch):
+    revision = "sha256:" + "a" * 64
+    redis = FakeRedis()
+    monkeypatch.setattr(light, "resolve_redis_client", lambda: redis)
+    monkeypatch.setattr(light.time, "time", lambda: 100_000.0)
+    redis.hashes[light._REDIS_PREFIX + revision] = {
+        "component:default/ok": "99000 ok",
+        "component:default/garbage": "not-a-time ok",
+        "component:default/warn": "99000 warn",
+        "component:default/expired": f"{100_000 - light.LAST_KNOWN_SECONDS} ok",
+        "component:default/future": "100100 ok",
+        "component:default/newer": "99000 fail",
+    }
+    light._revision = revision
+    light._samples["component:default/newer"] = (99_500.0, "ok")
+    await light.hydrate(revision)
+    assert light._samples == {
+        "component:default/ok": (99_000.0, "ok"),
+        "component:default/newer": (99_500.0, "ok"),
+    }
+    # Hydration runs once per revision: no Redis read on later requests.
+    redis.hashes.clear()
+    await light.hydrate(revision)
+    assert "component:default/ok" in light._samples
+
+
+@pytest.mark.asyncio
+async def test_hydrate_retries_after_a_redis_timeout(monkeypatch):
+    revision = "sha256:" + "a" * 64
+
+    class SlowRedis(FakeRedis):
+        async def hgetall(self, key):
+            raise TimeoutError
+
+    monkeypatch.setattr(light, "resolve_redis_client", SlowRedis)
+    await light.hydrate(revision)
+    assert light._hydrated == ""
+    monkeypatch.setattr(light, "resolve_redis_client", lambda: None)
+    await light.hydrate(revision)
+    assert light._hydrated == revision
 
 
 @pytest.mark.asyncio

@@ -388,3 +388,33 @@ async def test_relayed_lan_state_older_than_fresh_window_is_stale(monkeypatch, a
     result = await ui_public_services.get_public_ui_services(None)
     assert {item.name: item.state for item in result.services}["Garage"] == "ok"
     assert result.boardState == expected
+
+
+@pytest.mark.parametrize(("age", "expected"), [(10.0, "fresh"), (3600.0, "stale")])
+@pytest.mark.asyncio
+async def test_cold_cloud_replica_first_page_uses_redis_light_samples(monkeypatch, age, expected):
+    """After scale-to-zero the first anonymous page is not 217 UNKNOWN."""
+    catalog = _catalog()
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
+    monkeypatch.setattr(ui_public_services, "fetch_site_catalog_v2", AsyncMock(return_value=catalog))
+    monkeypatch.setattr(ui_public_services, "_public_board_reader", AsyncMock(return_value={"state": "pending"}))
+    monkeypatch.setattr(ui_public_services, "fastapi_cloud_runtime_detected", lambda _host: True)
+    monkeypatch.setattr(ui_public_services, "fetch_catalog_v2_source", AsyncMock(side_effect=TimeoutError))
+    monkeypatch.setattr(ui_public_services.public_status_relay, "read_states", AsyncMock(return_value=({}, 0.0)))
+    monkeypatch.setattr(ui_public_services, "write_public_directory_redis", AsyncMock())
+    light = ui_public_services.public_status_light
+    light.reset_light_public_checks()
+
+    class StoredSamples:
+        async def hgetall(self, key):
+            assert key == light._REDIS_PREFIX + catalog.catalogRevision
+            return {b"component:default/garage": f"{1_000_000 - age:.0f} ok".encode()}
+
+    monkeypatch.setattr(light, "resolve_redis_client", StoredSamples)
+    monkeypatch.setattr(light.time, "time", lambda: 1_000_000.0)
+    try:
+        result = await ui_public_services.get_public_ui_services(None)
+    finally:
+        light.reset_light_public_checks()
+    assert {item.name: item.state for item in result.services} == {"Garage": "ok", "postgres": "unknown"}
+    assert result.boardState == expected
