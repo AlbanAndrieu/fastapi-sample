@@ -112,7 +112,7 @@ def validate_batch(value: object, *, now: int | None = None) -> dict[str, Any] |
     if not isinstance(value["nonce"], str) or not re.fullmatch(r"[a-f0-9]{32}", value["nonce"]):
         return None
     items = value["items"]
-    if not isinstance(items, list) or len(items) > MAX_BATCH:
+    if not isinstance(items, list) or not 1 <= len(items) <= MAX_BATCH:
         return None
     seen: set[str] = set()
     for item in items:

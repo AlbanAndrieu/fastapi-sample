@@ -294,10 +294,10 @@ def main() -> int:
         return 0
     if os.getenv("FRESHRSS_RELEVANCE_RUN_APPROVED") != "YES":
         raise RSSConfigurationError("Explicit read-only RSS run approval required")
+    if args.publish and os.getenv("FRESHRSS_RELEVANCE_PUBLISH_APPROVED") != "YES":
+        raise RSSConfigurationError("Explicit RSS publication approval required")
     rows = asyncio.run(run_once())
     if args.publish:
-        if os.getenv("FRESHRSS_RELEVANCE_PUBLISH_APPROVED") != "YES":
-            raise RSSConfigurationError("Explicit RSS publication approval required")
         from nabla.api.rss_publication import publish  # noqa: PLC0415 -- operator-only export
 
         if not rows:

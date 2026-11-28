@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -36,6 +35,7 @@ def decision() -> dict:
 def test_closed_schema_never_exports_articles_or_model_reasoning():
     value = pub.build_batch([decision()], now=1000)
     assert pub.validate_batch(value, now=1000) == value
+    assert pub.validate_batch({**value, "items": []}, now=1000) is None
     raw = json.dumps(value)
     assert set(value["items"][0]) == {"article_id", "matched"}
     assert "Traefik CVE" not in raw
