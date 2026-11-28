@@ -49,7 +49,7 @@ def _with_skill(name: str, context: str) -> str:
 
 @router.get("/profile/search", operation_id="search_alban_profile")
 def search_alban_profile(user_question: str) -> str:
-    """Search Alban Andrieu's website, LinkedIn and Reactive Resume CV for OpenWebUI/MCP clients.
+    """Search Alban Andrieu's Reactive Resume CV and website (LinkedIn as fallback) for OpenWebUI/MCP clients.
 
     The result starts with the profile-research skill the answer must follow.
     """
