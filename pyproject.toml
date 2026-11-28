@@ -216,11 +216,9 @@ utils = [
     "types-requests>=2.32.4.20250611",
 ]
 # Standalone helper scripts migrated from the retired Pipfile (opt-in:
-# `uv sync --group scripts`): nabla/tools/{login,gen_pass}.py,
-# nabla/deepagents/chat_completion.py.
+# `uv sync --group scripts`): nabla/tools/{login,gen_pass}.py.
 scripts = [
     "bcrypt>=4.0.1",
-    "grafana-openai-monitoring>=0.0.9",
     "selenium>=4.51.0",
 ]
 webui = [

@@ -43,27 +43,6 @@ def _litellm_key(settings: Any) -> str:
     return key
 
 
-def resolve_openai_api_key_and_model(
-    *,
-    model_name: str | None = None,
-) -> tuple[str, str]:
-    """
-    API key and chat model string for the legacy OpenAI Python SDK.
-
-    Uses the same LiteLLM → Azure → direct OpenAI routing as :func:`build_chat_llm`.
-    Azure returns the deployment-facing model name from settings (first entry if comma-separated).
-    """
-    settings = get_settings()
-    litellm_url = (settings.litellm_url or "").strip()
-    resolved = model_name or settings.default_chat_model
-    if litellm_url:
-        return _litellm_key(settings), resolved
-    if settings.azure_openai_instance:
-        instance: AzureOpenAiInstance = next(iter(settings.azure_openai_instance.values()))
-        return instance.api_key, _azure_chat_model_name(instance)
-    return os.environ["OPENAI_API_KEY"], resolved
-
-
 def build_chat_llm(*, model_name: str | None = None) -> BaseChatModel:
     """
     Prefer LiteLLM (``LITELLM_URL``), then configured Azure OpenAI, then ``OPENAI_API_KEY``.

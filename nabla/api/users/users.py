@@ -14,8 +14,6 @@ from fastapi_users.authentication import (
     JWTStrategy,
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
-from fastmcp import FastMCP
-from fastmcp.dependencies import Depends as McpDepends
 from jwt import PyJWTError
 
 # from fastapi_cache.decorator import cache
@@ -41,7 +39,6 @@ from nabla.utils.prometheus import USER_REGISTRATIONS
 OAUTH2_ACCESS_TOKEN_TYPE = "bearer"  # noqa: S105  # nosec B105
 
 router = APIRouter(prefix="/test")
-mcp = FastMCP(name="UserServer")
 
 circuit_breaker_user = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
@@ -110,26 +107,6 @@ async def get_enabled_backends(request: Request):
 current_active_user = fastapi_users.current_user(active=True, get_enabled_backends=get_enabled_backends)
 
 
-def _get_user_details_user_id() -> str | None:
-    """Injected server-side for MCP; omitted from the tool input schema."""
-    return None
-
-
-@mcp.tool(name="get_user_details")
-def get_user_details(
-    user_id: str | None = McpDepends(_get_user_details_user_id),
-) -> PublicUserProfile:
-    # def get_user_details(user_id: str = None) -> dict[str, str]:
-    # user_id will be injected by the server, not provided by the LLM
-    if user_id is None:
-        logger.info("get_user_details", user_id=user_id)
-
-    return PublicUserProfile.model_validate(get_me().model_dump())
-
-
-# This endpoint will not be registered as a tool, since it was added after the MCP instance was created
-# Dynamic resource template
-@mcp.resource("users://whoami/profile")
 @router.get("/whoami/", operation_id="whoami", response_model=PublicUserProfile)
 async def whoami():
     return get_me()
@@ -143,12 +120,6 @@ async def current_user():
     """
     👤 Retrieve the current user
     """
-    # return {"status": "registered"}
-    # return json.loads(get_user_details(None))
-    # return json.dumps(get_user_details(None))
-
-    # user = get_user_details(None)
-    # return UserIn(**user)
     return get_me()
 
 
@@ -198,8 +169,6 @@ async def validate_is_authenticated(
     return current_user
 
 
-# Dynamic resource template
-@mcp.resource("users://{user_id}/profile")
 @router.get("/users/{user_id}", response_model=UserOut, operation_id="user", dependencies=[Depends(validate_is_authenticated)])
 # @circuit_breaker_user
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL

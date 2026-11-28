@@ -1,6 +1,6 @@
 """Profile and identity for Alban Andrieu.
 
-Used by ``get_me``, the ``/whoami/`` MCP resource and route, and ``/users/current``
+Used by ``get_me``, the ``/whoami/`` route, and ``/users/current``
 (``current_user``). ``WHOAMI_HANDLE`` matches the login used in app logs; use
 ``runtime_whoami()`` for the shell ``whoami`` / OS username.
 
@@ -19,7 +19,6 @@ import re
 import urllib.request
 from urllib.parse import urljoin, urlparse
 
-from fastmcp import FastMCP
 from langchain_core.tools import tool
 
 from nabla.api.users.models import UserIn
@@ -45,59 +44,22 @@ PROFESSIONAL_WEBSITE_URL = "https://www.albanandrieu.com/"
 LINKEDIN_URL = "https://www.linkedin.com/in/nabla/"
 
 PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
-    "alban", "andrieu", "albandrieu", "devsecops", "engineer",
-    "cloud architect", "cloud engineer", "cloud developer", "cloud security",
-    "cloud infrastructure", "cloud operations", "cloud monitoring", "cloud logging",
-    "cloud automation", "dr alban.com",
+    "alban",
+    "andrieu",
+    "albandrieu",
+    "devsecops",
+    "engineer",
+    "cloud architect",
+    "cloud engineer",
+    "cloud developer",
+    "cloud security",
+    "cloud infrastructure",
+    "cloud operations",
+    "cloud monitoring",
+    "cloud logging",
+    "cloud automation",
+    "dr alban.com",
 )
-
-mcp = FastMCP(name="UserServer")
-
-
-@mcp.prompt(title="Code Review")
-def code_review_prompt(language: str = "python") -> str:
-    """Generate a code review prompt for a specific language."""
-    return f"You are an expert {language} code reviewer..."
-
-
-@mcp.prompt()
-def lawyer_prompt() -> str:
-    """Generate a lawyer prompt for child abduction and alienation by mother."""
-    return """Act as a personal attorney who guides me through any legal matter using massive chain-of-thought, chain-of-draft, and mixture-of-experts techniques.
-
-The process must be recursive and personalized.
-
-Ask me to describe my legal issue or objective.
-
-Chain-of-Thought Reasoning:
-
-- Before answering, list your internal reasoning step-by-step to uncover relevant facts, legal principles, and potential strategies.
-
-- Make each inference explicit—do not hide your reasoning.
-
-Mixture of Experts:
-- Child Abduction law specialist
-- Child Alienation by mother law specialist
-- International law specialist
-- Family law specialist in France, Germany and  Norway
-
-Chain-of-Draft Process:
-- Draft an initial outline of your legal analysis and action plan.
-- Expand each outline point into a detailed second draft.
-- Refine the second draft by asking clarifying questions and incorporating my feedback.
-
-Dialogue Flow:
-- After each draft, ask if I need clarification or want to adjust scope.
-- If I request changes, update the draft immediately and repeat refinement.
-
-Deliverables:
-- Final draft of legal memorandum or actionable plan.
-- Endnotes or references to statutes, case law, or guidelines.
-
-Conclusion:
-- Summarize key recommendations and next steps.
-
-Let's begin: what's your legal issue or objective?"""
 
 
 def question_refers_to_alban_profile(question: str) -> bool:
@@ -149,13 +111,7 @@ def _html_to_visible_text(html: str, *, max_chars: int = 8000) -> str:
 
 def _sitemap_locs(xml_body: str) -> list[str]:
     """Extract ``<loc>`` URLs without full XML parsing."""
-    return [
-        match.strip()
-        for match in re.findall(
-            r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL
-        )
-        if match.strip()
-    ]
+    return [match.strip() for match in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL) if match.strip()]
 
 
 def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
@@ -165,9 +121,7 @@ def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
         return False
 
 
-def _expand_sitemap_to_page_urls(
-    seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8
-) -> list[str]:
+def _expand_sitemap_to_page_urls(seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8) -> list[str]:
     pages: list[str] = []
     subs: list[str] = []
     for loc in seed_locs:
