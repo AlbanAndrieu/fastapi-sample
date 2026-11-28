@@ -321,9 +321,7 @@ function render(data, platformMetrics = null) {
         : "Optional health check";
     const cls = classify(key, check);
     const item = document.createElement("li");
-    item.className = isRetiredCheck(key, check)
-      ? "health-row health-row--retired"
-      : "health-row";
+    item.className = `health-row${cls === "pink" ? " health-row--retired" : ""}`;
     item.dataset.serviceFilterTarget = "";
     item.dataset.serviceKey = key;
     item.dataset.serviceName = String(
