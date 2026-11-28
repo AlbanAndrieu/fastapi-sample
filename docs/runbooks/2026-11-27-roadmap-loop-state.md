@@ -1,6 +1,6 @@
 # État de la boucle roadmap — 27/11/2026
 
-Skill `nabla-roadmap-loop`, session fastapi-sample, PR [#460](https://github.com/AlbanAndrieu/fastapi-sample/pull/460) (fusionnée), puis [#461](https://github.com/AlbanAndrieu/fastapi-sample/pull/461) (Draft). Détail des items : [roadmap, section du 27/11](../engineering-roadmap.md#2026-11-27--implémentation-de-la-roadmap--retrait-de-federationtruenas-et-tests-js).
+Skill `nabla-roadmap-loop`, session fastapi-sample, PR [#460](https://github.com/AlbanAndrieu/fastapi-sample/pull/460) (fusionnée), puis [#461](https://github.com/AlbanAndrieu/fastapi-sample/pull/461) (fusionnée, 1.44.2), puis la branche `refactor/agent-dead-code-20261128`. Détail des items : [roadmap, section du 27/11](../engineering-roadmap.md#2026-11-27--implémentation-de-la-roadmap--retrait-de-federationtruenas-et-tests-js).
 
 ## Périmètre
 
@@ -16,13 +16,14 @@ Skill `nabla-roadmap-loop`, session fastapi-sample, PR [#460](https://github.com
 | 3 | 28/11 ~00:00 UTC | Sample TrueNAS coupé 1 à 17 min toutes les ~3 h par le recyclage `--max-requests` sous pression IO (Kafka) : retiré du `Dockerfile` ; réconciliation (roadmap F08, skill `local-first-quality` : L3 en clone partagé) ; correctifs dans #461 |
 
 | 4 | 28/11 ~01:30 UTC | Premier chargement Cloud servi depuis Redis ; master-red transmet la clé de smoke (décision owner) ; skills injectables dans l'agent `/run` ; secret du relais généré sur TrueNAS ; mise à jour de Sample TrueNAS en échec (mémoire), relance à 07:20 Paris |
+| 5 | 28/11 ~10:45 Paris | Code mort agent/MCP retiré ; SearXNG évalué (fournisseur possible côté TrueNAS seulement) ; relais TrueNAS → Cloud configuré des deux côtés, premier envoi attendu à 12:00 |
 
 Réconciliation faite à la passe 3 ; prochaine à la passe 6. Les passes 2 à 5 ne valent que si un blocage tombe (fusion de #460, identifiant owner) : sinon elles se limitent à re-tester les blocages ci-dessous.
 
 ## Questions parquées (owner)
 
-1. Fusionner #461 (`/healthz` garde `checks.freebox`, plus de recyclage Gunicorn) ; #460 fusionnée le 27/11 à 23:04 UTC.
-2. Relais de services (demandé le 28/11) : secret généré dans `.env.secrets` TrueNAS ; mise à jour vers `master` en échec à 02:10 Paris (mémoire saturée), relance programmée à 07:20 Paris (log `/mnt/cpool/var/nabla/ops-logs/sample-update-20261128-relay-retry.log`) ; ensuite seulement, `TRUENAS_SERVICE_STATUS_RELAY_ENABLED=true` et `TRUENAS_FEDERATION_CLOUD_URL=https://fastapi-sample.fastapicloud.dev` dans `.env` TrueNAS puis redéploiement ; côté Cloud, `TRUENAS_SERVICE_STATUS_RELAY_ENABLED=true` est déjà posé (owner, 28/11) ; reste le secret : `fastapi cloud login` par l'owner puis `env set --secret --value-stdin` (copié depuis TrueNAS par tube, jamais affiché), ou saisie par l'owner dans le dashboard.
+1. Fusionner la PR de `refactor/agent-dead-code-20261128` (code mort agent/MCP, roadmap) ; #461 fusionnée le 28/11 à 09:34 UTC (release 1.44.2), #460 le 27/11 à 23:04 UTC.
+2. Relais de services : configuré des deux côtés le 28/11 (Sample TrueNAS en `b3d6b510` après la relance de 07:20, drapeaux et secret lus dans le conteneur ; Cloud `92afbf21` répond `401 signature_required`). Reste la preuve du premier envoi au créneau de 12:00 Paris (`public_status_relay_wake result=sent`).
 3. Smoke authentifié : master-red transmet la seule clé (décision owner du 28/11, dans #461). Reste à restreindre l'environnement `production-smoke` à `master`.
 4. Compose : Apps TrueNAS arrêtées et comptées `fail` (3proxy, ConvertX, Stirling PDF, Zabbix, pgAdmin, Bitcoin Core) : les démarrer, ou les étiqueter `albandrieu.com/operational-state: disabled` si l'arrêt est voulu.
 5. Compose : convergence Access des applications `fastapi-sample` et `fastapi-sample-api` avant `HOMELAB_OWNER_ACCESS_SSO=true`.
