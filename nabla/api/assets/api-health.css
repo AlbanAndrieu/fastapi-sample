@@ -353,3 +353,27 @@
 #runtime-topology[hidden] {
   display: none !important;
 }
+
+/* Decommissioned infrastructure is historical, not a failed live dependency. */
+.health-led--pink {
+  background: #f472b6;
+  color: #f472b6;
+}
+.health-row-icon--pink {
+  color: #f9a8d4;
+  background: rgba(244, 114, 182, 0.1);
+  border-color: rgba(244, 114, 182, 0.48);
+  box-shadow: none;
+}
+.health-row--retired {
+  border-color: rgba(244, 114, 182, 0.35);
+}
+.health-row-primary--pink .health-row-name,
+.health-row-primary--pink .health-row-detail,
+.health-row-primary--pink .health-row-name .sickz-target-link,
+.health-meta-badge--status-retired {
+  color: #f9a8d4;
+}
+.health-row-primary--pink .health-row-name .sickz-target-link:hover {
+  color: #fbcfe8;
+}

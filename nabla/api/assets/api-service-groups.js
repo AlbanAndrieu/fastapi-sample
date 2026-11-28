@@ -4,6 +4,7 @@ import {
   NIST_CSF_FUNCTIONS,
 } from "./api-service-classification.js";
 import { expectedAnonymousAuth } from "./api-service-http-auth.js";
+import { isRetiredCheck } from "./api-retired-check.js";
 import { fetchTopology } from "./api-topology-data.js";
 
 const GROUPS = [
@@ -141,6 +142,7 @@ function resolvedEnvironments(node) {
 
 function rowSeverity(row) {
   const semantic = row.dataset.semanticStatus || "";
+  if (semantic === "retired") return 5;
   if (semantic === "down") return 0;
   if (semantic === "at-risk" || semantic === "degraded") return 1;
   if (semantic === "unknown") return 3;
@@ -166,6 +168,7 @@ function postureAtRisk(check) {
 }
 
 export function rowStatus(row, check = {}) {
+  if (isRetiredCheck(row?.dataset?.serviceKey, check)) return "Retired";
   if (normalize(check?.effective_state || check?.state) === "scheduled")
     return "Scheduled";
   // Planned or disabled App that does not answer: grey, never an outage.
@@ -423,6 +426,9 @@ function overviewCard(label, rows, metricDetail = "") {
   const unknown = rows.filter(
     (row) => row.dataset.semanticStatus === "unknown",
   ).length;
+  const retired = rows.filter(
+    (row) => row.dataset.semanticStatus === "retired",
+  ).length;
   const attention = atRisk + down + degraded + unknown;
   const tone =
     down > 0
@@ -437,6 +443,7 @@ function overviewCard(label, rows, metricDetail = "") {
     degraded > 0 ? `${degraded} degraded` : "",
     down > 0 ? `${down} down` : "",
     unknown > 0 ? `${unknown} unknown` : "",
+    retired > 0 ? `${retired} retired (historical)` : "",
   ].filter(Boolean);
   const footer = [...details, metricDetail].filter(Boolean).join(" · ");
   return `<div class="service-overview-card service-overview-card--${tone}"><span>${label}</span><strong>${operational}/${total} operational</strong><small>${footer || "No active issue"}</small></div>`;

@@ -16,6 +16,7 @@ import {
   tunnelHref,
 } from "./api-health-ui.js";
 import { organizeHealthRows } from "./api-service-groups.js";
+import { isRetiredCheck } from "./api-retired-check.js";
 import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 
 let lastHealthRowsSignature = null;
@@ -85,6 +86,7 @@ function postureAtRisk(check) {
 }
 
 function classify(key, check) {
+  if (isRetiredCheck(key, check)) return "pink";
   if (key === "cloudflare") {
     if (check.skipped === true) return "gray";
     if (check.api_reachable === true && check.status_confirmed === true) {
@@ -317,7 +319,9 @@ function render(data, platformMetrics = null) {
       : "Optional health check";
     const cls = classify(key, check);
     const item = document.createElement("li");
-    item.className = "health-row";
+    item.className = isRetiredCheck(key, check)
+      ? "health-row health-row--retired"
+      : "health-row";
     item.dataset.serviceFilterTarget = "";
     item.dataset.serviceKey = key;
     item.dataset.serviceName = String(
