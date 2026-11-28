@@ -7,6 +7,7 @@ const STATUS_CHIPS = [
   ["degraded", "Degraded"],
   ["down", "Down"],
   ["unknown", "Unknown"],
+  ["retired", "Retired"],
 ];
 
 // Fixed SVG paths. Filter values and icon markup are local constants, not service data.
@@ -17,6 +18,7 @@ const STATUS_ICON_PATHS = {
   degraded: '<path d="M2 13h5l3-6 4 10 3-4h5"/>',
   down: '<circle cx="12" cy="12" r="9"/><path d="M8 8l8 8m0-8l-8 8"/>',
   unknown: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4m0 3h.01"/>',
+  retired: '<rect x="4" y="6" width="16" height="14" rx="2"/><path d="M2 5h20M10 11h4"/>',
 };
 
 function statusIcon(status) {
@@ -112,7 +114,7 @@ function renderStatusChips(host) {
         `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
         `<strong class="service-filter-health-count" aria-hidden="true">${counts[status]}</strong>` +
         `<span class="service-filter-health-name" aria-hidden="true">${label}</span>` +
-        `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} services</span>`;
+        `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} health checks</span>`;
     }
   }
 }
@@ -123,7 +125,7 @@ function ensureHeader(host) {
   header.className = "service-filter-global-heading";
   header.innerHTML =
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
-    "<p>Choose a status, then refine the services. Select a service to view its probes.</p></div>" +
+    "<p>Choose a status, then refine the services. These counters represent loaded /healthz checks, not all catalog services. The public directory lists the full catalog.</p></div>" +
     '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
     '<button type="button" id="service-filter-reset-all" class="service-filter-reset-all" aria-label="Reset all active filters" hidden>Reset</button>' +
     '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true" aria-controls="service-filter-advanced">Collapse</button></div>';

@@ -5,6 +5,7 @@ const STATUS_OPTIONS = [
   ["degraded", "Degraded"],
   ["down", "Down"],
   ["unknown", "Unknown"],
+  ["retired", "Retired"],
   ["issues", "Issues only"],
 ];
 
@@ -167,7 +168,7 @@ function appendLegend(host) {
   }
   const help = document.createElement("small");
   help.textContent =
-    "green = operational · amber = warning · red = failed · gray = unknown / not confirmed";
+    "green = operational · amber = warning · red = failed · gray = unknown / not confirmed · pink = retired (historical, not a failure)";
   legend.appendChild(help);
   host.appendChild(legend);
 }
@@ -277,7 +278,8 @@ function syncFilterStateToUrl() {
 function statusMatches(row) {
   if (filters.status === "all") return true;
   const status = normalizedStatus(row);
-  if (filters.status === "issues") return status !== "operational";
+  if (filters.status === "issues")
+    return status !== "operational" && status !== "retired";
   return status === filters.status;
 }
 
