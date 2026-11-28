@@ -170,7 +170,8 @@ def _dr_alban_http_sitemap_fallback(*, max_pages: int = 7, total_budget: int = 2
         try:
             html = _http_get_text(url)
         except OSError as exc:
-            chunks.append(f"URL: {url}\n(fetch failed: {exc!s})\n")
+            logger.warning("fetch_my_profile: sitemap fallback fetch failed for %s: %s", url, exc)
+            chunks.append(f"URL: {url}\n(fetch failed)\n")
             continue
         room = max(0, total_budget - used)
         if room <= 0:
