@@ -1122,7 +1122,13 @@ async function refresh() {
       const showingHistorical =
         !fleet.verified &&
         paintLastObservedFleet(publicResult.value.catalogRevision);
-      if (!showingHistorical) summaryCounts(fleet);
+      // First visit after scale-to-zero: the server's last-known states.
+      const serverHistory =
+        fleet.boardState === "stale" && fleet.counts.unknown < fleet.total;
+      if (!showingHistorical)
+        summaryCounts(
+          serverHistory ? { ...fleet, boardState: "historical" } : fleet,
+        );
       if (fleet.verified) {
         savePublicObservation(publicObservationStorage(), publicResult.value);
       }
@@ -1130,7 +1136,7 @@ async function refresh() {
       status(
         fleet.verified
           ? "Catalogue vérifié · instantané public"
-          : showingHistorical
+          : showingHistorical || serverHistory
             ? "Dernier état connu · nouvelle vérification en cours"
             : HOME_RUNTIME === "fastapi_cloud"
               ? "Inventaire public · sondes à exécuter sur demande"

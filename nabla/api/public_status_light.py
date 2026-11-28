@@ -21,6 +21,7 @@ import httpx
 
 from nabla.api.catalog_routes import routes_from_catalog
 from nabla.api.dns_probe import probe_dns_hostname
+from nabla.api.external_probe_cache_redis import resolve_redis_client
 from nabla.api.provider_credentials import cloudflare_access_service_token_credentials
 from nabla.api.sickz_cloudflare_edge import _service_token_target_allowed
 
@@ -32,8 +33,14 @@ INTERVAL_SECONDS = 180.0
 MAX_AGE_SECONDS = 900.0
 CONCURRENCY = 3
 DEADLINE_SECONDS = 5.0
+# Samples outlive scale-to-zero in Redis: a cold replica shows them at once as
+# history (stale), on the same 12h30 horizon as the TrueNAS relay.
+LAST_KNOWN_SECONDS = 45000
+_REDIS_PREFIX = "nabla:public-light:v1:"
 
 _revision = ""
+_hydrated = ""
+# Wall-clock observation times, so Redis can carry them across replicas.
 _samples: dict[str, tuple[float, str]] = {}
 _next_at = 0.0
 _cursor = 0
@@ -145,39 +152,95 @@ async def _run_wave(targets: list[tuple[str, str, bool]]) -> None:
         tasks = [asyncio.create_task(one(ref, url, auth, client)) for ref, url, auth in targets]
         try:
             done, pending = await asyncio.wait(tasks, timeout=DEADLINE_SECONDS)
-            now = time.monotonic()
+            now = time.time()
+            updates: dict[str, tuple[float, str]] = {}
+            dropped: set[str] = set()
             for task in done:
                 try:
                     ref, status = task.result()
                 except (Exception, asyncio.CancelledError):
                     continue
                 if status != "unknown":
-                    _samples[ref] = (now, status)
+                    _samples[ref] = updates[ref] = (now, status)
                 else:
                     # A failed/blocked recheck must never leave an old green
                     # labelled current until its natural TTL expiry.
                     _samples.pop(ref, None)
+                    dropped.add(ref)
             for task in pending:
                 task.cancel()
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)
+            await _persist(updates, dropped)
         finally:
             for task in tasks:
                 if not task.done():
                     task.cancel()
 
 
-def start_light_public_checks(revision: str, raw: dict) -> None:
-    """Non-blocking, single-flight Cloud trigger, never from a private probe."""
-    global _revision, _next_at, _cursor, _task
-    if not isinstance(raw, dict) or raw.get("catalogRevision") != revision:
+async def _persist(updates: dict[str, tuple[float, str]], dropped: set[str]) -> None:
+    """Best effort: a Redis failure loses history only, never a current verdict."""
+    client = resolve_redis_client()
+    if client is None or not _revision or not (updates or dropped):
         return
-    now = time.monotonic()
+    key = _REDIS_PREFIX + _revision
+    try:
+        if updates:
+            fields = {ref: f"{observed:.0f} {status}" for ref, (observed, status) in updates.items()}
+            await asyncio.wait_for(client.hset(key, mapping=fields), timeout=0.5)
+        if dropped:
+            await asyncio.wait_for(client.hdel(key, *sorted(dropped)), timeout=0.5)
+        await asyncio.wait_for(client.expire(key, LAST_KNOWN_SECONDS), timeout=0.5)
+    except Exception:
+        return
+
+
+def _select_revision(revision: str) -> None:
+    """A new catalogue revision never inherits samples of another one."""
+    global _revision, _next_at, _cursor
     if _revision != revision:
         _revision = revision
         _samples.clear()
         _cursor = 0
         _next_at = 0.0
+
+
+async def hydrate(revision: str) -> None:
+    """Once per revision, reload the last samples a previous replica stored."""
+    global _hydrated
+    if _hydrated == revision:
+        return
+    _select_revision(revision)
+    client = resolve_redis_client()
+    if client is None:
+        _hydrated = revision
+        return
+    try:
+        stored = await asyncio.wait_for(client.hgetall(_REDIS_PREFIX + revision), timeout=0.15)
+    except Exception:
+        return  # Retried on the next request; the page never waits longer.
+    _hydrated = revision
+    now = time.time()
+    for field, value in (stored or {}).items():
+        ref = field.decode() if isinstance(field, bytes) else str(field)
+        observed_text, _, status = (value.decode() if isinstance(value, bytes) else str(value)).partition(" ")
+        try:
+            observed = float(observed_text)
+        except ValueError:
+            continue
+        if status not in ("ok", "fail") or not 0 <= now - observed < LAST_KNOWN_SECONDS:
+            continue
+        if ref not in _samples or _samples[ref][0] < observed:
+            _samples[ref] = (observed, status)
+
+
+def start_light_public_checks(revision: str, raw: dict) -> None:
+    """Non-blocking, single-flight Cloud trigger, never from a private probe."""
+    global _next_at, _cursor, _task
+    if not isinstance(raw, dict) or raw.get("catalogRevision") != revision:
+        return
+    now = time.monotonic()
+    _select_revision(revision)
     if (_task is not None and not _task.done()) or now < _next_at:
         return
     targets = _targets(raw)
@@ -194,16 +257,25 @@ def fresh_public_states(revision: str) -> dict[str, str]:
     """Only return actually observed status, expiring each probe independently."""
     if revision != _revision:
         return {}
-    now = time.monotonic()
+    now = time.time()
     return {ref: status for ref, (observed, status) in _samples.items() if 0 <= now - observed < MAX_AGE_SECONDS}
+
+
+def last_known_public_states(revision: str) -> dict[str, str]:
+    """Observed status too old to be current: history for a cold first page."""
+    if revision != _revision:
+        return {}
+    now = time.time()
+    return {ref: status for ref, (observed, status) in _samples.items() if MAX_AGE_SECONDS <= now - observed < LAST_KNOWN_SECONDS}
 
 
 def reset_light_public_checks() -> None:
     """Isolated test seam; do not reuse prior samples or run a background poller."""
-    global _revision, _next_at, _cursor, _task
+    global _revision, _hydrated, _next_at, _cursor, _task
     if _task is not None and not _task.done():
         _task.cancel()
     _revision = ""
+    _hydrated = ""
     _samples.clear()
     _next_at = 0.0
     _cursor = 0

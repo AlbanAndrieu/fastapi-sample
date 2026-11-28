@@ -6,6 +6,9 @@ on:
     types: [opened, ready_for_review]
   workflow_dispatch:
   workflow_call:
+    secrets:
+      PRODUCTION_SMOKE_ACCESS_KEY:
+        required: false
 
 permissions:
   contents: read
@@ -94,9 +97,9 @@ jobs:
           echo "Expected source version: ${expected}"
           EXPECTED_VERSION="${expected}" node scripts/check-production-api-ui.mjs
 
-  # Post-deploy only. The read-only key lives in the master-only production-smoke
-  # environment, so callers such as master-red pass no secret. The repository is
-  # public: assert with jq -e, never print a private payload.
+  # Post-deploy only. A reusable call receives only the secrets passed to it:
+  # master-red passes this read-only key explicitly (empty otherwise, 28/11).
+  # The repository is public: assert with jq -e, never print a private payload.
   authenticated-smoke:
     name: Production diagnostics smoke (read-only key)
     if: ${{ github.event_name != 'pull_request' }}
@@ -115,7 +118,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${PRODUCTION_SMOKE_ACCESS_KEY}" ]]; then
-            echo "::error::PRODUCTION_SMOKE_ACCESS_KEY is missing from the production-smoke environment"
+            echo "::error::PRODUCTION_SMOKE_ACCESS_KEY is empty: set it, and pass it explicitly from a workflow_call caller"
             exit 1
           fi
           curl --fail --silent --show-error \

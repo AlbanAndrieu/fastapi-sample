@@ -127,3 +127,18 @@ async def test_standalone_healthz_keeps_lightweight_platform_path(monkeypatch) -
     platform.assert_awaited_once()
     assert payload["checks"]["cloudflare"]["reachable"] is True
     assert payload["checks"]["pfsense"]["reachable"] is True
+    assert "freebox" not in payload["checks"]
+
+
+@pytest.mark.asyncio
+async def test_standalone_healthz_keeps_the_freebox_edge_check(monkeypatch) -> None:
+    # 28/11: the master smoke asserts checks.freebox on Cloud; the standalone path dropped it.
+    freebox = {"skipped": True, "vantage_point": "fastapi_cloud", "reachable": None, "status_confirmed": False}
+    platform = AsyncMock(return_value={"checks": {"cloudflare": {"reachable": True}, "pfsense": {"skipped": True}, "freebox": freebox}})
+    monkeypatch.setattr(health_checks, "build_healthz_payload", _base_payload)
+    monkeypatch.setattr(observability_health, "enrich_optional_observability_checks", _observability_passthrough)
+    monkeypatch.setattr(platform_health, "enrich_optional_platform_checks", platform)
+
+    payload = await health_board.build_extended_healthz(_request())
+
+    assert payload["checks"]["freebox"] == freebox
