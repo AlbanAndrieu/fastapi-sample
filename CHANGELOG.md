@@ -1,3 +1,10 @@
+# [1.46.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.45.0...1.46.0) (2026-11-28)
+
+
+### Features
+
+* SearXNG replaces Brave/Google, MCP tools carry lawyer/profile/RSS skills, dead agent code removed ([#463](https://github.com/AlbanAndrieu/fastapi-sample/issues/463)) ([db1b466](https://github.com/AlbanAndrieu/fastapi-sample/commit/db1b466154b761a911b4f2ceedf19caa1898831c)), closes [#462](https://github.com/AlbanAndrieu/fastapi-sample/issues/462) [#462](https://github.com/AlbanAndrieu/fastapi-sample/issues/462)
+
 # [1.45.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.44.2...1.45.0) (2026-11-28)
 
 

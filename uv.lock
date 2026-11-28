@@ -2090,7 +2090,7 @@ wheels = [
 
 [[package]]
 name = "fastapi-sample"
-version = "1.45.0"
+version = "1.46.0"
 source = { editable = "." }
 default-groups = ["ai", "api", "api-cli", "base", "cpu", "db", "deployment", "dev", "encryption", "open-telemetry", "panda", "utils"]
 dependencies = [
@@ -2479,7 +2479,6 @@ panda = [
 ]
 scripts = [
     { name = "bcrypt" },
-    { name = "grafana-openai-monitoring" },
     { name = "selenium" },
 ]
 temporal = [
@@ -2900,7 +2899,6 @@ panda = [
 ]
 scripts = [
     { name = "bcrypt", specifier = ">=4.0.1" },
-    { name = "grafana-openai-monitoring", specifier = ">=0.0.9" },
     { name = "selenium", specifier = ">=4.51.0" },
 ]
 temporal = [{ name = "temporalio", extras = ["opentelemetry"], specifier = ">=1.6.0" }]
@@ -3505,18 +3503,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/57/5d/f8747239d3c87749512709dd3193f8626a02661cb29823370c95ce5e1f3c/gradio_client-2.7.2.tar.gz", hash = "sha256:5b568b8189b86cfdacab39fecc2ee66900348cdd83a1c0bb968a98c83eafc198", size = 63553, upload-time = "2026-10-02T18:35:44.64Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/56/ce1104ac287709af37628c4bd3b24f0e78c925facda3dc8915d10b787846/gradio_client-2.7.2-py3-none-any.whl", hash = "sha256:12c9d2d940df28eb8dce58eef61f5e808265ad87bbbca53704d1330aa701e5e2", size = 64458, upload-time = "2026-10-02T18:35:43.078Z" },
-]
-
-[[package]]
-name = "grafana-openai-monitoring"
-version = "0.0.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/30/e4/e96a3fcc23803cb60daf2bedb1d2a3e4132514975c6f2bc9ac4723d0f180/grafana_openai_monitoring-0.0.9.tar.gz", hash = "sha256:92022d2a04dd6f7ede4237ad136642c606df1dede81253a8954acc128a8eeb2a", size = 6709, upload-time = "2024-04-25T07:22:00.468Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/2a/0e04ba409e97a3f52e682a498e5b89cf64224999e308bc6fbe254f033f60/grafana_openai_monitoring-0.0.9-py3-none-any.whl", hash = "sha256:5ba152c46b7d256b1f5f9456aea98ec0dd8f713b969363b9ef73a2087c20345a", size = 8190, upload-time = "2024-04-25T07:21:59.289Z" },
 ]
 
 [[package]]

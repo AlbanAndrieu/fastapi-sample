@@ -1,6 +1,6 @@
 """Profile and identity for Alban Andrieu.
 
-Used by ``get_me``, the ``/whoami/`` MCP resource and route, and ``/users/current``
+Used by ``get_me``, the ``/whoami/`` route, and ``/users/current``
 (``current_user``). ``WHOAMI_HANDLE`` matches the login used in app logs; use
 ``runtime_whoami()`` for the shell ``whoami`` / OS username.
 
@@ -14,12 +14,12 @@ load from Langfuse when ``LANGFUSE_PUBLIC_KEY`` / ``LANGFUSE_SECRET_KEY`` are se
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import re
 import urllib.request
 from urllib.parse import urljoin, urlparse
 
-from fastmcp import FastMCP
 from langchain_core.tools import tool
 
 from nabla.api.users.models import UserIn
@@ -43,61 +43,29 @@ WHOAMI_HANDLE = "albandrieu"
 
 PROFESSIONAL_WEBSITE_URL = "https://www.albanandrieu.com/"
 LINKEDIN_URL = "https://www.linkedin.com/in/nabla/"
+# Public Reactive Resume CV. The App answers on the TrueNAS LAN only:
+# reactive.albandrieu.com sits behind Cloudflare Access.
+REACTIVE_RESUME_URL = "https://reactive.albandrieu.com/nabla/cv-aandrieu-2026-03-29-en"
+_REACTIVE_RESUME_API = "http://172.17.0.24:30393/api/openapi/resumes/nabla/cv-aandrieu-2026-03-29-en"
+_RESUME_SKIP = frozenset({"id", "hidden", "icon", "iconColor", "website", "level", "email", "phone", "customFields"})
 
 PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
-    "alban", "andrieu", "albandrieu", "devsecops", "engineer",
-    "cloud architect", "cloud engineer", "cloud developer", "cloud security",
-    "cloud infrastructure", "cloud operations", "cloud monitoring", "cloud logging",
-    "cloud automation", "dr alban.com",
+    "alban",
+    "andrieu",
+    "albandrieu",
+    "devsecops",
+    "engineer",
+    "cloud architect",
+    "cloud engineer",
+    "cloud developer",
+    "cloud security",
+    "cloud infrastructure",
+    "cloud operations",
+    "cloud monitoring",
+    "cloud logging",
+    "cloud automation",
+    "dr alban.com",
 )
-
-mcp = FastMCP(name="UserServer")
-
-
-@mcp.prompt(title="Code Review")
-def code_review_prompt(language: str = "python") -> str:
-    """Generate a code review prompt for a specific language."""
-    return f"You are an expert {language} code reviewer..."
-
-
-@mcp.prompt()
-def lawyer_prompt() -> str:
-    """Generate a lawyer prompt for child abduction and alienation by mother."""
-    return """Act as a personal attorney who guides me through any legal matter using massive chain-of-thought, chain-of-draft, and mixture-of-experts techniques.
-
-The process must be recursive and personalized.
-
-Ask me to describe my legal issue or objective.
-
-Chain-of-Thought Reasoning:
-
-- Before answering, list your internal reasoning step-by-step to uncover relevant facts, legal principles, and potential strategies.
-
-- Make each inference explicit—do not hide your reasoning.
-
-Mixture of Experts:
-- Child Abduction law specialist
-- Child Alienation by mother law specialist
-- International law specialist
-- Family law specialist in France, Germany and  Norway
-
-Chain-of-Draft Process:
-- Draft an initial outline of your legal analysis and action plan.
-- Expand each outline point into a detailed second draft.
-- Refine the second draft by asking clarifying questions and incorporating my feedback.
-
-Dialogue Flow:
-- After each draft, ask if I need clarification or want to adjust scope.
-- If I request changes, update the draft immediately and repeat refinement.
-
-Deliverables:
-- Final draft of legal memorandum or actionable plan.
-- Endnotes or references to statutes, case law, or guidelines.
-
-Conclusion:
-- Summarize key recommendations and next steps.
-
-Let's begin: what's your legal issue or objective?"""
 
 
 def question_refers_to_alban_profile(question: str) -> bool:
@@ -149,13 +117,7 @@ def _html_to_visible_text(html: str, *, max_chars: int = 8000) -> str:
 
 def _sitemap_locs(xml_body: str) -> list[str]:
     """Extract ``<loc>`` URLs without full XML parsing."""
-    return [
-        match.strip()
-        for match in re.findall(
-            r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL
-        )
-        if match.strip()
-    ]
+    return [match.strip() for match in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL) if match.strip()]
 
 
 def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
@@ -165,9 +127,7 @@ def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
         return False
 
 
-def _expand_sitemap_to_page_urls(
-    seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8
-) -> list[str]:
+def _expand_sitemap_to_page_urls(seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8) -> list[str]:
     pages: list[str] = []
     subs: list[str] = []
     for loc in seed_locs:
@@ -210,7 +170,8 @@ def _dr_alban_http_sitemap_fallback(*, max_pages: int = 7, total_budget: int = 2
         try:
             html = _http_get_text(url)
         except OSError as exc:
-            chunks.append(f"URL: {url}\n(fetch failed: {exc!s})\n")
+            logger.warning("fetch_my_profile: sitemap fallback fetch failed for %s: %s", url, exc)
+            chunks.append(f"URL: {url}\n(fetch failed)\n")
             continue
         room = max(0, total_budget - used)
         if room <= 0:
@@ -240,19 +201,52 @@ def _web_search_profile_blocks() -> str | None:
         logger.warning("fetch_my_profile: albanandrieu.com web search failed: %s", exc)
     if primary_text:
         blocks.append(f"Web search — albanandrieu.com\n{primary_text}")
-    if not primary_text:
-        for query in linkedin_queries:
-            try:
-                linked = web_search_to_context_string(query, max_results=max_results).strip()
-            except Exception as exc:
-                logger.warning("fetch_my_profile: LinkedIn web search failed: %s", exc)
-                linked = ""
-            if linked:
-                blocks.append(f"Web search — LinkedIn ({LINKEDIN_URL})\n{linked}")
-                break
+    for query in linkedin_queries:
+        try:
+            linked = web_search_to_context_string(query, max_results=max_results).strip()
+        except Exception as exc:
+            logger.warning("fetch_my_profile: LinkedIn web search failed: %s", exc)
+            linked = ""
+        if linked:
+            blocks.append(f"Web search — LinkedIn ({LINKEDIN_URL})\n{linked}")
+            break
     if not blocks:
         return None
     return "\n\n---\n\n".join(blocks)
+
+
+def _resume_text(data: dict) -> str:
+    """Flatten the visible CV sections to ``section — field: value`` lines."""
+    basics = data.get("basics") or {}
+    lines = [", ".join(f"{key}: {value}" for key, value in basics.items() if key not in _RESUME_SKIP and isinstance(value, str) and value)]
+    lines.append(_html_to_visible_text((data.get("summary") or {}).get("content") or ""))
+    for name, section in (data.get("sections") or {}).items():
+        if not isinstance(section, dict) or section.get("hidden"):
+            continue
+        for item in section.get("items") or []:
+            if item.get("hidden"):
+                continue
+            fields = []
+            for key, value in item.items():
+                text = ", ".join(map(str, value)) if isinstance(value, list) else value
+                if key not in _RESUME_SKIP and isinstance(text, str) and text:
+                    fields.append(f"{key}: {_html_to_visible_text(text, max_chars=1500)}")
+            lines.append(f"{name} — " + "; ".join(fields))
+    return "\n".join(line for line in lines if line)[:12_000]
+
+
+def _reactive_resume_block() -> str | None:
+    """Return the public CV text, or None outside the homelab or on any failure."""
+    from nabla.api.runtime_environment import homelab_runtime_detected  # noqa: PLC0415 -- LAN-only source
+
+    if not homelab_runtime_detected():
+        return None
+    try:
+        text = _resume_text(json.loads(_http_get_text(_REACTIVE_RESUME_API, timeout=10.0))["data"])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        logger.warning("fetch_my_profile: Reactive Resume unavailable: %s", exc)
+        return None
+    return f"Reactive Resume CV ({REACTIVE_RESUME_URL})\n{text}" if text else None
 
 
 def search_alban_profile_context(user_question: str) -> str:
@@ -262,10 +256,12 @@ def search_alban_profile_context(user_question: str) -> str:
     if not question_refers_to_alban_profile(user_question):
         return "Skipped profile search: the question does not appear to be about Alban Andrieu."
     search_block = _web_search_profile_blocks()
-    if search_block:
-        return f"Profile context (web search; {PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n{search_block}"
-    http_block = _dr_alban_http_sitemap_fallback()
-    return f"Profile context (direct HTTP + sitemap; no web search API configured or no results):\n\n{http_block}"
+    web = (
+        f"Web search ({PROFESSIONAL_WEBSITE_URL}; LinkedIn {LINKEDIN_URL}):\n\n{search_block}"
+        if search_block
+        else f"Direct HTTP + sitemap of {PROFESSIONAL_WEBSITE_URL} (no web search configured or no results):\n\n{_dr_alban_http_sitemap_fallback()}"
+    )
+    return "Profile context:\n\n" + "\n\n---\n\n".join(block for block in (_reactive_resume_block(), web) if block)
 
 
 @tool

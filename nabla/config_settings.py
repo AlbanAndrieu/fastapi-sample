@@ -89,25 +89,6 @@ class _Settings(DatabaseSettings):
         Optional[SecretStr],
         Field(default=None, validation_alias=AliasChoices("TAVILY_API_KEY")),
     ]
-    brave_api_key: Annotated[
-        Optional[SecretStr],
-        Field(default=None, validation_alias=AliasChoices("BRAVE_API_KEY")),
-    ]
-    google_search_api_key: Annotated[
-        Optional[SecretStr],
-        Field(default=None, validation_alias=AliasChoices("GOOGLE_SEARCH_API_KEY")),
-    ]
-    google_search_cx: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            validation_alias=AliasChoices(
-                "GOOGLE_SEARCH_CX",
-                "GOOGLE_CSE_ID",
-                "GOOGLE_SEARCH_ENGINE_ID",
-            ),
-        ),
-    ]
     web_search_max_results: Annotated[
         int,
         Field(

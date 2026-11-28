@@ -1,6 +1,8 @@
-"""Explicit operator-only RSS integration. No API endpoint, scheduler or fallback.
+"""Explicit operator-only RSS integration, plus one read-only MCP triage input.
 
 The worker must run on TrueNAS. The CLI is read-only and has a separate opt-in.
+``triage_inputs`` feeds ``GET /v2/rss/triage`` (TrueNAS only): the MCP client's
+own model sorts the articles with the ``rss-triage`` skill; no scheduler or fallback.
 """
 
 from __future__ import annotations
@@ -47,12 +49,16 @@ def _checked_litellm_url(value: str) -> str:
         parsed.scheme != "http"
         or not _private_host(parsed.hostname or "")
         or parsed.port != 4000
-        or parsed.username or parsed.password
+        or parsed.username
+        or parsed.password
         or parsed.path not in ("", "/")
-        or parsed.query or parsed.fragment
+        or parsed.query
+        or parsed.fragment
     ):
         raise RSSConfigurationError("Dedicated private LiteLLM endpoint required")
     return value.rstrip("/")
+
+
 _BAD_TAGS = {"production", "development", "service", "website", "internal", "active", "managed"}
 
 
@@ -282,6 +288,27 @@ async def run_once() -> list[dict]:
             load_prompt=classifier.resolve,
             classify_litellm=classifier.classify,
         )
+
+
+async def triage_inputs() -> tuple[str, list[str], list[dict[str, str]]]:
+    """Catalog technologies and the newest public FreshRSS articles; no LLM call (TrueNAS only)."""
+    from nabla.api.runtime_environment import homelab_runtime_detected  # noqa: PLC0415 -- homelab only
+    from nabla.api.site_architecture_catalog import fetch_site_catalog_v2  # noqa: PLC0415 -- homelab only
+
+    if not homelab_runtime_detected():
+        raise RSSConfigurationError("RSS triage is TrueNAS-only")
+    auth = os.getenv("FRESHRSS_RELEVANCE_AUTH", "").strip()
+    if not auth:
+        raise RSSConfigurationError("Dedicated FreshRSS account not configured")
+    revision, technologies = technology_projection(await fetch_site_catalog_v2())
+    async with httpx.AsyncClient(timeout=httpx.Timeout(8), follow_redirects=False, trust_env=False) as client:
+        articles = await recent_public_articles(
+            client,
+            auth=auth,
+            cf_access_id=os.getenv("FRESHRSS_CF_ACCESS_CLIENT_ID", "").strip(),
+            cf_access_secret=os.getenv("FRESHRSS_CF_ACCESS_CLIENT_SECRET", "").strip(),
+        )
+    return revision, technologies, articles
 
 
 def main() -> int:

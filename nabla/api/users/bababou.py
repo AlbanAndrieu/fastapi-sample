@@ -113,7 +113,8 @@ def _http_sitemap_fallback(*, max_pages: int = 5, total_budget: int = 24_000) ->
         try:
             raw = _fetch_public_page_text(url)
         except OSError as exc:
-            chunks.append(f"URL: {url}\n(fetch failed: {exc!s})\n")
+            logger.warning("fetch_bababou_public_page: fetch failed for %s: %s", url, exc)
+            chunks.append(f"URL: {url}\n(fetch failed)\n")
             continue
         room = max(0, total_budget - used)
         if room <= 0:
@@ -135,6 +136,11 @@ def fetch_bababou_public_page(user_question: str | None = None) -> str:
     Pass the user's question verbatim in ``user_question`` so the tool can confirm
     the topic before fetching.
     """
+    return search_bababou_context(user_question or "")
+
+
+def search_bababou_context(user_question: str) -> str:
+    """Return bababou.com context for a question about Éléonore (Bababou)."""
     if not user_question or not user_question.strip():
         return (
             "Missing `user_question`. Pass the user's question verbatim so I can confirm "

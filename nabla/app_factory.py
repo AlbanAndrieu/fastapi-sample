@@ -21,7 +21,7 @@ from starlette.routing import Route
 from nabla.access_control import operations_access_middleware
 from nabla.asgi_transport_guard import OpsASGITransportGuard
 from nabla.api import demo, info, integration, keycloak, v1, v2
-from nabla.api import appwrite_route, brave_route, google_search_route, ping, tavily_route
+from nabla.api import appwrite_route, ping, searxng_route, tavily_route
 from nabla.api.db.availability import require_database
 from nabla.api.runtime_environment import application_debug_enabled, fastapi_cloud_runtime_detected
 from nabla.app_features import AppFeatures
@@ -165,8 +165,7 @@ def _register_routers(app: FastAPI, *, debug: bool, features: AppFeatures) -> No
     app.include_router(v2.router, tags=["api"])
     app.include_router(appwrite_route.router, tags=["appwrite"])
     app.include_router(tavily_route.router, tags=["search"])
-    app.include_router(brave_route.router, tags=["search"])
-    app.include_router(google_search_route.router, tags=["search"])
+    app.include_router(searxng_route.router, tags=["search"])
     app.include_router(integration.router, tags=["integration"])
     app.include_router(demo.router, tags=["integration"])
     if features.database:

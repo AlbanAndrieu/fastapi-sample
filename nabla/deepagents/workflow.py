@@ -1,5 +1,4 @@
 from functools import lru_cache
-from pathlib import Path
 from typing import Annotated, Any
 
 import anyio
@@ -14,6 +13,7 @@ from deepagents import create_deep_agent
 from deepagents.backends.utils import create_file_data
 
 from nabla.deepagents.llm_factory import build_chat_llm
+from nabla.deepagents.skill_files import SKILLS_DIR as _SKILLS_DIR
 from nabla.api.users import bababou
 from nabla.api.users import me as alban_me
 from nabla.integrations.openrag_mcp_tools import build_openrag_mcp_tools
@@ -40,7 +40,6 @@ _TOOLS_WITH_USER_QUESTION_FALLBACK = frozenset(
 
 
 # Reviewed skills shipped with the app. A request names them; it never sends skill text.
-_SKILLS_DIR = Path(__file__).with_name("skills")
 _SKILLS_SOURCE = "/skills/"
 SkillName = Annotated[str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=64)]
 

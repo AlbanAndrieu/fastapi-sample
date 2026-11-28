@@ -5,7 +5,6 @@ from databases.interfaces import Record
 from fastapi import APIRouter, Form, HTTPException, Path, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastmcp import FastMCP
 from redis.exceptions import RedisError
 
 # from fastapi_cache.decorator import cache
@@ -15,7 +14,6 @@ from nabla.utils.logger import logger
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
-mcp = FastMCP(name="NotesServer")
 
 # TODO from fastapi_crudrouter import SQLAlchemyCRUDRouter
 
@@ -23,12 +21,6 @@ mcp = FastMCP(name="NotesServer")
 # app.include_router(router)
 
 templates = Jinja2Templates(directory="templates")
-
-
-@mcp.prompt
-def summarize_request(text: str) -> str:
-    """Generate a prompt asking for a summary."""
-    return f"Please summarize the following text:\n\n{text}"
 
 
 NOTE_NOT_FOUND = "Note not found"
