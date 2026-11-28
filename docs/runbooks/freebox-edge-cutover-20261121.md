@@ -56,16 +56,16 @@ existing `nabla-compose` authenticated check.
 Validation after deployment:
 
 1. On TrueNAS: confirm `curl -fsS --max-time 3 http://192.168.1.254/api_version`
-   returns a JSON `api_version` (a redirect or response other than 200
-   requires endpoint investigation, never disable verification globally).
+    returns a JSON `api_version` (a redirect or response other than 200
+    requires endpoint investigation, never disable verification globally).
 2. Read authenticated `/healthz` and `/api/homelab/health` via the
-   existing service smoke identity. Expect `checks.pfsense.skipped=true`,
-   and on TrueNAS `checks.freebox.state=ok` only if the API responded.
+    existing service smoke identity. Expect `checks.pfsense.skipped=true`,
+    and on TrueNAS `checks.freebox.state=ok` only if the API responded.
 3. On FastAPI Cloud: `checks.freebox.skipped=true` and
-   `vantage_point=fastapi_cloud`; do not demand the private Freebox API
-   from GitHub-hosted runners.
+    `vantage_point=fastapi_cloud`; do not demand the private Freebox API
+    from GitHub-hosted runners.
 4. Check Gatus/Prometheus topology after the `nabla-compose` apply and
-   mark legacy pfSense monitors disabled, not deleted.
+    mark legacy pfSense monitors disabled, not deleted.
 
 Config and test contracts are in `nabla/api/freebox_health.py`,
 `nabla/api/edge_provider.py`, `tests/unit/test_freebox_health.py`
