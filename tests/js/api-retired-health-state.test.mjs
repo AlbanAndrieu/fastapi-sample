@@ -11,20 +11,35 @@ const asset = (name) =>
   );
 
 test("retirement requires explicit edge or lifecycle evidence, never a failed probe", () => {
-  assert.equal(isRetiredCheck("pfsense", {
-    skipped: true,
-    reason: "pfSense retired; Freebox is the active network edge",
-  }), true);
-  assert.equal(isRetiredCheck("pfsense", { skipped: true, reason: "API key missing" }), false);
-  assert.equal(isRetiredCheck("pfsense", { reachable: false, state: "fail" }), false);
+  assert.equal(
+    isRetiredCheck("pfsense", {
+      skipped: true,
+      reason: "pfSense retired; Freebox is the active network edge",
+    }),
+    true,
+  );
+  assert.equal(
+    isRetiredCheck("pfsense", { skipped: true, reason: "API key missing" }),
+    false,
+  );
+  assert.equal(
+    isRetiredCheck("pfsense", { reachable: false, state: "fail" }),
+    false,
+  );
   assert.equal(isRetiredCheck("pfsense", { state: "unknown" }), false);
   assert.equal(isRetiredCheck("any", { lifecycle_state: "retired" }), true);
 });
 
 test("retired is pink, filtered as historical, not counted as an issue", () => {
-  assert.match(asset("api-health-core.js"), /isRetiredCheck\(key, check\)\) return "pink"/);
+  assert.match(
+    asset("api-health-core.js"),
+    /isRetiredCheck\(key, check\)\) return "pink"/,
+  );
   assert.match(asset("api-service-groups.js"), /return "Retired"/);
-  assert.match(asset("api-service-filter.js"), /status !== "operational" && status !== "retired"/);
+  assert.match(
+    asset("api-service-filter.js"),
+    /status !== "operational" && status !== "retired"/,
+  );
   assert.match(asset("api-health.css"), /\.health-led--pink/);
   assert.match(asset("api-health.css"), /\.health-row-primary--pink/);
 });

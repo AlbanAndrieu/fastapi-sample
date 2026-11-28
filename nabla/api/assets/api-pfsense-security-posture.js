@@ -89,8 +89,7 @@ function postureFromSnapshot(snapshot) {
       id: "control_plane",
       label: "pfSense API",
       state: "warn",
-      meaning:
-        `pfSense API preflight took ${elapsed} ms; deeper posture fan-out was skipped to protect the appliance.`,
+      meaning: `pfSense API preflight took ${elapsed} ms; deeper posture fan-out was skipped to protect the appliance.`,
     });
   }
   return {
@@ -177,7 +176,10 @@ function render() {
   const container = ensureContainer();
   if (!container || !latestSnapshot) return;
   const dns = latestSnapshot?.homelab?.pfsense?.dns;
-  if (dns?.operational_state === "disabled" && /pfsense retired/i.test(String(dns?.reason || ""))) {
+  if (
+    dns?.operational_state === "disabled" &&
+    /pfsense retired/i.test(String(dns?.reason || ""))
+  ) {
     // Historical pfBlockerNG and Snort inventories must never look live.
     container.hidden = true;
     container.replaceChildren();

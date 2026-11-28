@@ -15,8 +15,8 @@ import {
   rowIcon,
   tunnelHref,
 } from "./api-health-ui.js";
-import { organizeHealthRows } from "./api-service-groups.js";
 import { isRetiredCheck } from "./api-retired-check.js";
+import { organizeHealthRows } from "./api-service-groups.js";
 import { expectedAnonymousAuth } from "./api-service-http-auth.js";
 
 let lastHealthRowsSignature = null;

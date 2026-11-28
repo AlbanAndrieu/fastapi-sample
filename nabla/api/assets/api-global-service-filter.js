@@ -1,4 +1,7 @@
-import { shouldUpdateRenderSignature, setDatasetValueIfChanged } from "./api-dom-render-signature.js";
+import {
+  setDatasetValueIfChanged,
+  shouldUpdateRenderSignature,
+} from "./api-dom-render-signature.js";
 
 const STATUS_CHIPS = [
   ["all", "All"],
@@ -17,8 +20,10 @@ const STATUS_ICON_PATHS = {
   "at-risk": '<path d="M12 3L2.5 20h19L12 3z"/><path d="M12 9v5m0 3h.01"/>',
   degraded: '<path d="M2 13h5l3-6 4 10 3-4h5"/>',
   down: '<circle cx="12" cy="12" r="9"/><path d="M8 8l8 8m0-8l-8 8"/>',
-  unknown: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4m0 3h.01"/>',
-  retired: '<rect x="4" y="6" width="16" height="14" rx="2"/><path d="M2 5h20M10 11h4"/>',
+  unknown:
+    '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2-2.5 4m0 3h.01"/>',
+  retired:
+    '<rect x="4" y="6" width="16" height="14" rx="2"/><path d="M2 5h20M10 11h4"/>',
 };
 
 function statusIcon(status) {
@@ -195,7 +200,11 @@ function mapTrueNasStatus() {
         ".truenas-stage:not(.truenas-stage--blocked) .truenas-stage-protocol",
       ),
     ]
-      .map((node) => String(node.textContent || "").trim().toLowerCase())
+      .map((node) =>
+        String(node.textContent || "")
+          .trim()
+          .toLowerCase(),
+      )
       .filter((name) => allowed.has(name)),
   );
   setDatasetValueIfChanged(panel, "probeKinds", [...protocols].join(" "));
@@ -344,8 +353,7 @@ function syncCompactState(host) {
   const userCompact = host.dataset.userCompact === "true";
   const stuckExpanded = host.dataset.stuckExpanded === "true";
   const mobile = mobileFilterViewport();
-  const mobileCompact =
-    mobile && host.dataset.mobileExpanded !== "true";
+  const mobileCompact = mobile && host.dataset.mobileExpanded !== "true";
   // Respect an operator-opened panel on touch devices after it sticks.
   const compact = mobile
     ? userCompact || mobileCompact
@@ -355,8 +363,8 @@ function syncCompactState(host) {
   const advanced = document.getElementById("service-filter-advanced");
   if (advanced) advanced.hidden = compact;
   const state = currentFilterState();
-  const activeCount = Object.entries(state).filter(
-    ([key, value]) => key === "query" ? Boolean(value.trim()) : value !== "all",
+  const activeCount = Object.entries(state).filter(([key, value]) =>
+    key === "query" ? Boolean(value.trim()) : value !== "all",
   ).length;
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
@@ -461,10 +469,11 @@ export function installGlobalServiceFilter() {
   ensureActiveFilters(host);
   compactProbeLegend(host);
   ensureAdvancedFilters(host);
-  document.getElementById("service-filter-reset-all")?.addEventListener(
-    "click",
-    () => document.getElementById("service-filter-clear")?.click(),
-  );
+  document
+    .getElementById("service-filter-reset-all")
+    ?.addEventListener("click", () =>
+      document.getElementById("service-filter-clear")?.click(),
+    );
   installCompactStickyMode(host);
 
   document.addEventListener("service-filter-changed", (event) => {

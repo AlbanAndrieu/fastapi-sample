@@ -1,10 +1,10 @@
+import { isRetiredCheck } from "./api-retired-check.js";
 import {
   analyzeTopology,
   CRITICALITY_WEIGHT,
   NIST_CSF_FUNCTIONS,
 } from "./api-service-classification.js";
 import { expectedAnonymousAuth } from "./api-service-http-auth.js";
-import { isRetiredCheck } from "./api-retired-check.js";
 import { fetchTopology } from "./api-topology-data.js";
 
 const GROUPS = [

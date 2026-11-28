@@ -117,12 +117,17 @@ function decoratePfSenseStage(snapshot) {
   const stage = stageByLabel("pfSense WAN ingress");
   if (!stage) return;
   const dns = snapshot?.homelab?.pfsense?.dns;
-  if (dns?.operational_state === "disabled" && /pfsense retired/i.test(String(dns?.reason || ""))) {
+  if (
+    dns?.operational_state === "disabled" &&
+    /pfsense retired/i.test(String(dns?.reason || ""))
+  ) {
     stage.className = "truenas-stage truenas-stage--expected";
     const label = stage.querySelector(".truenas-stage-label");
     if (label) label.textContent = "pfSense retired · former WAN ingress";
     const detail = stage.querySelector(".truenas-stage-detail");
-    if (detail) detail.textContent = "Retired infrastructure. Freebox is the active network edge; no pfSense security filters are sampled.";
+    if (detail)
+      detail.textContent =
+        "Retired infrastructure. Freebox is the active network edge; no pfSense security filters are sampled.";
     return;
   }
   const label = stage.querySelector(".truenas-stage-label");
@@ -262,8 +267,15 @@ function updatePfSenseDnsStage(stage, connector, dns) {
 function insertPfSenseDnsStage(snapshot) {
   const pipeline = document.getElementById("truenas-pipeline");
   const dns = snapshot?.homelab?.pfsense?.dns;
-  if (dns?.operational_state === "disabled" && /pfsense retired/i.test(String(dns?.reason || ""))) {
-    pipeline?.querySelectorAll('[data-platform-synthetic^="pfsense-dns"]').forEach((node) => node.remove());
+  if (
+    dns?.operational_state === "disabled" &&
+    /pfsense retired/i.test(String(dns?.reason || ""))
+  ) {
+    pipeline
+      ?.querySelectorAll('[data-platform-synthetic^="pfsense-dns"]')
+      .forEach((node) => {
+        node.remove();
+      });
     return;
   }
   const pfsense = stageByLabel("pfSense WAN ingress");

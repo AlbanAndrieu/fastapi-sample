@@ -384,9 +384,10 @@ function updateFilterResult(rows) {
   if (filters.probe !== "all") active.push(`probe=${filters.probe}`);
   if (filters.query) active.push(`search=“${filters.query}”`);
   const details = active.length ? ` · ${active.join(" · ")}` : "";
-  const message = visible === 0 && isFiltering()
-    ? `0/${rows.length} diagnostic views visible. No services match these filters. Remove a filter or select Reset.`
-    : `${visible}/${rows.length} diagnostic views visible${details}`;
+  const message =
+    visible === 0 && isFiltering()
+      ? `0/${rows.length} diagnostic views visible. No services match these filters. Remove a filter or select Reset.`
+      : `${visible}/${rows.length} diagnostic views visible${details}`;
   if (result.textContent !== message) result.textContent = message;
 }
 
