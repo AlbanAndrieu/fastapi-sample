@@ -108,7 +108,9 @@ else
         FIX_PASSES=20
     fi
 fi
-# Use one fail-closed Git comparison-base policy across the three gates.
+# Ajout du pip user PATH pour détecter prek installé par pip --user
+export PATH="$HOME/.local/bin:$PATH"
+# Use one fail-closed Git comparison-base policy across the trois gates.
 # shellcheck source=scripts/ci/quality-git.sh
 source "${SCRIPT_DIR}/ci/quality-git.sh"
 BASE_REF="$(quality_resolve_base_ref)"
@@ -327,6 +329,12 @@ command -v uv >/dev/null 2>&1 || {
     echo "❌ uv is required" >&2
     exit 1
 }
+
+# Check presence of prek (via pip user)
+if ! command -v prek >/dev/null 2>&1; then
+    echo "❌ prek absent. Essayez 'pip install --user prek'"
+    exit 2
+fi
 
 agent_gate_changed=false
 for file in "${CHANGED_FILES[@]}"; do
